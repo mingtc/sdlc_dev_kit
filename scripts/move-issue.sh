@@ -517,6 +517,26 @@ else
     fi
   fi
 
+  # A BLOCKER THAT HAS NOT LANDED: starting or handing off over a `blocked_by:` card that is not in
+  # qa_complete/ or done/ on the trunk builds on an unlanded base. WARNS, never refuses: a blocker
+  # may land within the hour. Reads the trunk, not the checkout.
+  if [ "$TARGET" = "in_progress" ] || [ "$TARGET" = "dev_complete" ]; then
+    _mv_bl="$(kit_card_list "$SRC" blocked_by)"
+    if [ -n "$_mv_bl" ]; then
+      _mv_tree="$(git -C "$MAIN_ROOT" ls-tree -r --name-only "${KWT_REMOTE}/${DEFAULT_BRANCH}" -- progress 2>/dev/null || true)"
+      _mv_warned=0
+      while IFS= read -r _mv_b; do
+        [ -n "$_mv_b" ] || continue
+        _mv_col="$(printf '%s\n' "$_mv_tree" | awk -F/ -v id="$_mv_b" 'NF == 3 && index($3, id "-") == 1 { print $2; exit }')"
+        case "$_mv_col" in qa_complete|done) continue ;; esac
+        if [ -n "$_mv_col" ]; then _mv_where="found in ${_mv_col}/"; else _mv_where="not found on the trunk"; fi
+        echo "Warning: ${ISSUE_ID} is blocked_by ${_mv_b}, which is not in qa_complete/ or done/ on ${KWT_REMOTE}/${DEFAULT_BRANCH} (${_mv_where})." >&2
+        _mv_warned=1
+      done <<< "$_mv_bl"
+      [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the Dev rebases it after the base lands). Not a refusal." >&2
+    fi
+  fi
+
   # Move: prefer `git mv` (tracks rename); fall back to `mv` if untracked.
   if git -C "$KWT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1; then
     git -C "$KWT" mv "$SRC" "$DEST"

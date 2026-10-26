@@ -255,6 +255,7 @@ trap 'teardown; rm -rf "$RUN_PROGRESS_SCRATCH"' EXIT
 CASES=(
   case_move_issue
   case_move_issue_probe
+  case_move_issue_warns_on_an_unlanded_blocker
   case_move_issue_declined_requires_a_reason
   case_move_issue_set_pr_on_a_minted_card
   case_move_issue_moves_a_decomposed_parent

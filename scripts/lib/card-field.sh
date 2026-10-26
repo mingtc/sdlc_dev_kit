@@ -16,6 +16,11 @@
 #
 # kit_card_has_field <card-file> <key>
 #   Returns 0 when the frontmatter carries a `<key>:` line (empty or not), 1 when it does not.
+#
+# kit_card_list <card-file> <key>
+#   Prints the items of a list-valued key (`blocked_by:`), one per line: a flow list `[A, B]`, a bare
+#   scalar, or a block list of `- A` lines; a trailing `# comment` is removed. Prints nothing for an
+#   absent or empty key, and always returns 0.
 _kit_card_scan() {
   awk -v k="$2" -v mode="$3" '
     /^---[[:space:]]*$/ { n++; next }
@@ -61,4 +66,25 @@ kit_card_id_of_path() {
   [ -n "$_kcid_id" ] || _kcid_id="$(printf '%s\n' "$_kcid_name" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p')"
   [ -z "$_kcid_id" ] || printf '%s\n' "$_kcid_id"
   return 0
+}
+
+kit_card_list() {
+  awk -v k="$2" '
+    function add(t) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); if (t != "") print t }
+    /^---[[:space:]]*$/ { n++; if (n > 1) exit; next }
+    n != 1 { next }
+    {
+      line = $0; sub(/(^|[[:space:]]+)#.*$/, "", line)
+      if (index(line, k ":") == 1) {
+        sub(/^[^:]*:[[:space:]]*/, "", line); gsub(/[[:space:]]+$/, "", line)
+        if (line ~ /^\[/) {
+          gsub(/^\[|\]$/, "", line); m = split(line, p, /[[:space:]]*,[[:space:]]*/)
+          for (i = 1; i <= m; i++) add(p[i])
+        } else if (line != "") add(line)
+        else inlist = 1
+        next
+      }
+      if (inlist && line ~ /^[[:space:]]*-[[:space:]]+[^[:space:]]/) { sub(/^[[:space:]]*-[[:space:]]*/, "", line); add(line); next }
+      if (inlist && line !~ /^[[:space:]]*$/) inlist = 0
+    }' "$1" || true
 }

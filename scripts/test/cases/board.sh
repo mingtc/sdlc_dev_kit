@@ -2960,3 +2960,68 @@ case_trunk_chain_announces_every_fallback() {
   finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both — none of them announces at step 1, and both agree with the library on the step-3 constant"
   teardown
 }
+
+# =============================================================================
+# CASE — a move to in_progress or dev_complete warns, never refuses, when a blocked_by card has
+# not landed on the trunk; kit_card_list reads the list shapes a card carries.
+# Expected strings are typed here, never derived from the card read.
+# =============================================================================
+case_move_issue_warns_on_an_unlanded_blocker() {
+  cf_reset
+  local L="move-issue.sh warns, without refusing, on an unlanded blocked_by card" lib="$REAL_REPO_ROOT/scripts/lib/card-field.sh" d row want got
+  [ -f "$lib" ] || { skp "$L" "lib/card-field.sh is absent from this tree"; return; }
+  # kit_card_list unit rows: <frontmatter lines, \n-separated> @@ <ids, space-separated>
+  d="$(mktemp -d)"
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    want="${row#*@@}"; printf -- '---\nid: X-1\n%b\nforks: none\n---\nblocked_by: [X-9]\n' "${row%%@@*}" > "$d/c.md"
+    got="$( . "$lib"; kit_card_list "$d/c.md" blocked_by | tr '\n' ' ' )"; got="${got% }"
+    [ "$got" = "$want" ] || cf "kit_card_list: '${row%%@@*}' returned '$got', want '$want'"
+  done <<'ROWS'
+blocked_by: [X-2, X-3]@@X-2 X-3
+blocked_by: X-2@@X-2
+blocked_by:\n  - X-2\n  - X-3@@X-2 X-3
+blocked_by: []@@
+blocked_by:@@
+blocked_by: [X-2]   # needs the first@@X-2
+blocks: [X-5]@@
+ROWS
+  rm -rf "$d"
+
+  make_sandbox
+  local p="$SB_PREFIX"
+  seed_issue dev_complete "$p-201" blk dev "Blocker in dev_complete"
+  seed_issue qa_complete  "$p-202" blk dev "Blocker in qa_complete"
+  seed_issue done         "$p-203" blk dev "Blocker in done"
+  local n b f
+  for n in 211 212 213 214 215 216 217; do seed_issue todo "$p-$n" sub dev "Subject $n"; done
+  _blk_set() { sed -i.bak "s/^forks: none/forks: none\nblocked_by: $2/" "$SB_WORK/progress/todo/$p-$1-sub.md" && rm -f "$SB_WORK/progress/todo/$p-$1-sub.md.bak"; }
+  _blk_set 211 "[$p-201]"; _blk_set 212 "[$p-202]"; _blk_set 213 "[$p-203]"; _blk_set 214 "[]"
+  _blk_set 215 "[$p-999]"; _blk_set 216 "[$p-201]"; _blk_set 217 "[$p-201]"
+  publish_sandbox
+
+  local out rc
+  mv_() { ( cd "$SB_WORK" && ./scripts/move-issue.sh "$@" --role Dev 2>&1 ); }
+  out="$(mv_ "$p-211" in_progress)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(not a refusal) the move exited $rc: $out"
+  origin_has_path "progress/in_progress/$p-211-sub.md" || cf "the warning changed the board: $p-211 did not move"
+  printf '%s\n' "$out" | grep "Warning: $p-211 is blocked_by $p-201, which is not in qa_complete/ or done/ on origin/$SB_TRUNK (found in dev_complete/)" >/dev/null \
+    || cf "in_progress with the blocker in dev_complete/ printed no warning naming it and its column: $out"
+  out="$(mv_ "$p-211" dev_complete)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "dev_complete move exited $rc: $out"
+  printf '%s\n' "$out" | grep "Warning: $p-211 is blocked_by $p-201" >/dev/null || cf "dev_complete printed no blocked_by warning: $out"
+  for n in 212 213 214; do
+    out="$(mv_ "$p-$n" in_progress)"; rc=$?
+    [ "$rc" -eq 0 ] || cf "control $n: exit $rc: $out"
+    printf '%s\n' "$out" | grep "blocked_by" >/dev/null && cf "control $n (landed blocker or empty list) printed a blocked_by warning: $out"
+  done
+  out="$(mv_ "$p-215" in_progress)"
+  printf '%s\n' "$out" | grep "Warning: $p-215 is blocked_by $p-999, which is not in qa_complete/ or done/ on origin/$SB_TRUNK (not found on the trunk)" >/dev/null \
+    || cf "a blocker on no card did not print the not-found warning: $out"
+  out="$(mv_ "$p-216" blocked --note "waiting")"
+  printf '%s\n' "$out" | grep "blocked_by" >/dev/null && cf "a move to blocked read blocked_by: $out"
+  out="$(mv_ "$p-217" in_progress --note "x")"
+  printf '%s\n' "$out" | grep "Warning: $p-217 is blocked_by" >/dev/null || cf "a second warning case did not fire: $out"
+  finish "$L"
+  teardown
+}
