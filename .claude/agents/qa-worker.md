@@ -46,7 +46,7 @@ tier.
 - **Targeted reads** — the diff and the AC's evidence points, not whole trees.
 - **Never `Read` an image or a binary file, and never screenshot.** Verify a built artifact by
   **hash, size, or listing** (`shasum`, `wc -c`, `tar -tzf`, `unzip -l`). The ban is
-  **permanent**.
+  **permanent**. You may cite an `artifact` row by path plus full blob sha; you never read the image.
 - Run the gates your brief and the AC name; do not re-run a green suite for reassurance.
 
 ## Output-length calibration

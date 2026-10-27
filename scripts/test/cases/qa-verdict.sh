@@ -426,7 +426,7 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
 }
 
 # =============================================================================
-# CASE — A TABLE OF ONLY gate-diff/fixture-diff ROWS REFUSES (qa-verdict-no-observed): those kinds carry
+# CASE — A TABLE OF ONLY gate-diff/fixture-diff/artifact ROWS REFUSES (qa-verdict-no-observed): those kinds carry
 # no quote, so a table made only of them gives the gate nothing to re-read. One test/file:line row
 # beside them lands.
 # =============================================================================
@@ -1481,4 +1481,32 @@ case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
 
   finish "an artifact row (path plus full blob sha) resolves on the trunk and lands through finish-pr.sh although the branch was cut before the artefact existed (a) and through the direct-to-trunk move (k); a wrong sha (b), a short sha (c), a file on the branch only (d), the card's own file (e), a table of only artifact rows (f), an unknown kind (g), a directory (h), an absent path (i) and an unresolved path:line beside a good pair (j) are each refused before the merge with a countable rule and a Next:"
   teardown
+}
+
+# =============================================================================
+# CASE — THE SENTENCES THAT LIST THE QA EVIDENCE KINDS NAME ALL FIVE, AND THE DISPATCHED-LEG RULING IS
+# STATED WHERE QA AND THE WORKERS READ IT. Expectations are written out, not derived: the README
+# sentence lists `artifact`; qa.md no longer says 'one file per row' (a row lists every `<path> sha`
+# pair) and says a dispatched leg never reads the image; the QA worker may cite an artifact row;
+# dev.md no longer points at 'the evidence directory'.
+# =============================================================================
+case_qa_evidence_kind_sentences_list_all_five() {
+  cf_reset
+  local r="$REAL_REPO_ROOT" f
+  for f in README.md .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
+    [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_list_all_five: no $f in the published kit at $r"
+  done
+  grep -q 'a fixture diff, an artifact' "$r/README.md" \
+    || cf "README.md's QA-verdict sentence does not list the artifact evidence kind"
+  ! grep -q 'one file per row' "$r/.claude/roles/qa.md" \
+    || cf "qa.md still says 'one file per row', which reads as a limit the gate does not have"
+  grep -q 'lists every `<path> sha` pair it cites' "$r/.claude/roles/qa.md" \
+    || cf "qa.md does not say a row lists every <path> sha pair it cites"
+  grep -q 'never reads the image' "$r/.claude/roles/qa.md" \
+    || cf "qa.md does not state that a dispatched leg never reads the image"
+  grep -q 'cite an `artifact` row by path plus full blob sha' "$r/.claude/agents/qa-worker.md" \
+    || cf "qa-worker.md does not allow citing an artifact row"
+  ! grep -q "evidence directory" "$r/.claude/roles/dev.md" \
+    || cf "dev.md still says 'the evidence directory', whose referent is now dev/evidence/"
+  finish "README lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
 }

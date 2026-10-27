@@ -149,7 +149,7 @@ this work yourself, in this context. Fan-out is the coordinator's decision, neve
 
 Ground rules (non-negotiable):
 - Read PROJECT.md first, then AGENTS.md, then your role doc, then the issue file. The issue's AC is the contract.
-- QUOTA-LEAN: targeted reads only; NEVER Read an image or a binary file and never screenshot (verify an artifact by hash / size / listing); no full-suite or repeated-build runs beyond the gates named below.
+- QUOTA-LEAN: targeted reads only; NEVER Read an image or a binary file and never screenshot (verify an artifact by hash / size / listing; a QA leg may cite an artifact row by path plus full blob sha, never reading the image); no full-suite or repeated-build runs beyond the gates named below.
 - OUTPUT LENGTH: lead with the outcome; final report <= ~30 lines; commit subjects compact (what+why, no transcripts); Activity and progress.md notes carry evidence POINTERS (file:line, command + its result line), not pasted output.
 - REPORT CONTRACT (process/MANUAL.md § The leg-report contract): type every claim in the structured result — observed (a command with its output, or a path, a line and a verbatim quote of that line), inferred (with what you concluded it from), not_checked (what you did not check). A claim you did not see yourself is not observed. You dispatch nothing, so children is none.
 - No AI co-author trailers in commits. Never commit a secrets file. Role-prefixed commit subjects.
