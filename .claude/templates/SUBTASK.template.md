@@ -17,6 +17,7 @@
 id: <PREFIX>-NNN-sM      # parent <PREFIX>-NNN + subtask index; does NOT consume the id stream
 type: subtask
 parent: <PREFIX>-NNN     # the PM-owned issue this decomposes
+#title note: write a " or \ inside the quotes as \" or \\
 title: "<one-line summary of this slice>"
 size: S                  # subtasks should be S (≤1 session); if M+, re-slice
 prd: PRD-NNN             # the parent's, unless --prd names another

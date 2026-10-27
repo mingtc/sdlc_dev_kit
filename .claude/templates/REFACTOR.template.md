@@ -15,6 +15,7 @@
 ---
 id: <PREFIX>-NNN
 type: refactor
+#title note: write a " or \ inside the quotes as \" or \\
 title: "<one-line summary>"
 target_module: <short identifier for the area being refactored>
 refactor_pass: dev/refactor/<YYYY-MM-DD>-<scope>-pass.md

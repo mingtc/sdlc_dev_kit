@@ -11,6 +11,7 @@
      reads this line to know where to resolve from, so keep its shape; the mint strips this block. -->
 ---
 id: PRD-NNN
+#title note: write a " or \ inside the quotes as \" or \\
 title: "<feature area name>"
 status: draft           # draft | approved | completed | superseded
                         #   completed = every story delivered (each reached

@@ -576,8 +576,9 @@ CASES=(
   case_card_title_templates_quote_and_the_reader_strips
   case_archive_index_row_carries_the_bare_title
   case_check_board_unquoted_title_arm
+  case_check_board_unquoted_title_arm_indicator_set
   case_subtask_new_quotes_a_colon_title
-  case_day_one_and_role_wordings_for_titles_and_homes
+  case_day_one_homes_and_role_exception_wordings
   case_session_start_hook_output_stays_within_the_delivery_budget
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_refuses_an_uncommitted_kit

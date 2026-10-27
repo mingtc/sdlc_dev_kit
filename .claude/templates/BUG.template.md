@@ -12,6 +12,7 @@
 ---
 id: <PREFIX>-NNN
 type: bug
+#title note: write a " or \ inside the quotes as \" or \\
 title: "<one-line summary>"
 severity: <Blocker | Critical | Major | Minor>
 environment: <runtime + OS>     # + dependency versions, live-vs-fixture state

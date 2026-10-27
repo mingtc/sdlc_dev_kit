@@ -16,6 +16,7 @@
 ---
 id: <PREFIX>-NNN
 type: feature            # feature | spike | chore
+#title note: write a " or \ inside the quotes as \" or \\
 title: "<one-line summary>"
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it — scripts/subtask.sh)
 prd: PRD-NNN             # or n/a on the lite path — legal, and then prd_reason is expected (check-board [m] counts landed cards that omit it)

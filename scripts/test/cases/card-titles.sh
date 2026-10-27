@@ -3,7 +3,7 @@
 # scripts/test/cases/card-titles.sh — sourced by scripts/test/run.sh, never run on its own.
 # A card's `title:` is free text that may hold `: `; the templates quote it, the one reader strips
 # one pair of quotes, subtask.sh writes it quoted, and check-board's [u] reports an unquoted
-# title that is not valid plain YAML. Plus the four wording duties that ride with them.
+# title that is not valid plain YAML. Plus the day-one homes and role exceptions that ride with them.
 # =============================================================================
 
 _ct_u_section() {  # reads a check-board report on stdin
@@ -96,6 +96,34 @@ case_check_board_unquoted_title_arm() {
   teardown
 }
 
+# CASE — [u] flags every plain-YAML-breaking leading indicator and not the near misses that parse.
+# The expected set is typed here: `- `, `? `, `#`, `,`, `]`, `}` start a breaking title; `-x`, `?x`, `a, b` do not.
+case_check_board_unquoted_title_arm_indicator_set() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-881" dash chore "- fix"
+  seed_issue todo "$SB_PREFIX-882" ques chore "? x"
+  seed_issue todo "$SB_PREFIX-883" hash chore "# x"
+  seed_issue todo "$SB_PREFIX-884" comma chore ", x"
+  seed_issue todo "$SB_PREFIX-885" rbrack chore "] x"
+  seed_issue todo "$SB_PREFIX-886" rbrace chore "} x"
+  seed_issue todo "$SB_PREFIX-887" nodash chore "-x"
+  seed_issue todo "$SB_PREFIX-888" noques chore "?x"
+  seed_issue todo "$SB_PREFIX-889" midcomma chore "a, b"
+  seed_issue todo "$SB_PREFIX-890" quoted chore '"- fix"'
+  publish_sandbox
+  local out sec n
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _ct_u_section)"
+  for n in 881-dash 882-ques 883-hash 884-comma 885-rbrack 886-rbrace; do
+    printf '%s\n' "$sec" | grep '⚠' | grep -F "$SB_PREFIX-$n.md" >/dev/null || cf "the leading-indicator title $n is not listed: $sec"
+  done
+  for n in 887-nodash 888-noques 889-midcomma 890-quoted; do
+    printf '%s\n' "$sec" | grep '⚠' | grep -F "$SB_PREFIX-$n.md" >/dev/null && cf "the valid title $n is listed: $sec"
+  done
+  finish "arm [u] lists a title starting with '- ', '? ', '#', ',', ']' or '}', and ignores '-x', '?x', 'a, b' and a quoted one"
+  teardown
+}
+
 # CASE — subtask.sh new writes a title holding ': ', a quote and a backslash as a YAML-valid line.
 case_subtask_new_quotes_a_colon_title() {
   cf_reset
@@ -117,8 +145,8 @@ case_subtask_new_quotes_a_colon_title() {
   teardown
 }
 
-# CASE — the four wording duties exist where their readers look.
-case_day_one_and_role_wordings_for_titles_and_homes() {
+# CASE — the day-one homes and role exceptions exist where their readers look.
+case_day_one_homes_and_role_exception_wordings() {
   cf_reset
   local r="$REAL_REPO_ROOT"
   # PROJECT.md's blank is the adopter's to fill: judged only while the shipped blank is still there.

@@ -37,8 +37,8 @@
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
 #       `**Answer` block and that no register line has named since the answer, with the card it
 #       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
-#   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, or
-#       starting with a YAML indicator (advisory; never part of a landing's property check).
+#   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, ending
+#       in `:`, or starting with a YAML indicator (advisory; never part of a landing's property check).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -1834,7 +1834,8 @@ fi
 
 # ---------------------------------------------------------------------------
 # (u) UNQUOTED CARD TITLES THAT ARE NOT VALID PLAIN YAML — every card in STATUS_FOLDERS whose
-#     `title:` is unquoted and holds `: ` or ` #`, ends in `:`, or starts with a YAML indicator.
+#     `title:` is unquoted and holds `: ` or ` #`, ends in `:`, or starts with a YAML
+#     indicator (`[ { * & ! | > % @`, a backtick, `#`, `,`, `]`, `}`, or `-` or `?` before a space).
 #     The kit's own readers (lib/card-field.sh) take the line verbatim, so nothing here breaks; a tool
 #     that parses a card's frontmatter as YAML would. Reports only: it is not a drift invariant, and
 #     it is deliberately NOT a lib/board-properties.sh function, which a landing also runs and would
@@ -1858,7 +1859,8 @@ for folder in "${u_cols[@]}"; do
         if (index(v, ": ") > 0) { print "contains \": \""; exit }
         if (index(v, " #") > 0) { print "contains \" #\""; exit }
         if (substr(v, length(v)) == ":") { print "ends in \":\""; exit }
-        if (index("[{*&!|>%@`", substr(v, 1, 1)) > 0) { print "starts with \"" substr(v, 1, 1) "\""; exit }
+        c = substr(v, 1, 1)
+        if (index("[{*&!|>%@`#,]}", c) > 0 || ((c == "-" || c == "?") && (length(v) == 1 || substr(v, 2, 1) == " "))) { print "starts with \"" c "\""; exit }
         exit
       }' "$f" 2>/dev/null || true)"
     [ -n "$u_why" ] || continue
