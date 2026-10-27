@@ -43,7 +43,9 @@ if [[ -f "$PID_FILE" ]]; then
     exit 1
   fi
 
-  rm -f "$PID_FILE" "${STATE_DIR}/server.log"
+  # server-info is the "alive" marker the skill reads; leave server-stopped in its place
+  rm -f "$PID_FILE" "${STATE_DIR}/server.log" "${STATE_DIR}/server-info"
+  printf '{"reason": "stopped", "timestamp": %s000}\n' "$(date +%s)" > "${STATE_DIR}/server-stopped"
 
   # Only delete ephemeral /tmp directories
   if [[ "$SESSION_DIR" == /tmp/* ]]; then

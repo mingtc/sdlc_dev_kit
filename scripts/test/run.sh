@@ -689,6 +689,7 @@ CASES=(
   case_updater_help_states_the_hook_cost
   case_find_polluter_runs_each_path_whole
   case_find_polluter_refuses_an_unrunnable_test_command
+  case_brainstorm_stop_server_leaves_no_server_info
   case_hygiene_instruments_declare_blind_spots
   case_reachability_self_test_fails_when_edge_d_is_ablated
   case_release_history_action_required_entries_are_read

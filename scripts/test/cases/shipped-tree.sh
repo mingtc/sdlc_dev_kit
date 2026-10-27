@@ -1166,6 +1166,42 @@ case_find_polluter_refuses_an_unrunnable_test_command() {
 }
 
 # =============================================================================
+# CASE — the brainstorming companion's stop-server.sh leaves no `server-info` behind.
+# The skill reads an existing `server-info` as "the server is alive", so a stopped server that
+# keeps it reads as running. A background `sleep` stands in for the server: the stop command
+# needs a pid, not Node. A session directory under /tmp is deleted whole by design, so there is
+# nothing to read there and the case SKIPs.
+#   (a) stop: status stopped, process gone, no server-info, a server-stopped marker, the
+#       persistent session directory kept;
+#   (b) CONTROL: the process was alive before the stop, and server-info was present.
+# =============================================================================
+case_brainstorm_stop_server_leaves_no_server_info() {
+  cf_reset
+  local L="brainstorming's stop-server.sh removes server-info and writes server-stopped, so a stopped companion does not read as alive"
+  local rel=".claude/skills/brainstorming/scripts/stop-server.sh" out rc pid sess
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  make_sandbox
+  sess="$SB_WORK/.brainstorm/s1"
+  case "$sess" in /tmp/*) teardown; skp "$L" "the sandbox is under /tmp, where stop-server.sh deletes the session whole"; return ;; esac
+  mkdir -p "$sess/state"
+  sleep 60 & pid=$!
+  printf '%s\n' "$pid" > "$sess/state/server.pid"
+  printf '{"type":"server-started"}\n' > "$sess/state/server-info"
+  printf 'log\n' > "$sess/state/server.log"
+  kill -0 "$pid" 2>/dev/null || cf "(b) control: the stand-in process was not alive before the stop"
+  rc=0; out="$(bash "$REAL_REPO_ROOT/$rel" "$sess" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the stop exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F '"stopped"' >/dev/null || cf "(a) no stopped status: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  kill -0 "$pid" 2>/dev/null && { cf "(a) the process is still alive"; kill -9 "$pid" 2>/dev/null; }
+  wait "$pid" 2>/dev/null || true
+  [ ! -e "$sess/state/server-info" ] || cf "(a) server-info remains after the stop"
+  [ -f "$sess/state/server-stopped" ] || cf "(a) no server-stopped marker after the stop"
+  [ -d "$sess" ] || cf "(a) the persistent session directory was deleted"
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
 #
 # A consumer reads `"blind_spots": []` as "this walk has no blind spots", which is false: the
