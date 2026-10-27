@@ -57,8 +57,8 @@ Concretely, three properties want a meta-guard of their own:
 3. the tier is **non-empty and above a floor**, per declared family, so a family that gets
    quietly unmarked reddens with a message naming it.
 
-Those three are the floor-guard assertions the contract sheet states as obligations; this is where
-their reasoning lives.
+Together these are the floor-guard obligations the contract sheet states (non-empty per family, a
+floor, selection-neutrality); this is where their reasoning lives.
 
 ### A.4 The marking convention — how a new test joins the tier
 

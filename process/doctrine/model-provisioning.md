@@ -108,7 +108,8 @@ write what you find into your § B.2 with the date you checked.**
 
 > **PROJECT INSTANCE.** The table below is a **shape with blanks**, not a default. Fill it, have it
 > ratified by whoever owns the budget, date the ratification, and cite it from the role docs
-> (§ A.4). An unratified ladder is a habit with a table. **Fill it with `scripts/set-models.sh
+> (§ A.4). An unratified ladder is a habit with a table. **Fill your project's copy
+> (`.claude/roles/orchestrator.md` § Model & effort contract) with `scripts/set-models.sh
 > --class <class> --model <id> --effort <tier>`** (or `--all` for one pair across every class), so
 > the row you ratify and the pin it governs are written in the same act.
 
@@ -127,15 +128,11 @@ write what you find into your § B.2 with the date you checked.**
 
 - **Never used at all:** `<the tier/effort combination your project has decided is waste>`.
 - **Needs sign-off to exceed:** `<the ceiling>`, and **whose** sign-off.
-  **THIS IS THE SANCTION GATE, and it replaces a ban the kit used to state instead.** Riders across
-  the role and worker docs said *never spawn the seat's own model class* — a **proxy** for "do not
-  quietly provision a fan-out at the top of the ladder", and a poor one: it caps workers by an
-  accident of what the seat happens to be running rather than by what the project has sanctioned, and
-  on a seat at the top it caps every worker two tiers below anything anyone approved.
-  **WHAT BINDS IF THIS BLANK IS UNFILLED, said here because the retirement is kit-wide and this
-  replacement ships empty:** until a project writes a ceiling, **the ceiling is the tier the seat is
-  running**, and the old ban is the default. A project that fills this in is choosing something
-  better; a project that has not is not left ungoverned.
+  **THIS IS THE SANCTION GATE:** workers are capped by what the project has sanctioned, not by the
+  model the seat happens to run, which would cap them by accident. **If this blank is unfilled, the
+  ceiling is the tier the seat is running: never provision a worker above it.** Once written, the
+  sanctioned ceiling governs and the seat's class is not a ceiling. A project that fills this in is
+  choosing something better; one that has not is not left ungoverned.
 - **The leaf clause (§ A.3, binding, not optional):** *a worker spawned for a role does not spawn
   subagents.* Coordinator-level fan-out is the seat's and the runner's job.
 - **The seat is outside the ladder** — the human-partnered instance is not a provisionable worker,

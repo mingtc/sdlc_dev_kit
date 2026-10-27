@@ -21,7 +21,7 @@ sequence with you. What follows is what `/start` runs; read it either way, in th
    names the authority that actually governs it. Do not improvise the order — the sequence exists
    because each step out of place fails **later and in disguise**.
 2. **Interview the human about what this project IS before writing anything into it** — the
-   conversation SEED step 6 turns into `PRD-001`. This is the step most likely to be skipped under pressure to look
+   conversation SEED step 6 turns into the first PRD. This is the step most likely to be skipped under pressure to look
    productive, and a repository configured before anyone has said what it is for gets configured
    wrong in ways that are expensive to unwind.
 3. **At `process/SEED.md` step 5, REPLACE THIS FILE** with the adapter you build from
@@ -62,7 +62,7 @@ the contracts they encode** — those are process law and apply to every agent, 
 | `templates/*.md` — the shape of every issue type, PRD and subtask | **The shape of anything you create.** An issue you author by hand must carry the same frontmatter and sections the template does, because the board scripts and the drift report read them. |
 | `agents/*.md` — leaf worker definitions | **The leaf rule:** a dispatched worker does not spawn further workers. Fan-out is the orchestrating seat's job. |
 | `skills/*/SKILL.md` — named procedures | **The ones the manual names are steps you owe.** Read the `SKILL.md` and do it by hand. **If your own harness natively discovers skills by the open [Agent Skills](https://agentskills.io) format** (a folder with `SKILL.md`, as Codex CLI and Gemini CLI do from `.agents/skills/`) — **this kit does not duplicate them there; look in `.claude/skills/` directly.** Claude Code itself only scans `.claude/`, which is why the real files live there rather than at a shared path. |
-| hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a git hook at the commit, and a session hook for editor tools). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when the landing seat (QA) invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
+| hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a git hook at the commit, and a tool hook for editor tools). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when the landing seat (QA) invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
 
 ## What will get you rejected
 

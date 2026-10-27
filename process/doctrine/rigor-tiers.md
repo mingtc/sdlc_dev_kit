@@ -53,14 +53,14 @@ a week-long TIER-2 change draw identical ceremony from the table above, correctl
 **how much ceremony**, and nothing in it decides **how big a bite**. Read it for the second question
 and it answers confidently and wrongly.
 
-**Scope is decided at two moments, and the kit used to have only the first.**
+**Scope is decided at two moments.**
 
 - **At mint, as an estimate.** The size rule lives with the role that mints —
   `.claude/roles/pm.md` § *Workflow: PRD-first* (`S` ≤ 1 session, `M` 2–4, **`L` means split**), and
   the issue template's own `size:` field. **At dispatch**, the same judgement is the Orchestrator's:
   *any issue too big for one clean PR* takes the subtask split. Both are stated where they live and
   are **not** restated here.
-- **In flight, as evidence** — and this is the half nothing covered. An estimate is made before the
+- **In flight, as evidence.** An estimate is made before the
   work exists; the work then produces a fact about its own size, and nobody was asking.
 
 > **An item returned from review TWICE is a splitting signal, not a quality signal.**

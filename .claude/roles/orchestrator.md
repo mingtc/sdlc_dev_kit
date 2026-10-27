@@ -67,11 +67,9 @@ not per-project choices:
 
 - **The lowest effort tier is never used** for real work.
 - **Never `max` effort, anywhere.**
-- **Never spawn above the project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that
-  ceiling is written, it is the tier the seat is running). The seat is the human-partnered
-  architect instance, not a provisionable worker; it sits **outside the ladder**, and its class is
-  therefore not a ceiling — capping workers by what the seat happens to be running caps them by an
-  accident rather than by anything anybody sanctioned.
+- **Never spawn above the project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2,
+  which also says what binds while it is unwritten). The seat is the human-partnered architect
+  instance, not a provisionable worker; it sits **outside the ladder**.
 - `max_tokens` is **harness-managed in Claude Code and is not a project knob** — do not set
   it, do not document it as a lever.
 

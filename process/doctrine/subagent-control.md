@@ -268,7 +268,7 @@ again. **Name what each file MEANS, and split it when the answer needs an "and".
 **The reader-side twin, so both directions are named.** Coming the other way, an operand's second
 consumer is discovered rather than designed — *this field's order looked free until another script
 turned out to read its leading token.* Same defect, opposite end: there, you are the consumer nobody
-named; here, you are the author about to create one. [`instruments.md`](instruments.md) § A.6 owns
+named; here, you are the author about to create one. [`instruments.md`](instruments.md) § A.13 owns
 the consumer-side rule, where the operand belongs to an instrument; **this one binds the author
 deciding, before anything reads it, what one file is FOR.**
 

@@ -2,8 +2,9 @@
 # Fix-execution doctrine — landing what a round found, without minting what it warned about
 
 > **Size note, owed by [`lookup-tables.md`](lookup-tables.md) § A.1.** This sheet is over that
-> section's 32,768-byte trigger and is **deliberately not split**: its § A items are a single
-> execution order, and a reader who arrives at A.9 needs A.1's framing to act on it.
+> section's 32,768-byte trigger and is **deliberately not split**. It owes no index, by the read-time
+> exemption in that section (a doctrine sheet is addressed on demand, never loaded at session start):
+> its § A items are a single execution order, and a reader who arrives at A.9 needs A.1's framing to act on it.
 
 A measurement round ends with verified findings and a slate of work items. This sheet is about the
 next stretch: turning that slate into landed changes and a cut. **The characteristic failure of this
