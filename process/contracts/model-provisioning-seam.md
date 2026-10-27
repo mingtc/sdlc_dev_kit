@@ -43,7 +43,7 @@ ladder and tooling still expect. This contract is what "changed" must mean.
   than silently touching only the files that do exist. Every target is checked before the first
   write, so a refusal leaves every file as it was. The one exception is a class whose pin file is an
   optional role's (`KIT-DISPOSITION: DELETE-IF-UNUSED`) and was removed: that class is skipped, with a
-  line saying so, and its ladder row is left alone.
+  line saying so; its ladder row is removed while blank and left once filled.
 
 ## 4. WHAT GREEN MEANS
 

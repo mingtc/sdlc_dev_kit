@@ -342,7 +342,7 @@ _stk_refuse_if_squashed() {
           "       ${BRANCH} still carries that base's own, un-squashed commits up to ${cand:0:9};" \
           "       landing '${BRANCH}' as-is would re-apply them and conflict." \
           ${note:+"$note"} \
-          "Next: rebase past the squash, then re-run:" \
+          "Next: hand the branch to its Dev to rebase past the squash, then re-run:" \
           "         git rebase --onto ${DEFAULT_BRANCH} ${cand} ${BRANCH}" \
           "       NOTHING WAS CHANGED."
       fi
@@ -375,7 +375,7 @@ if [ -n "$_stk_ahead" ]; then
       "Error: '${BRANCH}' is stacked on '${_stk_old_base}', which has not landed on ${DEFAULT_BRANCH}." \
       "       ${BRANCH} carries ${_stk_old_base}'s commits; landing it now would try to land ${_stk_old_base}'s" \
       "       work too, unreviewed under this issue." \
-      "Next: land or drop '${_stk_old_base}', then rebase this branch and re-run:" \
+      "Next: land or drop '${_stk_old_base}', hand the branch to its Dev to rebase, then re-run:" \
       "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_old_base} ${BRANCH}" \
       "       NOTHING WAS CHANGED."
   fi

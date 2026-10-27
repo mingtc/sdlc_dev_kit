@@ -42,8 +42,8 @@
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
 #     branch resolved, or 'none'. A '[decision: D-NN]' citation counts as a fork resolved when it
-#     is in the card's Activity or on an AC bullet changed or added after the card left 'todo/';
-#     one on a bullet unchanged since then applies a ruling made elsewhere and does not. With no
+#     is anywhere on the card except on an AC bullet unchanged since the card left 'todo/';
+#     one on such a bullet applies a ruling made elsewhere and does not. With no
 #     'todo/' departure the whole card is read. <old-rev>/<new-rev> bound the diff a resolved-but-uncited fork
 #     is derived from (finish-pr.sh: the trunk and the feature branch); <card-file> is read for
 #     the field itself and is <new-rev>'s own copy.
@@ -1022,7 +1022,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   if [ -n "$_forks_missing_ids" ]; then
     kit_refuse 2 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
-      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation in the card's Activity or on an AC bullet changed or added since the card left 'todo/', or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
+      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/', or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
       "       'forks: ${_forks_line}' does not account for them." \
       "Next: if ${issue_id} made the ruling, add the id(s) to 'forks:' on the card and commit it. If it only APPLIES a ruling made elsewhere, do not list it: leave an AC's existing citation as it is, and in the Activity write the id without brackets (a bracketless mention is not a citation) — 'forks:' is for rulings this card made. Then re-run the command that refused." \
       "       NOTHING WAS CHANGED."

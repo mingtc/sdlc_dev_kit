@@ -50,6 +50,8 @@
 #    not on the trunk is the template to this check; commit it to the trunk with
 #    ./scripts/register-commit.sh first. It also refuses an AC bullet whose text changed after the
 #    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check.)
+#   (in_progress/ and dev_complete/ warn, never refuse, when a `blocked_by` card is not in
+#    qa_complete/ or done/ on the trunk.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the

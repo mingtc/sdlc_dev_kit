@@ -1288,3 +1288,23 @@ case_forks_check_unattributed_exits_and_window() {
   finish "the forks: unattributed-entry half: an added entry whose Provenance says 'no work item' moves; an id naming no card on the trunk attributes nothing and the refusal's Next: names three exits and the trunk-tip checkout; an edit to an old entry moves; at the landing a Provenance fix committed after the dev_complete move clears the refusal; a slice's departure from todo/ does not start the parent's window; a later edit under a card's subject does not attribute an id-less entry to it; a Provenance naming a card on the trunk attributes the entry to it even where it also says 'no work item'; a prose heading in the register is no entry"
   teardown
 }
+
+# =============================================================================
+# CASE — THE WORDINGS A SCRIPT PRINTS: move-issue --help names the blocked_by warning, and the
+# stacked-branch refusals route the rebase to the branch's Dev.
+# =============================================================================
+case_script_wordings_blocked_by_help_and_stacked_routing() {
+  cf_reset
+  make_sandbox
+  local out
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh --help </dev/null 2>&1 )"
+  case "$out" in
+    *'warn, never refuse'*'blocked_by'*) : ;;
+    *) cf "(a) move-issue.sh --help does not say in_progress/ and dev_complete/ warn, never refuse, over a blocked_by card" ;;
+  esac
+  local n
+  n="$(grep -c 'hand the branch to its Dev to rebase' "$SB_WORK/scripts/finish-pr.sh")"
+  [ "${n:-0}" -eq 2 ] || cf "(b) finish-pr.sh: want both stacked-branch Next: lines to route the rebase to the Dev, found ${n:-0}"
+  finish "move-issue --help names the blocked_by warning; both stacked-branch refusals hand the rebase to the Dev"
+  teardown
+}

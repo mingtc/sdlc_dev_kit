@@ -349,6 +349,7 @@ CASES=(
   case_finish_pr_forks_unresolved_id_refuses
   case_finish_pr_forks_contradicted_by_the_branch_refuses
   case_move_issue_dev_complete_runs_the_forks_check
+  case_script_wordings_blocked_by_help_and_stacked_routing
   case_move_issue_forks_check_attributes_the_trunk_register
   case_forks_check_unattributed_exits_and_window
   case_finish_pr_forks_correct_field_lands

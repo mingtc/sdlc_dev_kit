@@ -277,15 +277,13 @@ kit_plan() {
   done
 }
 # kit_say_skipped — settle each removed class's ladder row, then say what became of it: a row still
-# blank goes with the role; a filled row is the owner's record and stays; none left needs no word.
+# blank goes with the role; a filled row is the owner's record and stays.
 # Called only once every refusal check has passed, so the deletion is never half of a refused run.
 kit_say_skipped() {
   local c label pin
   for c in $SKIPPED; do
     label="$(kit_model_class_label "$c")"; pin="$(kit_model_class_pin "$c")"
-    if ! kit_ladder_has "$c"; then
-      echo "set-models: ${c} skipped — ${pin} was removed from this project and its ladder has no row for it."
-    elif awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { f = 1 } END { exit !f }' "$ORCH_DOC"; then
+    if awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { f = 1 } END { exit !f }' "$ORCH_DOC"; then
       awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { next } { print }' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC"
       echo "set-models: ${c} skipped — ${pin} was removed from this project, so its blank ladder row was removed."
     else

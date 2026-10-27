@@ -181,8 +181,8 @@ version control by the initializer, not left for each actor to discover
    **Checked mechanically at hand-off and at landing, not only by judgement:** every card's `forks:` frontmatter
    states which `D-NN` (if any) this card resolved, and `move-issue.sh … dev_complete` and `finish-pr.sh`
    (the same check) refuse where it is absent, malformed, names an id that is not a live register entry, or where the branch itself shows
-   a fork — a register entry its own diff adds or changes, a `[decision: D-NN]` citation in the card's Activity
-   or on an AC bullet changed or added since the card left `todo/`, or an entry added to the trunk's register since the card left `todo/` whose Provenance (else the subject of the
+   a fork — a register entry its own diff adds or changes, a `[decision: D-NN]` citation anywhere on the card
+   except on an AC bullet unchanged since it left `todo/`, or an entry added to the trunk's register since the card left `todo/` whose Provenance (else the subject of the
    commit that added it) names the card — that `forks:` does not name. An added entry no card on the trunk is named for refuses too, unless its
    Provenance names none and says `no work item`; the refusal names the exits: `forks:`, the owning card's id in the Provenance, or `no work item`. `forks:` names every fork the card **resolved**, not merely cited: an AC that cites a ruling made elsewhere is applying it, not resolving it, and stays out of `forks:`.
    A register entry the branch adds must also be cited by a PRD or marked `[cross-cutting]`, or the landing's
@@ -813,7 +813,8 @@ open-ended *"whenever something goes wrong"* trigger.
    - (b) did it bypass or override a kit hook, refusal or gate? Read this session's refusals from
      the record rather than from memory: in the main checkout,
      `awk -F'\t' '$3 == "error" && $5 ~ /refusal=/ { print $1, $2, $5 }' .progress-records/*.tsv`
-     (§ Progress records), and account for each.
+     (§ Progress records). It spans every retained day and every actor, so account only for this
+     session's own lines.
    - (c) did a kit script or gate report something false?
    - (d) did it hit a kit instruction it could not follow as written, or follow none because the
      kit had none and fill the gap (an invented convention, tag or file), without recording that
