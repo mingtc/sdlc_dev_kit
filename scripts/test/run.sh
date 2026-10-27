@@ -709,6 +709,7 @@ CASES=(
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
   case_finish_pr_card_edited_on_the_branch_names_the_route
+  case_finish_pr_help_names_post_merge_prep
   case_publish_after_a_board_op_commits_no_gitlink
   case_shipped_tree_is_citation_clean_after_kit_init
   case_fixture_append_has_one_authoring_site

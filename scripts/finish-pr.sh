@@ -39,7 +39,7 @@
 #   2. after the landing, the post-merge reading DETACHES THE GATE CHECKOUT (the main
 #      one, or --worktree's) to the landed commit — before the branch delete, if it holds
 #      the branch — unless it is already on the trunk containing it (no move), or has
-#      uncommitted tracked changes (not moved; a fresh worktree is read instead).
+#      uncommitted tracked changes (not moved; a fresh worktree is read instead, prepared by POST_MERGE_PREP when config.sh declares one).
 #
 # Equivalent to running by hand:
 #   git -C .kanban-wt merge --squash feature/<ID>-<slug>
@@ -71,7 +71,7 @@
 #   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are the self-test's seams, refused unless
 #   FINISH_PR_TEST_ALLOW_STUB=1). After the landing that worktree is left DETACHED AT THE
 #   LANDED COMMIT, where the post-merge check reads the trunk; if it has uncommitted tracked
-#   changes it is not moved, and a fresh worktree is read instead.
+#   changes it is not moved, and a fresh worktree is read instead (prepared by POST_MERGE_PREP when config.sh declares one).
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
 # --dry-run: print the plan (what would be squashed, pushed, deleted and moved) and exit 0
@@ -466,7 +466,8 @@ if [ "$ALLOW_STUB" != "true" ]; then
         git -C '$MAIN_ROOT' checkout '$BRANCH'
   Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate
   checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted
-  changes is left alone while a fresh worktree is read instead."
+  changes is left alone while a fresh worktree is read instead, prepared by POST_MERGE_PREP when
+  config.sh declares one."
     fi
     kit_refuse 1 landing-gate-unusable \
       "Error: the landing gate is $_gate_err." \

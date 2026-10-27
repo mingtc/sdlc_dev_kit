@@ -580,7 +580,7 @@ you want to know what the initializer is doing to your repository. **A non-shell
 | The publication remote *(not a `config.sh` knob: `KWT_REMOTE`, in `scripts/lib/kanban-worktree.sh`)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain** in `scripts/lib/kanban-worktree.sh`: `<remote>/HEAD`, then `init.defaultBranch`, then the literal `KWT_TRUNK_LAST_RESORT`. Every step after the first **warns** and does not refuse, so a guessed trunk still runs. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
 
-Every knob is a `${VAR:-default}`, so a one-off run can override without an edit.
+Every scalar knob except `POST_MERGE_PREP` is a `${VAR:-default}`, so a one-off run can override it without an edit; `POST_MERGE_PREP` and the two glob arrays are deliberately not environment-overridable.
 
 **The substitution keys on the HEADER KEY, never on a value shaped like the template's example.** A substitution that
 matches nothing fails *silently*, and every created item then carries the template's example

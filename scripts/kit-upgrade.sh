@@ -564,7 +564,7 @@ fi
 # merge_keep <path> — what a merge item for a file holding the project's own stamped values must keep.
 merge_keep() {
   case "$1" in
-    scripts/config.sh) printf '%s' "; this file holds the project's own stamped values, so merge the new copy into it and keep ISSUE_PREFIX, PROJECT_NAME, CODE_GLOBS, TEST_GLOBS and POST_MERGE_PREP (with their # DECLARED EMPTY comments) and kit-init's stamp receipt line" ;;
+    scripts/config.sh) printf '%s' "; this file holds the project's own stamped values, so merge the new copy into it and keep ISSUE_PREFIX, PROJECT_NAME and POST_MERGE_PREP, and CODE_GLOBS and TEST_GLOBS (with their # DECLARED EMPTY comments), and kit-init's stamp receipt line" ;;
     scripts/verify.sh) printf '%s' "; this file holds the project's own gates, so merge the new copy into it and keep the project's GATES table" ;;
   esac
 }

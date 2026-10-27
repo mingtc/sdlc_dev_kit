@@ -2186,3 +2186,19 @@ case_finish_pr_card_edited_on_the_branch_names_the_route() {
   finish "a branch that edits the card's Activity against the mover's append is refused naming the ISSUE FILE, the trunk's ownership of the card and register-commit.sh; a non-overlapping card edit on a branch still lands"
   teardown
 }
+
+# =============================================================================
+# CASE — finish-pr.sh --help NAMES POST_MERGE_PREP WHERE IT DESCRIBES THE FRESH WORKTREE.
+#
+# --help prints the header. A fresh post-merge worktree is described there; without the prep
+# clause a reader cannot learn that the landed config.sh may prepare it.
+# =============================================================================
+case_finish_pr_help_names_post_merge_prep() {
+  cf_reset
+  make_sandbox
+  local out
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh --help </dev/null 2>&1 )"
+  case "$out" in *POST_MERGE_PREP*) : ;; *) cf "finish-pr.sh --help does not name POST_MERGE_PREP: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  finish "finish-pr.sh --help names POST_MERGE_PREP"
+  teardown
+}

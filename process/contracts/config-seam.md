@@ -18,17 +18,20 @@ process is an edit rather than an excavation.
   guard.
   *Why:* retyped values drift silently; a derived one cannot, and a checked one announces itself.
 - **A value that anything DERIVES TEXTUALLY is declared in ONE EXACT SHAPE, AND THE SHAPE IS
-  FIXED PER DECLARATION SITE**, at column 1, whole, on one line. No leading whitespace, no line
-  continuation, no alternative spelling of the same expansion. **Which shape depends on whether
+  FIXED PER DECLARATION SITE**, at column 1, whole, on one line (a glob array is the multi-line
+  shape below). No leading whitespace, no line continuation, no alternative spelling of the same expansion. **Which shape depends on whether
   the value is RUNTIME-OVERRIDABLE:**
-  - **overridable — `NAME="${NAME:-value}"`.** The seam file's own values are these: an adopter or
-    a test can supply them from the environment.
+  - **overridable — `NAME="${NAME:-value}"`.** The seam file's own values are these, except the
+    declared single-quoted ones below: an adopter or a test can supply them from the environment.
   - **not overridable — `NAME='value'`.** A value that must be the same for every run of the tool
     that declares it takes the plain single-quoted form, and its readers anchor on THAT shape.
     Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, the
     initializer's `STAMP_MARK`, and the config seam's own `POST_MERGE_PREP` — a command the
     landing runs, which must be the one the landed commit declares. Making these `${NAME:-…}` would let the environment weaken a
     guard, which is a worse defect than the one this bullet exists to prevent.
+  - **glob array — `NAME=(` … `)`.** `CODE_GLOBS` and `TEST_GLOBS` open at column 1 and close on a
+    line of their own; `scripts/lib/glob-array.sh` reads them as text, never sourcing the file, and
+    the environment cannot change them.
 
   **What binds every file
   is the INVARIANT, not one spelling: a declaration's shape is fixed, matched exactly by its
@@ -49,7 +52,8 @@ process is an edit rather than an excavation.
   quietly break. If a fallback truly must exist, it is **one** shared fallback, in one place, and
   it announces itself.
 - **A configured value is overridable for one invocation without editing anything.** The
-  environment may supply it; the declared default applies otherwise.
+  environment may supply it; the declared default applies otherwise. The exception is a declared
+  single-quoted value (above), which no environment can change.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
   tooling with different values.
 - **NO project-specific value is baked into anything that travels.** A file that travels unedited
@@ -78,7 +82,7 @@ process is an edit rather than an excavation.
 ## 4. WHAT GREEN MEANS
 
 1. Every adopter-specific value used anywhere is **listed in the seam**, with its default.
-2. A single override applied at invocation time is **observably honoured** by every consumer.
+2. A single override applied at invocation time is **observably honoured** by every consumer of an overridable value.
 3. A search of the travelling files for another project's values returns **nothing** — a count,
    run by the adopter, not a promise made by the kit. **The initializer runs that count itself and
    FAILS LOUDLY on a non-zero result**, so this line is an assertion rather than a sentence (§ 6
@@ -104,7 +108,7 @@ process is an edit rather than an excavation.
 
 ## 5. MINIMAL INTERFACE
 
-**In:** declared names with declared defaults; an environment that may override them.
+**In:** declared names with declared defaults; an environment that may override them, except the declared single-quoted values.
 **Out:** resolved values, plus a shared validation entry point for caller-supplied identifiers.
 **Not in:** any action. The seam answers questions; it never changes the repository.
 
