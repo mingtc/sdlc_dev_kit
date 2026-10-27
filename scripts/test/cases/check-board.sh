@@ -3482,6 +3482,7 @@ case_check_board_reports_what_only_this_checkout_holds() {
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
   [ -n "$f0" ] || cf "0: no [f0] line in the report — the arm does not say whether the working tree holds changes it did not read: $(printf '%s' "$out" | grep -F '[f]' | tr '\n' '|')"
   case "$f0" in *⚠*) cf "0: [f0] carries a ⚠ over a clean tree: $f0" ;; esac
+  case "$f0" in *"reports only"*) : ;; *) cf "0: the clean [f0] line lacks the 'reports only' token: $f0" ;; esac
   printf '%s\n' "$sec" | grep -F 'answered but not on' >/dev/null && cf "0: [t] lists a local answer in a clean tree: $sec"
   v_clean="$(_verdict "$out")"
 
@@ -3493,6 +3494,7 @@ case_check_board_reports_what_only_this_checkout_holds() {
     || cf "1: [t] does not name $r1 as answered but not on origin/$SB_TRUNK (uncommitted): $sec"
   printf '%s\n' "$sec" | grep -F '✓ none' >/dev/null && cf "1: [t] still says '✓ none' over an answer only this checkout holds: $sec"
   case "$f0" in *⚠*"$r1"*) : ;; *) cf "1: [f0] does not warn about the uncommitted question file $r1: $f0" ;; esac
+  case "$f0" in *"reports only"*) : ;; *) cf "1: the warning [f0] line lacks the 'reports only' token: $f0" ;; esac
   [ "$(_verdict "$out")" = "$v_clean" ] || cf "1: the new lines moved the verdict: '$v_clean' before, '$(_verdict "$out")' after"
 
   # 2. COMMITTED, NOT PUSHED.
@@ -3513,12 +3515,30 @@ case_check_board_reports_what_only_this_checkout_holds() {
   case "$f0" in *README.md*) : ;; *) cf "4: [f0] does not name the dirty README.md: $f0" ;; esac
   case "$f0" in *"NOT read by any arm"*) : ;; *) cf "4: [f0] does not say no arm reads it: $f0" ;; esac
   case "$f0" in *⚠*) cf "4: [f0] warns about a path no arm reads: $f0" ;; esac
+  case "$f0" in *"reports only"*) : ;; *) cf "4: the not-read [f0] line lacks the 'reports only' token: $f0" ;; esac
   # ... and a dirty register: the arms read it, so [f0] warns.
   printf '\n### D-02 — local only\n' >> "$SB_WORK/requirements/DECISIONS.md"
   out="$(cb_run)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
   case "$f0" in *⚠*requirements/DECISIONS.md*) : ;; *) cf "4: [f0] does not warn about a dirty register the arms would have read: $f0" ;; esac
+  case "$f0" in *"reports only"*) : ;; *) cf "4: the register-dirty [f0] line lacks the 'reports only' token: $f0" ;; esac
   [ "$(_verdict "$out")" = "$v_clean" ] || cf "4: [f0] moved the verdict: '$v_clean' before, '$(_verdict "$out")' after"
   git -C "$SB_WORK" checkout -- requirements/DECISIONS.md README.md >/dev/null 2>&1
+
+  # 4b. COMMITTED ON ANOTHER BRANCH: [t] says so and its Land line does not call the file uncommitted.
+  local o3 q3 r3
+  o3="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec3" ./scripts/ask.sh --role Dev "Which of E or F?" --default "E." 2>&1 )" \
+    || _fixture_die "case_check_board_reports_what_only_this_checkout_holds: third ask.sh refused: $o3"
+  q3="$(printf '%s\n' "$o3" | sed -n 's/^ask.sh: question written to //p')"; r3="dev/questions/${q3#*/dev/questions/}"
+  publish_sandbox
+  git -C "$SB_WORK" checkout -q -b feat-answer >/dev/null 2>&1
+  printf '\n**Answer (2026-10-25, Ros):** F.\n' >> "$q3"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -m "[PM] answer on a branch" --quiet >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F "$r3" | grep -F "committed on a branch other than $SB_TRUNK" >/dev/null \
+    || cf "4b: [t] does not name $r3 as committed on a branch other than $SB_TRUNK: $(printf '%s' "$out" | grep -F "$r3")"
+  printf '%s\n' "$out" | grep -F 'Land each question file listed above (uncommitted or on another branch)' >/dev/null \
+    || cf "4b: the Land line does not cover a file committed on another branch: $(printf '%s' "$out" | grep -F 'Land each')"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
 
   # 5. ABLATION — strip each block; its line goes.
   local o2 q2

@@ -44,7 +44,7 @@ trunk branch, default `main`.
    **Never create top-level issue ids** — that stream belongs to PM and QA. Drop or flag
    anything not ready. **An answered, unreconciled question comes first:** `./scripts/check-board.sh`
    lists them, each is ready work, and you dispatch the PM-hat leg for it before the set above,
-   bounded as the role doc's § An answered question is ready work says. A delegating answer ("use your judgement") is a ruling that adopts the question's working default as a `D-NN` (a question asked with `--decision` discharges a working-default entry in place, or amends a standing one, minting no second one); that question is never re-filed. An answer only this checkout holds is landed first, as the role doc says.
+   bounded as the role doc's § An answered question is ready work says. A delegating answer ("use your judgement") is a ruling that adopts the question's working default as a `D-NN` (a question asked with `--decision` discharges a working-default entry in place, or amends a standing one — a delegating answer leaves a standing one in force and adds a Provenance line — minting no second one); that question is never re-filed. An answer only this checkout holds is landed first, as the role doc says.
 3. Read each issue file plus its PRD stories; build the **dependency order** from
    `blocks`/`blocked_by`; mark mutually-independent issues as parallel candidates (default
    serial).

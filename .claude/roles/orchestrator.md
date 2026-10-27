@@ -163,8 +163,8 @@ new `todo/` card.**
 edit. Whichever seat first reads an `**Answer` in its checkout that the trunk lacks lands the question
 file, as given, before anything cites it: `./scripts/register-commit.sh --role <your own role> --message
 "answer recorded: <file>" <file>`. That is you when `check-board.sh` lists it, and the PM-hat leg when it
-finds one in the checkout it works from. The commit carries the landing seat's tag (the principal is not a
-role), so the log names who landed the record. `register-commit.sh` refuses a register entry that cites
+finds one in the checkout it works from. The commit carries the landing seat's tag, not the principal's, so the
+log names who landed the record. `register-commit.sh` refuses a register entry that cites
 an answer the trunk lacks.
 
 Dispatch the **PM-hat leg** (the `pm-mint` worker; its row is **PM-hat mint** in § Model & effort

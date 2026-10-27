@@ -729,7 +729,7 @@ fi
 # channel). Reports only, like [f1]'s count: it never sets `drift`.
 f0_porc="$(git -C "$kwt_main" status --porcelain --untracked-files=all 2>/dev/null | sed 's/^...//; s/^.* -> //' || true)"
 if [ -z "$f0_porc" ]; then
-  echo "      [f0] main checkout working tree: clean ✓ — no change here that an arm below does not see"
+  echo "      [f0] main checkout working tree (reports only): clean ✓ — no change here that an arm below does not see"
 else
   f0_chan=""
   if command -v kit_pm_field >/dev/null 2>&1 && command -v kit_pm_channel_token >/dev/null 2>&1 && [ -f "$CB_TREE/PROJECT.md" ]; then
@@ -754,11 +754,11 @@ F0_REGS
 $f0_porc
 F0_PATHS
   if [ "$CB_SRC_KIND" != "ref" ]; then
-    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s) — the arms below read this working tree (no $remote/${def:-<unresolved trunk>} ref), so these are read: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
+    echo "      [f0] main checkout working tree (reports only): $f0_n modified/untracked path(s) — the arms below read this working tree (no $remote/${def:-<unresolved trunk>} ref), so these are read: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
   elif [ "$f0_hot" -gt 0 ]; then
-    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s), NOT read by any arm below  ⚠ $f0_hot sit where an arm would read them: $f0_hot_list$([ "$f0_hot" -le 3 ] || echo " (+$((f0_hot - 3)) more)")"
+    echo "      [f0] main checkout working tree (reports only): $f0_n modified/untracked path(s), NOT read by any arm below  ⚠ $f0_hot sit where an arm would read them: $f0_hot_list$([ "$f0_hot" -le 3 ] || echo " (+$((f0_hot - 3)) more)")"
   else
-    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s), NOT read by any arm below: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
+    echo "      [f0] main checkout working tree (reports only): $f0_n modified/untracked path(s), NOT read by any arm below: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
   fi
 fi
 # END [f0]
@@ -1819,7 +1819,7 @@ T_NAMES
   fi
   # END local-answer scan
   if [ -n "$t_local_land" ]; then
-    echo "      Land each uncommitted question file as it stands before anything cites it: ./scripts/register-commit.sh --role <your role> --message \"answer recorded: <file>\" <file> (.claude/roles/orchestrator.md § An answered question is ready work)."
+    echo "      Land each question file listed above (uncommitted or on another branch) as it stands before anything cites it: ./scripts/register-commit.sh --role <your role> --message \"answer recorded: <file>\" <file> (.claude/roles/orchestrator.md § An answered question is ready work)."
   fi
   if [ -n "$t_local_push" ]; then
     echo "      Push the committed ones: git push $remote $def ([f1] above names the checkout)."
