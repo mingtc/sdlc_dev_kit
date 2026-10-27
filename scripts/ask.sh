@@ -197,17 +197,13 @@ CHANNEL_TOKEN="$(kit_pm_channel_token "$CHANNEL_LINE")"
 
 # The channel is a path INSIDE the repository: an absolute one would be re-rooted under it, and a
 # `..` one would write beside it. Neither is what the line meant.
-case "$CHANNEL_TOKEN" in
-  /*|..|../*|*/../*|*/..)
-    kit_refuse 1 ask-channel-unusable \
-      "Error: the declared channel ($CHANNEL_TOKEN) is not a path inside this repository." \
-      "Next: the project's owner corrects PROJECT.md's \"Their channel\" line to a repo-relative path (e.g. \"dev/questions/\"), then re-run. Nothing was written; if you are not the owner, stop and hand off." ;;
-esac
-
-case "$CHANNEL_TOKEN" in
-  */) CHANNEL_DIR="$ROOT/${CHANNEL_TOKEN%/}"; CHANNEL_IS_DIR=1 ;;
-  *)  if [ -d "$ROOT/$CHANNEL_TOKEN" ]; then CHANNEL_DIR="$ROOT/$CHANNEL_TOKEN"; CHANNEL_IS_DIR=1
-      else CHANNEL_DIR="$ROOT/$(dirname "$CHANNEL_TOKEN")"; CHANNEL_IS_DIR=0; fi ;;
+_rc=0; _why="$(kit_pm_channel_dir "$ROOT" "$CHANNEL_TOKEN")" || _rc=$?
+case "$_rc" in
+  0) CHANNEL_DIR="$ROOT/$_why"; CHANNEL_IS_DIR=1 ;;
+  2) CHANNEL_DIR="$ROOT/$(dirname "$CHANNEL_TOKEN")"; CHANNEL_IS_DIR=0 ;;
+  *) kit_refuse 1 ask-channel-unusable \
+       "Error: $_why." \
+       "Next: the project's owner corrects PROJECT.md's \"Their channel\" line to a repo-relative path (e.g. \"dev/questions/\"), then re-run. Nothing was written; if you are not the owner, stop and hand off." ;;
 esac
 
 if ! mkdir -p "$CHANNEL_DIR" 2>/dev/null || [ ! -w "$CHANNEL_DIR" ]; then

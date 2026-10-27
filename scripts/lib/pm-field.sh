@@ -46,6 +46,23 @@ kit_pm_channel_token() {
   printf '%s\n' "${tok%,}"
 }
 
+# kit_pm_channel_dir <root> <token>
+#   The ONE reading of whether a channel token is a directory, for every caller. On a directory it
+#   prints the repo-relative path without a trailing `/` and returns 0: a token ending in `/`, or a
+#   bare token that names an existing directory under <root>. Otherwise it prints a reason on stdout
+#   and returns 1 when the token is not a path inside the repository (absolute, or with `..`), or 2
+#   when it is a file: one file holding several questions.
+kit_pm_channel_dir() {
+  local root="$1" tok="$2"
+  case "$tok" in
+    /*|..|../*|*/../*|*/..) printf 'the declared channel (%s) is not a path inside the repository\n' "$tok"; return 1 ;;   # return-class: predicate
+    */) printf '%s\n' "${tok%/}"; return 0 ;;
+  esac
+  if [ -d "$root/$tok" ]; then printf '%s\n' "$tok"; return 0; fi
+  printf 'the channel (%s) is one file, or a directory that is not here: no answer in it can be tied to one question\n' "$tok"
+  return 2   # return-class: predicate
+}
+
 # kit_pm_blank <value> — status 0 if <value> (as kit_pm_field extracted it) carries no usable
 # content, 1 otherwise. Blank is:
 #   - empty, or empty after trimming leading/trailing whitespace;

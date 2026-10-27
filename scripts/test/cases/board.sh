@@ -1012,6 +1012,87 @@ case_register_commit_refuses_a_register_line_citing_an_unlanded_answer() {
 }
 
 # =============================================================================
+# CASE — THE UNLANDED-ANSWER GUARD RUNS FOR A CHANNEL SPELLED WITHOUT ITS TRAILING SLASH, AND SAYS WHY WHEN IT DOES NOT RUN.
+#
+# ask.sh and check-board [t] read a channel token naming an existing directory as a directory with or
+# without the `/`. Rows: (a) `dev/questions` (no slash) + an answered, uncommitted question + a register
+# line citing it -> refused register-cites-unlanded-answer; (b) control: `dev/questions/` refuses too;
+# (c) blank channel, (d) absolute channel, (e) a file channel, (f) an unreadable REGISTERS declaration:
+# each lands and prints one `did not run` note naming its reason.
+# =============================================================================
+case_register_commit_guard_reads_a_channel_without_its_slash_and_names_each_skip() {
+  cf_reset
+  make_sandbox
+  local ch="dev/questions" q="dev/questions/2026-10-27T000000Z-dev-ask.md" out rc n=0
+  mkdir -p "$SB_WORK/requirements" "$SB_WORK/dev/questions"
+  printf '# DECISIONS.md\n\n## A. test bucket\n\n---\n' > "$SB_WORK/requirements/DECISIONS.md"
+  _ask_pm_section 'Nadia, shop manager' "$ch" > "$SB_WORK/PROJECT.md"
+  : > "$SB_WORK/dev/questions/.gitkeep"
+  publish_sandbox
+  _cite() {  # <D-id> — also writes the answered question, which no publish_sandbox may carry to the trunk
+    printf '# Q\n\n**Asked:** x\n\n**Answer (2026-10-27, Ros):** Yes.\n' > "$SB_WORK/$q"
+    printf '\n### %s — a ruling\n\n**Ruling.** As answered.\n**Why.** The principal said so.\n**Provenance.** 2026-10-27, the answer in %s; no work item.\n\n---\n' "$1" "$q" >> "$SB_WORK/requirements/DECISIONS.md"
+  }
+  _reset() { git -C "$SB_WORK" checkout -- requirements/DECISIONS.md PROJECT.md scripts/check-board.sh >/dev/null 2>&1; git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "control: the checkout could not take the landing"; }
+  _try() {  # <D-id> -> out, rc
+    rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record $1" requirements/DECISIONS.md 2>&1 )" || rc=$?
+  }
+
+  # (a) no trailing slash, existing directory: refused.
+  n=$((n+1)); _cite D-01; _try D-01
+  [ "$rc" -eq 1 ] || cf "(a) a channel without its slash did not refuse (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F "**Answer is in your checkout and not on the trunk" >/dev/null || cf "(a) the refusal is not the unlanded-answer one: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_file_contains "requirements/DECISIONS.md" '^### D-01' && cf "(a) D-01 reached the trunk although the guard should have refused"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md >/dev/null 2>&1; rm -f "$SB_WORK/$q"
+
+  # (b) control: the slash spelling refuses.
+  _ask_pm_section 'Nadia, shop manager' "$ch/" > "$SB_WORK/PROJECT.md"; publish_sandbox
+  _cite D-02; _try D-02
+  [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -F "**Answer is in your checkout and not on the trunk" >/dev/null || cf "(b) control: the slash spelling was not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md >/dev/null 2>&1; rm -f "$SB_WORK/$q"
+
+  # (c)-(e) a channel the guard cannot use: lands, and the note names why.
+  local spec tok want
+  for spec in "c|<who answers>|declares no channel" "d|/etc/questions/|not a path inside the repository" "e|dev/questions.md|is one file"; do
+    tok="${spec#*|}"; want="${tok#*|}"; tok="${tok%%|*}"
+    if [ "${spec%%|*}" = c ]; then printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Nadia`\n- **Their channel:** <the directory>\n' > "$SB_WORK/PROJECT.md"
+    else _ask_pm_section 'Nadia, shop manager' "$tok" > "$SB_WORK/PROJECT.md"; fi
+    publish_sandbox; _cite "D-${spec%%|*}"; _try "D-${spec%%|*}"
+    [ "$rc" -eq 0 ] || cf "(${spec%%|*}) the call was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$out" | grep -F 'the unlanded-answer guard did not run' | grep -F "$want" >/dev/null \
+      || cf "(${spec%%|*}) no 'did not run' note naming '$want': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    rm -f "$SB_WORK/$q"; _reset
+  done
+
+  # (f) the trunk's REGISTERS declaration unreadable.
+  _ask_pm_section 'Nadia, shop manager' "$ch/" > "$SB_WORK/PROJECT.md"
+  sed -i.bak 's/^REGISTERS=/XREGISTERS=/' "$SB_WORK/scripts/check-board.sh"; rm -f "$SB_WORK/scripts/check-board.sh.bak"
+  publish_sandbox; _cite D-f; _try D-f
+  printf '%s\n' "$out" | grep -F 'the unlanded-answer guard did not run: no REGISTERS declaration' >/dev/null \
+    || cf "(f) no 'did not run' note for an unreadable REGISTERS declaration (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (g) the three readers of the channel agree: ask.sh writes INTO a no-slash directory channel and [t]
+  # reads it as a directory; for a file channel ask.sh appends to the file and [t] skips naming a file.
+  _reset
+  rm -f "$SB_WORK/$q"; git -C "$SB_WORK" checkout -- . >/dev/null 2>&1
+  sed -i.bak 's/^XREGISTERS=/REGISTERS=/' "$SB_WORK/scripts/check-board.sh"; rm -f "$SB_WORK/scripts/check-board.sh.bak"
+  local ga gt gf
+  _ask_pm_section 'Nadia, shop manager' "$ch" > "$SB_WORK/PROJECT.md"; publish_sandbox
+  ga="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/recg" ./scripts/ask.sh --role Dev "Question g?" --default "G." 2>&1 )" || cf "(g) ask.sh refused a no-slash directory channel: $ga"
+  printf '%s\n' "$ga" | grep -E "question written to .*/$ch/[^/]+-ask\.md" >/dev/null || cf "(g) ask.sh did not write inside the no-slash directory channel: $ga"
+  gt="$(cb_run | _cb_t_section)"
+  [ -n "$gt" ] && ! printf '%s\n' "$gt" | grep '(skipped)' >/dev/null || cf "(g) [t] skipped a no-slash directory channel: $gt"
+  _ask_pm_section 'Nadia, shop manager' "dev/questions.md" > "$SB_WORK/PROJECT.md"; publish_sandbox
+  gf="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/recf" ./scripts/ask.sh --role Dev "Question f?" --default "F." 2>&1 )" || cf "(g) ask.sh refused a file channel: $gf"
+  [ -f "$SB_WORK/dev/questions.md" ] || cf "(g) ask.sh wrote no file for a file channel: $gf"
+  gt="$(cb_run | _cb_t_section)"
+  printf '%s\n' "$gt" | grep '(skipped)' | grep 'one file' >/dev/null || cf "(g) [t] did not skip a file channel as one file: $gt"
+
+  finish "register-commit.sh's unlanded-answer guard refuses a register line citing an uncommitted answer whether the channel is spelled with or without its trailing slash, and each path where it does not run prints a note naming why"
+  teardown
+}
+
+# =============================================================================
 # CASE — A PRODUCER THAT SOURCES ONLY progress-record.sh IS CHECKED AGAINST THE DECLARED ROLE SET.
 #
 # The writer's membership check reads the declared set through role-set.sh. A script that sources

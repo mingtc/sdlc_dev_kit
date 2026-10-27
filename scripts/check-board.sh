@@ -1728,7 +1728,7 @@ echo
 echo "[t] Answered, not reconciled (reports only; never changes the verdict below) — $(cb_src):"
 t_pm="$CB_TREE/PROJECT.md"
 t_line=""; t_tok=""; t_dir=""; t_skip=""
-if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1; then
+if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1 || ! command -v kit_pm_channel_dir >/dev/null 2>&1; then
   t_skip="scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load"
 elif [ ! -f "$t_pm" ]; then
   t_skip="no PROJECT.md in this source, so no channel is declared"
@@ -1738,12 +1738,8 @@ else
     t_skip="PROJECT.md declares no channel"
   else
     t_tok="$(kit_pm_channel_token "$t_line")"
-    case "$t_tok" in
-      /*|..|../*|*/../*|*/..) t_skip="the declared channel ($t_tok) is not a path inside the repository" ;;
-      */) t_dir="${t_tok%/}" ;;
-      *)  if [ -d "$CB_TREE/$t_tok" ]; then t_dir="$t_tok"
-          else t_skip="the channel ($t_tok) is one file: it holds several questions, so no answer in it can be tied to one"; fi ;;
-    esac
+    t_rc=0; t_why="$(kit_pm_channel_dir "$CB_TREE" "$t_tok")" || t_rc=$?
+    if [ "$t_rc" -eq 0 ]; then t_dir="$t_why"; else t_skip="$t_why"; fi
   fi
 fi
 if [ -n "$t_skip" ]; then

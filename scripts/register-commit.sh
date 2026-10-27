@@ -269,28 +269,32 @@ done
 # A register line that names a question file records a decision whose source the trunk must be able to
 # show. Where the file's `**Answer` is only in this checkout, every arm of check-board reads clean over
 # an entry citing nothing the trunk holds. The channel and the registers are read from the TRUNK's
-# PROJECT.md and check-board.sh, never from the branch being landed; either unreadable, the guard does not
-# run and says so.
+# PROJECT.md and check-board.sh, never from the branch being landed. The channel is a directory with or
+# without its trailing `/` (as scripts/ask.sh reads it); wherever the guard does not run it says why.
 _ug_msgs=(); _ug_next=""
 if ! { [ -r "$SCRIPT_DIR/lib/pm-field.sh" ] && [ -r "$SCRIPT_DIR/lib/decision-register.sh" ] \
        && . "$SCRIPT_DIR/lib/pm-field.sh" && . "$SCRIPT_DIR/lib/decision-register.sh"; }; then
   echo "Note: the unlanded-answer guard did not run: scripts/lib/pm-field.sh or scripts/lib/decision-register.sh did not load." >&2
 else
   _ug_regs="$(kit_registers_declared "$KWT/scripts/check-board.sh" 2>/dev/null || true)"
-  _ug_dir=""
-  if [ -f "$KWT/PROJECT.md" ]; then
+  _ug_dir=""; _ug_skip=""
+  if [ ! -f "$KWT/PROJECT.md" ]; then
+    _ug_skip="the trunk has no PROJECT.md, so no channel is declared"
+  else
     _ug_line="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$KWT/PROJECT.md")"
-    if ! kit_pm_blank "$_ug_line"; then
+    if kit_pm_blank "$_ug_line"; then
+      _ug_skip="PROJECT.md on the trunk declares no channel"
+    else
       _ug_tok="$(kit_pm_channel_token "$_ug_line")"
-      case "$_ug_tok" in
-        /*|..|../*|*/../*|*/..) ;;
-        */) _ug_dir="${_ug_tok%/}" ;;
-      esac
+      _ug_rc=0; _ug_why="$(kit_pm_channel_dir "$CALLER_ROOT" "$_ug_tok")" || _ug_rc=$?
+      if [ "$_ug_rc" -eq 0 ]; then _ug_dir="$_ug_why"; else _ug_skip="$_ug_why"; fi
     fi
   fi
   if [ -z "$_ug_regs" ]; then
     echo "Note: the unlanded-answer guard did not run: no REGISTERS declaration could be read from scripts/check-board.sh on the trunk." >&2
-  elif [ -n "$_ug_dir" ]; then
+  elif [ -z "$_ug_dir" ]; then
+    echo "Note: the unlanded-answer guard did not run: $_ug_skip." >&2
+  else
     _ug_added="$(mktemp)"
     for rel in "${PATHS[@]}"; do
       _ug_is=""
