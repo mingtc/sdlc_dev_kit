@@ -51,9 +51,10 @@ _cb_g_section() {  # reads a check-board report on stdin
 # _cb_g_declare_empty_seams — declares $SB_WORK/scripts/config.sh's CODE_GLOBS and TEST_GLOBS
 # deliberately empty (the `# DECLARED EMPTY —` mechanical form). Every case that graduates the
 # sandbox (fills PROJECT.md, replaces AGENTS.md/README.md) needs this too, or [g]'s new
-# CODE_GLOBS/TEST_GLOBS members report unfilled and graduation never reads COMPLETE — the same
-# transition case_check_board_graduation exercises directly; the callers here only need [g]
-# clear, not the glob content itself. ONE caller, not three copies: _fixture_die names which
+# CODE_GLOBS/TEST_GLOBS members report unfilled and graduation never reads COMPLETE (which also
+# needs `_cb_g_land_day_one_work`: a PRD and a card past QA) — the same transition
+# case_check_board_graduation exercises directly; the callers here only need [g] clear, not the
+# glob content itself. ONE caller, not three copies: _fixture_die names which
 # anchor moved if either does not match.
 _cb_g_declare_empty_seams() {
   local _arr
@@ -1150,10 +1151,11 @@ case_check_board_corpus_forward_reference() {
   # graduation COMPLETE (the SEED-step marker below must stay silent until it does). On a tree
   # past day one, scripts/config.sh's CODE_GLOBS/TEST_GLOBS already carry a `# DECLARED EMPTY —`
   # comment that survives make_sandbox's neutralizer (it keeps comments, by contract), which
-  # arm [g] reads as CLEAN — enough by itself to flip G_GRADUATION_COMPLETE, since AGENTS.md,
-  # README.md and PROJECT.md are never seeded here and read UNMEASURED rather than counting
-  # against it. Force both arrays back to genuinely empty and undeclared so this case's premise
-  # (not graduated) holds regardless of the tree this harness runs in.
+  # arm [g] reads as CLEAN. With every other blank filled AND the day-one PRD and landed card
+  # present, that would flip G_GRADUATION_COMPLETE; AGENTS.md, README.md and PROJECT.md are never
+  # seeded here and read UNMEASURED rather than counting against it. Force both arrays back to
+  # genuinely empty and undeclared so this case's premise (not graduated) holds regardless of the
+  # tree this harness runs in.
   _array_set_body "$SB_WORK/scripts/config.sh" CODE_GLOBS
   _array_set_body "$SB_WORK/scripts/config.sh" TEST_GLOBS
 
@@ -3932,7 +3934,7 @@ case_check_board_names_a_detached_head() {
 # THE ROWS, each on its own published PROJECT.md, REPLACE files graduated so FILL alone can hold
 # completion back:
 #   (1) DECLARED, filled, usage inline, in a double-backtick span and in a fenced block — 0
-#       blanks, and graduation COMPLETE;
+#       blanks, and graduation COMPLETE (the day-one work landed);
 #   (2) DECLARED, the same usage PLUS one bare blank and one whole-span blank — exactly 2;
 #   (3) UNDECLARED with one real blank among the usage — REPORTED, naming the missing
 #       declaration, never "skipped";
@@ -4070,8 +4072,9 @@ case_check_board_graduation_verdict_is_not_wired() {
 # not a pass. REPLACE and DELETE-IF-UNUSED both read a zero population as a real measurement (a
 # whole-tree scan that found nothing to discharge), so reaching g_measured == 0 here also needs
 # their declaring files removed — ONLY PROJECT.md/config.sh-dependent classes can go fully
-# unreadable; REPLACE/DELETE-IF-UNUSED's own scan always runs. This case ablates the refusal to
-# show it is the mechanism holding COMPLETE back, not an accident of wording.
+# unreadable; REPLACE/DELETE-IF-UNUSED's own scan always runs. With the day-one work landed, this
+# case ablates the refusal to show it is the mechanism holding COMPLETE back, not an accident of
+# wording.
 # =============================================================================
 case_check_board_graduation_refuses_complete_over_nothing_measured() {
   cf_reset

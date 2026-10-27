@@ -7,7 +7,7 @@ To answer *"is the board telling the truth?"* on demand, by checking the small s
 disagreements this process can actually produce — before a human plans a day around one of them.
 
 **And one question that is not about the board**, carried here because it must be asked at the same
-cadence and then never again: *has day one finished — has the scaffolding been replaced?* It rides
+cadence and then never again: *has day one finished — has the scaffolding been replaced, and has the first PRD and a card past QA landed?* It rides
 in this instrument rather than in its own, and **it is kept out of the report's verdict**, for the
 reasons invariant 7 gives.
 
@@ -101,7 +101,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   check from a passing one — the same distinction every other check in this sheet owes. While the
   project still carries the kit's scaffolding — a `REPLACE`-class file that has not been replaced, a
   `FILL`-class file that still holds a blank, a `DELETE-IF-UNUSED` option kept with no recorded
-  decision — the report says so and names the files. **The verdict
+  decision — or no PRD exists, or no card has passed QA (`qa_complete` or `done`) — the report says so and names what is missing. **The verdict
   line stays a statement about the board.**
   *Why the separation is an invariant and not a preference:* the verdict is what other tools consume.
   Measured in this kit: the release ritual's board gate matches the verdict line's text, and the
