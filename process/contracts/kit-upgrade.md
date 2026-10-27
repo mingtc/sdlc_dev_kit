@@ -41,8 +41,9 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   *Why:* scaffolding re-arriving in a finished project tells the next agent to start over, and the
   sentinel, not the filename, is what marks scaffolding.
 - **Everything left to do is written down before the run ends**: one checklist item per Action
-  required entry newer than the tree's version, and one per merge, removal or kept scaffolding path,
-  each naming where its instruction lives.
+  required entry newer than the tree's version, one per merge, removal or kept scaffolding path, one
+  per open card the new kit's checks would refuse or whose branch lacks the trunk, and one to stamp
+  what arrived, each naming where its instruction lives.
   *Why:* a deferred upgrade carried in a session's working memory is lost at the next handover.
 - **The tree's version is stamped only when every item is marked done**, never by the first run.
   *Why:* a version that moves before the work does tells the next reader the work is done.
@@ -162,5 +163,5 @@ is `notes_items` in `scripts/kit-upgrade.sh`.
   exit status; there is no override, because a command that fails where the entry does not apply is a
   defect in the entry.
 - **No `Verify:` line:** the item is whatever its marker says. The archived checklist's last section
-  lists it as declared and unverified; every item that is not an Action required entry (a merge, a
-  removal, a kept file) is declared the same way.
+  lists it as declared and unverified; every item that is not an Action required entry is declared the
+  same way.

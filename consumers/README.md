@@ -216,7 +216,7 @@ number. It stays report-only: it never writes to `./vendor/`, never updates, and
 stays exactly one verdict line** (`UP TO DATE` / `UPDATE AVAILABLE` / `AHEAD`) because the hook
 and the CI templates **grep** it; the detail is printed alongside, on stderr. Reading those
 headers costs a small throwaway clone — set `VENDORED_CHECK_NOTES=0` to skip it and keep the
-check to a single lightweight remote query. The advisory git hook already does exactly that, so
+check to one lightweight `git ls-remote` (two when an update is available). The advisory git hook already does exactly that, so
 your `git pull` stays fast.
 
 ---

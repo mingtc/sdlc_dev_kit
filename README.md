@@ -69,7 +69,7 @@ issue's own frontmatter, and the commit that recorded it can never drift apart. 
 (`check-board.sh`) catches it, quickly, if they ever do.
 
 **Roles worn as hats, not separate people.** One agent (or one human) can be PM, Dev, QA, or
-(optionally) Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
+(optionally) Orchestrator, Architect or Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
 boundary is hard**: Dev's own "it's done" is never the landing signal, QA's verdict is, and nothing
 lands on the trunk without passing through it.
 

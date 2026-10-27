@@ -1228,6 +1228,26 @@ _consumer_reset() {
 }
 
 # =============================================================================
+# CASE — THE UPDATER'S --help STATES THE NAG HOOK'S TRUE COST: one `git ls-remote`, two when an
+# update is available, in both paragraphs that describe it. The wording is the expectation, hard-coded; the shipped file is what is read.
+# =============================================================================
+case_updater_help_states_the_hook_cost() {
+  cf_reset
+  local L="update_vendored.sh --help says the nag hook makes one git ls-remote, two when an update is available, in both places it describes the cost"
+  make_sandbox
+  if [ ! -f "$SB_WORK/consumers/update_vendored.sh" ]; then
+    teardown; skp_lived "$L" "consumers/update_vendored.sh was removed from this project"; return
+  fi
+  local out rc
+  out="$(bash "$SB_WORK/consumers/update_vendored.sh" --help 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "--help exited $rc"
+  [ "$(printf '%s\n' "$out" | grep -c "two when an update is available")" -ge 2 ] \
+    || cf "--help does not state it twice (the hook paragraph and the VENDORED_CHECK_NOTES paragraph): one git ls-remote, two when an update is available"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE CONSUMER'S TO-DO LIST CARRIES NO <BLANK>. setup-consumer.sh prints the first-install
 # hint and the configuration names it is given by update_vendored.sh, and refuses before it copies a
 # thing while any seam, the pin line, either install hint or the configuration list still holds a

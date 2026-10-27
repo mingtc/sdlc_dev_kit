@@ -61,7 +61,7 @@
 # section headers for the versions in between — which needs that tag's notes
 # file and therefore a throwaway shallow clone, deleted before it returns. Set
 # VENDORED_CHECK_NOTES=0 to skip that and keep the check to one lightweight
-# `git ls-remote` (what the advisory post-merge nag hook does, so a `git pull`
+# `git ls-remote` (two when an update is available; what the advisory post-merge nag hook does, so a `git pull`
 # stays fast).
 #
 set -euo pipefail
@@ -134,8 +134,8 @@ VENDORED_NO_DIST="${VENDORED_NO_DIST:-0}"
 DIST_BRANCH="${VENDORED_DIST_BRANCH:-dist}"
 
 # Print the what-changed delta in --check mode (1) or skip it (0). Off is for
-# automated nags that run on every `git pull`: it keeps the check to a single
-# `git ls-remote` with no clone.
+# automated nags that run on every `git pull`: it keeps the check to one
+# `git ls-remote` (two when an update is available), with no clone.
 VENDORED_CHECK_NOTES="${VENDORED_CHECK_NOTES:-1}"
 
 # ═════════════════════════════════════════════════════════════════════════════

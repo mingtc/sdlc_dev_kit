@@ -80,8 +80,8 @@ written here: *the list is the list.*
   project-specific its entries become, while a feedback log you invent for your own use never had
   one.
 
-**And one file carries its class as data because it cannot carry a comment:**
-`.claude/settings.json.example` is JSON, so its classification is the `_KIT_CLASS` key beside its
+**And the settings examples carry their class as data because JSON cannot carry a comment:**
+each settings example (`.claude/settings.json.example`, `.claude/settings.unattended.json.example`) is JSON, so its classification is the `_KIT_CLASS` key beside its
 other underscore-prefixed notes. *A convention that cannot be expressed in a file's own syntax is
 expressed in that file's own terms, not abandoned.*
 
@@ -527,7 +527,7 @@ The behaviours worth knowing before you run it — the refusal conditions are in
 [`contracts/initializer.md`](contracts/initializer.md) § 3, and every refusal prints its own reason:
 
 - **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
-  the remote's published default branch; a disagreement refuses. `<trunk>` defaults to `main`.
+  the remote's published default branch; a disagreement refuses.
 - **It guides the remote, it does not create one.** No remote / no published default branch /
   unborn HEAD ⇒ refusal **with [`GIT-HOSTING.md`](GIT-HOSTING.md) § 3's recipe**, whose step 1 is
   the local bare-repository recipe for an offline project. Creating a remote is a

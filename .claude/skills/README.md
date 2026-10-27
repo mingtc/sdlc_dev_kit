@@ -173,7 +173,7 @@ woken is the full list; believe that section over this one.
   follows it. Works regardless of which role hat you are wearing.
 - **From inside a role session:** the role docs in [`../roles/`](../roles/) say which skills
   auto-trigger for that role and which to invoke manually, alongside the role's session-start
-  phrase and file conventions. Start there for an end-to-end PM, Dev, QA or Refactorer
+  phrase and file conventions. Start there for an end-to-end PM, Dev, QA, Refactorer, Orchestrator or Architect
   workflow; the adapter (`AGENTS.md`) explains how to pick a hat.
 
 ## Provenance & licensing

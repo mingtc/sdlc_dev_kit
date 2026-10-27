@@ -686,6 +686,7 @@ CASES=(
   case_consumer_updater
   case_install_skills_writes_nothing_without_a_pack
   case_setup_consumer_prints_no_unfilled_blank
+  case_updater_help_states_the_hook_cost
   case_find_polluter_runs_each_path_whole
   case_find_polluter_refuses_an_unrunnable_test_command
   case_hygiene_instruments_declare_blind_spots

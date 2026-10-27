@@ -91,7 +91,7 @@ runner that does.
 
 **B. Any other stack → implement [`contracts/`](contracts/) in your own toolchain.**
 **The contract sheets ARE the specification.** The shell in this kit is **one implementation, not
-the requirement** — sections 1–5 of every sheet bind any implementation in any language; section 6
+the requirement** — sections 1–5 of every sheet (and any binding section after 6) bind any implementation in any language; section 6
 is the pointer to this repository's scripts and is marked as such. Take **no** script at all and
 you still owe every invariant, every refusal condition, and every countable definition of green in
 the sheets (`find process/contracts -type f ! -name README.md | wc -l` counts them). Any language,
