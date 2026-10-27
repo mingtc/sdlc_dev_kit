@@ -472,6 +472,7 @@ CASES=(
   case_register_commit_tags_the_subject_once
   case_push_failure
   case_trunk_fallback_warns
+  case_bootstrap_failure_next_names_the_trunk_not_set_head_a
   case_archive_progress_sections
   case_rotation_day_uses_the_board_clock
   case_archive_progress_ordinal_knife
@@ -533,6 +534,7 @@ CASES=(
   case_check_board_reads_the_configured_archive_threshold
   case_setup_warns_on_a_later_added_column
   case_setup_reads_the_archived_heading_exactly
+  case_setup_does_not_say_complete_before_it_refuses
   case_log_heading_is_one_bounded_declaration
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
@@ -629,6 +631,7 @@ CASES=(
   case_notify_lists_only_adapters
   case_notify_message_flag_carries_a_leading_dash
   case_notify_help_is_the_header_and_the_hook_answers_without_stdin
+  case_telegram_chatid_names_a_missing_jq
   case_creator_usage_prints_one_form_on_every_path
   case_a_required_option_left_out_exits_2
   case_move_issue_without_role_prints_one_usage_line

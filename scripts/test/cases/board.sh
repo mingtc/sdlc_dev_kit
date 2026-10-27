@@ -2696,6 +2696,28 @@ case_push_failure() {
 }
 
 # =============================================================================
+# CASE — THE BOOTSTRAP REFUSAL'S Next: NAMES THE TRUNK, NEVER `set-head -a`.
+# `-a` asks the remote to guess its own default branch, which is the guess the kit teaches against
+# everywhere else it names a trunk. A repository with no commit and no remote cannot create the
+# board worktree, so the refusal fires; its Next: must send the operator to set the trunk by name.
+# =============================================================================
+case_bootstrap_failure_next_names_the_trunk_not_set_head_a() {
+  cf_reset
+  make_sandbox
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-1" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) the move succeeded on a repository with no commit: $out"
+  printf '%s\n' "$out" | grep 'failed to bootstrap kanban worktree' >/dev/null \
+    || cf "(control) the bootstrap refusal did not fire, so its Next: is unread: $out"
+  printf '%s\n' "$out" | grep -E 'remote set-head [^ ]+ -a' >/dev/null \
+    && cf "the bootstrap refusal's Next: recommends set-head -a: $(printf '%s\n' "$out" | grep 'Next:')"
+  printf '%s\n' "$out" | grep 'Next:' | grep -F 'remote set-head origin <your-trunk>' >/dev/null \
+    || cf "the bootstrap refusal's Next: does not name 'remote set-head origin <your-trunk>': $(printf '%s\n' "$out" | grep 'Next:')"
+  finish "the bootstrap refusal's Next: sets the trunk by name (set-head origin <your-trunk>), never -a"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE TRUNK FALLBACK IS LOUD. With no <remote>/HEAD and no init.defaultBranch, the
 # chain reaches its last-resort literal. The chain is kept (a hard refusal would break every
 # read-only caller); each fallback step must SAY which step it used.

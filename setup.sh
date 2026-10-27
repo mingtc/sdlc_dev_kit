@@ -237,11 +237,12 @@ fi
 
 ENV_NOTE="gitignored"
 if [ "$ENV_SEEDED" = true ]; then ENV_NOTE="gitignored; just seeded from .env.example"; fi
+if [ "$FAILURES" -eq 0 ]; then BANNER="Setup complete."; else BANNER="Setup finished with $FAILURES problem(s)."; fi
 
 cat >&2 <<EOF
 
 ────────────────────────────────────────────────────────────────────────────
-Setup complete.   Gate: $GATE
+$BANNER   Gate: $GATE
 
 The board:            ls progress/todo/  ;  ./scripts/check-board.sh
 Operating manual:     process/MANUAL.md

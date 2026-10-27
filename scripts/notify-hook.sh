@@ -15,6 +15,7 @@
 # Fail-soft: ANY problem exits 0 — a hook must never block the session. If
 # notifications are disabled (NOTIFY_BACKEND unset) notify.sh is a silent no-op,
 # so this hook is harmless when unconfigured.
+# It reads the payload with jq; without jq the ping goes out with the default text and no session.
 
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"

@@ -1981,6 +1981,37 @@ case_setup_warns_on_a_later_added_column() {
 }
 
 # =============================================================================
+# CASE — setup.sh DOES NOT SAY "Setup complete." AND THEN REFUSE.
+# A run that counts a failure ends in a refusal, so its closing banner must not announce
+# completion. The control is the same sandbox before the failure is planted.
+# =============================================================================
+case_setup_does_not_say_complete_before_it_refuses() {
+  cf_reset
+  make_sandbox
+  if [ ! -f "$SB_WORK/setup.sh" ]; then
+    skp "setup.sh prints 'Setup complete.' only on a run without problems" "the sandbox carries no setup.sh"
+    teardown; return
+  fi
+  local out rc
+  # CONTROL FIRST: with the board complete the run succeeds and the banner says so.
+  printf '# progress\n\n## Log\n' > "$SB_WORK/progress.md"
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) setup.sh exited $rc on an unbroken board, so a later failure proves nothing: $(printf '%s\n' "$out" | grep -E '^(WARN|ERROR)' | grep -v 'no .gitkeep' | head -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'Setup complete\.' >/dev/null \
+    || cf "(control) setup.sh without a problem did not print 'Setup complete.': $(printf '%s\n' "$out" | grep 'Setup ')"
+  # THE PLANTED FAILURE: a missing ORIGINAL column is counted, the run refuses, the banner says so.
+  rm -rf "$SB_WORK/progress/todo"
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "setup.sh with a planted failure exited 0: $out"
+  printf '%s\n' "$out" | grep 'Setup complete\.' >/dev/null \
+    && cf "setup.sh announced 'Setup complete.' on a run that then refused: $(printf '%s\n' "$out" | grep 'Setup ')"
+  printf '%s\n' "$out" | grep 'Setup finished with [1-9][0-9]* problem' >/dev/null \
+    || cf "setup.sh's closing banner did not report the problem count: $(printf '%s\n' "$out" | grep 'Setup ')"
+  finish "setup.sh closes with 'Setup complete.' only when no problem was counted, and with 'Setup finished with N problem(s).' before its refusal otherwise"
+  teardown
+}
+
+# =============================================================================
 # CASE — setup.sh READS THE `## Archived` HEADING THE WAY ITS SIBLINGS DO.
 #
 # lived-probe.sh, archive.sh and kit-init.sh all require the exact line `## Archived`. A heading

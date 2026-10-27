@@ -11,7 +11,7 @@
 # Verbs:
 #   send    — deliver NOTIFY_TEXT (exported by notify.sh). Exit 0 ok, non-0 + reason.
 #   test    — diagnose config + connectivity end-to-end (token → chat → delivery).
-#   chatid  — setup helper: print your chat id from the bot's recent messages.
+#   chatid  — setup helper: print your chat id from the bot's recent messages. Needs jq.
 #
 # EVERY FAILURE PATH NAMES ITS FIX. That is the copyable part of this adapter, not
 # the vendor: a notification backend that fails with "send failed" teaches the
@@ -120,6 +120,11 @@ case "$VERB" in
     ;;
 
   chatid)
+    if ! command -v jq >/dev/null 2>&1; then
+      kit_refuse 1 telegram-jq-missing \
+        "telegram: chatid needs jq to read the bot's reply, and jq is not on PATH." \
+        "Next: install jq, then run this again; or read the id from the bot's getUpdates reply (result[].message.chat.id) and set TELEGRAM_CHAT_ID yourself."
+    fi
     if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
       kit_refuse 1 telegram-token-empty \
         "telegram: TELEGRAM_BOT_TOKEN is empty." \

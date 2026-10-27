@@ -360,7 +360,7 @@ kwt_bootstrap() {
       kit_refuse 1 kanban-wt-bootstrap-failed \
         "Error: failed to bootstrap kanban worktree at $KWT." \
         "       Neither '$DEFAULT_BRANCH' nor '$KWT_REMOTE/$DEFAULT_BRANCH' could be checked out." \
-        "Next: fetch the trunk (git -C '$MAIN_ROOT' fetch $KWT_REMOTE) and re-run. If '$DEFAULT_BRANCH' is not your trunk, the trunk warning earlier in this run says how it was chosen; set it with  git -C '$MAIN_ROOT' remote set-head $KWT_REMOTE -a  and re-run."
+        "Next: fetch the trunk (git -C '$MAIN_ROOT' fetch $KWT_REMOTE) and re-run. If '$DEFAULT_BRANCH' is not your trunk, the trunk warning earlier in this run says how it was chosen; set it with  git -C '$MAIN_ROOT' remote set-head $KWT_REMOTE <your-trunk>  and re-run."
     fi
   fi
   return 0

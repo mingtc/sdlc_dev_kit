@@ -703,6 +703,45 @@ case_notify_help_is_the_header_and_the_hook_answers_without_stdin() {
 }
 
 # =============================================================================
+# CASE — telegram.sh chatid NAMES A MISSING jq INSTEAD OF REPORTING "no recent messages".
+# The verb parses the bot's reply with jq. With jq absent it used to print that the chat had no
+# messages, which sends the operator to the app instead of to the missing tool. A stub curl serves
+# a reply that holds a chat id, on a PATH of symlinks to the tools the script needs; the control
+# adds a stub jq to that same PATH and must print the id, so the refusal is the absence of jq and
+# nothing else.
+# =============================================================================
+case_telegram_chatid_names_a_missing_jq() {
+  cf_reset
+  if _member_removed scripts/notify/telegram.sh; then
+    skp_lived "telegram.sh chatid refuses by name when jq is absent, and prints the id when it is present" "scripts/notify/telegram.sh was removed from this project, so there is no chatid verb to run"; return
+  fi
+  make_sandbox
+  local bin="$SB_TMP/nojq-bin" t p out rc
+  mkdir -p "$bin"
+  for t in bash env dirname basename tail head sed tr cut grep cat date mkdir rm mv awk sort wc touch sleep git mktemp cp ls id hostname; do
+    p="$(command -v "$t" 2>/dev/null)" && [ -x "$p" ] && ln -s "$p" "$bin/$t"
+  done
+  cat > "$bin/curl" <<'STUB'
+#!/bin/sh
+printf '%s\n' '{"result":[{"message":{"chat":{"id":12345}}}]}'
+printf '%s\n' 200
+STUB
+  chmod +x "$bin/curl"
+  out="$( cd "$SB_WORK" && PATH="$bin" TELEGRAM_BOT_TOKEN=tok bash ./scripts/notify/telegram.sh chatid 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "chatid exited 0 with no jq on PATH: $out"
+  case "$out" in *jq*) : ;; *) cf "chatid without jq did not name jq: $out" ;; esac
+  case "$out" in *"no recent messages"*) cf "chatid without jq blamed the chat's messages instead of the missing tool: $out" ;; esac
+  case "$out" in *Next:*) : ;; *) cf "chatid without jq named no next act: $out" ;; esac
+  # CONTROL: the same PATH plus a jq answers, so the reply above is the stub curl's good body.
+  printf '#!/bin/sh\ncat >/dev/null\necho 12345\n' > "$bin/jq"; chmod +x "$bin/jq"
+  out="$( cd "$SB_WORK" && PATH="$bin" TELEGRAM_BOT_TOKEN=tok bash ./scripts/notify/telegram.sh chatid 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) chatid exited $rc with a jq on PATH: $out"
+  case "$out" in *"Your TELEGRAM_CHAT_ID is: 12345"*) : ;; *) cf "(control) chatid with jq did not print the id, so the stub curl is not serving the reply: $out" ;; esac
+  finish "telegram.sh chatid refuses by naming the missing jq and the next act, never 'no recent messages' (control: with a jq on PATH it prints the id)"
+  teardown
+}
+
+# =============================================================================
 # CASE — EACH HELP WINDOW ENDS WHERE ITS OWN RULE SAYS, AND THERE ARE TWO RULES.
 #
 # Most tools render `--help` from their header comment block, ending at its LAST COMMENT
