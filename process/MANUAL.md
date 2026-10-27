@@ -919,7 +919,7 @@ dispatched one leg per surface. The reasoning, and the rules behind these two st
 | Seam | Where it is configured |
 |---|---|
 | Issue / spec prefix, id validation | `scripts/config.sh` |
-| Trunk name | resolved and confirmed from the remote's published default branch; `<trunk>` defaults to `main` |
+| Trunk name | resolved and confirmed from the remote's published default branch |
 | Status folder set | the `progress/` directory + the kanban scripts |
 | The gate commands | the project doc + `scripts/verify.sh` |
 | The role set + the commit-prefix table | the adapter + `.claude/roles/` |

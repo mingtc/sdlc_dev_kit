@@ -5,7 +5,8 @@
 # scripts/ask.sh and check-board.sh arm [g] both read the `principal:` and channel lines through
 # kit_pm_field, and both judge whether a value is filled through kit_pm_blank, so the two can
 # never disagree about either. The channel's path is read from that line by kit_pm_channel_token,
-# which ask.sh and check-board.sh's answered-question arm share.
+# and kit_pm_channel_dir judges whether it is a directory; ask.sh, register-commit.sh and
+# check-board.sh's answered-question arm share both.
 #
 # kit_pm_field <marker-regex> <file>
 #   Reads the FIRST line in <file> matching <marker-regex> (an awk ERE, the same shape both
@@ -36,7 +37,8 @@ kit_pm_field() {
 #   Echoes the channel PATH a channel line (as kit_pm_field extracted it) names. The channel line is
 #   prose ("dev/questions/, one dated file per question"): the FIRST token that looks like a
 #   repo-relative path is the channel, else the line's first word; a trailing comma is dropped. A
-#   trailing `/` means a directory; a bare filename is a file. scripts/ask.sh (which writes there)
+#   trailing `/` means a directory; a bare name is a directory only if it exists (kit_pm_channel_dir),
+#   else a file. scripts/ask.sh (which writes there)
 #   and check-board.sh's answered-question arm (which reads there) both call this, so the two
 #   cannot name different places.
 kit_pm_channel_token() {

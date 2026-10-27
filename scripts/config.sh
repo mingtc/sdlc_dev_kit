@@ -8,7 +8,7 @@
 # given --prd-prefix; after that, edit them here. A change takes effect on the next invocation;
 # existing files are NOT renamed.
 #
-# Override at runtime via env var, e.g.:
+# Override a scalar knob at runtime via env var (not POST_MERGE_PREP, not the glob arrays), e.g.:
 #   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo --id TEST-001
 #
 # The TRUNK is deliberately NOT a knob here: it resolves from <remote>/HEAD

@@ -192,7 +192,8 @@ fi
 
 # The channel line is prose; lib/pm-field.sh's kit_pm_channel_token reads the path out of it (the
 # same reader check-board.sh's answered-question arm uses). A channel this project chose to write
-# as a bare filename (no trailing slash) is a FILE, not a directory: append to it.
+# as a bare filename is a FILE to append to; a token ending in `/`, or naming an existing
+# directory, is a directory (kit_pm_channel_dir decides).
 CHANNEL_TOKEN="$(kit_pm_channel_token "$CHANNEL_LINE")"
 
 # The channel is a path INSIDE the repository: an absolute one would be re-rooted under it, and a

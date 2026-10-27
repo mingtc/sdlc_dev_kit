@@ -660,7 +660,7 @@ case_finish_pr_board_property_check_refuses_without_the_trunks_declarations() {
   _bpf_end "$id" nodecl
   _bpf_expect_refused "a trunk whose config.sh declares no PRD_PREFIX" "$id" nodecl board-property-unreadable "PRD_PREFIX"
 
-  finish "finish-pr.sh refuses, naming the declaration, when the trunk's check-board.sh does not declare an operand the board-property check needs (refusal=board-property-unreadable)"
+  finish "finish-pr.sh refuses, naming the declaration, when the trunk's check-board.sh or config.sh does not declare an operand the board-property check needs (refusal=board-property-unreadable)"
   teardown
 }
 

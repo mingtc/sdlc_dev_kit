@@ -416,7 +416,7 @@ kit_ablation_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRAN
 #    tree this landing would produce (the trunk with the branch squash-merged and the card moved to
 #    qa_complete/). A finding the branch INTRODUCES refuses; one already on the trunk does not. An
 #    arm whose property the branch does not touch does not run. The operands come from the trunk's
-#    own check-board.sh.
+#    own check-board.sh and config.sh.
 kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" \
   "${SRC#"$KWT"/}" "progress/qa_complete/$(basename "$SRC")"
 

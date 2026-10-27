@@ -4,7 +4,7 @@
 #
 # Kills the server process. Only deletes session directory if it's
 # under /tmp (ephemeral). Persistent directories (.brainstorm/) are
-# kept so mockups can be reviewed later.
+# kept so mockups can be reviewed later. Removes state/server-info and writes state/server-stopped.
 
 SESSION_DIR="$1"
 

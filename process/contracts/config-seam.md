@@ -19,10 +19,10 @@ process is an edit rather than an excavation.
   *Why:* retyped values drift silently; a derived one cannot, and a checked one announces itself.
 - **A value that anything DERIVES TEXTUALLY is declared in ONE EXACT SHAPE, AND THE SHAPE IS
   FIXED PER DECLARATION SITE**, at column 1, whole, on one line (a glob array is the multi-line
-  shape below). No leading whitespace, no line continuation, no alternative spelling of the same expansion. **Which shape depends on whether
-  the value is RUNTIME-OVERRIDABLE:**
+  shape below). No leading whitespace, no line continuation, no alternative spelling of the same
+  expansion. **Which shape depends on whether the value is RUNTIME-OVERRIDABLE:**
   - **overridable — `NAME="${NAME:-value}"`.** The seam file's own values are these, except the
-    declared single-quoted ones below: an adopter or a test can supply them from the environment.
+    declared single-quoted ones and the glob arrays below: an adopter or a test can supply them from the environment.
   - **not overridable — `NAME='value'`.** A value that must be the same for every run of the tool
     that declares it takes the plain single-quoted form, and its readers anchor on THAT shape.
     Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, the
@@ -53,7 +53,7 @@ process is an edit rather than an excavation.
   it announces itself.
 - **A configured value is overridable for one invocation without editing anything.** The
   environment may supply it; the declared default applies otherwise. The exception is a declared
-  single-quoted value (above), which no environment can change.
+  single-quoted value or a glob array (above), which no environment can change.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
   tooling with different values.
 - **NO project-specific value is baked into anything that travels.** A file that travels unedited
@@ -108,7 +108,7 @@ process is an edit rather than an excavation.
 
 ## 5. MINIMAL INTERFACE
 
-**In:** declared names with declared defaults; an environment that may override them, except the declared single-quoted values.
+**In:** declared names with declared defaults; an environment that may override them, except the declared single-quoted values and the glob arrays.
 **Out:** resolved values, plus a shared validation entry point for caller-supplied identifiers.
 **Not in:** any action. The seam answers questions; it never changes the repository.
 
