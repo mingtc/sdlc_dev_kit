@@ -1492,7 +1492,11 @@ case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
 # =============================================================================
 case_qa_evidence_kind_sentences_list_all_five() {
   cf_reset
-  local r="$REAL_REPO_ROOT" f
+  local r="$REAL_REPO_ROOT" f lived
+  lived="$(_tree_has_lived)"
+  if [ -n "$lived" ]; then
+    skp_lived "QA evidence-kind sentences list all five kinds" "README.md and the role files are this project's own once $lived"; return
+  fi
   for f in README.md .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
     [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_list_all_five: no $f in the published kit at $r"
   done
