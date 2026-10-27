@@ -1025,6 +1025,80 @@ case_move_issue_qa_complete_runs_the_ac_drift_check() {
 }
 
 # =============================================================================
+# CASE — A STRAY NON-CARD FILE UNDER todo/ IS NOT THE CARD'S DEPARTURE. A '<ID>-<slug>.md.bak'
+# committed beside the card and later deleted must not become the AC baseline: the card's own
+# todo/ copy is.
+#   (a) the card's ACs are rewritten in todo/ after the stray copy was committed, the stray copy is
+#       deleted, and the card moves through the mover to dev_complete/ and qa_complete/: both moves
+#       land (no false forks-ac-changed-uncited naming the commit that dropped the stray file);
+#   (b) CONTROL: with the stray file still in the history, a real uncited correction after the card
+#       left todo/ is still refused, naming AC1.
+# RED FIRST: (a) fails on a gate whose leave-todo pathspec matches any '<ID>-*' file.
+# =============================================================================
+case_stray_todo_file_is_not_the_cards_departure() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-894" idb="$SB_PREFIX-895" out rc id slug rel f
+  seed_issue todo "$ida" stray chore "Stray copy beside the card"
+  seed_issue todo "$idb" strayctl chore "Stray copy, then a real correction"
+  publish_sandbox
+  _forks_sync
+  for id in "$ida" "$idb"; do
+    slug="stray"; [ "$id" = "$idb" ] && slug="strayctl"
+    cp "$SB_WORK/progress/todo/$id-$slug.md" "$SB_WORK/progress/todo/$id-$slug.md.bak"
+    git -C "$SB_WORK" add "progress/todo/$id-$slug.md.bak" >/dev/null 2>&1
+    sbcommit -m "[PM] $id: keep a copy" --quiet >/dev/null 2>&1
+  done
+  # (a)'s card is rewritten in todo/ while the stray copy still holds the old wording.
+  f="$SB_WORK/progress/todo/$ida-stray.md"
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds)\.$/$1, as the owner specified./' "$f"
+  grep -qF 'as the owner specified.' "$f" || _fixture_die "case_stray_todo_file_is_not_the_cards_departure: the rewrite was not planted"
+  git -C "$SB_WORK" add "progress/todo/$ida-stray.md" >/dev/null 2>&1
+  sbcommit -m "[PM] $ida: rewrite AC1 in todo" --quiet >/dev/null 2>&1
+  for id in "$ida" "$idb"; do
+    slug="stray"; [ "$id" = "$idb" ] && slug="strayctl"
+    git -C "$SB_WORK" rm -q "progress/todo/$id-$slug.md.bak" >/dev/null 2>&1
+    sbcommit -m "[PM] $id: drop the copy" --quiet >/dev/null 2>&1
+  done
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_stray_todo_file_is_not_the_cards_departure: not published"
+  _forks_pickup "$ida"
+  _forks_pickup "$idb"
+
+  # (a)
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the hand-off of a card with a deleted stray todo/ copy exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  _forks_sync
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) qa_complete of a card with a deleted stray todo/ copy exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"AC text changed"*) cf "(a) the stray copy's deletion was taken as the card's departure: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$ida-stray.md" || cf "(a) the card did not reach qa_complete/"
+
+  # (b)
+  _forks_sync
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" >/dev/null 2>&1 ) \
+    || cf "(b) the hand-off of the control card failed"
+  _forks_sync
+  rel="progress/dev_complete/$idb-strayctl.md"
+  f="$SB_WORK/$rel"
+  if [ -f "$f" ]; then
+    perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds)\.$/$1, as the owner clarified in review./' "$f"
+    perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1PASS_AC_CORRECTED$2/' "$f"
+    git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+    sbcommit -m "[QA] $idb: correct AC1 (PASS_AC_CORRECTED)" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_stray_todo_file_is_not_the_cards_departure: the correction was not published"
+    out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "(b) a real uncited AC correction moved to qa_complete (exit 0)"
+    case "$out" in *"citation of its own: AC1"*) : ;; *) cf "(b) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  else
+    cf "(b) the control card is not in dev_complete/"
+  fi
+
+  finish "a stray '<ID>-*' file under todo/ (committed beside the card, later deleted) is not the card's departure: the AC baseline stays the card's own todo/ copy, so the hand-off and qa_complete land with no false forks-ac-changed-uncited; a real uncited AC correction after the card left todo/ is still refused naming AC1"
+  teardown
+}
+
+# =============================================================================
 # CASE — A CARD'S `branch:` RESOLVES THROUGH ONE FUNCTION, FOR EVERY CALLER.
 # subtask.sh, move-issue.sh and kit-upgrade.sh read the card's code at its branch tip. Shapes are
 # planted in a throwaway repo and resolved by lib/branch-rev.sh; each caller is then proved to

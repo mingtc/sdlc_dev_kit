@@ -743,7 +743,7 @@ _forks_sub_excl_for() {
 #   content: card templates are mostly boilerplate, so a similarity-following history read
 #   (log --follow) can report a new card as a copy of an earlier, similar one and continue down THAT
 #   card's history. So this reads by the id-anchored path: the earliest <old-rev> commit that deleted
-#   a 'todo/<id>-*' file, with --no-renames (a move out of todo/ is then a plain delete there); the
+#   a 'todo/<id>-*.md' file, with --no-renames (a move out of todo/ is then a plain delete there); the
 #   card's text as it stood in todo/ is that commit's parent's copy.
 kit_card_leave_todo() {
   local issue_id="$1" repo="$2" old_rev="$3" log line commit="" lc="" lp="" excl
@@ -751,11 +751,11 @@ kit_card_leave_todo() {
   excl="$(_forks_sub_excl_for "$issue_id")"
   [ -z "$excl" ] || sub_excl=("$excl")
   log="$(git -C "$repo" log --no-renames --diff-filter=D --name-only \
-    --format='COMMIT %H' "$old_rev" -- ":(glob)**/todo/${issue_id}-*" ${sub_excl[@]+"${sub_excl[@]}"} 2>/dev/null || true)"
+    --format='COMMIT %H' "$old_rev" -- ":(glob)**/todo/${issue_id}-*.md" ${sub_excl[@]+"${sub_excl[@]}"} 2>/dev/null || true)"
   while IFS= read -r line; do
     case "$line" in
       COMMIT*) commit="${line#COMMIT }"; continue ;;
-      */todo/"${issue_id}"-*) lc="$commit"; lp="$line" ;;
+      */todo/"${issue_id}"-*.md) lc="$commit"; lp="$line" ;;
     esac
   done <<< "$log"
   # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
@@ -946,7 +946,7 @@ kit_forks_check() {
   # hand-off, or after a bounce back out of dev_complete/, it ends at the trunk tip.
   _forks_win_end="$old_rev"; _forks_win_bound="the trunk tip"
   _forks_win_log="$(git -C "$repo" log --no-renames --diff-filter=AD --name-status \
-    --format='COMMIT %H' "$old_rev" -- ":(glob)**/dev_complete/${issue_id}-*" ${_forks_sub_excl[@]+"${_forks_sub_excl[@]}"} 2>/dev/null || true)"
+    --format='COMMIT %H' "$old_rev" -- ":(glob)**/dev_complete/${issue_id}-*.md" ${_forks_sub_excl[@]+"${_forks_sub_excl[@]}"} 2>/dev/null || true)"
   while IFS= read -r _fwe_line; do
     case "$_fwe_line" in
       COMMIT*) _fwe_commit="${_fwe_line#COMMIT }" ;;
