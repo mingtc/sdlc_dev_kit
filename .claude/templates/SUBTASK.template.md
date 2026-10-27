@@ -31,7 +31,7 @@ forks: none              # or a bracketed list [D-NN, ...], one id per fork reso
 
 # <PREFIX>-NNN-sM — <one-line summary>
 
-> A **subtask** of `<parent card>`, on the main board. It lives under
+> A **subtask** of `<parent card>`, on the board. It lives under
 > `progress/subtasks/<PREFIX>-NNN/`, in the folder that is its status. The parent advances to
 > `qa_complete/` only when every subtask has reached `qa_complete/` or been declined with its reason;
 > the mover, the lander and the sweep refuse it otherwise. Move this card with `scripts/subtask.sh`, not `move-issue.sh`.

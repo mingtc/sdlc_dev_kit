@@ -940,6 +940,55 @@ case_kit_init_stamps_any_legal_trunk() {
 }
 
 # =============================================================================
+# CASE — a non-main trunk is stamped where the docs mean the trunk, never where they mean a place
+#
+# The stamp rewrites every whole-word `main` in the role docs and templates. A sentence that uses the word
+# for the checkout, the session or the board is not about the trunk, so it must not say `main`: stamped, it
+# would read "the develop checkout". The expected strings are typed here, not read from the tree judged.
+# =============================================================================
+case_kit_init_trunk_stamp_spares_main_as_a_place() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --trunk develop: places stay places" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init --trunk develop: places stay places" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local t='develop' out rc old r f flat
+  kit_init_sandbox
+  publish_sandbox
+  old="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
+  if [ "$old" != "main" ] || ! grep -rqE '(^|[^A-Za-z])main([^A-Za-z]|$)' "$SB_WORK/.claude/roles" 2>/dev/null; then
+    teardown
+    skp "kit-init --trunk develop: places stay places" "the role docs name no 'main' to stamp (an adopted tree's docs carry its own trunk)"
+    return
+  fi
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK:refs/heads/$t" >/dev/null 2>&1 \
+    && git -C "$SB_ORIGIN" symbolic-ref HEAD "refs/heads/$t" \
+    && git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1 \
+    && git -C "$SB_WORK" checkout -q -b "$t" "origin/$t" \
+    && git -C "$SB_WORK" remote set-head origin "$t" >/dev/null \
+    || _fixture_die "case_kit_init_trunk_stamp_spares_main_as_a_place: could not make '$t' the remote's trunk."
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$t" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init --trunk $t exited $rc: $(printf '%s' "$out" | grep -m2 -E 'sed:|✗' | tr '\n' '|' | cut -c1-200)"
+  for r in .claude/roles/dev.md .claude/roles/orchestrator.md .claude/roles/qa.md .claude/roles/architect.md .claude/templates/SUBTASK.template.md; do
+    f="$SB_WORK/$r"
+    [ -f "$f" ] || { cf "$r is absent from the stamped tree"; continue; }
+    flat="$(tr '\n' ' ' < "$f")"
+    if grep -qE "$t (checkout|board|session)|below the $t" <<<"$flat"; then
+      cf "$r: a place reads as the trunk ('$t checkout', '$t board', '$t session', 'below the $t')"
+    fi
+  done
+  grep -qF 'primary checkout' "$SB_WORK/.claude/roles/dev.md" || cf "dev.md no longer says 'primary checkout' for the checkout"
+  grep -qF 'primary checkout' "$SB_WORK/.claude/roles/orchestrator.md" || cf "orchestrator.md no longer says 'primary checkout' for the checkout"
+  grep -qF 'primary checkout' "$SB_WORK/.claude/roles/qa.md" || cf "qa.md no longer says 'primary checkout' for the checkout"
+  flat="$(tr '\n' ' ' < "$SB_WORK/.claude/roles/architect.md")"
+  grep -qE 'below the top-level( >)? session' <<<"$flat" \
+    || cf "architect.md no longer says 'top-level session' for the session"
+  grep -qF 'on the board' "$SB_WORK/.claude/templates/SUBTASK.template.md" || cf "SUBTASK.template.md no longer says 'on the board'"
+  grep -qF "(default \`$t\`)" "$SB_WORK/.claude/roles/dev.md" || cf "dev.md's trunk clause was not stamped to \`$t\`"
+  grep -qF "from the primary checkout on the trunk" "$SB_WORK/.claude/roles/dev.md" || cf "dev.md does not name the trunk where it means the trunk"
+  teardown
+  finish "kit-init --trunk develop: a place stays a place, the trunk is stamped where it is meant"
+}
+
+# =============================================================================
 # CASE — kit-init matches the seams' current defaults literally, or refuses them
 #
 # The old name, prefix and trunk are read from the seams, not typed, so a hand-edited default

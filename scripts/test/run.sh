@@ -594,6 +594,7 @@ CASES=(
   case_kit_init_roles_leave_no_seam
   case_kit_init_roles_refuses_what_it_cannot_stamp
   case_kit_init_stamps_any_legal_trunk
+  case_kit_init_trunk_stamp_spares_main_as_a_place
   case_kit_init_matches_old_values_literally
   case_kit_init_stamps_project_md
   case_kit_init_signs_with_the_pre_role_hat

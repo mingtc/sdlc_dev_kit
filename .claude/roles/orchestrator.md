@@ -626,18 +626,18 @@ Inherited from Dev: **code lives on the worktree/work branch; kanban state and m
 on the trunk.** `move-issue.sh` / `finish-pr.sh` enforce this with a **standing detached kanban
 worktree**: they resolve the real repo root via `git rev-parse --git-common-dir` and do the
 move + commit + push there, never switching the operator's checkout. The scripts are therefore
-safe to run **from anywhere** (the main checkout, a feature worktree, or the kanban worktree
+safe to run **from anywhere** (the primary checkout, a feature worktree, or the kanban worktree
 itself), with any working-tree state.
 
 Two things a worktree still costs you, and the rule that follows:
 
-- A fresh worktree does **not** share the main checkout's installed environment, so isolation
+- A fresh worktree does **not** share the primary checkout's installed environment, so isolation
   costs one setup run inside it.
 - If the harness sanitizes worktree branch names (e.g. `/`→`+`), rename back to the canonical
   `feature/<PREFIX>-NNN-<slug>` after creating the worktree.
 
 So: **use a worktree when QA needs to review while Dev continues; use a plain work branch in
-the main checkout when Dev→QA is sequential.**
+the primary checkout when Dev→QA is sequential.**
 
 **The trunk push is built in.** `move-issue.sh` syncs the kanban worktree to the remote trunk
 before each move and **pushes after each commit** — the orchestrator never pushes the trunk by

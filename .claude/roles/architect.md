@@ -85,7 +85,7 @@ conversation with the PM. One person per side; the architect is a **succession o
 ## Delegation patterns
 
 > **Nesting constraint:** how deep agents nest is the harness's limit; on the harness measured
-> (2026-10-07, `.claude/skills/orchestrate/SKILL.md`), subagents nest two spawns deep below the main
+> (2026-10-07, `.claude/skills/orchestrate/SKILL.md`), subagents nest two spawns deep below the top-level
 > session and the third level has no Agent tool. So plan as if agents the seat spawns **cannot spawn
 > subagents of their own** — one level deep from the seat — unless the seat has measured otherwise
 > on its own harness. Fresh-eyes isolation therefore comes either from the
