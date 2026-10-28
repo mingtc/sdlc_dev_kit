@@ -234,7 +234,7 @@ leaving it to whoever dispatches.**
 | UI-Designer | `.claude/roles/archive/ui-designer.md` | no (parked) | <reason — waking it is every step in the doc's § What this role needs before it can be woken, not a move> |
 | <your own role> | `<doc>` | <yes/no> | — |
 
-**The Refactorer and the files that serve it are optional** (`process/EXTRACTION.md` § The second axis): a project that removes them writes `no` and the reason on that row, and removes the Refactorer row from the ladder in `.claude/roles/orchestrator.md` (`scripts/set-models.sh` reads the ladder to know which pin files exist).
+**The Refactorer and the files that serve it are optional** (`process/EXTRACTION.md` § The second axis): a project that removes them writes `no` and the reason on that row, and removes the Refactorer row from the ladder in `.claude/roles/orchestrator.md` (how `scripts/set-models.sh` reads the ladder: [`process/contracts/model-provisioning-seam.md`](process/contracts/model-provisioning-seam.md)).
 
 **The role set is a configuration seam**, not prose: whatever you decide here must match
 the adapter's roles table ([`AGENTS.md`](AGENTS.md), from SEED step 5) and the role alternation your commit-attribution guard

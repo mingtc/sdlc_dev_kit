@@ -1004,9 +1004,6 @@ fi
 say "  progress/: ${#BOARD_FOLDERS[@]} folders, ${KEEPS}/${GITKEEP_EXPECTED} .gitkeep files ✓"
 
 if [ ! -f "$ROOT/progress.md" ]; then
-  # The columns a person lists to see the board: the status folders but the terminal done/.
-  LS_COLS=""
-  for _c in "${STATUS_FOLDERS[@]}"; do [ "$_c" = done ] || LS_COLS="$LS_COLS progress/$_c/"; done
   cat > "$ROOT/progress.md" <<EOF
 # progress.md
 
@@ -1016,8 +1013,8 @@ this file is the *history*.
 
 ## Status quick reference
 
-Run \`ls${LS_COLS}\`
-to see the board. \`declined/\` is terminal — a card considered and refused, kept for the reason it carries. Each filename is \`${PREFIX}-NNN-<slug>.md\`; the folder is the status.
+Run \`ls \$(ls -d progress/*/ | grep -v -e /done/ -e /history/)\`
+to see the board (all but the long \`done/\` and \`history/\`). \`declined/\` is terminal — a card considered and refused, kept for the reason it carries. Each filename is \`${PREFIX}-NNN-<slug>.md\`; the folder is the status.
 \`./scripts/check-board.sh\` reports board drift. Older entries rotate into
 \`progress/history/\` via \`./scripts/archive-progress.sh\`.
 

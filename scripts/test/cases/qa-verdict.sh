@@ -1486,9 +1486,9 @@ case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
 # =============================================================================
 # CASE — THE SENTENCES THAT LIST THE QA EVIDENCE KINDS NAME ALL FIVE, AND THE DISPATCHED-LEG RULING IS
 # STATED WHERE QA AND THE WORKERS READ IT. Expectations are written out, not derived: the README
-# sentence lists `artifact`; qa.md no longer says 'one file per row' (a row lists every `<path> sha`
-# pair) and says a dispatched leg never reads the image; the QA worker may cite an artifact row;
-# dev.md no longer points at 'the evidence directory'.
+# sentence cites KIT_QAV_KINDS and that declaration lists `artifact`; qa.md no longer says 'one file
+# per row' (a row lists every `<path> sha` pair) and says a dispatched leg never reads the image; the
+# QA worker may cite an artifact row; dev.md no longer points at 'the evidence directory'.
 # =============================================================================
 case_qa_evidence_kind_sentences_list_all_five() {
   cf_reset
@@ -1497,11 +1497,13 @@ case_qa_evidence_kind_sentences_list_all_five() {
   if [ -n "$lived" ]; then
     skp_lived "QA evidence-kind sentences list all five kinds" "README.md and the role files are this project's own once $lived"; return
   fi
-  for f in README.md .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
+  for f in README.md scripts/lib/qa-gate.sh .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
     [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_list_all_five: no $f in the published kit at $r"
   done
-  grep -q 'a fixture diff, an artifact' "$r/README.md" \
-    || cf "README.md's QA-verdict sentence does not list the artifact evidence kind"
+  grep -q 'KIT_QAV_KINDS' "$r/README.md" \
+    || cf "README.md's QA-verdict sentence does not cite KIT_QAV_KINDS, the one declaration of the evidence kinds"
+  grep -q "^KIT_QAV_KINDS='test file:line gate-diff fixture-diff artifact'$" "$r/scripts/lib/qa-gate.sh" \
+    || cf "scripts/lib/qa-gate.sh's KIT_QAV_KINDS does not list all five kinds, artifact included"
   ! grep -q 'one file per row' "$r/.claude/roles/qa.md" \
     || cf "qa.md still says 'one file per row', which reads as a limit the gate does not have"
   grep -q 'lists every `<path> sha` pair it cites' "$r/.claude/roles/qa.md" \
@@ -1512,5 +1514,5 @@ case_qa_evidence_kind_sentences_list_all_five() {
     || cf "qa-worker.md does not allow citing an artifact row"
   ! grep -q "evidence directory" "$r/.claude/roles/dev.md" \
     || cf "dev.md still says 'the evidence directory', whose referent is now dev/evidence/"
-  finish "README lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
+  finish "README cites KIT_QAV_KINDS and the declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
 }

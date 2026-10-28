@@ -173,8 +173,8 @@ woken is the full list; believe that section over this one.
   follows it. Works regardless of which role hat you are wearing.
 - **From inside a role session:** the role docs in [`../roles/`](../roles/) say which skills
   auto-trigger for that role and which to invoke manually, alongside the role's session-start
-  phrase and file conventions. Start there for an end-to-end PM, Dev, QA, Refactorer, Orchestrator or Architect
-  workflow; the adapter (`AGENTS.md`) explains how to pick a hat.
+  phrase and file conventions. Start there for an end-to-end workflow in any role; the adapter (`AGENTS.md`) explains how
+  to pick a hat.
 
 ## Provenance & licensing
 
@@ -230,7 +230,7 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
 | `start` | Authored for this kit | Same as this repo | `KIT` |
 | `finishing-a-development-branch` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
-| `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; and a leaf worker self-reviews and reports an independent review owed; a blind re-copy erases it |
+| `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge", because the Dev does not land (`process/MANUAL.md` § The Dev → QA handoff); and a leaf worker self-reviews and reports an independent review owed; a blind re-copy erases it |
 | `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
 | `using-skills` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries repaired citations, names this kit's implementation skills and ends with a kit note for a seat with nobody watching (decide through `scripts/ask.sh`, record, continue); a blind re-copy erases it |
 | `using-git-worktrees` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — setup commands demoted to named examples, an external-directory note, the branch taken from the card's `branch:` and the Dev role's worktree table as the declared preference, and its steps numbered consecutively (setup is Step 2); a blind re-copy erases it |

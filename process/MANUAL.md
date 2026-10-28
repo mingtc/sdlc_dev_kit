@@ -60,10 +60,9 @@ selection-neutrality — are the whole of what an adopter owes.
 
 1. **Read the project doc.** What the project is, the stack/run commands, the quality bar, and
    the binding gates.
-2. **Check the board.** List the status folders (`ls progress/todo/ progress/in_progress/
-   progress/dev_complete/ progress/qa_complete/ progress/blocked/ progress/declined/`) — each
-   filename is `<PREFIX>-NNN-<slug>.md` (the prefix comes from `scripts/config.sh`); **the folder
-   is the status**. `declined/` is terminal and usually short, and it is here rather than left out
+2. **Check the board.** List the status folders (`ls $(ls -d progress/*/ | grep -v -e /done/ -e /history/)`: all but
+   the long, terminal `done/` and `history/`) — each filename is `<PREFIX>-NNN-<slug>.md` (the prefix comes from `scripts/config.sh`); **the folder
+   is the status**. `declined/` is terminal and usually short, and it is listed rather than left out
    because a refusal you do not see is a refusal you re-argue. Run
    **`./scripts/check-board.sh`** for a drift report.
 3. **Pick a hat.** Say which role you are wearing (see § Roles as hats). The role doc in
@@ -217,8 +216,8 @@ version control by the initializer, not left for each actor to discover
 - **The folder is the status.** Move an issue with **`./scripts/move-issue.sh <ID> <target>
   --role <Role> --note "…"`** — never by hand, and never duplicate status into frontmatter.
   The target set is the **status folder set** (a configuration seam — see
-  [`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE); a stock installation ships
-  `todo | in_progress | dev_complete | qa_complete | blocked | done | declined`.
+  [`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE): `KIT_STATUS_FOLDERS` in
+  `scripts/lib/status-folders.sh` declares it, and `./scripts/move-issue.sh --help` prints it.
 - **`declined/` is where a refusal lives, and the reason is the point.** A card that was
   considered and rejected has nowhere else to go: left in `todo/` it misrepresents itself as
   pending work, and deleted it takes its reasoning with it — so the next person to propose the
@@ -297,7 +296,8 @@ it; take the lite path otherwise.
 ## The Dev → QA handoff (the boundary)
 
 The one hard boundary in the process. Dev hands a `dev_complete/` issue to QA; QA lands it or
-bounces it.
+bounces it, and never rewrites a branch it reviewed: the verdict is of those commits, and a rebase
+is the Dev's act.
 
 1. **Dev reaches `dev_complete`.** Work branch pushed; the project's gates green; self-review
    done (`requesting-code-review` / `verification-before-completion`). Dev moves the issue

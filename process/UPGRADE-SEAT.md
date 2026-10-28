@@ -62,8 +62,8 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
 3. **Work the checklist item by item**, mark each `- [x]` as it is done, and land the marks once every
    item is marked, or when you stop short, so the next session reads them. An item that tells you to
    rename or replace a file that governs you is covered by the authority above.
-   An **Action required** item ending `Verify: <command>` is run by `--finish` against the tree: mark it
-   only when the work is done, never to get past it. An item you cannot apply as written is a `K-NN` in
+   Mark an **Action required** item only when its work is done, never to get past its `Verify:` line
+   (`--finish` runs it against the tree: [`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 7). An item you cannot apply as written is a `K-NN` in
    `process/KIT-FEEDBACK.md` (kit feedback is off if `PROJECT.md` says so); an item blocked on the
    project's own decision is a card on its board.
 4. **Verify the kit's side, in the worktree:** `./scripts/test/run.sh`. It runs longer than one tool call:

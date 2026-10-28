@@ -23,8 +23,8 @@ This file answers *what happened*; that register answers *what is true now*.
 
 ## Status quick reference
 
-Run `ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/ progress/declined/`
-to see the board. `declined/` is terminal — a card considered and refused, kept for the reason it carries. Each filename is `<PREFIX>-NNN-<slug>.md`; the folder is the
+Run `ls $(ls -d progress/*/ | grep -v -e /done/ -e /history/)`
+to see the board (all but the long `done/` and `history/`). `declined/` is terminal — a card considered and refused, kept for the reason it carries. Each filename is `<PREFIX>-NNN-<slug>.md`; the folder is the
 status. `./scripts/check-board.sh` reports board drift. Older entries rotate into
 `progress/history/` via `./scripts/archive-progress.sh`.
 

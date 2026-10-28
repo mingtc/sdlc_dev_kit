@@ -261,8 +261,8 @@ you want to know how a stranger meets what you shipped.
   empty.** Both ship empty on purpose, which their own comments in that file read as UNDECLARED —
   UNENFORCED, not "no code or tests exist" — so `scripts/githooks/pre-commit` and
   `scripts/finish-pr.sh`'s ablation check stay silently off until you act. Fill either with your
-  globs, or, if a seam genuinely has none, add its one `# DECLARED EMPTY — <why>` comment line
-  inside the array's parens (the mechanical form config.sh documents beside each array) —
+  globs, or, if a seam genuinely has none, declare it empty on purpose in the form config.sh
+  documents beside each array —
   `./scripts/check-board.sh`'s `[g]` arm measures both and reports which. **Name `scripts/test/*`
   in `TEST_GLOBS` beside your own test paths** (`*` matches across `/`; `**` is not special): it is the kit's own
   self-test, and an edit to it is ablation-checked only if a glob covers it — `"test/*"` does not,
@@ -276,8 +276,8 @@ you want to know how a stranger meets what you shipped.
   if sessions here will ever run in parallel, the standing-obligations line step 8 seeds**, because
   that one cannot be carried by a prompt;
 - **`PRD-001` exists** (step 6) and the first issue cites it;
-- **the role docs' `Model & effort contract` rows are filled.** `./scripts/set-models.sh` writes the
-  leaf-worker pins and the orchestrator's ladder, not the tables in the role docs themselves;
+- **the role docs' `Model & effort contract` rows are filled.** `./scripts/set-models.sh` does not fill
+  them (what it writes: `process/contracts/model-provisioning-seam.md`);
   `check-board`'s `[s]` counts the rows still `<fill in>` (it reports, it does not gate). A role doc
   removed under `DELETE-IF-UNUSED` takes its rows with it;
 - **one** issue has gone `todo → in_progress → dev_complete → qa_complete` with its evidence in its

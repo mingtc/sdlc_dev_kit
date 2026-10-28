@@ -68,10 +68,9 @@ You are acting as the Product Manager. Before doing anything:
    architect seat's own memory is a separate, harness-provided store and
    is not a worker read.
 3. Read progress.md — last 50 lines or last session's entries.
-4. ls progress/todo/ progress/in_progress/ progress/dev_complete/ \
-      progress/qa_complete/ progress/blocked/ progress/declined/
-      — see the board. declined/ is yours and is the one column here
-      that is terminal: read it before minting, so a proposal that was
+4. ls $(ls -d progress/*/ | grep -v -e /done/ -e /history/)
+      — see the board (all but the long `done/` and `history/`). declined/ is yours and is the
+      one column here that is terminal: read it before minting, so a proposal that was
       already refused meets its refutation instead of being re-argued.
 5. ls requirements/ — see existing PRDs.
 6. Read any PRD or issue file relevant to today's task.

@@ -56,20 +56,21 @@ exceptions (throwaway prototypes, generated code) rather than a vague "use your 
 
 **QA verdicts are evidence, not a vibe.** Every issue's QA pass produces a `## QA Verdict` table,
 one row per acceptance criterion, each row naming its own verdict, the *kind* of evidence behind it
-(a test, a `file:line`, a gate diff, a fixture diff, an artifact QA committed on the trunk), and a pointer to that evidence — so a reviewer
-checks the row's claim against its own proof, not against a paragraph summarizing it. Verdicts are
+(one of the kinds `KIT_QAV_KINDS` declares in `scripts/lib/qa-gate.sh`), and a pointer to that
+evidence — so a reviewer checks the row's claim against its own proof, not against a paragraph summarizing it. Verdicts are
 one of four stable tokens (`PASS`, `PASS_AC_CORRECTED`, `FAIL_AC`, `FAIL_REGRESSION`), and the table
 carries a dedicated check for the easy-to-miss failure mode: a new check silently shadowing an older
 one's coverage, so the suite stays green while a real gap opens underneath it.
 
-**The kanban board lives in your filesystem — the folder IS the status.** `progress/todo/`,
-`in_progress/`, `dev_complete/`, `qa_complete/`, `blocked/`, `done/`, `declined/` — moving an issue
-between them is the status change, done through one script (never a bare `mv`) so the move, the
-issue's own frontmatter, and the commit that recorded it can never drift apart. A drift report
+**The kanban board lives in your filesystem — the folder IS the status.** Each status is a
+folder under `progress/` (`scripts/lib/status-folders.sh` declares them; `./scripts/move-issue.sh --help`
+prints them) — moving an issue between them is the status change, done through one script (never
+a bare `mv`) so the move, the issue's own frontmatter, and the commit that recorded it can never
+drift apart. A drift report
 (`check-board.sh`) catches it, quickly, if they ever do.
 
-**Roles worn as hats, not separate people.** One agent (or one human) can be PM, Dev, QA, or
-(optionally) Orchestrator, Architect or Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
+**Roles worn as hats, not separate people.** One agent (or one human) can wear any role in
+`.claude/roles/` — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
 boundary is hard**: Dev's own "it's done" is never the landing signal, QA's verdict is, and nothing
 lands on the trunk without passing through it.
 

@@ -113,8 +113,8 @@ reads, so they happen exactly once — read only what is **not yet in context**:
    index flags as relevant). Repo-local by design, so it resolves on a fresh clone; the
    architect seat's own memory is a SEPARATE, harness-provided store and is not a worker read.
 4. `progress.md` — recent entries; honor any resume pointer.
-5. `ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/` and
-   `ls progress/subtasks/ 2>/dev/null` — the board, including any in-flight decomposition.
+5. `ls $(ls -d progress/*/ | grep -v -e /done/ -e /declined/ -e /history/)` — the board, including
+   any in-flight decomposition (`progress/subtasks/`).
    **`done/` and `declined/` are left out deliberately — both are terminal, and nothing in
    either is runnable.** You land PASSes in `qa_complete/` via the landing script as usual;
    `archive.sh` sweeps to `done/` later. **Declining is PM's call, never yours**: an issue you
