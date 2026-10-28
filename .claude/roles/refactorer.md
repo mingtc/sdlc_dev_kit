@@ -52,11 +52,10 @@ table below is this project's **instance**, and the full ladder lives in
 > `scripts/set-models.sh` writes that pin and the orchestrator's ladder row together but not this table, which stays hand-kept.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
-harness-managed in Claude Code, not a project knob. *Until that ceiling is written it is the tier
-the seat is running — and the seat's own class is never the cap, because the seat is the
-**human-partnered** architect instance rather than a **provisionable** worker*
-(`process/doctrine/model-provisioning.md` § B.2).
+effort, anywhere**; **never spawn above the project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2,
+which also says what binds while it is unwritten), and `max_tokens` is harness-managed in Claude
+Code, not a project knob. The seat is the **human-partnered** architect instance, not a
+**provisionable** worker.
 
 **The leaf clause: a worker spawned for the Refactorer hat does not spawn subagents** — it
 audits and plans directly, in its own context. Coordinator-level fan-out is the seat's and the

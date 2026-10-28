@@ -45,9 +45,7 @@ the caller's, through the mechanisms in `process/doctrine/model-provisioning.md`
 is justified by novel interaction design or accessibility-critical surfaces, not by volume.
 The lowest effort tier is never used; never the maximum; **never design and implement in the
 same dispatch** — implementation is the Dev worker's, from your handoff. **Never spawn above the
-project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling
-is written, it is the tier the seat is running). The seat is human-partnered, not a provisionable
-worker, and its class is not a ceiling.
+project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2, which also says what binds while it is unwritten). The seat is human-partnered, not a provisionable worker.
 
 ## You are a leaf worker
 

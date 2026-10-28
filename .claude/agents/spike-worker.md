@@ -30,9 +30,7 @@ through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms, or on the spawn call where the spawn tool's own parameter list carries `effort`. The lowest effort tier is **never used**; **never
 `max` effort**; **never spawn above the project's sanctioned ceiling**
-(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
-seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a
-ceiling.
+(`process/doctrine/model-provisioning.md` § B.2, which also says what binds while it is unwritten). The seat is human-partnered, not a provisionable worker.
 
 ## You are a leaf worker
 
