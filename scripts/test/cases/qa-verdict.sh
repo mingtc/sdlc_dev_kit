@@ -427,7 +427,7 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
 
 # =============================================================================
 # CASE — A TABLE OF ONLY UNQUOTED-KIND ROWS REFUSES (qa-verdict-no-observed); one quoted-kind row
-# beside them lands. Kinds: KIT_QAV_KINDS in scripts/lib/qa-gate.sh.
+# beside them lands. Kinds: kit_qa_evidence_kinds in scripts/lib/qa-gate.sh.
 # =============================================================================
 case_finish_pr_qa_verdict_unquoted_kinds_only_refuses() {
   cf_reset
@@ -1485,7 +1485,7 @@ case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
 # =============================================================================
 # CASE — THE QA EVIDENCE-KIND SENTENCES CITE THE DECLARATION, AND THE DISPATCHED-LEG RULING IS
 # STATED WHERE QA AND THE WORKERS READ IT. Expectations are written out, not derived: the README
-# sentence cites KIT_QAV_KINDS and that declaration lists `artifact`; qa.md no longer says 'one file
+# sentence cites kit_qa_evidence_kinds and the built-in declaration it reads lists `artifact`; qa.md no longer says 'one file
 # per row' (a row lists every `<path> sha` pair) and says a dispatched leg never reads the image; the
 # QA worker may cite an artifact row; dev.md no longer points at 'the evidence directory'.
 # =============================================================================
@@ -1499,10 +1499,19 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
   for f in README.md scripts/lib/qa-gate.sh .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
     [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no $f in the published kit at $r"
   done
-  grep -q 'KIT_QAV_KINDS' "$r/README.md" \
-    || cf "README.md's QA-verdict sentence does not cite KIT_QAV_KINDS, the one declaration of the evidence kinds"
-  grep -q "^KIT_QAV_KINDS='test file:line gate-diff fixture-diff artifact'$" "$r/scripts/lib/qa-gate.sh" \
-    || cf "scripts/lib/qa-gate.sh's KIT_QAV_KINDS does not list all five kinds, artifact included"
+  grep -q 'kit_qa_evidence_kinds' "$r/README.md" \
+    || cf "README.md's QA-verdict sentence does not cite kit_qa_evidence_kinds, the one reader of the evidence kinds"
+  grep -q "^KIT_QAV_KINDS_BUILTIN='test file:line gate-diff fixture-diff artifact'$" "$r/scripts/lib/qa-gate.sh" \
+    || cf "scripts/lib/qa-gate.sh's KIT_QAV_KINDS_BUILTIN does not list all five kinds, artifact included"
+  ! grep -qE '^KIT_QAV_KINDS=' "$r/scripts/lib/qa-gate.sh" \
+    || cf "scripts/lib/qa-gate.sh still declares KIT_QAV_KINDS, a second home beside kit_qa_evidence_kinds"
+  for f in .claude/templates/ISSUE.template.md .claude/templates/BUG.template.md .claude/templates/REFACTOR.template.md .claude/templates/SUBTASK.template.md; do
+    [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no $f in the published kit at $r"
+    ! grep -q 'KIT_QAV_KINDS' "$r/$f" || cf "$f still cites the variable KIT_QAV_KINDS, which the evidence kinds no longer live in"
+    grep -q 'kit_qa_evidence_kinds' "$r/$f" || cf "$f's QA-verdict note does not cite kit_qa_evidence_kinds"
+  done
+  ! grep -q 'KIT_QAV_KINDS' "$r/process/contracts/landing-gate.md" \
+    || cf "process/contracts/landing-gate.md still cites the variable KIT_QAV_KINDS"
   ! grep -q 'one file per row' "$r/.claude/roles/qa.md" \
     || cf "qa.md still says 'one file per row', which reads as a limit the gate does not have"
   grep -q 'lists every `<path> sha` pair it cites' "$r/.claude/roles/qa.md" \
@@ -1513,5 +1522,5 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
     || cf "qa-worker.md does not allow citing an artifact row"
   ! grep -q "evidence directory" "$r/.claude/roles/dev.md" \
     || cf "dev.md still says 'the evidence directory', whose referent is now dev/evidence/"
-  finish "README cites KIT_QAV_KINDS and the declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
+  finish "README and the four card templates cite kit_qa_evidence_kinds and its built-in declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
 }

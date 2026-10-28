@@ -4,7 +4,9 @@
 # scripts/test/cases/extension-points.sh — sourced by scripts/test/run.sh, never run on its own.
 # Each case adds through an extension point exactly as a project would (a file, not an edit to a
 # script), proves every reader of that point takes it up, removes it, and proves they refuse again.
-# The role set's layers (process/ROLES, process/roles.d/) are the point pinned here.
+# The points pinned here: the role set's layers (process/ROLES, process/roles.d/), the board
+# report's arms (scripts/check-board.d/), the QA evidence kinds (process/evidence-kinds.d/) and the
+# shared-file blocks (scripts/lib/marker-block.sh).
 # =============================================================================
 
 # _rl_hook <role> — the commit-msg hook's status on a subject carrying that tag.
@@ -240,4 +242,578 @@ case_process_roles_ships_with_no_role_line() {
   n="$(awk '{ sub(/#.*/, ""); if (NF) c++ } END { print c + 0 }' "$probe")"; rm -f "$probe"
   [ "$n" -eq 1 ] || cf "(control) the line count read $n for a file with one role line"
   finish "$L"
+}
+
+# =============================================================================
+# CASE — A check-board.d ARM'S OUTPUT IS IN THE REPORT, AN ABSENT DIRECTORY IS A NO-OP, AND NO ARM
+# CAN CHANGE THE EXIT OR END THE RUN.
+#   The contract is process/contracts/drift-report.md § 5. Every status is driven: 0, 3, 1 (what a
+#   `grep` that found nothing returns), another, and an arm that declares nothing. Expectations are
+#   written out, never read back from the report they judge.
+# =============================================================================
+case_check_board_runs_check_board_d_arms_and_cannot_be_ended_by_one() {
+  cf_reset
+  make_sandbox
+  publish_sandbox   # the report then reads origin/<trunk>, a tree other than the checkout the arms sit in
+  local dir="$SB_WORK/scripts/check-board.d" out rc base_verdict verdict hdr filt keep
+
+  # (a) ABSENT directory: no `[+` line, the exit is 0, the closing verdict line is there.
+  rm -rf "$dir"
+  out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) check-board exited $rc with no check-board.d/ (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -F '[+' >/dev/null && cf "(a) a check-board.d header printed with no check-board.d/"
+  base_verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+  [ -n "$base_verdict" ] || cf "(a) (control) no closing verdict line in the baseline run: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  # The rows below compare against this baseline: a dirty one would leave every row that expects a
+  # CHANGE green by accident.
+  case "$base_verdict" in
+    *clean*) : ;;
+    *) _fixture_die "case_check_board_runs_check_board_d_arms_and_cannot_be_ended_by_one: the sandbox baseline verdict is not clean ('$base_verdict'), so no row below can show an arm moving it: $(printf '%s' "$out" | grep '⚠' | head -3 | tr '\n' '|')" ;;
+  esac
+
+  # (a2) an EMPTY directory, and a directory holding only a README or helpers, are the same no-op.
+  mkdir -p "$dir"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F '[+' >/dev/null && cf "(a2) an empty check-board.d/ printed an arm header"
+  printf '%s\n' '# not an arm' > "$dir/README.md"; printf 'echo SHOULD-NOT-RUN\n' > "$dir/helper.sh"; printf 'echo SHOULD-NOT-RUN\n' > "$dir/1-short.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F 'SHOULD-NOT-RUN' >/dev/null && cf "(a2) a file that is not [0-9][0-9]-*.sh was run"
+  rm -f "$dir/README.md" "$dir/helper.sh" "$dir/1-short.sh"
+
+  # (b) two arms: both print, in FILE-NAME order, under their own header, with the operands the
+  #     contract names; an arm that sets `drift` and moves away in its own subshell changes nothing.
+  cat > "$dir/20-second.sh" <<'ARM'
+# check-board-arm: advisory
+echo "      second arm ran; tree=${CB_TREE:+set} root=${REPO_ROOT:+set} lib=${CB_LIB_DIR:+set} src=$(cb_src | head -1 | cut -c1-9)"
+ARM
+  cat > "$dir/10-first.sh" <<'ARM'
+# check-board-arm: deciding
+echo "      first arm ran"
+drift=99; CB_TREE=/nonexistent; cd /
+exit 0
+ARM
+  out="$( cb_run )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) check-board exited $rc with arms present (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -F '[+first] arm (' >/dev/null || cf "(b) no header for the first arm: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'first arm ran' >/dev/null || cf "(b) the first arm's output is not in the report"
+  printf '%s\n' "$out" | grep -F 'second arm ran; tree=set root=set lib=set src=read from' >/dev/null \
+    || cf "(b) the second arm did not run, or did not receive CB_TREE/REPO_ROOT/CB_LIB_DIR/cb_src: $(printf '%s' "$out" | grep -F 'second arm' | head -2)"
+  [ "$(printf '%s\n' "$out" | grep -nF '[+first]' | head -1 | cut -d: -f1)" -lt "$(printf '%s\n' "$out" | grep -nF '[+second]' | head -1 | cut -d: -f1)" ] \
+    || cf "(b) the arms did not run in file-name order (10-first before 20-second)"
+  verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+  [ "$verdict" = "$base_verdict" ] \
+    || cf "(b) an arm that set drift=99 in its own subshell changed the verdict line ('$verdict' vs '$base_verdict') — the arm ran in the parent's state"
+  # The header carries `reports only` exactly when the arm declared itself advisory.
+  hdr="$(printf '%s\n' "$out" | grep -F '[+second] arm (')"
+  printf '%s\n' "$hdr" | grep -F 'reports only' >/dev/null || cf "(b) an ADVISORY arm's header lacks the 'reports only' token kit-init keys on: $hdr"
+  hdr="$(printf '%s\n' "$out" | grep -F '[+first] arm (')"
+  printf '%s\n' "$hdr" | grep -F 'reports only' >/dev/null && cf "(b) a DECIDING arm's header carries 'reports only', so kit-init would drop its findings: $hdr"
+
+  # (c) status 3 from a DECIDING arm = findings that set the verdict line; the EXIT stays 0.
+  printf '# check-board-arm: deciding\necho "      ⚠ a finding"\nexit 3\n' > "$dir/30-finding.sh"
+  out="$( cb_run )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) check-board exited $rc when an arm returned 3 — no arm may change the exit"
+  printf '%s\n' "$out" | grep -F '── board-drift: findings above' >/dev/null || cf "(c) a deciding arm's status 3 did not set the verdict line"
+  printf '%s\n' "$out" | grep -F '[+second]' >/dev/null || cf "(c) an arm after a finding one did not run"
+
+  # (c2) status 1 is NOT a finding, from either kind: it is what a `grep` that found nothing returns,
+  #      so it is reported as an arm that did not run and the verdict stays as the other arms left it.
+  rm -f "$dir/30-finding.sh"
+  printf '# check-board-arm: deciding\ngrep -q zzz-no-such-text /dev/null\n' > "$dir/30-miss.sh"
+  printf '# check-board-arm: advisory\nfalse\n' > "$dir/31-miss.sh"
+  out="$( cb_run )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c2) check-board exited $rc when an arm ended on status 1"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
+    || cf "(c2) an arm that ended on an accidental status 1 moved the verdict line: $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
+  printf '%s\n' "$out" | grep -F '30-miss.sh exited 1' >/dev/null || cf "(c2) a deciding arm's accidental status 1 is not reported as an arm that did not run"
+  printf '%s\n' "$out" | grep -F '31-miss.sh exited 1' >/dev/null || cf "(c2) an advisory arm's status 1 is not reported as an arm that did not run"
+  rm -f "$dir/30-miss.sh" "$dir/31-miss.sh"
+
+  # (c3) an ADVISORY arm that signals findings reports them and never moves the verdict.
+  printf '# check-board-arm: advisory\necho "      ⚠ only a note"\nexit 3\n' > "$dir/32-note.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
+    || cf "(c3) an advisory arm's status 3 moved the verdict line"
+  printf '%s\n' "$out" | grep -F 'only a note' >/dev/null || cf "(c3) the advisory arm's own line is not in the report"
+  rm -f "$dir/32-note.sh"
+
+  # (c4) an arm that declares neither is not run, and the report names the line to add.
+  printf 'echo "      ⚠ UNDECLARED-RAN"\nexit 3\n' > "$dir/33-bare.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F 'UNDECLARED-RAN' >/dev/null && cf "(c4) an arm that declares neither advisory nor deciding was run"
+  printf '%s\n' "$out" | grep -F '33-bare.sh' | grep -F 'check-board-arm' >/dev/null || cf "(c4) the report does not name the declaration line the arm lacks: $(printf '%s' "$out" | grep -F '33-bare' | head -2)"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c4) the report names no next step for the undeclared arm"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(c4) an undeclared arm moved the verdict line"
+  rm -f "$dir/33-bare.sh"
+
+  # (c5) THROUGH THE REAL CONSUMER: kit-init's board self-check filter, read out of kit-init.sh now.
+  #      A [+name] header starts a section like a [x] one does: a deciding arm after the advisory [t]
+  #      arm keeps its findings (the advisory section does not carry over into it), and an advisory
+  #      one is dropped.
+  filt="$(awk '/KI_FINDINGS="\$\(printf/ { f = 1; next } f && /^[[:space:]]*'"'"' \| grep/ { exit } f { print }' "$SB_WORK/scripts/kit-init.sh")"
+  [ -n "$filt" ] || _fixture_die "case_check_board_runs_check_board_d_arms_and_cannot_be_ended_by_one: could not extract kit-init's advisory filter (its KI_FINDINGS awk moved), so (c5) would test a copy."
+  printf '# check-board-arm: deciding\necho "      ⚠ DECIDING-FINDING"\nexit 3\n' > "$dir/40-deciding.sh"
+  printf '# check-board-arm: advisory\necho "      ⚠ ADVISORY-NOTE"\nexit 3\n' > "$dir/41-advisory.sh"
+  printf '# check-board-arm: deciding\necho "      ⚠ SECOND-DECIDING"\nexit 3\n' > "$dir/42-deciding.sh"
+  out="$( cb_run )"
+  keep="$(printf '%s\n' "$out" | awk "$filt" | grep '⚠' || true)"
+  printf '%s\n' "$keep" | grep -F 'DECIDING-FINDING' >/dev/null || cf "(c5) kit-init's filter dropped a deciding arm's finding (the [t] advisory section carried over into [+name]): $(printf '%s' "$keep" | head -3 | tr '\n' '|')"
+  printf '%s\n' "$keep" | grep -F 'SECOND-DECIDING' >/dev/null || cf "(c5) kit-init's filter dropped a deciding arm that follows an advisory arm"
+  printf '%s\n' "$keep" | grep -F 'ADVISORY-NOTE' >/dev/null && cf "(c5) kit-init's filter kept an advisory arm's line as a finding"
+  rm -f "$dir/40-deciding.sh" "$dir/41-advisory.sh" "$dir/42-deciding.sh"
+
+  # (c6) A CRLF CHECKOUT writes `\r` after the declaration; it is still read as the declaration.
+  printf '# check-board-arm: advisory\r\necho "      CRLF-ARM-RAN"\r\n' > "$dir/43-crlf.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F 'CRLF-ARM-RAN' >/dev/null || cf "(c6) an arm whose declaration line ends in a carriage return was not run: $(printf '%s' "$out" | grep -F '43-crlf' | head -2)"
+  rm -f "$dir/43-crlf.sh"
+
+  # (c7) a name outside letters, digits, `.`, `_` and `-` cannot head a section kit-init's filter and
+  #      the session-start hook can find, so the arm is not run and the report says why.
+  printf '# check-board-arm: deciding\necho "      ⚠ ODD-NAME-RAN"\nexit 3\n' > "$dir/35-odd name.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F 'ODD-NAME-RAN' >/dev/null && cf "(c7) an arm whose name holds a space was run"
+  printf '%s\n' "$out" | grep -F '35-odd name.sh' | grep -F 'did not run' >/dev/null || cf "(c7) the report does not say the oddly named arm did not run: $(printf '%s' "$out" | grep -F 'odd name' | head -2)"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(c7) an oddly named arm moved the verdict line"
+  rm -f "$dir/35-odd name.sh"
+
+  # (d) any other status = did not run, printed, never read as clean, exit still 0.
+  printf '# check-board-arm: deciding\nexit 7\n' > "$dir/34-broken.sh"
+  out="$( cb_run )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) check-board exited $rc when an arm exited 7"
+  printf '%s\n' "$out" | grep -F '34-broken.sh exited 7' >/dev/null || cf "(d) an arm that exited 7 is not reported as not having run"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
+    || cf "(d) a broken arm moved the verdict line — only a deciding arm's status 3 may"
+  rm -f "$dir/34-broken.sh"
+
+  # (e) ARMS COME FROM BESIDE THE SCRIPT, NEVER FROM THE TREE REPORTED ON: a file the trunk holds and
+  #     the checkout does not is not run (the report reads the trunk's board; it must not execute it).
+  printf '# check-board-arm: advisory\necho "      TRUNK-ONLY-RAN"\n' > "$dir/44-trunk-only.sh"
+  git -C "$SB_WORK" add -A scripts/check-board.d >/dev/null 2>&1
+  sbcommit -q -m "[Dev] $SB_PREFIX-001: an arm only the trunk holds" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rm -f "$dir/44-trunk-only.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F 'TRUNK-ONLY-RAN' >/dev/null && cf "(e) an arm that only the trunk's tree holds was executed — arms must be read from beside the script"
+
+  # (f) REMOVAL: the files go and the report is the baseline again.
+  rm -f "$SB_WORK"/scripts/check-board.d/[0-9][0-9]-*.sh
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -F '[+' >/dev/null && cf "(f) an arm header printed after every arm file was removed"
+
+  finish "check-board.d/<NN>-<name>.sh arms declare themselves advisory or deciding (a CRLF declaration is read) and print under their own [+name] header (the advisory header carries the 'reports only' token), run in file-name order from beside the script with the operands the contract names in a subshell, a deciding arm's status 3 sets the verdict line and kit-init's own filter keeps it, status 1 and every other status is reported as an arm that did not run, an undeclared arm is not run, nothing changes check-board's exit, and an absent or empty directory is a no-op"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE SESSIONSTART HOOK KEEPS A check-board.d ARM'S HEADING WHEN THE REPORT IS OVER BUDGET.
+#   Past the budget the hook prints the arm headings and every finding line. A heading shaped
+#   [+name] must count as one, or the line a finding sits under is lost.
+# =============================================================================
+case_session_start_keeps_a_check_board_d_arm_heading_past_the_budget() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local hook="$SB_WORK/scripts/hooks/session-start.sh" stub_root="$SB_TMP/stubroot-arm" i=0 out
+  [ -f "$hook" ] || _fixture_die "case_session_start_keeps_a_check_board_d_arm_heading_past_the_budget: no scripts/hooks/session-start.sh in the sandbox"
+  mkdir -p "$stub_root/scripts"
+  {
+    printf '#!/bin/sh\n'
+    printf 'echo "[a] first arm — read from: origin/main:"\n'
+    while [ "$i" -lt 400 ]; do printf 'echo "      filler line %s that a clean arm prints to explain itself at some length"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "[+zebra-arm] arm (scripts/check-board.d/50-zebra-arm.sh) — read from: origin/main:"\n'
+    printf 'echo "      ⚠ ARM-FINDING-SENTINEL"\n'
+    printf 'echo "── board-drift: findings above ⚠ (informational; exit 0 by convention)"\n'
+  } > "$stub_root/scripts/check-board.sh"
+  chmod +x "$stub_root/scripts/check-board.sh"
+  out="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
+  case "$out" in *"[+zebra-arm] arm"*) : ;; *) cf "an oversized report lost a [+name] arm heading: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-240)" ;; esac
+  case "$out" in *ARM-FINDING-SENTINEL*) : ;; *) cf "an oversized report lost a [+name] arm's finding line" ;; esac
+  finish "an oversized report keeps a [+name] arm's heading and its finding line, with the verdict last"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE QA GATE'S EVIDENCE KINDS ARE THE BUILT-IN ONES PLUS THE FILES UNDER
+# process/evidence-kinds.d/ AT THE TRUNK, AND EVERY PLACE THAT NAMES THEM READS ONE FUNCTION.
+#   A kind is added by a file and withdrawn by removing it; the built-in ones cannot be dropped. The
+#   layers are read from the project at a revision, never from beside the library: the upgrade's
+#   landing pre-check runs a staged COPY of the library, and a landing must not take its rule from
+#   the branch it judges.
+# =============================================================================
+case_qa_gate_reads_its_evidence_kinds_from_one_function_at_the_trunk() {
+  cf_reset
+  make_sandbox
+  local id="$SB_PREFIX-712" card="$SB_TMP/card.md" n=0 out rc kind="observation"
+  local builtin='test file:line gate-diff fixture-diff artifact'
+
+  seed_issue dev_complete "$id" kinds chore "Evidence kinds"
+  publish_sandbox
+  cp "$SB_WORK/progress/dev_complete/$id-kinds.md" "$card"
+  # A second AC whose row carries the kind under test; AC1 stays the quoted `test` row the gate requires.
+  perl -0pi -e 's/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — the second behaviour holds.\n/; s/(\| shadow-check )/| AC2 | PASS | observation | ARCHIVE.md:1 |\n$1/' "$card"
+  grep -qF '| AC2 | PASS | observation | ARCHIVE.md:1 |' "$card" || _fixture_die "case_qa_gate_reads_its_evidence_kinds_from_one_function_at_the_trunk: the AC2 row was not planted"
+
+  _qk_layer_commit() {  # commit whatever process/evidence-kinds.d now holds (added, changed or removed)
+    git -C "$SB_WORK" add -A process >/dev/null 2>&1
+    sbcommit -qm "[Dev] $id: the evidence-kind layers" >/dev/null 2>&1 || true
+  }
+  _qk_lib="scripts/lib"
+  _qk_gate() {  # [<rev> [<trunk-rev>]] -> status of the gate on $card in $rc; output in $out; records by call
+    n=$((n + 1))
+    out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-$n" bash -c '. "$1/refuse.sh"; . scripts/config.sh; . "$1/qa-gate.sh"; shift; kit_qa_verdict_check "$@"' _ "$_qk_lib" "$card" "$id" "$SB_WORK" "${1:-HEAD}" ${2:+"$2"} 2>&1 )"; rc=$?
+  }
+  _qk_refused_for_kind() { grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null; }
+  _qk_kinds() { ( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/lib/qa-gate.sh; kit_qa_evidence_kinds "$@"' _ "$@" ); }
+
+  # (a) the kind is in no layer: refused on THAT rule, and the refusal's list is the built-in kinds.
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(a) (control) a row of kind '$kind' passed with no layer naming it: $out"
+  _qk_refused_for_kind || cf "(a) the refusal is not qa-verdict-evidence-missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
+  printf '%s\n' "$out" | grep -F 'test|file:line|gate-diff|fixture-diff|artifact' >/dev/null \
+    || cf "(a) the refusal does not list the built-in kinds: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
+  [ "$(_qk_kinds "$SB_WORK" HEAD)" = "$builtin" ] || cf "(a) with no layer the kinds are not the built-in ones: '$(_qk_kinds "$SB_WORK" HEAD)'"
+
+  # (b) a layer file adds it: accepted — the whole gate passes, not merely the one rule.
+  mkdir -p "$SB_WORK/process/evidence-kinds.d"
+  printf '# an add-on\n%s   a human read the thing\n' "$kind" > "$SB_WORK/process/evidence-kinds.d/review"
+  _qk_layer_commit
+  _qk_gate
+  [ "$rc" -eq 0 ] || cf "(b) a registered kind was refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+
+  # (b2) the added kind is read like gate-diff: a path:line it carries must still resolve.
+  perl -pi -e 's/\| AC2 \| PASS \| observation \| ARCHIVE.md:1 \|/| AC2 | PASS | observation | NO-SUCH-FILE.md:1 |/' "$card"
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(b2) an added kind's unresolvable path:line passed"
+  perl -pi -e 's/\| AC2 \| PASS \| observation \| NO-SUCH-FILE.md:1 \|/| AC2 | PASS | observation | ARCHIVE.md:1 |/' "$card"
+
+  # (b3) EVERY PLACE THAT NAMES THE KINDS READS THE FUNCTION: the evidence refusal and the
+  #      no-test-row refusal both list the added kind.
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | PASS | vibes |/' "$card"
+  _qk_gate
+  printf '%s\n' "$out" | grep -F 'test|file:line|gate-diff|fixture-diff|artifact|observation' >/dev/null \
+    || cf "(b3) the evidence refusal's list does not carry the added kind: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/; s/\| AC1 \| PASS \| [^|]* \|/| AC1 | PASS | gate-diff |/' "$card"
+  _qk_gate
+  grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+    || cf "(b3) (control) a table with no test/file:line row was not refused as qa-verdict-no-observed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -F 'one of gate-diff|fixture-diff|artifact|observation' >/dev/null \
+    || cf "(b3) the no-test-row refusal's list does not carry the added kind: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+  cp "$SB_WORK/progress/dev_complete/$id-kinds.md" "$card"
+  perl -0pi -e 's/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — the second behaviour holds.\n/; s/(\| shadow-check )/| AC2 | PASS | observation | ARCHIVE.md:1 |\n$1/' "$card"
+
+  # (c) an UNKNOWN kind is still refused with a layer in force.
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | PASS | vibes |/' "$card"
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(c) an unlisted kind 'vibes' passed with '$kind' registered"
+  _qk_refused_for_kind || cf "(c) the unlisted kind was not refused as qa-verdict-evidence-missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (c2) A CELL IS ONE KIND. Two listed kinds in one cell are two words, not a kind: matching the cell
+  #      as a substring of the list would accept them AND skip the quote rule that binds `test`.
+  local two
+  for two in 'test file:line' 'gate-diff fixture-diff' 'observation test'; do
+    perl -pi -e 'BEGIN { $w = shift @ARGV } s/\| AC2 \| PASS \| [^|]*? \|/| AC2 | PASS | $w |/' "$two" "$card"
+    _qk_gate
+    [ "$rc" -ne 0 ] || cf "(c2) a two-word kind cell '$two' passed the gate: $out"
+    _qk_refused_for_kind || cf "(c2) '$two' was refused, but not on the evidence-kind rule: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  done
+  perl -pi -e 's/\| AC2 \| PASS \| [^|]*? \|/| AC2 | PASS | observation |/' "$card"
+  _qk_gate
+  [ "$rc" -eq 0 ] || cf "(c2) (control) the restored single-kind row was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (d) REMOVAL: the file goes and the kind is refused again.
+  rm -f "$SB_WORK/process/evidence-kinds.d/review"
+  _qk_layer_commit
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(d) the kind was still accepted after its file was removed"
+  _qk_refused_for_kind || cf "(d) refused, but not on the evidence-kind rule: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (e) THE LAYERS ARE READ FROM THE PROJECT AT THE REVISION, NOT FROM BESIDE THE LIBRARY. The
+  #     upgrade's landing pre-check runs a staged COPY of this library from a scratch directory; it
+  #     must still judge the project's own list. A layer the revision does not hold does not count,
+  #     whatever the working tree beside it holds.
+  printf '# an add-on\n%s\n' "$kind" > "$SB_WORK/process/evidence-kinds.d/review"
+  _qk_layer_commit
+  mkdir -p "$SB_TMP/staged"; cp -R "$SB_WORK/scripts/lib" "$SB_TMP/staged/lib"
+  _qk_lib="$SB_TMP/staged/lib"
+  _qk_gate
+  [ "$rc" -eq 0 ] || cf "(e) the gate run from a COPY of the library elsewhere did not read the project's committed kind (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
+  mkdir -p "$SB_TMP/staged/process/evidence-kinds.d"; printf 'vibes\n' > "$SB_TMP/staged/process/evidence-kinds.d/planted"
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | PASS | vibes |/' "$card"
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(e) a kind file planted beside the staged copy of the library widened the gate"
+  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/' "$card"
+  _qk_lib="scripts/lib"
+  printf '# uncommitted\nvibes\n' > "$SB_WORK/process/evidence-kinds.d/local"
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | PASS | vibes |/' "$card"
+  _qk_gate
+  [ "$rc" -ne 0 ] || cf "(e) an UNCOMMITTED kind file in the working tree widened the gate for the revision being landed"
+  rm -f "$SB_WORK/process/evidence-kinds.d/local"
+  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/' "$card"
+
+  # (e2) A LANDING TAKES THE KINDS FROM THE TRUNK, NOT FROM THE BRANCH IT JUDGES. A branch that adds a
+  #      kind file widens nothing for itself; a branch cut before the trunk gained a kind is judged by
+  #      the trunk's list.
+  git -C "$SB_WORK" checkout -q -b side-branch >/dev/null 2>&1
+  printf 'vibes\n' > "$SB_WORK/process/evidence-kinds.d/branch-only"
+  git -C "$SB_WORK" add -A process >/dev/null 2>&1
+  sbcommit -qm "[Dev] $id: a kind only the branch holds" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | PASS | vibes |/' "$card"
+  _qk_gate side-branch "$SB_TRUNK"
+  [ "$rc" -ne 0 ] || cf "(e2) a kind file added on the branch widened the gate for that branch's own landing"
+  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/' "$card"
+  git -C "$SB_WORK" branch -q cut-before "$SB_TRUNK"~1 >/dev/null 2>&1
+  _qk_gate cut-before "$SB_TRUNK"
+  [ "$rc" -eq 0 ] || cf "(e2) a branch cut before the trunk gained the kind was refused though the trunk lists it (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  _qk_gate side-branch
+  [ "$rc" -eq 0 ] || cf "(e2) with no trunk revision given the gate does not read the one revision it was given (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (f) the list itself: the built-in kinds live in code, so a file named process/EVIDENCE-KINDS is no
+  #     layer and a project cannot drop `test` or `file:line`; a malformed line adds nothing; a CRLF
+  #     line is read.
+  rm -f "$SB_WORK/process/evidence-kinds.d/review" "$SB_WORK/process/evidence-kinds.d/branch-only"
+  _qk_layer_commit
+  [ "$(_qk_kinds "$SB_WORK" HEAD)" = "$builtin" ] || cf "(f) with no layer the kinds are not the built-in ones: '$(_qk_kinds "$SB_WORK" HEAD)'"
+  printf '# only this\nreview-note   a human read\n' > "$SB_WORK/process/EVIDENCE-KINDS"
+  _qk_layer_commit
+  [ "$(_qk_kinds "$SB_WORK" HEAD)" = "$builtin" ] || cf "(f) a process/EVIDENCE-KINDS file changed the kinds (it must not be a layer): '$(_qk_kinds "$SB_WORK" HEAD)'"
+  rm -f "$SB_WORK/process/EVIDENCE-KINDS"
+  printf 'Bad Kind\nUPPER\n9lives\nok-kind\r\nb2\r\ntest\r\n# c\r\n' > "$SB_WORK/process/evidence-kinds.d/z"
+  _qk_layer_commit
+  [ "$(_qk_kinds "$SB_WORK" HEAD)" = "$builtin ok-kind b2" ] \
+    || cf "(f) a malformed kind was not skipped, a CRLF line was not read, or a built-in kind was repeated (a kind opens with a lowercase letter, one word): '$(_qk_kinds "$SB_WORK" HEAD)'"
+  # (f2) the layers are read at a revision only: no revision, or one that cannot be read, leaves the
+  #      built-in kinds - never an empty list, never an accept-all, never the working tree.
+  [ "$(_qk_kinds "$SB_WORK")" = "$builtin" ] \
+    || cf "(f2) no revision did not give the built-in kinds: '$(_qk_kinds "$SB_WORK")'"
+  [ "$(_qk_kinds "$SB_WORK" no-such-revision)" = "$builtin" ] \
+    || cf "(f2) an unreadable revision did not fall back to the built-in kinds: '$(_qk_kinds "$SB_WORK" no-such-revision)'"
+  rm -f "$SB_WORK/process/evidence-kinds.d/z"
+  [ "$(_qk_kinds "$SB_WORK" HEAD)" = "$builtin ok-kind b2" ] \
+    || cf "(f2) a layer file removed from the working tree only still changed the list read at a revision: '$(_qk_kinds "$SB_WORK" HEAD)'"
+
+  finish "the QA gate's evidence kinds are the built-in ones plus every file under process/evidence-kinds.d/ at the trunk (a copy of the library elsewhere reads the project's, an uncommitted file and a branch's own file do not count, a CRLF line is read, an unreadable revision leaves the built-in kinds): an added kind is accepted by the whole gate and read like gate-diff, both refusals that name the kinds list it, an unlisted kind and a cell of two listed kinds are refused, removing the file refuses the kind again, and process/EVIDENCE-KINDS is no layer"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MARKER-BLOCK HELPER INSERTS, REPLACES AND REMOVES ONE NAMED BLOCK, IDEMPOTENTLY.
+#   Insert is a no-op the second time (byte-equal); remove restores the ORIGINAL BYTES; a second
+#   block and the text around it are never touched; a refusal writes nothing. The shipped files'
+#   slots are what a block goes before, so they are checked here too.
+# =============================================================================
+case_marker_block_insert_is_idempotent_and_remove_restores_the_bytes() {
+  cf_reset
+  make_sandbox
+  local d="$SB_TMP/mb" f rc out
+
+  mkdir -p "$d"
+  f="$d/shared.md"
+  printf 'intro\n\n| h |\n|---|\n| r |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$f"
+  cp "$f" "$d/original.md"
+  printf '| Gate | C |\n|---|---|\n| g1 | c1 |\n' > "$d/one.txt"
+  printf '| Gate | C |\n|---|---|\n| g1 | c1 |\n| g2 | c2 |\n' > "$d/one-v2.txt"
+  printf '| Gate | C |\n|---|---|\n| h1 | d1 |\n' > "$d/two.txt"
+
+  _mb() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; "$@"; rc=$?; printf 'CHANGED=%s\n' "$KIT_MB_CHANGED"; exit "$rc" ) 2>&1; }
+
+  # (a) insert: the block is before the slot, framed by its markers, followed by one blank line.
+  out="$(_mb kit_mb_insert "$f" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) insert exited $rc: $out"
+  printf '%s\n' "$out" | grep -x 'CHANGED=1' >/dev/null || cf "(a) the first insert did not report a change: $out"
+  [ "$(grep -c -F '<!-- KIT-MODULE:alpha BEGIN -->' "$f")" = 1 ] && [ "$(grep -c -F '<!-- KIT-MODULE:alpha END -->' "$f")" = 1 ] \
+    || cf "(a) the block's markers are not each present once"
+  [ "$(grep -n -F '<!-- KIT-MODULE:alpha END -->' "$f" | cut -d: -f1)" -lt "$(grep -n -F '<!-- KIT-MODULES:gates' "$f" | cut -d: -f1)" ] \
+    || cf "(a) the block is not before the slot"
+  [ "$(sed -n "$(( $(grep -n -F '<!-- KIT-MODULE:alpha END -->' "$f" | cut -d: -f1) + 1 ))p" "$f")" = "" ] \
+    || cf "(a) the block is not followed by one blank line"
+
+  # (b) RE-INSERT of the same content is byte-equal and says it changed nothing.
+  cp "$f" "$d/after-insert.md"
+  out="$(_mb kit_mb_insert "$f" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) re-insert exited $rc: $out"
+  cmp -s "$f" "$d/after-insert.md" || cf "(b) re-inserting the same block changed the file's bytes"
+  printf '%s\n' "$out" | grep -x 'CHANGED=0' >/dev/null || cf "(b) the re-insert did not report CHANGED=0: $out"
+  _mb kit_mb_has "$f" alpha >/dev/null || cf "(b) kit_mb_has does not see the block"
+  _mb kit_mb_has "$f" nosuch >/dev/null && cf "(b) kit_mb_has sees a block that is not there"
+
+  # (c) a CHANGED content replaces the block in place: one block, new rows, nothing else moved.
+  out="$(_mb kit_mb_insert "$f" alpha gates "$d/one-v2.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) replace exited $rc: $out"
+  grep -qF '| g2 | c2 |' "$f" || cf "(c) the new content is not in the file"
+  [ "$(grep -c -F 'KIT-MODULE:alpha BEGIN' "$f")" = 1 ] || cf "(c) replacing left two blocks"
+
+  # (d) a SECOND block sits beside the first and removing either leaves the other and the rest.
+  out="$(_mb kit_mb_insert "$f" beta gates "$d/two.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) a second block's insert exited $rc: $out"
+  out="$(_mb kit_mb_remove "$f" alpha)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) removing alpha exited $rc: $out"
+  grep -qF 'KIT-MODULE:beta BEGIN' "$f" && grep -qF '| h1 | d1 |' "$f" || cf "(d) removing alpha took beta's block with it"
+  grep -qF 'KIT-MODULE:alpha' "$f" && cf "(d) alpha's markers survived its removal"
+
+  # (e) REMOVE restores the ORIGINAL BYTES once every block is gone, and a repeat remove is a no-op.
+  out="$(_mb kit_mb_remove "$f" beta)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) removing beta exited $rc: $out"
+  cmp -s "$f" "$d/original.md" || cf "(e) insert-then-remove did not restore the original bytes: $(diff "$d/original.md" "$f" | head -4 | tr '\n' '|')"
+  out="$(_mb kit_mb_remove "$f" beta)"; rc=$?
+  [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -x 'CHANGED=0' >/dev/null || cf "(e) removing an absent block was not a clean no-op: rc=$rc $out"
+  cmp -s "$f" "$d/original.md" || cf "(e) a no-op remove changed the file"
+
+  # (e2) ONE NAME, SEVERAL SLOTS: the id may carry `:<slot>`, so one name holds a block in each.
+  out="$(_mb kit_mb_insert "$f" alpha:one gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e2) inserting alpha:one exited $rc: $out"
+  out="$(_mb kit_mb_insert "$f" alpha:two gates "$d/two.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e2) inserting alpha:two exited $rc: $out"
+  _mb kit_mb_has "$f" alpha:one >/dev/null && _mb kit_mb_has "$f" alpha:two >/dev/null || cf "(e2) the two blocks of one name are not both present"
+  _mb kit_mb_remove "$f" alpha:one >/dev/null; _mb kit_mb_remove "$f" alpha:two >/dev/null
+  cmp -s "$f" "$d/original.md" || cf "(e2) removing both blocks of one name did not restore the original bytes"
+
+  # (f) REFUSALS write nothing and name a next step: no slot, a lone marker, a bad name, no newline.
+  out="$(_mb kit_mb_insert "$f" alpha nosuchslot "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(f) a missing slot was not refused with a Next: line: rc=$rc $out"
+  cmp -s "$f" "$d/original.md" || cf "(f) the refused insert still wrote the file"
+  printf '<!-- KIT-MODULE:lone BEGIN -->\nstray\n<!-- KIT-MODULES:gates x -->\n' > "$d/lone.md"; cp "$d/lone.md" "$d/lone.orig"
+  out="$(_mb kit_mb_insert "$d/lone.md" lone gates "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) a lone BEGIN marker was accepted: $out"
+  out="$(_mb kit_mb_remove "$d/lone.md" lone)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) removing a lone BEGIN marker was accepted: $out"
+  cmp -s "$d/lone.md" "$d/lone.orig" || cf "(f) a refused call modified the lone-marker file"
+  out="$(_mb kit_mb_insert "$f" 'Bad Name' gates "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) a name with a space and capitals was accepted"
+  printf 'no newline at the end' > "$d/nonl.md"
+  out="$(_mb kit_mb_remove "$d/nonl.md" alpha)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) a file with no final newline was accepted"
+  [ "$(cat "$d/nonl.md")" = 'no newline at the end' ] || cf "(f) a refused call modified the no-newline file"
+
+  # (f2) the slot is matched as a WORD: `gates` does not take a `gates-extra` slot line, and the content
+  #      may not carry a marker or slot line of its own (it would leave a file every later call refuses).
+  printf 'x\n\n<!-- KIT-MODULES:gates-extra other -->\n\n<!-- KIT-MODULES:gates the real slot -->\n\ntail\n' > "$d/slots.md"
+  out="$(_mb kit_mb_insert "$d/slots.md" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f2) inserting into a slot that shares a prefix with another exited $rc: $out"
+  [ "$(grep -n -F 'KIT-MODULE:alpha END' "$d/slots.md" | cut -d: -f1)" -gt "$(grep -n -F 'KIT-MODULES:gates-extra' "$d/slots.md" | cut -d: -f1)" ] \
+    || cf "(f2) the block went before the 'gates-extra' slot: slot 'gates' matched a longer slot name"
+  printf 'row\n<!-- KIT-MODULE:inner END -->\n' > "$d/bad-content.txt"; cp "$f" "$d/before-bad.md"
+  out="$(_mb kit_mb_insert "$f" inner gates "$d/bad-content.txt")"; rc=$?
+  [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(f2) content carrying a marker line was accepted, or refused with no Next: line: rc=$rc $out"
+  cmp -s "$f" "$d/before-bad.md" || cf "(f2) the refused content still wrote the file"
+  printf '<!-- KIT-MODULES:gates a slot of its own -->\n' > "$d/slot-content.txt"
+  out="$(_mb kit_mb_insert "$f" inner gates "$d/slot-content.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f2) content carrying a slot line was accepted: $out"
+
+  # (f3) a FILE MODE survives a write (the bytes go to a copy made beside the file and are moved over it).
+  cp "$d/original.md" "$d/mode.md"; chmod 750 "$d/mode.md"
+  out="$(_mb kit_mb_insert "$d/mode.md" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] && [ -x "$d/mode.md" ] || cf "(f3) an insert changed the file's executable bit or failed: rc=$rc $out"
+
+  # (f4) CRLF: a file that already holds a block (a Windows checkout) is found, not duplicated; a
+  #      re-insert is a no-op; removal takes it; a plain CRLF file takes a block in ITS line endings;
+  #      every other byte stays.
+  local crlf="$d/crlf.md"
+  printf 'intro\r\n\r\n<!-- KIT-MODULES:gates the slot -->\r\n\r\ntail\r\n' > "$crlf"; cp "$crlf" "$d/crlf.orig"
+  out="$(_mb kit_mb_insert "$crlf" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f4) insert into a CRLF file exited $rc: $out"
+  [ "$(grep -c -F 'KIT-MODULE:alpha BEGIN' "$crlf")" = 1 ] || cf "(f4) the block is not present once in the CRLF file"
+  [ "$(grep -c $'\r$' "$crlf")" = "$(wc -l < "$crlf" | tr -d ' ')" ] \
+    || cf "(f4) the lines written into a CRLF file are not CRLF: $(od -c "$crlf" | head -3 | tr '\n' '|')"
+  cp "$crlf" "$d/crlf.once"
+  _mb kit_mb_has "$crlf" alpha >/dev/null || cf "(f4) kit_mb_has does not see a block in a CRLF file"
+  out="$(_mb kit_mb_insert "$crlf" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f4) re-insert into a CRLF file exited $rc: $out"
+  cmp -s "$crlf" "$d/crlf.once" || cf "(f4) re-inserting into a CRLF file that already held the block changed it (a second block above the slot?): $(grep -c -F 'KIT-MODULE:alpha BEGIN' "$crlf") BEGIN line(s)"
+  printf '%s\n' "$out" | grep -x 'CHANGED=0' >/dev/null || cf "(f4) the CRLF re-insert did not report CHANGED=0: $out"
+  out="$(_mb kit_mb_insert "$crlf" alpha gates "$d/one-v2.txt")"; rc=$?
+  [ "$rc" -eq 0 ] && [ "$(grep -c -F 'KIT-MODULE:alpha BEGIN' "$crlf")" = 1 ] && grep -qF '| g2 | c2 |' "$crlf" \
+    || cf "(f4) replacing a block in a CRLF file failed or duplicated it: rc=$rc"
+  out="$(_mb kit_mb_remove "$crlf" alpha)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f4) remove from a CRLF file exited $rc: $out"
+  cmp -s "$crlf" "$d/crlf.orig" || cf "(f4) removing from a CRLF file did not restore its bytes: $(grep -c -F 'KIT-MODULE:alpha' "$crlf") marker line(s) left"
+
+  # (g) the SHIPPED files carry the slots a block goes before, and the round trip is exact on them.
+  local shipped slot lived
+  lived="$(_tree_has_lived)"   # a tree that finished day one owns these files; their shape is its own
+  for shipped in "PROJECT.md gates" "requirements/CORPUS.md corpus-manifest" "requirements/CORPUS.md corpus-buckets"; do
+    f="$REAL_REPO_ROOT/${shipped% *}"; slot="${shipped#* }"
+    if [ ! -f "$f" ] || [ -n "$lived" ]; then continue; fi
+    grep -qE "^<!-- KIT-MODULES:${slot}( |-->)" "$f" || { cf "(g) ${shipped% *} carries no '<!-- KIT-MODULES:${slot}' slot line"; continue; }
+    cp "$f" "$d/ship.md"; cp "$d/ship.md" "$d/ship.orig"
+    out="$(_mb kit_mb_insert "$d/ship.md" probe "$slot" "$d/one.txt")"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(g) inserting into ${shipped% *}'s $slot slot exited $rc: $out"
+    out="$(_mb kit_mb_remove "$d/ship.md" probe)"
+    cmp -s "$d/ship.md" "$d/ship.orig" || cf "(g) ${shipped% *}: insert then remove did not restore the shipped bytes"
+  done
+
+  finish "the marker-block helper inserts a block before the file's slot, re-inserting the same content is byte-equal and reports CHANGED=0, new content replaces in place, two blocks are independent (one name may hold a block in each of several slots), removing every block restores the original bytes exactly (and again is a no-op), a CRLF file keeps its endings, every refusal writes nothing and names a next step, and PROJECT.md's and CORPUS.md's shipped slots take a block and give it back byte for byte"
+  teardown
+}
+
+# =============================================================================
+# CASE — A .gitignore BLOCK GOES AT THE END OF THE FILE IN # COMMENTS, AND A FILE THE INSERT CREATED
+# IS DELETED WHEN ITS LAST BLOCK GOES.
+#   .gitignore has no slot line and no place for an HTML comment (`<!--` there is a pattern). Proved
+#   through git itself: the block's pattern ignores a path while the block is there and stops when
+#   it is gone.
+# =============================================================================
+case_marker_block_gitignore_block_goes_at_the_end_and_a_created_file_is_removed() {
+  cf_reset
+  make_sandbox
+  local d="$SB_TMP/mbi" rc out
+  mkdir -p "$d"; git -C "$d" init -q >/dev/null 2>&1 || _fixture_die "case_marker_block_gitignore_block_goes_at_the_end_and_a_created_file_is_removed: git init failed"
+  printf 'zebra-cache/\n*.zebra\n' > "$d/ignore-one.txt"
+  printf '*.okapi\n' > "$d/ignore-two.txt"
+  _mb() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; "$@"; rc=$?; printf 'CHANGED=%s\n' "$KIT_MB_CHANGED"; exit "$rc" ) 2>&1; }
+  _ignored() { git -C "$d" check-ignore -q "$1"; }
+
+  # (a) the file does not exist: it is created, the pattern takes effect, and removal deletes the file.
+  rm -f "$d/.gitignore"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) inserting into an absent .gitignore exited $rc: $out"
+  _ignored a.zebra || cf "(a) the block's pattern ignores nothing: $(cat "$d/.gitignore" 2>/dev/null | tr '\n' '|')"
+  grep -qF '<!--' "$d/.gitignore" && cf "(a) the block holds an HTML comment, which .gitignore reads as a pattern"
+  grep -qxF '# KIT-MODULE:alpha:gitignore BEGIN' "$d/.gitignore" && grep -qxF '# KIT-MODULE:alpha:gitignore END' "$d/.gitignore" \
+    || cf "(a) the block is not framed by # comment markers: $(cat "$d/.gitignore" | tr '\n' '|')"
+  _mb kit_mb_has "$d/.gitignore" alpha:gitignore >/dev/null || cf "(a) kit_mb_has does not see the block"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) removing the only block exited $rc: $out"
+  [ ! -e "$d/.gitignore" ] || cf "(a) the file the insert created survived its last block's removal"
+  _ignored a.zebra && cf "(a) the pattern still ignores a path after the block went"
+
+  # (b) an existing file: the block is appended AFTER its lines (which stay byte for byte) and removal restores them.
+  printf 'node_modules/\n*.log\n' > "$d/.gitignore"; cp "$d/.gitignore" "$d/gitignore.orig"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) inserting into an existing .gitignore exited $rc: $out"
+  [ "$(head -2 "$d/.gitignore")" = "$(head -2 "$d/gitignore.orig")" ] || cf "(b) the file's own lines moved"
+  [ "$(grep -n -F 'KIT-MODULE:alpha:gitignore BEGIN' "$d/.gitignore" | cut -d: -f1)" = 3 ] || cf "(b) the block does not start on the line after the file's last: $(cat "$d/.gitignore" | tr '\n' '|')"
+  _ignored x.zebra && _ignored y.log || cf "(b) the block's pattern, or the file's own, ignores nothing"
+  cp "$d/.gitignore" "$d/gitignore.once"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  cmp -s "$d/.gitignore" "$d/gitignore.once" && printf '%s\n' "$out" | grep -x 'CHANGED=0' >/dev/null || cf "(b) a re-insert of the same block changed the file or did not report CHANGED=0: rc=$rc $out"
+  out="$(_mb kit_mb_insert "$d/.gitignore" beta:gitignore gitignore "$d/ignore-two.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a second block exited $rc: $out"
+  _ignored z.okapi || cf "(b) the second block's pattern ignores nothing"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"
+  _ignored x.zebra && cf "(b) removing alpha left its pattern in force"
+  _ignored z.okapi || cf "(b) removing alpha took beta's block with it"
+  out="$(_mb kit_mb_remove "$d/.gitignore" beta:gitignore)"
+  cmp -s "$d/.gitignore" "$d/gitignore.orig" || cf "(b) insert-then-remove did not restore the file's bytes: $(diff "$d/gitignore.orig" "$d/.gitignore" | head -4 | tr '\n' '|')"
+
+  # (c) CRLF: the block takes the file's line endings and restores its bytes.
+  printf 'build/\r\n*.tmp\r\n' > "$d/.gitignore"; cp "$d/.gitignore" "$d/gitignore.crlf"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) inserting into a CRLF .gitignore exited $rc: $out"
+  [ "$(grep -c $'\r$' "$d/.gitignore")" = "$(wc -l < "$d/.gitignore" | tr -d ' ')" ] || cf "(c) the lines written into a CRLF .gitignore are not CRLF"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"
+  printf '%s\n' "$out" | grep -x 'CHANGED=0' >/dev/null || cf "(c) re-inserting into a CRLF .gitignore changed it: $out"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"
+  cmp -s "$d/.gitignore" "$d/gitignore.crlf" || cf "(c) removing from a CRLF .gitignore did not restore its bytes"
+
+  # (d) refusals: a file with no final newline is not appended to (the library would add one to its
+  #     last line), and the file is not changed.
+  printf 'node_modules/' > "$d/.gitignore"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(d) a .gitignore with no final newline was accepted, or refused with no Next: line: rc=$rc $out"
+  [ "$(cat "$d/.gitignore")" = 'node_modules/' ] || cf "(d) the refused insert still wrote the file"
+
+  finish "a .gitignore block is appended at the end of the file in # comments (never an HTML comment), the pattern takes effect through git itself and stops when the block goes, a file the insert created is deleted with its last block, an existing file's bytes are restored exactly (CRLF included), and a file with no final newline is refused unchanged"
+  teardown
 }

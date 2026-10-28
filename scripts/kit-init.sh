@@ -1226,13 +1226,13 @@ else
   #
   # Advisory sections are dropped by their OWN DECLARATION: an arm that reports without
   # deciding says "reports only" in its header line, and everything under it is skipped until
-  # the next "[x]" section. "reports only" IS A MACHINE CONTRACT: specified in
-  # process/contracts/drift-report.md § 4, produced by check-board.sh's advisory headers,
-  # consumed here. Change it in all three.
+  # the next "[x]" or "[+name]" section. "reports only" IS A MACHINE CONTRACT: specified in
+  # process/contracts/drift-report.md § 4 item 5 (and § 5 for check-board.d arms), produced by
+  # check-board.sh's advisory headers, consumed here. Change it in all three.
   # THE HEADER LINE IS NOT SKIPPED unless the arm declared itself advisory: arms [b] and [c]
   # print their finding ON the header line.
   KI_FINDINGS="$(printf '%s\n' "$BOARD_OUT" | awk '
-      /^\[[a-z]\]/ { adv = (index($0, "reports only") > 0) }
+      /^\[([a-z]|\+[A-Za-z0-9._-]+)\]/ { adv = (index($0, "reports only") > 0) }
       adv          { next }
                    { print }
     ' | grep '⚠' | grep -v '^──' || true)"

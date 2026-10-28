@@ -38,6 +38,8 @@ is the unit. Enumerate only where the set is small and stable.
 | `<path or location>` | `<file\|location>` | `forward-referenced (<PREFIX>-NNN)` | <why, and what will land it> |
 | `DECISIONS.md` | `file` | `present` | <the standing rulings — the register that answers "what is true now"> |
 
+<!-- KIT-MODULES:corpus-manifest — an add-on's own manifest rows go above this line, in a table of their own between its KIT-MODULE BEGIN and END marker lines; scripts/lib/marker-block.sh writes and removes them. Leave this line. -->
+
 **Forward references are allowed and must be MARKED** — the marker is the literal
 **`forward-referenced (<ISSUE-ID>)`** in the `Status` column, naming the work item that will land
 the entry (e.g. `forward-referenced (XYZ-042)`). An unmarked entry pointing at nothing is
@@ -87,6 +89,8 @@ the only reliable way to notice is a guard that fails.
 | `README.md`, `PROJECT.md`, `AGENTS.md` | `<bucket>` each |
 | `.claude/`, `scripts/`, `consumers/`, `setup.sh`, `.env.example`, `.gitignore`, `LICENSE`, `LICENSE-CONTENT` | `<bucket>` each |
 | `<your file or dir>` | `<bucket>` |
+
+<!-- KIT-MODULES:corpus-buckets — an add-on's own path-to-bucket rows go above this line, in a table of their own between its KIT-MODULE BEGIN and END marker lines. Leave this line. -->
 
 ## Precedence — when two corpus members disagree
 

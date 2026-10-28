@@ -56,7 +56,7 @@ exceptions (throwaway prototypes, generated code) rather than a vague "use your 
 
 **QA verdicts are evidence, not a vibe.** Every issue's QA pass produces a `## QA Verdict` table,
 one row per acceptance criterion, each row naming its own verdict, the *kind* of evidence behind it
-(one of the kinds `KIT_QAV_KINDS` declares in `scripts/lib/qa-gate.sh`), and a pointer to that
+(one of the kinds `kit_qa_evidence_kinds` reads in `scripts/lib/qa-gate.sh`), and a pointer to that
 evidence — so a reviewer checks the row's claim against its own proof, not against a paragraph summarizing it. Verdicts are
 one of four stable tokens (`PASS`, `PASS_AC_CORRECTED`, `FAIL_AC`, `FAIL_REGRESSION`), and the table
 carries a dedicated check for the easy-to-miss failure mode: a new check silently shadowing an older

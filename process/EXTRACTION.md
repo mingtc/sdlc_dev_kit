@@ -425,12 +425,20 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
 enforces is stamped) · `githooks/pre-commit` (KIT — it reads the project's `CODE_GLOBS` out of
 `scripts/config.sh` rather than carrying a stamped part of its own)
+
+**Extension points (KIT):** a directory the kit reads and a file added to it is the extension.
+`scripts/check-board.d/` holds the `[+<name>]` arms of the drift report (it ships a README; the contract is
+[`contracts/drift-report.md`](contracts/drift-report.md) § 5), `process/evidence-kinds.d/` holds extra QA
+evidence kinds (`lib/qa-gate.sh`'s `kit_qa_evidence_kinds` reads it at the trunk; the kit ships no file in it,
+so the directory appears with the first kind) and `process/roles.d/` holds role layers (§ 2.4).
+`lib/marker-block.sh` writes a marked block before a `<!-- KIT-MODULES:<slot> -->` line, which `PROJECT.md` and
+`requirements/CORPUS.md` carry: those lines are the kit's, so keep them.
 
 **Notifications (KIT, all no-ops until configured):** `notify.sh` · `notify-hook.sh` ·
 `notify/<channel>.sh` — the channel adapters. **Not `notify/stall.sh`** — see

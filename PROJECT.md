@@ -119,6 +119,8 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The unattended Stop hook (optional — launched only with the unattended profile) | `<e.g. the Stop hook in .claude/settings.unattended.json.example>` | [`process/contracts/stop-ask.md`](process/contracts/stop-ask.md) |
 | The agent record — the QA verdict's (session, agent) is not the code's | `<e.g. the Bash hooks in .claude/settings.json.example; finish-pr.sh and subtask.sh read it>` | [`process/contracts/agent-record.md`](process/contracts/agent-record.md) |
 
+<!-- KIT-MODULES:gates — an add-on's own gate table goes above this line, between its KIT-MODULE BEGIN and END marker lines; scripts/lib/marker-block.sh writes and removes it. Leave this line. -->
+
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row
 set, not this table:** if the kit you are running carries a sheet with no row here, add the row; if

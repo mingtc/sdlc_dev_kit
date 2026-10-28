@@ -17,9 +17,10 @@
 #     the caller's working tree. An `artifact` row names a file QA committed on the trunk, so its
 #     pointer (`<path> <full blob sha>`) resolves at <trunk-rev> instead, which defaults to <rev>:
 #     a caller that lands a branch passes the trunk, because the branch's author controls the branch.
+#     The evidence kinds are read at <trunk-rev> for the same reason (kit_qa_evidence_kinds).
 #     A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
-#     at that line, whitespace-normalised; every other kind in KIT_QAV_KINDS is exempt from the
+#     at that line, whitespace-normalised; every other kind in kit_qa_evidence_kinds is exempt from the
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
@@ -33,6 +34,10 @@
 #     A pointer to the card's own file (in any board column) is qa-verdict-self-pointer: the card records
 #     the review, it is not the content reviewed, and its path changes at every board move.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
+#
+#   kit_qa_evidence_kinds <repo> <rev>
+#     The evidence kinds a QA Verdict row may carry: the built-in ones plus the files under
+#     process/evidence-kinds.d/ at <rev>. The one reader (declared below, where it is defined).
 #
 #   kit_qa_verdict_begun <card-file>
 #     Whether QA has begun to fill the card's QA Verdict table: some row's verdict cell is not a
@@ -141,9 +146,55 @@ KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|
 # step 6 ratifies. A cell outside it is refused (qa-verdict-token-invalid), never read as a pass.
 KIT_QAV_VERDICTS='PASS PASS_AC_CORRECTED FAIL_AC FAIL_REGRESSION'
 
-# The built-in evidence kinds of a QA Verdict row's third cell, exactly and case-sensitively: the one
-# list the kind check and its refusal text read. Prose cites this variable; the row rules are process/contracts/landing-gate.md's.
-KIT_QAV_KINDS='test file:line gate-diff fixture-diff artifact'
+# THE EVIDENCE KINDS a QA Verdict row's third cell may carry, exactly and case-sensitively: the
+# built-in list below, plus one kind per line of every file under process/evidence-kinds.d/ (`#`
+# starts a comment; the first word of a line is the kind). An add-on adds a kind by adding a file
+# and withdraws it by removing the file; a project cannot drop a built-in one. kit_qa_evidence_kinds
+# is the ONE reader: the kind check, both refusals that list the kinds and every prose surface that
+# names them go through it or cite it. The row rules are process/contracts/landing-gate.md's.
+# `test` and `file:line` are the two kinds whose pointers carry a verbatim quote, and `file:line`
+# must carry a `path:line` token; an added kind is read like `gate-diff`. A kind is lowercase
+# letters, digits, `:`, `_` or `-`, opening with a letter; any other line is skipped.
+KIT_QAV_KINDS_BUILTIN='test file:line gate-diff fixture-diff artifact'
+
+# kit_qa_evidence_kinds <repo> <rev> — the accepted evidence kinds, space-separated, each once, never
+# empty. The layers are read from <repo> AT <rev> (git ls-tree and git show), never from the working
+# tree and never from beside this library, so a caller that runs a staged COPY of the library (the
+# upgrade's landing pre-check) judges the project's own list. FALLBACK POLICY HERE: the built-in list
+# alone whenever no layer can be read (no <rev>, an unresolvable <rev>, no directory): a gate that
+# cannot read its layers must accept neither everything nor nothing.
+kit_qa_evidence_kinds() {
+  local repo="${1:-.}" rev="${2:-}" f k out="" extra="" body paths=""
+  local pick='{ sub(/\r$/, ""); sub(/#.*/, ""); if (NF && $1 ~ /^[a-z][a-z0-9:_-]*$/) print $1 }'
+  if [ -n "$rev" ]; then
+    paths="$(git -C "$repo" ls-tree "$rev" process/evidence-kinds.d/ 2>/dev/null | awk -F'\t' '$1 ~ / blob / { print $2 }' || true)"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      body="$(git -C "$repo" show "$rev:$f" 2>/dev/null)" || continue
+      extra="${extra}${extra:+$'\n'}$(printf '%s\n' "$body" | awk "$pick" 2>/dev/null || true)"
+    done <<PATHS_EOF
+$paths
+PATHS_EOF
+  fi
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    case " $out " in *" $k "*) continue ;; esac
+    out="${out:+$out }$k"
+  done <<KINDS_EOF
+$(printf '%s\n' $KIT_QAV_KINDS_BUILTIN)
+$extra
+KINDS_EOF
+  printf '%s' "$out"
+}
+
+# _qav_kind_listed <kinds> <kind> — status 0 if <kind> is exactly one token of the space-separated
+# <kinds>. A cell with whitespace in it is two words, not a kind: matching it as a substring of the
+# padded list would accept `test file:line` and skip the quote rule that binds each of them.
+_qav_kind_listed() {
+  case "$2" in ''|*[[:space:]]*) return 1 ;; esac   # return-class: predicate
+  case " $1 " in *" $2 "*) return 0 ;; esac
+  return 1   # return-class: predicate
+}
 
 # The shortest quote a pointer may carry, in characters after whitespace is normalised: a shorter
 # fragment is on almost any line, so finding it there shows nothing. A quote that is the cited
@@ -355,7 +406,7 @@ kit_qa_verdict_begun() {
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>] ──────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
-  local _qav_artifact_bad=""
+  local _qav_artifact_bad="" _qav_kinds
   local _qav_body _qav_ac_ids _qav_rows
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
@@ -365,6 +416,10 @@ kit_qa_verdict_check() {
     echo "kit_qa_verdict_check: <repo> and <rev> are required — evidence pointers are read at the revision being landed." >&2
     exit 2   # exit-class: internal
   fi
+
+  # The kinds come from the TRUNK's layers: a branch cannot widen the gate it is judged by, and a
+  # branch cut before the trunk gained a kind is still judged by the trunk's list.
+  _qav_kinds="$(kit_qa_evidence_kinds "$repo" "$trunk_rev")"
 
   _qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
@@ -401,13 +456,8 @@ kit_qa_verdict_check() {
     [ -n "$_qid" ] || continue
     _qav_table_ids="${_qav_table_ids}${_qav_table_ids:+$'\n'}${_qid}"
 
-    case "$_qkind" in
-      ""|*[[:space:]]*) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
-      *) case " $KIT_QAV_KINDS " in
-           *" $_qkind "*) : ;;
-           *) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
-         esac ;;
-    esac
+    _qav_kind_listed "$_qav_kinds" "$_qkind" \
+      || _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')"
     # A placeholder cell is refused whole, after stripping backticks/whitespace, case-insensitive
     # (one list: KIT_QAV_PLACEHOLDER_RE above; qa.md step 4 states it in prose).
     local _qav_ptr_norm
@@ -517,7 +567,7 @@ kit_qa_verdict_check() {
   if [ -n "$_qav_evidence_bad" ]; then
     kit_refuse 2 qa-verdict-evidence-missing \
       "Error: ${issue_id}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
-      "       A PASS needs an evidence kind from ${KIT_QAV_KINDS// /|}, and a real" \
+      "       A PASS needs an evidence kind from ${_qav_kinds// /|}, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
       "Next: re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
@@ -575,7 +625,7 @@ kit_qa_verdict_check() {
 
   if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ]; then
     local _qav_k _qav_unquoted=""
-    for _qav_k in $KIT_QAV_KINDS; do
+    for _qav_k in $_qav_kinds; do
       case "$_qav_k" in test|file:line) ;; *) _qav_unquoted="${_qav_unquoted}${_qav_unquoted:+|}${_qav_k}" ;; esac
     done
     kit_refuse 2 qa-verdict-no-observed \

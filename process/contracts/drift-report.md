@@ -330,6 +330,32 @@ answer that says so beats a hang at session start. *"Names the revision" is the 
 what makes the answer checkable is that a reader can tell WHICH published state was read, which an
 identifier gives and a timestamp does not.*
 
+**Extension: arms in `scripts/check-board.d/` — THE ONE STATEMENT OF THEIR CONTRACT**
+([`scripts/check-board.d/README.md`](../../scripts/check-board.d/README.md) and `check-board.sh` point
+here). After its lettered arms the report runs each `scripts/check-board.d/<NN>-<name>.sh`, in
+file-name order, as a `[+<name>]` arm, reading the files from beside the script, never from the tree
+it reports on. An absent or empty directory runs nothing. A `<name>` is letters, digits, `.`, `_` and
+`-`; any other file name is not run, and the report says so.
+
+- **The arm declares itself**, on a line of its own in the file: `# check-board-arm: advisory` or
+  `# check-board-arm: deciding`. *Why in the file:* an arm placed by hand has no manifest, and the
+  declaration travels with the code it describes. An arm with neither line is not run; the report
+  says so and names the line to add. An `advisory` arm's header carries the token `reports only`
+  (§ 4 item 5), so `kit-init.sh`'s self-check drops its `⚠` lines as it does a lettered advisory
+  arm's; a `deciding` arm's header does not, so its `⚠` lines count. Both header shapes are
+  `[+<name>]`, which `kit-init.sh` and the SessionStart hook read as an arm heading like `[x]`.
+- **It is sourced in a subshell**, stdin closed, under `set -uo pipefail` and no `-e`: an `exit` or
+  `return` ends the arm, and the arm cannot set the report's state. It reads `REPO_ROOT`, `CB_TREE`,
+  `CB_REF`, `CB_SRC_LABEL` and `CB_LIB_DIR`, may call `cb_src`, prints its own lines indented as the
+  lettered arms' are and naming its source, and writes nothing.
+- **Its status:** `0` it ran and found nothing; **`3` it ran and found something** — for a `deciding`
+  arm that sets the verdict line, for an `advisory` arm it only reports; **any other status, `1`
+  included, is a failure of the arm**, printed as "did not run" and never as a finding. *Why `3`, not
+  `1`:* `1` is what `grep` returns on no match and what a false `[ … ]` leaves as the last command, so
+  an arm that merely ended on a miss would otherwise turn the verdict dirty and fail `release.sh`
+  gate (d).
+- **No status changes the report's exit, which stays 0.**
+
 ## 6. REFERENCE IMPLEMENTATION
 
 > One implementation, not the definition.

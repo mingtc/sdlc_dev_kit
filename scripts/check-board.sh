@@ -39,6 +39,9 @@
 #       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
 #   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, ending
 #       in `:`, or starting with a YAML indicator (advisory; never part of a landing's property check).
+# After the lettered arms, scripts/check-board.d/<NN>-<name>.sh run as `[+<name>]` arms (the contract
+# is process/contracts/drift-report.md § 5, implemented at the loop below); they carry no letter, so
+# the letter lists below stay exact.
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -1469,7 +1472,7 @@ fi
 #      recorded refusal, not unfinished work). Not swept: the column's value is being browsable.
 #      An absent column is skipped, not reported as 0.
 #      Lettered [k], never [b2]: kit-init's self-check resets its advisory flag only on
-#      `^\[[a-z]\]`, so a [b2] header would inherit [b]'s NON-advisory state and fail installs.
+#      a `[x]` or `[+name]` header, so a [b2] header would inherit [b]'s NON-advisory state and fail installs.
 # ---------------------------------------------------------------------------
 echo
 if [ ! -d "$CB_TREE/progress/declined" ]; then
@@ -1896,6 +1899,46 @@ if [ "$u_found" -eq 0 ]; then
   echo "      ✓ none: $u_read card(s) read"
 fi
 # END unquoted-title arm
+
+# ---------------------------------------------------------------------------
+# [+<name>] ARMS — scripts/check-board.d/<NN>-<name>.sh, run in file-name order after the lettered
+#     arms. THE CONTRACT IS process/contracts/drift-report.md § 5, stated once; this loop implements
+#     it. An arm is read from beside THIS script and never from $CB_TREE (which may be an archived
+#     ref this process should not execute), and it is SOURCED IN A SUBSHELL: an `exit` ends the arm,
+#     not this script, and it cannot set `drift`. No arm's status changes this script's exit (0).
+# ---------------------------------------------------------------------------
+CB_ARM_DIR="$CB_LIB_DIR/../check-board.d"
+for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
+  [ -f "$cb_arm" ] || continue
+  cb_arm_file="${cb_arm##*/}"; cb_arm_name="${cb_arm_file%.sh}"; cb_arm_name="${cb_arm_name#[0-9][0-9]-}"
+  cb_arm_kind="$(awk '/^# check-board-arm:/ { sub(/^# check-board-arm:[ \t]*/, ""); sub(/[ \t\r]+$/, ""); print; exit }' "$cb_arm" 2>/dev/null || true)"
+  echo
+  case "$cb_arm_name" in
+    ''|*[!A-Za-z0-9._-]*)
+      # kit-init.sh and the session-start hook key on a `[+name]` header of this shape.
+      echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):"
+      echo "      – scripts/check-board.d/${cb_arm_file} is named outside letters, digits, '.', '_' and '-' — this arm did not run  (skipped)"
+      echo "      Next: rename it to <NN>-<name>.sh with such a name (process/contracts/drift-report.md § 5), then re-run."
+      continue ;;
+  esac
+  case "$cb_arm_kind" in
+    advisory) echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}; reports only — it never changes the verdict below) — $(cb_src):" ;;
+    deciding) echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):" ;;
+    *)
+      echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):"
+      echo "      – scripts/check-board.d/${cb_arm_file} declares neither \`# check-board-arm: advisory\` nor \`# check-board-arm: deciding\` — this arm did not run  (skipped)"
+      echo "      Next: add one of those two lines to the arm (process/contracts/drift-report.md § 5), then re-run."
+      continue ;;
+  esac
+  cb_arm_rc=0
+  ( . "$cb_arm" ) </dev/null || cb_arm_rc=$?
+  case "$cb_arm_rc" in
+    0) : ;;
+    3) [ "$cb_arm_kind" != deciding ] || drift=1 ;;
+    *) echo "      – scripts/check-board.d/${cb_arm_file} exited $cb_arm_rc — this arm did not run to a verdict  (skipped; findings are status 3, so a status of 1 or any other is a failure of the arm, not a finding)" ;;
+  esac
+done
+unset cb_arm cb_arm_file cb_arm_name cb_arm_kind cb_arm_rc
 
 echo
 if [ "$drift" -eq 0 ]; then
