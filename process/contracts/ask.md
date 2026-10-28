@@ -96,20 +96,12 @@ was the right one. Those are the principal's and the project's.
 
 **The project's half: who reads an answer, and what reconciling it means.** A question file is
 *answered, not reconciled* while it carries an `**Answer` block and no `requirements/DECISIONS.md`
-line naming its path was written or edited at or after the answer. `scripts/check-board.sh` lists those files, each with the card the question
-parks, and lists separately a file whose `**Answer` only the reader's checkout holds. That answer is landed
-first, as given, by the first seat that reads it, under that seat's own role; `scripts/register-commit.sh`
-refuses a register entry that cites an answer the trunk lacks. The Orchestrator is the reader: at session
-start it dispatches the PM-hat leg for each, and reconciling means exactly four acts — record the literal
-answer as one `D-NN` per independent fork, each citing the question file (for a question asked with
-`--decision`, discharge a working-default entry in place, or amend a standing one in place, minting no
-second `D-NN`); record any requirement change the answer states in the PRD and on the affected cards (a
-PRD story whose cards are done is not edited: the change becomes a new story); edit the parked card to
-cite it (`[decision: D-NN]` on the bullet it settles); move the card out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
-default, never ruled by the leg
-(`.claude/roles/orchestrator.md` § An answered question is ready work). An answer that delegates the
-decision back is itself a ruling: the `D-NN` adopts the question's working default (a question asked
-with `--decision` discharges that entry in place), and the same question is never filed again.
+line naming its path was written or edited at or after the answer. The Orchestrator is the reader: at
+session start it dispatches the PM-hat leg, whose acts record the answer as `D-NN` entries, edit the
+parked card to cite them and move it out of `blocked/`, and which never rules what the answer leaves
+unruled (`.claude/roles/orchestrator.md` § An answered question is ready work: the acts, the
+landing of the answer, a delegating answer). The report lists such files by arm `[t]`
+([`drift-report.md`](drift-report.md) § 6).
 *Why:* an answer nothing is woken to act on leaves its card parked in a column no session reads, with
 the principal's decision in a file nobody opens.
 

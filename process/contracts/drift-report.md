@@ -104,12 +104,11 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   decision — or no PRD exists, or no card has passed QA (`qa_complete` or `done`) — the report says so and names what is missing. **The verdict
   line stays a statement about the board.**
   *Why the separation is an invariant and not a preference:* the verdict is what other tools consume.
-  Measured in this kit: the release ritual's board gate matches the verdict line's text, and the
-  initializer's own post-install self-check fails on a drifting board. **A repository one minute
+  The release ritual's board gate ([`release-ritual.md`](release-ritual.md) § 3) matches the verdict line's text, and the
+  initializer's post-install self-check ([`initializer.md`](initializer.md)) fails on a drifting board. **A repository one minute
   after initialization has not graduated — by definition — and its board is nonetheless perfectly
   truthful.** Wire the two together and the initializer fails its own self-check on every fresh
-  install, and no project can cut a release until day one is finished. Both were reproduced before
-  this invariant was written. Whether graduation should ever *block* a release is a decision a
+  install, and no project can cut a release until day one is finished. Whether graduation should ever *block* a release is a decision a
   project may take, in the release ritual's own gate list where a reader can see it — never as a
   side effect of a counter inside a report.
   *And the arm does not fall silent once satisfied.* It goes on printing one line naming what it

@@ -26,8 +26,8 @@ process is an edit rather than an excavation.
   - **not overridable — `NAME='value'`.** A value that must be the same for every run of the tool
     that declares it takes the plain single-quoted form, and its readers anchor on THAT shape.
     Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, the
-    initializer's `STAMP_MARK`, and the config seam's own `POST_MERGE_PREP` — a command the
-    landing runs, which must be the one the landed commit declares. Making these `${NAME:-…}` would let the environment weaken a
+    initializer's `STAMP_MARK`, and the config seam's own `POST_MERGE_PREP`
+    ([`landing-gate.md`](landing-gate.md) § 4 says why it is read from the landed commit). Making these `${NAME:-…}` would let the environment weaken a
     guard, which is a worse defect than the one this bullet exists to prevent.
   - **glob array — `NAME=(` … `)`.** `CODE_GLOBS` and `TEST_GLOBS` open at column 1 and close on a
     line of their own; `scripts/lib/glob-array.sh` reads them as text, never sourcing the file, and
@@ -52,8 +52,8 @@ process is an edit rather than an excavation.
   quietly break. If a fallback truly must exist, it is **one** shared fallback, in one place, and
   it announces itself.
 - **A configured value is overridable for one invocation without editing anything.** The
-  environment may supply it; the declared default applies otherwise. The exception is a declared
-  single-quoted value or a glob array (above), which no environment can change.
+  environment may supply it; the declared default applies otherwise. The exceptions are the
+  single-quoted and glob-array shapes above, which no environment can change.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
   tooling with different values.
 - **NO project-specific value is baked into anything that travels.** A file that travels unedited
@@ -108,7 +108,7 @@ process is an edit rather than an excavation.
 
 ## 5. MINIMAL INTERFACE
 
-**In:** declared names with declared defaults; an environment that may override them, except the declared single-quoted values and the glob arrays.
+**In:** declared names with declared defaults; an environment that may override them, except the shapes § 2 fixes against it.
 **Out:** resolved values, plus a shared validation entry point for caller-supplied identifiers.
 **Not in:** any action. The seam answers questions; it never changes the repository.
 
@@ -117,8 +117,8 @@ process is an edit rather than an excavation.
 > One implementation, not the definition.
 
 - `scripts/config.sh` — KIT-CLASS: KIT. The prefix knobs, the project-name knob, their
-  environment overrides, the optional `POST_MERGE_PREP` command (not overridable; read from the
-  landed commit), and the shared identifier validation.
+  environment overrides, the optional `POST_MERGE_PREP` command (single-quoted;
+  [`landing-gate.md`](landing-gate.md) § 4), and the shared identifier validation.
 - `scripts/kit-init.sh` — KIT-CLASS: KIT. Stamps the seams (including the role docs and the
   harness templates) and then runs § 4.3's **census**: it derives each placeholder token from the
   seam, counts what survives, and fails when the count is non-zero. That is the promise turned into

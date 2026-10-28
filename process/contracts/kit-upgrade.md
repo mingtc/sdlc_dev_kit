@@ -52,7 +52,7 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   *Why:* the branch an upgrade is staged on may be squash-merged, which erases the commits that marked
   each item; the file is then the only record of what was done.
 - **The new kit's landing checks judge the project's open cards, and are read from the new kit.** The
-  `forks:`, QA Verdict and Ablation checks run over every `.md` file in `in_progress/`, `dev_complete/` and
+  card checks of [`landing-gate.md`](landing-gate.md) § 3 (`forks:`, QA Verdict, Ablation) run over every `.md` file in `in_progress/`, `dev_complete/` and
   `blocked/` that has a branch, headed by a comment or not (the QA Verdict where QA has filled a verdict
   cell, the Ablation only at `dev_complete/`), from a copy of the new kit's `scripts/lib/`
   staged in `.kit-upgrade/lib/`. A QA Verdict table with no verdict cell filled (the template's, or none) has nothing to judge: the
