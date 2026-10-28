@@ -424,7 +424,7 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
@@ -590,8 +590,9 @@ drift report flagged. This is contracted in
 
 ### 2.2 The status folder set
 
-The lifecycle is the set of directories under `progress/`: the names in `STATUS_FOLDERS`
-(`scripts/check-board.sh`), plus `history/` for the rotated log.
+The lifecycle is the set of directories under `progress/`: the names in `KIT_STATUS_FOLDERS`
+(`scripts/lib/status-folders.sh`, the one declaration), plus `history/` for the rotated log
+(`KIT_BOARD_DIRS`, in the same file).
 
 **`declined/` is terminal and is not swept.** A card lands there when it was considered and
 **refused**, and — like `blocked/` — the mover **requires a `--note`**, because *a decline with no
@@ -621,22 +622,24 @@ so the original columns stay failures and `setup.sh` carries a second, named lis
 since, each warning with the exact remedy. The name moves out of that list once no supported tree can
 still be missing it.
 
-**It is a SEAM WITHOUT A VARIABLE: several files carry the names as literals, and they do not all
-carry the same ones.** The table is the list and the table is the count; the divergence column is the
-part that matters, because *"apply one edit N times"* is the wrong model for this seam.
+**The set has one variable, and not every file takes the whole of it: the first rows derive it, the
+rest name columns, and they do not all hold the same ones.** The table is the list; the divergence
+column is the part that matters, because *"apply one edit N times"* is the wrong model for what is
+left to open by hand.
 
 | File | What it holds | If it is missed |
 |---|---|---|
-| `scripts/move-issue.sh` | the full set, at every site — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression | a new column cannot be moved to **at all** |
-| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]`, `[u]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant for its scaffolding classes but reads the two landed columns (`qa_complete`, `done`) by name in its day-one-work class, as `[j]` and `[m]` do; `[f]` (its `[f3]` check) builds its card population from `done` and `qa_complete` by name; `[l]` `[p]` `[q]` `[r]` read the constant through `lib/board-properties.sh`. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
-| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm — a subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, not by a move. `declined` is a terminal slice target and needs its reason; a declined parent's tree is not swept, so its slices stay under `progress/subtasks/<ID>/` and the open ones are declined with it | a subtask cannot reach the new column |
-| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (it only tests `-d` and warns or fails). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
-| `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
-| `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
+| `scripts/lib/status-folders.sh` | **the declaration**: `KIT_STATUS_FOLDERS`, the set `\|`-separated in lifecycle order, and `KIT_BOARD_DIRS`, the set plus `history/`. A landing reads the declaration as text from the trunk's copy of this file (`lib/board-properties.sh`) and, for a trunk older than the file, from that trunk's `check-board.sh` | the carriers below that derive from it all follow it; this is the one edit for a column they take whole |
+| `scripts/move-issue.sh` | the full set, **derived** from the declaration at every site — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression | nothing: a column added to the declaration is accepted |
+| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS`, loaded from the declaration — **and its arms do not all read all of it.** `[d]`, `[i]`, `[u]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant for its scaffolding classes but reads the two landed columns (`qa_complete`, `done`) by name in its day-one-work class, as `[j]` and `[m]` do; `[f]` (its `[f3]` check) builds its card population from `done` and `qa_complete` by name; `[l]` `[p]` `[q]` `[r]` read the constant through `lib/board-properties.sh`. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
+| `scripts/subtask.sh` | the set **minus `done`**, derived from the declaration (usage text, target check and the search across statuses), on its `move` arm — a subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, not by a move. `declined` is a terminal slice target and needs its reason; a declined parent's tree is not swept, so its slices stay under `progress/subtasks/<ID>/` and the open ones are declined with it | nothing: a column added to the declaration is a subtask target, `done` apart |
+| `setup.sh` | the set **plus `history/`** (`KIT_BOARD_DIRS`), as the directories it CHECKS FOR — it creates nothing (it only tests `-d` and warns or fails). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
+| `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board — **a literal on purpose**: a builder's list that drifts fails loudly, and a harness that derived it from the declaration it tests would agree with a wrong one | the harness builds a board the project no longer has |
+| `scripts/kit-init.sh` | the set and the board's directories, **derived** from the declaration, as the board it creates | nothing: the board is created with the declared columns |
 | `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
 | `scripts/lib/kanban-worktree.sh` | `qa_complete` and `declined` **by name**, in `kwt_open_subtasks` — the one reader of "which slices of a parent are still open", shared by the mover, the lander and the sweep | a slice that reaches a new terminal column reads as open, and its parent is refused over it |
-| `scripts/lib/qa-gate.sh` | `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it — **and the columns `todo` and `dev_complete` as literals in executing code**, as the git-history pathspecs `:(glob)**/todo/<id>-*.md` and `:(glob)**/dev_complete/<id>-*.md` that find the commit a card left `todo/` and the commit that put it in `dev_complete/` (the `forks:` drift and attribution windows), and again in the refusal text | a renamed `todo` or `dev_complete` finds no departure commit, so the window has no start and the check reports itself unrunnable while the constant beside it reads correctly |
-| `scripts/lib/board-properties.sh` | `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it — **and the landed columns, `done` and `qa_complete`, by name** in its `for pcol in …` loop (arm `[p]`'s landed subset) | the arm answers about the old landed set: a card in a new landed column is not counted as landed |
+| `scripts/lib/qa-gate.sh` | `STATUS_FOLDERS` as the trunk's declaration holds it — **and the columns `todo` and `dev_complete` as literals in executing code**, as the git-history pathspecs `:(glob)**/todo/<id>-*.md` and `:(glob)**/dev_complete/<id>-*.md` that find the commit a card left `todo/` and the commit that put it in `dev_complete/` (the `forks:` drift and attribution windows), and again in the refusal text | a renamed `todo` or `dev_complete` finds no departure commit, so the window has no start and the check reports itself unrunnable while the constant beside it reads correctly |
+| `scripts/lib/board-properties.sh` | `STATUS_FOLDERS` as the trunk's declaration holds it (`kit_bp_load_declarations`) — **and the landed columns, `done` and `qa_complete`, by name** in its `for pcol in …` loop (arm `[p]`'s landed subset) | the arm answers about the old landed set: a card in a new landed column is not counted as landed |
 | `scripts/kit-upgrade.sh` | `in_progress`, `dev_complete` and `blocked` **by name** in the loop that re-checks open cards, and `todo` for the cards it only counts | a renamed or added open column is never re-checked, and the upgrade reports the cards it did not read as fine |
 | `scripts/read-verdict.sh` | `dev_complete` **by name**, in the comparison that decides whether a REFUSE is expected because the landing has not merged | the note that explains an expected REFUSE stops appearing |
 | `scripts/hygiene/staleness_greps.py` (optional, Python) | `progress/done/` as a path literal, in the test for "this card has landed" | a landed card is not recognised, and a stale claim about it goes unflagged |
@@ -686,7 +689,7 @@ loop terminators; it is also the tail of `progress/done/`, so most of what a bar
 the language and the paths rather than about the seam, which is why the pattern uses the three column
 names that are neither.*
 
-**Check whether your copy makes it a variable** (§ 4.5).
+**What is left to open by hand is § 4.5.**
 
 ### 2.3 The gate command
 
@@ -1038,18 +1041,19 @@ acceptance tier's three floor-guard assertions are specified in
 [`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) even though its implementation
 cannot be.
 
-### 4.5 The status folder set may be a seam without a variable
-The configuration seam parameterises the *prefixes*; whether it parameterises the *lifecycle* is
-the thing to check. If it does not, renaming or adding a state (say, a `review` column) means
-**opening every carrier in § 2.2's table and deciding what each one should hold** — which is not the
+### 4.5 The status folder set is a variable, but some carriers name columns instead of taking it
+The configuration seam parameterises the *prefixes*; the *lifecycle* is declared once, in
+`scripts/lib/status-folders.sh`, and the carriers that hold the whole set derive from it. The rest
+name one column or a fixed subset, so renaming or adding a state (say, a `review` column) still means
+**opening each by-name carrier in § 2.2's table and deciding what it should hold** — which is not the
 same as applying one edit N times, because they do not all hold the same set.
 **Check:** `grep -rl 'qa_complete' scripts/ setup.sh | grep -v '^scripts/test/'` lists the files that
 name the column outside the self-test's fixtures. Each is a row of § 2.2's table or one of the files
 named under it as naming a column without carrying the set; a file that is neither is a carrier the
-table has not met. The seam has no variable, so the debt is present: the probe says what to open,
+table has not met. The by-name carriers are the debt that remains: the probe says what to open,
 not whether to.
-**Cost if unpaid:** every carrier in § 2.2's table edited by hand, per lifecycle change — **and the
-divergent ones decided rather than copied.**
+**Cost if unpaid:** every by-name carrier in § 2.2's table edited by hand, per lifecycle change —
+**and the divergent ones decided rather than copied.**
 
 ### 4.6 The initializer's stamping reach is not total
 The initializer stamps the seams its own file header lists (the comment block atop `scripts/kit-init.sh`), among them the

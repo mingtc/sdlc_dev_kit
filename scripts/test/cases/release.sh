@@ -1228,21 +1228,26 @@ _consumer_reset() {
 }
 
 # =============================================================================
-# CASE — THE UPDATER'S --help STATES THE NAG HOOK'S TRUE COST: one `git ls-remote`, two when an
-# update is available, in both paragraphs that describe it. The wording is the expectation, hard-coded; the shipped file is what is read.
+# CASE — THE UPDATER'S --help STATES ITS OWN CHECK'S TRUE COST ONCE (one `git ls-remote`, two when an
+# update is available) AND POINTS AT consumers/README.md FOR THE NAG HOOK'S CALLS; THAT PAGE STATES THEM.
+# The wording is the expectation, hard-coded; the shipped files are what is read.
 # =============================================================================
-case_updater_help_states_the_hook_cost() {
+case_updater_help_states_the_check_cost_and_points_to_the_hook_page() {
   cf_reset
-  local L="update_vendored.sh --help says the nag hook makes one git ls-remote, two when an update is available, in both places it describes the cost"
+  local L="update_vendored.sh --help states its own check's cost once and points to consumers/README.md for the nag hook's calls, and that page states them"
   make_sandbox
-  if [ ! -f "$SB_WORK/consumers/update_vendored.sh" ]; then
-    teardown; skp_lived "$L" "consumers/update_vendored.sh was removed from this project"; return
+  if [ ! -f "$SB_WORK/consumers/update_vendored.sh" ] || [ ! -f "$SB_WORK/consumers/README.md" ]; then
+    teardown; skp_lived "$L" "consumers/update_vendored.sh or consumers/README.md was removed from this project"; return
   fi
   local out rc
   out="$(bash "$SB_WORK/consumers/update_vendored.sh" --help 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || cf "--help exited $rc"
-  [ "$(printf '%s\n' "$out" | grep -c "two when an update is available")" -ge 2 ] \
-    || cf "--help does not state it twice (the hook paragraph and the VENDORED_CHECK_NOTES paragraph): one git ls-remote, two when an update is available"
+  [ "$(printf '%s\n' "$out" | grep -c "two when an update is available")" -eq 1 ] \
+    || cf "--help does not state its check's cost exactly once (the VENDORED_CHECK_NOTES paragraph): one git ls-remote, two when an update is available"
+  [ "$(printf '%s\n' "$out" | grep -c "consumers/README.md")" -ge 1 ] \
+    || cf "--help does not point at consumers/README.md for the nag hook's calls"
+  grep -qF "two when an update is available" "$SB_WORK/consumers/README.md" \
+    || cf "consumers/README.md does not state the nag hook's calls (one git ls-remote, two when an update is available)"
   finish "$L"
   teardown
 }

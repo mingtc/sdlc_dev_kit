@@ -90,10 +90,15 @@ fi
 # The folder IS the status, so a missing folder is a missing status. Two headings are read by
 # scripts and are checked here for the same reason.
 #
-# BOARD_FOLDERS, NOT STATUS_FOLDERS: these are the board's DIRECTORIES, and `history/` (where
-# the log rotation archives) is one of them but is not a status. Do not count this list as the
-# status set.
-BOARD_FOLDERS="todo in_progress dev_complete qa_complete blocked done declined history"
+# BOARD_FOLDERS are the board's DIRECTORIES, not its statuses: the status folders plus `history/`,
+# both declared once in scripts/lib/status-folders.sh.
+BOARD_FOLDERS=""
+# shellcheck source=scripts/lib/status-folders.sh
+if [ -f "$ROOT/scripts/lib/status-folders.sh" ] && . "$ROOT/scripts/lib/status-folders.sh" && [ -n "${KIT_BOARD_DIRS:-}" ]; then
+  BOARD_FOLDERS="${KIT_BOARD_DIRS//|/ }"
+else
+  note_fail "scripts/lib/status-folders.sh is missing or declares no KIT_BOARD_DIRS — it declares the board's folders, so the board was not checked."
+fi
 # A COLUMN ADDED IN A LATER KIT VERSION IS A WARNING THAT NAMES THE REMEDY, NOT A FAILURE: an
 # adopter upgrades by reading the release notes, so an older tree is one `mkdir` behind, not
 # broken. Move a name out of this list once no supported tree can still be missing it.

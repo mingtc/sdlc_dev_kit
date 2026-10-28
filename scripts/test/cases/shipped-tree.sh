@@ -3850,3 +3850,52 @@ $(printf '%s\n' "$got" | sed 's/^/      /')"
   finish "the closed list gained M5 (a printed event) and kept its closing sentence and its off rows; M2 (b) reads the refusal records and (d) covers a filled gap; the entry shape carries Effect, a short form and inferred marking; the root-cause block is not counted as an entry; each part is reported when removed from a copy"
   teardown
 }
+
+# =============================================================================
+# CASE — THE STATUS FOLDER SET IS DECLARED IN ONE SHIPPED SCRIPT FILE.
+# The seven names in lifecycle order, as a literal (pipe-, space- or comma-separated), appear in
+# exactly one file of the shipped script population, and that file is scripts/lib/status-folders.sh.
+# THE EXPECTED FILE IS TYPED HERE, never derived from the tree: a derived expectation agrees with
+# whichever file a regression re-adds the literal to. scripts/test/ is outside the population: the
+# harness's own sandbox builder keeps an independent list on purpose (a builder's list that drifts
+# fails loudly; a guard's that drifts goes blind).
+# =============================================================================
+case_status_folder_set_is_declared_in_one_shipped_script() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" expected="scripts/lib/status-folders.sh"
+  local re='todo[|, ]+in_progress[|, ]+dev_complete[|, ]+qa_complete[|, ]+blocked[|, ]+done[|, ]+declined'
+  local rel f n=0 hits=""
+  [ -f "$man" ] \
+    || _fixture_die "case_status_folder_set_is_declared_in_one_shipped_script: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$rel" in
+      scripts/test/*) continue ;;
+      *.sh|scripts/githooks/*|consumers/hooks/*) ;;
+      *) continue ;;
+    esac
+    f="$REAL_REPO_ROOT/$rel"
+    [ -f "$f" ] || continue
+    n=$((n+1))
+    grep -E -- "$re" "$f" >/dev/null 2>&1 && hits="$hits $rel"
+  done <<EOF_MAN
+$(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
+EOF_MAN
+  [ "$n" -ge 20 ] \
+    || cf "(control) only $n shipped script file(s) were scanned, too few to be the shipped script population; the scan lost its operand"
+  hits="${hits# }"
+  [ "$hits" = "$expected" ] \
+    || cf "the seven-name status folder literal must appear in exactly one shipped script file, $expected; found: ${hits:-none}. A script that needs the set derives it from the variable that file declares"
+
+  # CONTROL, on a copy: the pattern sees each separator form a carrier has used.
+  local ctl
+  ctl="$(mktemp)"
+  printf "A='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'\n" > "$ctl"
+  grep -E -- "$re" "$ctl" >/dev/null || cf "(control) the pattern did not see the pipe form"
+  printf 'A=(todo in_progress dev_complete qa_complete blocked done declined)\n' > "$ctl"
+  grep -E -- "$re" "$ctl" >/dev/null || cf "(control) the pattern did not see the space form"
+  printf 'A="todo, in_progress, dev_complete, qa_complete, blocked, done, declined"\n' > "$ctl"
+  grep -E -- "$re" "$ctl" >/dev/null || cf "(control) the pattern did not see the comma form"
+  rm -f "$ctl"
+  finish "the status folder set literal is in exactly one of $n shipped script files: $expected"
+}

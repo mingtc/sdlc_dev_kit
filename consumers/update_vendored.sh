@@ -16,7 +16,7 @@
 # reproduces its environment from the already-vendored local artifact. Refresh
 # is pull-based and DELIBERATE: this script touches the network ONLY when you
 # run it. Nothing here runs on `git pull` unless you wire the optional post-merge
-# nag hook, which makes one `git ls-remote` per pull (two when an update is available).
+# nag hook; consumers/README.md says what it calls.
 #
 # Usage (run from the consumer repo root):
 #   scripts/update_vendored.sh              # build + vendor the LATEST release tag
@@ -61,8 +61,8 @@
 # section headers for the versions in between — which needs that tag's notes
 # file and therefore a throwaway shallow clone, deleted before it returns. Set
 # VENDORED_CHECK_NOTES=0 to skip that and keep the check to one lightweight
-# `git ls-remote` (two when an update is available; what the advisory post-merge nag hook does, so a `git pull`
-# stays fast).
+# `git ls-remote` (two when an update is available), so a `git pull` stays fast when the advisory
+# post-merge nag hook runs it (consumers/README.md).
 #
 set -euo pipefail
 

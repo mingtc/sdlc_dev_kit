@@ -14,9 +14,9 @@
 #
 # THE CALLER DECLARES THE OPERANDS, as globals: STATUS_FOLDERS ISSUE_ID_KEY ISSUE_ID_PATTERN
 # FRONTMATTER_SCAN_LINES REGISTERS CITATION_EXCLUDE PRD_SURFACE CROSS_CUTTING_MARKER CORPUS_FILE.
-# check-board.sh declares them, except PRD_SURFACE, which is derived from scripts/config.sh; a
-# landing reads them from the TRUNK's copies of check-board.sh and config.sh through
-# kit_bp_load_declarations, never from the branch it judges.
+# check-board.sh declares them, except STATUS_FOLDERS, which is lib/status-folders.sh's, and
+# PRD_SURFACE, which is derived from scripts/config.sh; a landing reads them from the TRUNK's copies
+# of those files through kit_bp_load_declarations, never from the branch it judges.
 #
 # EACH FUNCTION takes the tree to read as its first argument (a directory), prints the arm's lines
 # on stdout, and records every finding through _bp_hit: it counts it in KIT_BP_NHITS and, when
@@ -69,16 +69,22 @@ _bp_hit() {
 # findings from KIT_BP_HITS_FILE only, so a note is report-only by construction.
 _bp_note() { KIT_BP_NHITS=$((KIT_BP_NHITS+1)); printf '%s\n' "$1"; }
 
-# kit_bp_load_declarations <check-board.sh text file> <config.sh text file>
+# kit_bp_load_declarations <check-board.sh text file> <config.sh text file> [<status-folders.sh text file>]
 #   Sets every operand above from those files' own declarations, read by their fixed shapes and never
-#   sourced; PRD_SURFACE comes from the config.sh's PRD_PREFIX. Call it directly, never inside $( ):
-#   the operands are globals. Returns 1 if any is missing, naming them in KIT_BP_MISSING.
+#   sourced; PRD_SURFACE comes from the config.sh's PRD_PREFIX. STATUS_FOLDERS comes from the third
+#   file's KIT_STATUS_FOLDERS (default: lib/status-folders.sh beside the check-board.sh), or, for a
+#   trunk whose check-board.sh still declares the set itself, from that declaration. Call it
+#   directly, never inside $( ): the operands are globals. Returns 1 if any is missing, naming them
+#   in KIT_BP_MISSING.
 KIT_BP_MISSING=""
 kit_bp_load_declarations() {
-  local f="$1" cfg="$2" n v missing=""
+  local f="$1" cfg="$2" sf="${3:-$(dirname "$1")/lib/status-folders.sh}" n v missing=""
   KIT_BP_MISSING=""
   [ -f "$f" ] || { KIT_BP_MISSING="the declarations file"; return 1; }   # return-class: predicate
-  for n in STATUS_FOLDERS ISSUE_ID_KEY ISSUE_ID_PATTERN REGISTERS CITATION_EXCLUDE CROSS_CUTTING_MARKER; do
+  v="$(kit_declared_value "$sf" KIT_STATUS_FOLDERS)" || v=""
+  [ -n "$v" ] || v="$(kit_declared_value "$f" STATUS_FOLDERS)" || v=""
+  if [ -n "$v" ]; then STATUS_FOLDERS="$v"; else missing="STATUS_FOLDERS"; fi
+  for n in ISSUE_ID_KEY ISSUE_ID_PATTERN REGISTERS CITATION_EXCLUDE CROSS_CUTTING_MARKER; do
     v="$(kit_declared_value "$f" "$n")" || v=""
     [ -n "$v" ] || { missing="${missing:+$missing }$n"; continue; }
     printf -v "$n" '%s' "$v"

@@ -24,7 +24,7 @@
 #
 #   <R> = @ROLE_SET@
 #
-# Target folders: todo | in_progress | dev_complete | qa_complete | blocked | declined
+# Target folders: @SUBTASK_TARGETS@
 # (blocked and declined each need --note, as in move-issue.sh: the blocker, or the reason a slice
 # will not be done, is the record)
 #
@@ -82,6 +82,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
+# The subtask lifecycle is the board's status folders (lib/status-folders.sh) MINUS done/, which is
+# deliberately absent: a subtask tree reaches its terminal home under progress/done/subtasks/<parent>/
+# via archive.sh's sweep, once its PARENT lands — never by a direct move here.
+# shellcheck source=lib/status-folders.sh
+. "$SCRIPT_DIR/lib/status-folders.sh"
+SUBTASK_FOLDERS="$(printf '|%s|' "$KIT_STATUS_FOLDERS" | sed 's/|done|/|/; s/^|//; s/|$//')"
+IFS='|' read -r -a STATUSES <<< "$SUBTASK_FOLDERS"
+
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
   local roles prd
   if command -v kit_role_display >/dev/null 2>&1; then
@@ -102,13 +110,15 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
   # emitted. `out` is finished text; only `rest` is searched.
   # Never spell a role-set alternation in a comment: the self-test reads it as a stray seam copy.
   kit_usage "${BASH_SOURCE[0]}" \
-    | ROLE_SET_DISPLAY="$roles" PRD_PREFIX_DISPLAY="$prd" awk '
+    | ROLE_SET_DISPLAY="$roles" PRD_PREFIX_DISPLAY="$prd" TARGETS_DISPLAY="${SUBTASK_FOLDERS//|/ | }" awk '
+    BEGIN { tk[1] = "@ROLE_SET@";      val[1] = ENVIRON["ROLE_SET_DISPLAY"]
+            tk[2] = "@PRD_PREFIX@";    val[2] = ENVIRON["PRD_PREFIX_DISPLAY"]
+            tk[3] = "@SUBTASK_TARGETS@"; val[3] = ENVIRON["TARGETS_DISPLAY"] }
     { out = ""; rest = $0
       while (1) {
-        ir = index(rest, "@ROLE_SET@"); ip = index(rest, "@PRD_PREFIX@")
-        if (ir == 0 && ip == 0) break
-        if (ip == 0 || (ir != 0 && ir < ip)) { i = ir; t = "@ROLE_SET@";   v = ENVIRON["ROLE_SET_DISPLAY"] }
-        else                                 { i = ip; t = "@PRD_PREFIX@"; v = ENVIRON["PRD_PREFIX_DISPLAY"] }
+        i = 0
+        for (k = 1; k <= 3; k++) { p = index(rest, tk[k]); if (p && (i == 0 || p < i)) { i = p; t = tk[k]; v = val[k] } }
+        if (i == 0) break
         out = out substr(rest, 1, i-1) v
         rest = substr(rest, i + length(t)) }
       print out rest }'
@@ -147,11 +157,6 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
     "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" \
     "Next: restore it (git checkout -- scripts/lib/card-head.sh), then re-run."
 fi
-
-# The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
-# terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
-# once its PARENT lands — never by a direct move here.
-STATUSES=(todo in_progress dev_complete qa_complete blocked declined)
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --bogus s1 slug` would
@@ -374,9 +379,9 @@ case "$CMD" in
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
-    case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked|declined) ;; *) kit_refuse 1 unknown-target \
+    [[ "$TARGET" =~ ^($SUBTASK_FOLDERS)$ ]] || kit_refuse 1 unknown-target \
       "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." \
-      "Next: re-run with one of those folders as the target." ;; esac
+      "Next: re-run with one of those folders as the target."
     [ "$TARGET" != declined ] || [ -n "$NOTE" ] \
       || kit_refuse 1 declined-needs-note \
            "Error: declined needs --note \"why\" — the reason is the whole record of a slice that will not be done." \

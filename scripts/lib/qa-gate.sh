@@ -1149,7 +1149,7 @@ _bpc_new_findings() {
 
 kit_board_property_check() {
   local repo="$1" old_rev="$2" new_rev="$3" card_rel="${4:-}" card_dest="${5:-}"
-  local scratch tree decl cfgdecl missing touched p col rest ex rpath rmark rshape reg_hit ex_hit
+  local scratch tree decl cfgdecl sfdecl missing touched p col rest ex rpath rmark rshape reg_hit ex_hit
   local g_d=0 g_l=0 g_p=0 g_q=0 only="" reg_touched=0 cite_touched=0
   local old_sha new_sha arm base new first_rule="" msg=() ran="" skipped="" kept=0 n
   local -a cols
@@ -1185,13 +1185,17 @@ kit_board_property_check() {
       "Next: fetch the trunk (git fetch <remote>) and confirm ${old_rev} resolves and holds scripts/config.sh; then re-run the command that refused. If the file is not on the trunk, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
-  if ! kit_bp_load_declarations "$decl" "$cfgdecl"; then
+  # The status folder set: the trunk's lib/status-folders.sh; a trunk older than that file has none,
+  # and the loader then reads the set from the trunk's check-board.sh.
+  sfdecl="$scratch/status-folders.sh"
+  git -C "$repo" show "${old_rev}:scripts/lib/status-folders.sh" > "$sfdecl" 2>/dev/null || rm -f "$sfdecl"
+  if ! kit_bp_load_declarations "$decl" "$cfgdecl" "$sfdecl"; then
     missing="$KIT_BP_MISSING"
     _bpc_cleanup
     kit_refuse 1 board-property-unreadable \
-      "Error: ${old_rev}:scripts/check-board.sh and scripts/config.sh do not declare: ${missing}" \
+      "Error: ${old_rev}:scripts/check-board.sh, scripts/lib/status-folders.sh and scripts/config.sh do not declare: ${missing}" \
       "       The board-property check reads those operands from those files and never guesses them." \
-      "Next: restore each missing declaration in the trunk's scripts/check-board.sh (or PRD_PREFIX in scripts/config.sh; version control or the release zip hold the original) and land that on the trunk, then re-run the command that refused. If those files were not yours to change, stop and hand off." \
+      "Next: restore each missing declaration in the trunk (KIT_STATUS_FOLDERS in scripts/lib/status-folders.sh, PRD_PREFIX in scripts/config.sh, the rest in scripts/check-board.sh; version control or the release zip hold the original) and land that on the trunk, then re-run the command that refused. If those files were not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
 

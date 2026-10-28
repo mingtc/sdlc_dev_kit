@@ -82,7 +82,8 @@ if [ $# -gt 0 ]; then
 fi
 
 # ── Greppable defaults: consumers and tests DERIVE these with sed. Never re-type them elsewhere.
-STATUS_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'
+# STATUS_FOLDERS is NOT declared here: scripts/lib/status-folders.sh is the one authority, loaded
+# below, and a landing reads it from the trunk's copy of that file.
 # QA_COMPLETE_THRESHOLD is NOT declared here: scripts/config.sh is the one authority
 # (process/contracts/config-seam.md), and arm (b) reads it from $CB_TREE below, so a
 # value an adopter declared there is honoured rather than shadowed by a second default.
@@ -184,6 +185,17 @@ if [ ! -f "$CB_LIB_DIR/glob-array.sh" ] || ! . "$CB_LIB_DIR/glob-array.sh" 2>/de
   CB_GLOB_LIB_ERR="scripts/lib/glob-array.sh is missing or does not load"
 elif ! command -v kit_glob_array >/dev/null 2>&1; then
   CB_GLOB_LIB_ERR="scripts/lib/glob-array.sh sourced, but kit_glob_array is NOT DEFINED"
+fi
+
+# The status folder set, from the one file that declares it. A load failure leaves STATUS_FOLDERS
+# empty: arm (a) then reports that it checked nothing and sets the verdict to drift.
+STATUS_FOLDERS=""
+CB_STATUS_LIB_ERR=""
+# shellcheck source=lib/status-folders.sh
+if [ ! -f "$CB_LIB_DIR/status-folders.sh" ] || ! . "$CB_LIB_DIR/status-folders.sh" 2>/dev/null || [ -z "${KIT_STATUS_FOLDERS:-}" ]; then
+  CB_STATUS_LIB_ERR="scripts/lib/status-folders.sh is missing or declares no KIT_STATUS_FOLDERS"
+else
+  STATUS_FOLDERS="$KIT_STATUS_FOLDERS"
 fi
 
 # The shared register parser (arm [l] reads the register through it, as a landing does). A load
@@ -356,7 +368,7 @@ for folder in "${a_all_cols[@]}"; do
 done
 # An empty derivation would make this arm vacuously green, so it is reported.
 if [ "${#a_cols_list[@]}" -eq 0 ]; then
-  echo "    ⚠ (control) no column survived the STATUS_FOLDERS derivation — this arm checked NOTHING; STATUS_FOLDERS is '$STATUS_FOLDERS' and the skip list is '$A_SKIP_COLS'"
+  echo "    ⚠ (control) no column survived the STATUS_FOLDERS derivation — this arm checked NOTHING; STATUS_FOLDERS is '$STATUS_FOLDERS' and the skip list is '$A_SKIP_COLS'${CB_STATUS_LIB_ERR:+; $CB_STATUS_LIB_ERR}"
   drift=1
 fi
 for folder in "${a_cols_list[@]}"; do

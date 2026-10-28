@@ -786,16 +786,16 @@ case_kit_init_happy() {
   # The board is COMPLETE and left PRISTINE.
   local keeps leftovers
   keeps="$(find "$SB_WORK/progress" -name .gitkeep | wc -l | tr -d ' ')"
-  # Expected count derived from kit-init.sh's STATUS_FOLDERS (+ history), never a typed digit:
-  # adding a status column must not redden this case. Asserted non-empty first.
+  # Expected count derived from lib/status-folders.sh's KIT_STATUS_FOLDERS (+ history), never a typed
+  # digit: adding a status column must not redden this case. Asserted non-empty first.
   local kg_cols kg_expected
-  kg_cols="$(sed -n 's/^STATUS_FOLDERS=(\(.*\))$/\1/p' "$SB_WORK/scripts/kit-init.sh" | head -1)"
+  kg_cols="$(sed -n "s/^KIT_STATUS_FOLDERS='\(.*\)'/\1/p" "$SB_WORK/scripts/lib/status-folders.sh" | head -1)"
   [ -n "$kg_cols" ] \
-    || cf "(control) could not derive STATUS_FOLDERS from kit-init.sh — the declaration moved, and the .gitkeep count below would otherwise compare against an empty expectation"
-  # + 1 for history/, which kit-init appends to BOARD_FOLDERS and which is NOT a status.
-  kg_expected="$(( $(printf '%s\n' "$kg_cols" | tr ' ' '\n' | grep -c .) + 1 ))"
+    || cf "(control) could not derive KIT_STATUS_FOLDERS from lib/status-folders.sh — the declaration moved, and the .gitkeep count below would otherwise compare against an empty expectation"
+  # + 1 for history/, which the board's directories add and which is NOT a status.
+  kg_expected="$(( $(printf '%s\n' "$kg_cols" | tr '|' '\n' | grep -c .) + 1 ))"
   [ "$keeps" = "$kg_expected" ] \
-    || cf "expected $kg_expected .gitkeep files (STATUS_FOLDERS + history, derived from kit-init.sh), found $keeps"
+    || cf "expected $kg_expected .gitkeep files (status folders + history, derived from lib/status-folders.sh), found $keeps"
   leftovers="$(find "$SB_WORK/progress" -type f -name '*.md' | wc -l | tr -d ' ')"
   [ "$leftovers" = "0" ] || cf "the board is not pristine — $leftovers issue file(s) left behind"
   grep -qE '^##[[:space:]]+Log([[:space:]]|$)' "$SB_WORK/progress.md" || cf "progress.md has no '## Log' heading"

@@ -93,21 +93,15 @@ CODE_GLOBS=(
 TEST_GLOBS=(
 )
 
-# ── POST_MERGE_PREP — an optional command that prepares the FRESH worktree the post-landing
-#    check reads when the gate checkout cannot be (uncommitted tracked changes, or a refused
-#    detach): a fresh worktree has no installed dependencies, and the gate may need them.
-#    Read by scripts/finish-pr.sh from the LANDED commit's copy of this file; it runs once, in
-#    the fresh worktree's root, via `sh -c`, before the gate. It never runs when the gate
-#    checkout is read in place. A non-zero exit reads UNRUNNABLE (the gate does not run); there
-#    is no timeout.
+# ── POST_MERGE_PREP — an optional command that prepares the fresh worktree the post-landing
+#    check reads. What the landing does with it, and when, is process/contracts/landing-gate.md § 4.
 #
 # OPTIONAL: empty means undeclared and nothing runs — a normal answer, which check-board.sh's [g]
-# arm does not report. Not overridable from the environment, so the reading is reproducible from
-# the commit it names: the declaration is the plain single-quoted form (one line, column 1), read
-# as text and never sourced, so the command cannot contain a single quote. Fill it with your
-# project's install-from-lockfile step, e.g. POST_MERGE_PREP='<your install command>'.
-# Edit the shipped line in place: the reader takes the first declaration, so a second
-# POST_MERGE_PREP line is never read.
+# arm does not report. The declaration is the plain single-quoted form (one line, column 1), read
+# as text and never sourced, so the command cannot contain a single quote; it is not overridable
+# from the environment. Fill it with your project's install-from-lockfile step, e.g.
+# POST_MERGE_PREP='<your install command>'. Edit the shipped line in place: the reader takes the
+# first declaration, so a second POST_MERGE_PREP line is never read.
 POST_MERGE_PREP=''
 
 # sed_repl <value> — escape a free-text value for the replacement half of `s|…|REPL|`, where

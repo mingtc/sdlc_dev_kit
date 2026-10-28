@@ -17,9 +17,9 @@ _lived_signals() {  # prints one line per signal present; empty output means "no
   [ -f "$SB_WORK/scripts/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$SB_WORK/scripts/config.sh" 2>/dev/null \
     && echo "the initializer's stamp receipt in scripts/config.sh"
   # THE COLUMNS ARE DERIVED from the declaration the arm reads, never a literal list.
-  IFS='|' read -r -a cols <<< "$(cb_default STATUS_FOLDERS)"
+  IFS='|' read -r -a cols <<< "$(cb_status_folders)"
   [ "${#cols[@]}" -gt 0 ] \
-    || _fixture_die "_lived_signals: STATUS_FOLDERS could not be read from check-board.sh — the board signal would be skipped entirely and every guard built on this would pass over a board it never looked at."
+    || _fixture_die "_lived_signals: STATUS_FOLDERS could not be read from lib/status-folders.sh — the board signal would be skipped entirely and every guard built on this would pass over a board it never looked at."
   for col in "${cols[@]}"; do
     [ -d "$SB_WORK/progress/$col" ] || continue
     n="$(find "$SB_WORK/progress/$col" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')"
@@ -326,6 +326,11 @@ cb_default() {  # <VAR_NAME>
   sed -n "s/^$1='\(.*\)'/\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }
 
+# cb_status_folders — the status folder set, from the one file that declares it (lib/status-folders.sh).
+cb_status_folders() {
+  sed -n "s/^KIT_STATUS_FOLDERS='\(.*\)'/\1/p" "$REAL_SCRIPTS/lib/status-folders.sh" 2>/dev/null | head -1
+}
+
 # cb_default_seam <VAR_NAME> — for the OTHER shape a default takes, the repointable-seam form
 # `NAME="${NAME:-path}"` (DQ_FILE, CORPUS_FILE): cb_default's quoting does not match it.
 cb_default_seam() {  # <VAR_NAME>
@@ -358,8 +363,9 @@ cb_remove_check_d() {
 # =============================================================================
 # Two cards can carry the same `id:` on the trunk under different slugs, which git never flags.
 # No capability probe for the check, on purpose: it would turn the check being deleted into a
-# SKIP instead of a FAIL. The constants are read from the REAL check-board.sh (cb_default), so an
-# edit there cannot make these assertions vacuous.
+# SKIP instead of a FAIL. The constants are read from the REAL check-board.sh (cb_default) and the
+# status folder set from the REAL lib/status-folders.sh (cb_status_folders), so an edit there cannot
+# make these assertions vacuous.
 case_check_board_id_clean() {
   cf_reset
   make_sandbox
@@ -367,10 +373,10 @@ case_check_board_id_clean() {
   # Derive the three constants, and prove the derivation itself is live — an empty
   # value means the defaults block moved.
   local status_folders id_key id_pattern ncols
-  status_folders="$(cb_default STATUS_FOLDERS)"
+  status_folders="$(cb_status_folders)"
   id_key="$(cb_default ISSUE_ID_KEY)"
   id_pattern="$(cb_default ISSUE_ID_PATTERN)"
-  [ -n "$status_folders" ] || cf "could not derive STATUS_FOLDERS from the defaults block"
+  [ -n "$status_folders" ] || cf "could not derive the status folder set from lib/status-folders.sh"
   [ -n "$id_key" ]         || cf "could not derive ISSUE_ID_KEY from the defaults block"
   [ -n "$id_pattern" ]     || cf "could not derive ISSUE_ID_PATTERN from the defaults block"
   # No column count: a new status would redden this case, not the property. What matters is

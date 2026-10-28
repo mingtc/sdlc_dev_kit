@@ -53,15 +53,6 @@ cd "$ROOT"
 # The remote name the kanban worktree uses (kanban-worktree.sh's KWT_REMOTE knob).
 REMOTE="${KWT_REMOTE:-origin}"
 
-# The lifecycle. The status set is a seam WITHOUT a variable: process/EXTRACTION.md § 2.2's
-# table lists the files that carry it, and this file is one of its rows.
-STATUS_FOLDERS=(todo in_progress dev_complete qa_complete blocked done declined)
-# + history/ for rotated progress.md sections (archive-progress.sh's destination).
-BOARD_FOLDERS=("${STATUS_FOLDERS[@]}" history)
-# One .gitkeep per board folder; the count is ASSERTED after creation, against an
-# expectation DERIVED from the folder-set array above.
-GITKEEP_EXPECTED=${#BOARD_FOLDERS[@]}
-
 # The one-line receipt this script writes INTO scripts/config.sh (an existing
 # seam, not a new file). Its presence is what makes a second run refuse.
 STAMP_MARK='# Stamped by scripts/kit-init.sh'
@@ -419,6 +410,18 @@ if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" |
   pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL or KIT_HAT_ENV — kit-init gitignores the hat file and declares its commits' hat from the names in that file and will not guess either. Restore it:  git checkout -- scripts/lib/hat-file.sh"
 fi
 
+# The lifecycle: the status folders and the board's directories (the set plus history/) are
+# declared once, in lib/status-folders.sh. One .gitkeep per board folder; the count is ASSERTED after
+# creation, against an expectation DERIVED from the array below.
+# shellcheck source=lib/status-folders.sh
+if [ ! -f "$SCRIPT_DIR/lib/status-folders.sh" ] || ! . "$SCRIPT_DIR/lib/status-folders.sh" || [ -z "${KIT_STATUS_FOLDERS:-}" ] || [ -z "${KIT_BOARD_DIRS:-}" ]; then
+  pf "scripts/lib/status-folders.sh is missing or declares no KIT_STATUS_FOLDERS or KIT_BOARD_DIRS — kit-init creates the board from the names in that file and will not guess them. Restore it:  git checkout -- scripts/lib/status-folders.sh"
+else
+  IFS='|' read -r -a STATUS_FOLDERS <<< "$KIT_STATUS_FOLDERS"
+  IFS='|' read -r -a BOARD_FOLDERS <<< "$KIT_BOARD_DIRS"
+  GITKEEP_EXPECTED=${#BOARD_FOLDERS[@]}
+fi
+
 # Every commit kit-init makes wears the pre-role hat (SELF_ROLE), declared for that commit alone:
 # the commit guard refuses a commit with no declared hat, and no session has declared one yet.
 ki_commit() { env "$KIT_HAT_ENV=$SELF_ROLE" git -C "$ROOT" commit "$@"; }
@@ -556,7 +559,7 @@ fi
 # FILLED THROUGH PROCESS SUBSTITUTION, NEVER A PIPE: a piped `while read` runs in a subshell,
 # LIVED would be empty afterwards, and a lived repository would be initialized silently.
 LIVED=()
-if command -v kit_lived_signals >/dev/null 2>&1; then
+if command -v kit_lived_signals >/dev/null 2>&1 && [ -n "${KIT_STATUS_FOLDERS:-}" ]; then
   while IFS= read -r rec; do
     [ -n "$rec" ] || continue
     case "$rec" in
@@ -1001,6 +1004,9 @@ fi
 say "  progress/: ${#BOARD_FOLDERS[@]} folders, ${KEEPS}/${GITKEEP_EXPECTED} .gitkeep files ✓"
 
 if [ ! -f "$ROOT/progress.md" ]; then
+  # The columns a person lists to see the board: the status folders but the terminal done/.
+  LS_COLS=""
+  for _c in "${STATUS_FOLDERS[@]}"; do [ "$_c" = done ] || LS_COLS="$LS_COLS progress/$_c/"; done
   cat > "$ROOT/progress.md" <<EOF
 # progress.md
 
@@ -1010,7 +1016,7 @@ this file is the *history*.
 
 ## Status quick reference
 
-Run \`ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/ progress/declined/\`
+Run \`ls${LS_COLS}\`
 to see the board. \`declined/\` is terminal — a card considered and refused, kept for the reason it carries. Each filename is \`${PREFIX}-NNN-<slug>.md\`; the folder is the status.
 \`./scripts/check-board.sh\` reports board drift. Older entries rotate into
 \`progress/history/\` via \`./scripts/archive-progress.sh\`.

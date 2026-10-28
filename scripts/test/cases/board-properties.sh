@@ -848,3 +848,42 @@ KITEOF
   finish "arm [r] reads each declared register's own id shape: a second register's uncited live R-01 is reported with the arm's remedy, its cross-cutting R-02 and PRD-cited R-03 are not, and the arm's line names both registers it read"
   teardown
 }
+
+# =============================================================================
+# CASE — THE LANDING READS THE STATUS FOLDER SET FROM THE TRUNK'S DECLARATION FILE.
+# kit_bp_load_declarations takes STATUS_FOLDERS from the status-folders file it is given; for a trunk
+# older than that file it takes it from that trunk's check-board.sh, which then declared the set
+# itself; with neither it reports STATUS_FOLDERS missing and sets nothing. The expected values are
+# typed here, and the three files are written here.
+# =============================================================================
+case_board_property_loader_reads_the_status_folder_set_from_the_trunks_declaration() {
+  cf_reset
+  make_sandbox
+  local lib="$SB_WORK/scripts/lib/board-properties.sh" t="$SB_TMP/sfl" out
+  [ -f "$lib" ] || _fixture_die "case_board_property_loader_reads_the_status_folder_set_from_the_trunks_declaration: scripts/lib/board-properties.sh is not in the sandbox"
+  mkdir -p "$t"
+  cp "$SB_WORK/scripts/check-board.sh" "$t/check-board.sh"
+  printf "KIT_STATUS_FOLDERS='alpha|beta|done'\n" > "$t/status-folders.sh"
+
+  # (a) the file is given: its set is read.
+  out="$( set +e; . "$lib" || exit 3
+    kit_bp_load_declarations "$t/check-board.sh" "$SB_WORK/scripts/config.sh" "$t/status-folders.sh" || exit 4
+    printf '%s' "$STATUS_FOLDERS" )"
+  [ "$out" = "alpha|beta|done" ] || cf "(a) with a status-folders file the set read was '$out', not 'alpha|beta|done'"
+
+  # (b) no such file, and the trunk's check-board.sh declares the set itself: that declaration is read.
+  printf "STATUS_FOLDERS='old|set'\n" >> "$t/check-board.sh"
+  out="$( set +e; . "$lib" || exit 3
+    kit_bp_load_declarations "$t/check-board.sh" "$SB_WORK/scripts/config.sh" "$t/absent.sh" || exit 4
+    printf '%s' "$STATUS_FOLDERS" )"
+  [ "$out" = "old|set" ] || cf "(b) for a trunk older than the file the set read was '$out', not 'old|set'"
+
+  # (c) neither declares it: STATUS_FOLDERS is reported missing.
+  cp "$SB_WORK/scripts/check-board.sh" "$t/check-board.sh"
+  out="$( set +e; . "$lib" || exit 3
+    kit_bp_load_declarations "$t/check-board.sh" "$SB_WORK/scripts/config.sh" "$t/absent.sh"; printf 'rc=%s missing=%s' "$?" "$KIT_BP_MISSING" )"
+  [ "$out" = "rc=1 missing=STATUS_FOLDERS" ] || cf "(c) with no declaration anywhere the loader answered '$out', not 'rc=1 missing=STATUS_FOLDERS'"
+
+  finish "the board-property loader reads the status folder set from the status-folders file it is given, from an older trunk's check-board.sh when there is none, and reports STATUS_FOLDERS missing when neither declares it"
+  teardown
+}

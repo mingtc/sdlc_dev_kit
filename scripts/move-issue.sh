@@ -156,9 +156,11 @@ if [ ! -r "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progres
   kit_progress() { :; }
 fi
 
-# THE TARGETS THIS TOOL ACCEPTS, declared once: the header token, the refusal and the checks below
-# read this line. The set itself is the board's STATUS_FOLDERS (scripts/check-board.sh).
-TARGET_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'
+# THE TARGETS THIS TOOL ACCEPTS are the board's status folders, from the one file that declares
+# them; the header token, the refusal and the checks below read the variable.
+# shellcheck source=lib/status-folders.sh
+. "$SCRIPT_DIR/lib/status-folders.sh"
+TARGET_FOLDERS="$KIT_STATUS_FOLDERS"
 
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
   local roles tok='@ROLE_SET@'
@@ -264,9 +266,8 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
   fi
 fi
 
-# The status folder set is a SEAM WITHOUT A SHARED VARIABLE: several files carry the column names as
-# literals (this file's TARGET_FOLDERS is one), and not all the same ones. Adding or renaming a column means opening each carrier;
-# process/EXTRACTION.md § 2.2 (the status folder set) is the list.
+# The status folder set is declared once, in lib/status-folders.sh; process/EXTRACTION.md § 2.2 lists
+# the files that name a column outside it.
 if [ "$NOTE_ONLY" -eq 0 ]; then
   if ! [[ "$TARGET" =~ ^($TARGET_FOLDERS)$ ]]; then
     kit_refuse 1 unknown-target \
