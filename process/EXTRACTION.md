@@ -180,7 +180,7 @@ and a disposition at the same time.
 | **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`'s `ISSUE_PREFIX`/`PRD_PREFIX`/`PROJECT_NAME`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half, `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` — **the initializer never stamps these two**, the same FILL shape as `GATES`, not done until filled or declared deliberately empty |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `AGENTS.md`, `README.md` |
-| **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
+| **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**`, `process/ROLES` |
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines), and the release and refactor routes: `scripts/release.sh`, and the Refactorer with the files that exist only to serve it (`scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md`, `.claude/templates/REFACTOR.template.md`). A project that ships nothing, or never restructures, removes them; one that keeps them says so |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
@@ -354,6 +354,7 @@ names the guard whose job is to keep it honest.
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree and landed on the trunk by `register-commit.sh`, checklist, self-test, the project's own gates, finish, handoff. Adopt unedited; it names no project. |
+| `process/ROLES` | The roles this project adds to its role set, one line each; ships with no role line. `MIXED`, `SEED`: the shape is the kit's, the lines are yours (§ 2.4). Adopt as shipped and add lines. |
 | `process/KIT-RELEASE-NOTES.md` | The adopter-facing notes: § How to upgrade, then the newest release's section and an unreleased section. Adopt unedited; `scripts/kit-upgrade.sh` reads it. |
 | `process/KIT-VERSION` | The one version literal of the kit you adopted, and nothing else. Adopt unedited; it is what an upgrade compares against. |
 | `process/KIT-MANIFEST` | Generated when the zip is built, never tracked in the kit's own source: one row per shipped file (hash, path, `KIT-CLASS`, `KIT-DISPOSITION` — `-` where a file declares none). Adopt unedited; the initializer, the upgrade script and the self-test read it. The disposition column is how the self-test knows a missing `DELETE-IF-UNUSED` member was removed on purpose: the declaration leaves with the file, the manifest keeps it. |
@@ -713,18 +714,28 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 
 | File | Register | Stamped? | What it holds | Note |
 |---|---|---|---|---|
-| `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM** |
+| `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM**, and it is the BASE layer: the hook extends it at run time with the layers below |
 | `scripts/move-issue.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** The whitelist and both error messages now derive from the hook at run time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_resolve`, and the usage text through `kit_role_display` | A role missing here cannot move the board **at all**. **Preserve the derivation**; the default is the part that drifts, so correct IT. **The remaining literal is reached only when the hook is UNREADABLE, which is why it is a default and not a copy**: a literal beside a readable authority can drift from it, one reached only in the authority's absence cannot. It is still stamped because a default must be right for *this* project, and it lives in this file rather than in `lib/` because `kit-init --roles` stamps `scripts/*.sh` and **does not reach `scripts/lib/`** |
-| `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
+| `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the base from the hook and extends it with the layers read from the same source, with a literal fallback for the base | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `move` arm's whitelist and both error messages derive through `kit_role_resolve`; its usage text derives through `kit_role_display` | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the shared kanban worktree loses the move. **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
 | `scripts/register-commit.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `--role` check derives through `kit_role_resolve` before the kanban worktree is touched | **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
 | The adapter (`AGENTS.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
 
+**The set has layers, and a layer is a file.** [`lib/role-set.sh`](../scripts/lib/role-set.sh) reads
+the **base** (the hook's `ROLE_PREFIXES` line, the first row above), then `process/ROLES` (the
+project's own additions, one `<Tag> [text]` per line), then `process/roles.d/<name>` (one file per
+add-on that brings roles of its own). Every reader goes through it, so a role added later is **one
+file or line added** and a role withdrawn is **that file removed**: no seam is edited. The layers
+only add; dropping a base role is `kit-init --roles`. A line that is not a plain tag is skipped, and
+its role is then refused by the hook. `process/ROLES` ships with **no role line** on purpose: an
+upgrade adds a new file, and a populated one would widen the set a project had stamped. A base that
+is unreadable still reads as unreadable, never as the additions alone.
+
 **`scripts/lib/role-set.sh` gets no row, deliberately: it holds the POLICY, not the set.**
-`kit_role_set` reads the authority, `kit_role_display` renders it for usage text, `kit_role_resolve`
-resolves the set an operator-supplied `--role` is checked against and reports whether it derived or
-defaulted, and `kit_role_member` is the membership test. **A file that carries no copy of the set is
+`kit_role_set` reads the layers (through `kit_role_extend`), `kit_role_display` renders them for
+usage text, `kit_role_resolve` resolves the set an operator-supplied `--role` is checked against and
+reports whether it derived or defaulted, and `kit_role_member` is the membership test. **A file that carries no copy of the set is
 not a place the set can go stale**, so listing it here would put a row in a staleness register for
 something that cannot go stale — and would invite somebody to move a default into it, which the
 initializer's glob cannot stamp.
@@ -734,13 +745,31 @@ fallback is presented as *this project's set* it is a false claim about this tre
 [`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 forbids. `check-board.sh` names
 its fallback set in its output, and the `--role` arms do the same.
 
-**Derive the ENFORCING register rather than trusting this table to be current** — the table is the
-statement of intent, the recipe is the measurement, and a disagreement between them is a finding:
+**Adding a role after day one touches these, in this order, and nothing else:**
+
+1. `process/ROLES`: one line, `<Tag> [what the seat does]`. Commit and push it: the board is committed
+   from a copy of the trunk and `check-board.sh` reads the trunk, so both read the layer there. A role
+   an add-on brings is a file under `process/roles.d/` instead. No hook line, no `ROLE_SET_DEFAULT`
+   and no `kit-init` run: those are the base and its fallbacks.
+2. The adapter's role table and commit-prefix table (DOCUMENTATION, never stamped).
+3. `PROJECT.md`'s Roles table, one row.
+4. The role doc, `.claude/roles/<role>.md`.
+
+`bash -c '. scripts/lib/role-set.sh; kit_role_set .'` prints the set every reader above uses.
+
+**A human-partnered seat has no ladder row.** A role that is no dispatched worker (a person's own
+hat, worn in session) takes steps 1 to 4 and no more: no `.claude/agents/` file, no row in the
+orchestrator's ladder, no `set-models.sh` class. Arm `[s]` compares pins with ladder cells and counts
+model-table rows still `<fill in>` only in a role doc that has such a table, so a role doc without
+one is not reported.
+
+**Derive the STAMPED register rather than trusting this table to be current** (what `kit-init --roles`
+rewrites) — the table is the statement of intent, the recipe is the measurement, and a disagreement
+between them is a finding:
 
 ```sh
 ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | head -1)"
 grep -lF -- "$ROLES" scripts/*.sh scripts/githooks/*        # the ENFORCING register
-grep -rlE -- "$ROLES" .claude/                              # who MENTIONS a role
 ```
 
 **BOTH DIRECTIONS OR NEITHER, and the second one is the one this recipe was missing.** *Does the
@@ -815,11 +844,6 @@ asserts what the kit SHIPS and must never be stamped, because stamping it rewrit
 match whatever it was measuring. The non-recursive glob excludes it **by shape**, so there is no
 exclusion list to keep in step with anything. `kit-init.sh` derives its stamping list with exactly
 this recipe, for exactly this reason.
-
-*The second pattern is a different question and its answer is much larger — it finds every file that
-NAMES a role, most of them role docs and skills under `.claude/`, none of them stamped. It is here
-because § 2.2 paid for the lesson that a hand-bound search space answers a smaller question than it
-appears to: keep the `.claude/` operand.*
 
 **AND A THIRD REGISTER: FILES THAT CARRY ONE *MEMBER*, NOT THE SET.** The table above is about the
 role *set*. A separate and easier-to-miss class is a script that hardcodes a single role because it

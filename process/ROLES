@@ -1,0 +1,12 @@
+# KIT-CLASS: MIXED — the shape is the kit's; the role lines are yours. It ships with no role line.
+# process/ROLES — the roles this project ADDS to its role set, one per line:  <Tag> [what the seat does]
+#
+# To add a role after day one, add a line here and commit and push it; no script is edited. The
+# hook, the board scripts' --role checks and check-board.sh read the set through
+# scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4 has the layers and the rest of a new role's
+# checklist). To remove a role the hook's own line declares, use `kit-init --roles`.
+#
+# A Tag is letters, digits, `_` or `-`, opening with a letter. `#` starts a comment. A line that does
+# not fit is skipped, and its role is then refused by the hook: the visible failure, never a guess.
+# Example (remove the `#` to use it):
+# Writer   drafts the product docs; commits as [Writer]

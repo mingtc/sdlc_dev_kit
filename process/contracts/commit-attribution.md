@@ -28,6 +28,8 @@ filtered, audited and trusted years later without asking anybody.
   *Why:* a gate people cannot satisfy from its own message gets disabled.
 - **The role set has exactly one authoritative definition, and every other statement of it is
   derived or checked against that one.** Where a copy is unavoidable, the copy is verified.
+  The definition is the hook's base set plus the layer files one library reads; a layer only adds
+  ([`../EXTRACTION.md`](../EXTRACTION.md) § 2.4).
   *Why:* one project had the enforcing rule and the board tooling's own list disagree, and the
   result was a role that was allowed to commit but not allowed to move the board — discovered by
   the seat that held it.

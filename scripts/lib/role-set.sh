@@ -12,6 +12,17 @@
 # archive sweep, [QA] on finish-pr). Deriving it from the set (`${ROLE_PREFIXES%%|*}`) writes a
 # false seat into git history, and a one-member set cannot express the distinction at all.
 #
+# THE SET IS LAYERED, and a project or an add-on extends it by ADDING A FILE, never by editing code:
+#   1. BASE      the ROLE_PREFIXES line of scripts/githooks/commit-msg, the set `kit-init --roles`
+#                stamps; the only layer whose absence makes the whole set unreadable;
+#   2. PROJECT   process/ROLES, one role per line;
+#   3. ADD-ONS   process/roles.d/<name>, same line shape, one file per add-on, so removing the
+#                add-on removes its file and nothing shared is edited.
+# A line is `<Tag> [free text]`; `#` starts a comment. A Tag is letters, digits, `_` or `-`, opening
+# with a letter; any other line is skipped, because a tag with a `|` or a quote would be a hole in
+# the commit-msg hook's pattern. The layers only ADD: removing a base role is `kit-init --roles`.
+# process/ROLES ships with no role line, so an upgrade that adds it cannot widen a stamped set.
+#
 # Its consumers are the files that SOURCE it (a filename grep also returns files that only name it):
 #   grep -rlE '^[^#]*\.[[:space:]]+"\$SCRIPT_DIR/lib/role-set\.sh"' scripts --include='*.sh'
 
@@ -19,10 +30,45 @@
 # shellcheck source=refuse.sh
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh"
 
-# kit_role_set <repo-root> — echo the project's declared role set, or nothing.
-# Callers MUST treat empty as "could not read", never as "no roles declared".
-kit_role_set() {
+# _kit_role_base <repo-root> — the BASE layer: the hook's ROLE_PREFIXES line, or nothing.
+# FALLBACK POLICY HERE: empty; the caller decides.
+_kit_role_base() {
   sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$1/scripts/githooks/commit-msg" 2>/dev/null | head -1
+}
+
+# _kit_role_extras <repo-root> — the tags process/ROLES, then process/roles.d/*, declare, one per
+# line. A file that is absent or unreadable contributes nothing, and so does a line that is not a
+# plain tag.
+_kit_role_extras() {
+  local f
+  for f in "$1/process/ROLES" "$1"/process/roles.d/*; do
+    [ -f "$f" ] && [ -r "$f" ] || continue
+    awk '{ sub(/\r$/, ""); sub(/#.*/, ""); if (NF && $1 ~ /^[A-Za-z][A-Za-z0-9_-]*$/) print $1 }' "$f" 2>/dev/null || true
+  done
+}
+
+# kit_role_extend <repo-root> <base-set> — <base-set> with every layer above it appended,
+# `|`-joined, in the order read, each tag once. Never empty when <base-set> is not.
+kit_role_extend() {
+  local set_="$2" t
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    case "|$set_|" in *"|$t|"*) continue ;; esac
+    set_="${set_:+$set_|}$t"
+  done <<EXTRAS_EOF
+$(_kit_role_extras "$1")
+EXTRAS_EOF
+  printf '%s' "$set_"
+}
+
+# kit_role_set <repo-root> — echo the project's declared role set, or nothing.
+# Callers MUST treat empty as "could not read", never as "no roles declared". An unreadable BASE is
+# empty even when a layer above it is readable: a set of only the additions would be read as complete.
+kit_role_set() {
+  local base
+  base="$(_kit_role_base "$1")"
+  [ -n "$base" ] || return 0
+  kit_role_extend "$1" "$base"
 }
 
 # kit_role_display <repo-root> — the declared set rendered FOR USAGE TEXT, or, when the seam
@@ -67,9 +113,11 @@ kit_role_resolve() {
   KIT_ROLE_SET="$(kit_role_set "$1" 2>/dev/null || true)"
   if [ -n "$KIT_ROLE_SET" ]; then
     KIT_ROLE_SRC="derived from scripts/githooks/commit-msg"
+    [ "$KIT_ROLE_SET" = "$(_kit_role_base "$1")" ] \
+      || KIT_ROLE_SRC="$KIT_ROLE_SRC, extended by process/ROLES and process/roles.d/"
     KIT_ROLE_DEFAULTED=""
   else
-    KIT_ROLE_SET="$2"
+    KIT_ROLE_SET="$(kit_role_extend "$1" "$2")"
     KIT_ROLE_SRC="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared role set"
     KIT_ROLE_DEFAULTED=1
   fi

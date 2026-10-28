@@ -55,10 +55,10 @@ quality bar, the gates, credentials, the active-roles table) live in
 
 The pattern is [`process/MANUAL.md` § Roles as hats](process/MANUAL.md). **This table is this
 project's cast** — it is the source of truth for which hats exist here, and it must match the
-contents of `.claude/roles/` and **every file that carries the role set** —
-[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and that list is the count.
-*(Not "the guard": there is more than one, and a role registered in only some of them commits fine
-and cannot move a card. Authority:
+contents of `.claude/roles/` and the role set the hook enforces —
+[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 says where that set is read from.
+*(Not "the guard": there is more than one, and a role registered by hand in only some of them commits
+fine and cannot move a card. Authority:
 [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
 [`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md).)*
 
@@ -71,10 +71,11 @@ and cannot move a card. Authority:
 **Parked is a decision, not an absence.** A role you do not run stays in the table with its reason,
 in `.claude/roles/archive/`, so the next reader can see the choice was made.
 
-**Adding a role means editing this table, `.claude/roles/`, and every file that carries the role
-set** — [`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and **that table is the
-count**. Register it in only some of them and the role commits fine and **cannot move a card**: that
-is why § 2.4 exists.
+**Adding a role means a line in `process/ROLES`, a row in this table and the prefix table below, a
+row in `PROJECT.md`'s Roles table and a role doc under `.claude/roles/`** —
+[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 has the ordered list. The `process/ROLES` line
+is read by every guard at once; a role registered by hand in only some of them commits fine and
+**cannot move a card**, which is why § 2.4 exists.
 
 **Parking one costs no script edit, and that is deliberate** — the prefix stays accepted, so an
 un-park costs no hook change. *The asymmetry is worth knowing in both directions: adding touches
@@ -136,8 +137,9 @@ every carrier, parking touches none of the scripts.*
 
 Every commit subject starts with a role tag; the `scripts/githooks/commit-msg` hook rejects a
 prefix-less subject (wired via `git config core.hooksPath scripts/githooks` — `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone).
-**This table is this project's prefix set and must match the hook's `ROLE_PREFIXES` line
-verbatim** — the hook keeps that list on its own line precisely so a guard can *derive* it rather
+**This table is this project's prefix set and must match the set the hook enforces** (its
+`ROLE_PREFIXES` line, extended by `process/ROLES`; [`process/EXTRACTION.md`](process/EXTRACTION.md)
+§ 2.4) — the hook keeps the base list on its own line precisely so a guard can *derive* it rather
 than re-hardcode it.
 
 | Prefix | Used by |

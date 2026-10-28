@@ -48,8 +48,21 @@ MSG_FILE="${1:-}"
 
 # THE ACCEPTED ROLE TAGS, an ERE alternation on its OWN LINE so every consumer derives it with
 # one sed instead of holding a copy. The set is carried in several files, listed in the table
-# at process/EXTRACTION.md § 2.4: change one, change them all.
+# at process/EXTRACTION.md § 2.4: change one, change them all. A role ADDED later goes in
+# process/ROLES (or a file under process/roles.d/), not here.
 ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+
+# …EXTENDED by the layers lib/role-set.sh reads on top of that line (process/ROLES, then
+# process/roles.d/*). The line above is the BASE and stays the fallback: a library that cannot load
+# leaves the hook enforcing exactly the base, never an accept-everything.
+if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/role-set.sh" ]; then
+  # shellcheck source=../lib/role-set.sh
+  . "$HOOK_DIR/../lib/role-set.sh" 2>/dev/null || true
+fi
+if command -v kit_role_extend >/dev/null 2>&1; then
+  _role_eff="$(kit_role_extend "$HOOK_DIR/../.." "$ROLE_PREFIXES" 2>/dev/null || true)"
+  [ -z "$_role_eff" ] || ROLE_PREFIXES="$_role_eff"
+fi
 
 # THE TOOL MARKERS for rule (2) — likewise a named var on its own line, so the
 # refusal text and any test DERIVE the list instead of restating it. Plain words

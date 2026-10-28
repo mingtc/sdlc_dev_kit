@@ -31,9 +31,10 @@ Waking it means doing all of these **in one change**, so the kit never advertise
    role needs. Re-point this file's own relative links one level up (`../` becomes `./`, `../../`
    becomes `../`), and `.claude/agents/ui-designer-worker.md` (its description, its link and its
    `archive/` test), in the same change.
-4. **Register the role** in the adapter's role table and the prefix table (`[UIDesigner]`), and in
-   **every file that carries the role set** — `process/EXTRACTION.md` § 2.4 is the list, and that
-   table is the count. *Not "whatever guard": there is more than one, and a role registered in only
+4. **Register the role** in the adapter's role table and the prefix table (`[UIDesigner]`) and in
+   `PROJECT.md`'s Roles table, as `process/EXTRACTION.md` § 2.4's ordered list says. The shipped set
+   already holds the tag; a project that narrowed it with `kit-init --roles` adds a `UIDesigner` line
+   to `process/ROLES`. *A line there is read by every guard at once; a role registered by hand in only
    some of them commits fine and cannot move a card.*
 5. **Decide the per-issue look gate** — see [orchestrator.md](../orchestrator.md) § Project
    duties, whose "look / visual gate" bullet is where a woken UI role stops being DORMANT.

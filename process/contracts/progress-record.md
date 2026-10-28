@@ -210,12 +210,12 @@ producer need not be a member of the role population is the reason this is not o
 **The role vocabulary is DERIVED, never listed here.** Run it:
 
 ```sh
-sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | head -1
+bash -c '. scripts/lib/role-set.sh; kit_role_set .'
 ```
 
-That is the same seam `scripts/lib/role-set.sh` reads and the same one the commit-msg hook
-enforces, so a project that narrows its role set narrows this column with it and nothing needs
-re-typing. The writer loads `role-set.sh` itself, so a producer that sources only the writer is
+That is the reader the commit-msg hook enforces through (its `ROLE_PREFIXES` line, extended by the
+layer files [`../EXTRACTION.md`](../EXTRACTION.md) § 2.4 names), so a project that narrows or extends
+its role set moves this column with it and nothing needs re-typing. The writer loads `role-set.sh` itself, so a producer that sources only the writer is
 checked against the declared set too. *A list written here would be a second declaration of a fact that already has an
 authoring site, and the second one drifts.*
 

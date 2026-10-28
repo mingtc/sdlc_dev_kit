@@ -62,7 +62,7 @@
 #     --decision D-09
 #
 #   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered by
-#   scripts/githooks/commit-msg's ROLE_PREFIXES. Substitute one of yours.
+#   scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4). Substitute one of yours.
 
 set -uo pipefail
 
@@ -142,7 +142,7 @@ if command -v kit_role_set >/dev/null 2>&1; then
   if [ -n "$_set" ] && command -v kit_role_member >/dev/null 2>&1 && ! kit_role_member "$_set" "$ROLE"; then
     kit_refuse 2 ask-role-not-declared \
       "Error: --role $ROLE is not one of this project's declared roles ($_set)." \
-      "Next: re-run with --role set to one of the declared roles above. The set is the project's declaration (scripts/githooks/commit-msg's ROLE_PREFIXES) and the owner's to change: if no declared role fits, stop and hand off."
+      "Next: re-run with --role set to one of the declared roles above. The set is the project's declaration (process/EXTRACTION.md § 2.4 locates it) and the owner's to change: if no declared role fits, stop and hand off."
   fi
 fi
 

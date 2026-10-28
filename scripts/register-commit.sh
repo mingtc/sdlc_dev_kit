@@ -65,7 +65,7 @@
 #     progress/dev_complete/<PREFIX>-014-slug.md
 #
 #   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`,
-#   from ROLE_PREFIXES in scripts/githooks/commit-msg. Substitute one of yours.
+#   which process/EXTRACTION.md § 2.4 locates. Substitute one of yours.
 
 set -euo pipefail
 

@@ -114,7 +114,7 @@
 #     --note "Review — FAIL on AC. AC unmet: help text missing the example."
 #
 #   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`,
-#   from ROLE_PREFIXES in scripts/githooks/commit-msg. Substitute one of yours.
+#   which process/EXTRACTION.md § 2.4 locates. Substitute one of yours.
 
 set -euo pipefail
 

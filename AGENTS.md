@@ -67,8 +67,8 @@ the contracts they encode** — those are process law and apply to every agent, 
 ## What will get you rejected
 
 1. **A commit subject with no role tag.** Every subject starts `[Role] …` — the set is in the
-   adapter's § "Role-attribution commit prefixes" (until it exists: the hook's `ROLE_PREFIXES` line in
-   `scripts/githooks/commit-msg`, and
+   adapter's § "Role-attribution commit prefixes" (until it exists: the set the hook enforces, which
+   [`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 locates, and
    [`process/contracts/role-gate.md`](process/contracts/role-gate.md) § 2a for day one's hat), and a
    git hook enforces it. The prefix is the audit trail for a one-person-many-hats project.
 2. **Moving an issue file with `mv`.** The folder under `progress/` *is* the status; status changes

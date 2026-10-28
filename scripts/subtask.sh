@@ -44,7 +44,7 @@
 #   ./scripts/subtask.sh move <PREFIX>-014-s1 dev_complete --role Dev --note "Ready for review; gates green."
 #
 #   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`,
-#   from ROLE_PREFIXES in scripts/githooks/commit-msg. Substitute one of yours.
+#   which process/EXTRACTION.md § 2.4 locates. Substitute one of yours.
 
 set -euo pipefail
 

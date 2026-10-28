@@ -49,7 +49,7 @@
 #   ./scripts/move-issue.sh <ID> qa_complete --role QA --note "Review — PASS. Squash-merged."
 #
 #   The `--role` value above IS AN EXAMPLE VALUE: the roles move-issue.sh accepts are the ones its
-#   own `--help` lists, from scripts/githooks/commit-msg. Substitute one of yours.
+#   own `--help` lists (process/EXTRACTION.md § 2.4 locates the set). Substitute one of yours.
 #
 # FORGE-PR FLAVOR (an extension, not the default): a team that wants MR/PR ceremony can add a
 # branch here that opens and merges via a forge CLI instead of the local squash, and pass the

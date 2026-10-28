@@ -236,7 +236,7 @@ leaving it to whoever dispatches.**
 
 **The Refactorer and the files that serve it are optional** (`process/EXTRACTION.md` § The second axis): a project that removes them writes `no` and the reason on that row, and removes the Refactorer row from the ladder in `.claude/roles/orchestrator.md` (how `scripts/set-models.sh` reads the ladder: [`process/contracts/model-provisioning-seam.md`](process/contracts/model-provisioning-seam.md)).
 
-**The role set is a configuration seam**, not prose: whatever you decide here must match
+**The role set is a configuration seam**, not prose (a role added after day one is a line in `process/ROLES`): whatever you decide here must match
 the adapter's roles table ([`AGENTS.md`](AGENTS.md), from SEED step 5) and the role alternation your commit-attribution guard
 enforces. *(Authority:
 [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and

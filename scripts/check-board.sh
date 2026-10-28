@@ -539,6 +539,18 @@ if [ -z "$ROLE_PREFIXES" ]; then
   # Named in the output: a ✓ over the fallback set is not a ✓ over your project's roles.
   role_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared role set"
 fi
+# The layers on top of that line (process/ROLES, process/roles.d/*), read from THIS source by
+# lib/role-set.sh's kit_role_extend, the one reader the hook and the --role checks use. A library
+# that did not load leaves the base alone, and the output says only what it read.
+if [ -r "$CB_LIB_DIR/role-set.sh" ] && . "$CB_LIB_DIR/role-set.sh" 2>/dev/null \
+   && command -v kit_role_extend >/dev/null 2>&1; then
+  _rp_ext="$(kit_role_extend "$CB_TREE" "$ROLE_PREFIXES")"
+  if [ "$_rp_ext" != "$ROLE_PREFIXES" ]; then
+    ROLE_PREFIXES="$_rp_ext"
+    role_src="$role_src, extended by process/ROLES and process/roles.d/"
+  fi
+  unset _rp_ext
+fi
 # The revision walked is stated, not implied.
 if [ -n "$CB_REF" ]; then
   CB_RULE_REV="$CB_REF"
