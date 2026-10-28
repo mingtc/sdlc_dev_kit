@@ -526,8 +526,8 @@ commit **rejected** by the attribution hook — the whole point being that *runn
 The behaviours worth knowing before you run it — the refusal conditions are in
 [`contracts/initializer.md`](contracts/initializer.md) § 3, and every refusal prints its own reason:
 
-- **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
-  the remote's published default branch; a disagreement refuses.
+- **The trunk is confirmed, never inferred** ([`contracts/initializer.md`](contracts/initializer.md)
+  §§ 2 and 3).
 - **It guides the remote, it does not create one.** No remote / no published default branch /
   unborn HEAD ⇒ refusal **with [`GIT-HOSTING.md`](GIT-HOSTING.md) § 3's recipe**, whose step 1 is
   the local bare-repository recipe for an offline project. Creating a remote is a
@@ -574,13 +574,13 @@ you want to know what the initializer is doing to your repository. **A non-shell
 | `PRD_PREFIX` | The spec prefix. The default is fine for most projects. |
 | `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. |
 | `validate_issue_id()` | The shared read-only guard: requires an id, enforces the declared shape, hard-errors on an id already live, and **warns** when the id appears only in the archive. Creating scripts are deliberately **stateless** — the caller supplies the number, and `next-id.sh` suggests it. |
-| `CODE_GLOBS` | The code-vs-metadata boundary (§ 2.6) — which paths `scripts/githooks/pre-commit` treats as code, gating the branch-vs-trunk refusal. **Ships empty; `kit-init.sh` never touches it.** Empty means UNDECLARED, which the hook reads as UNENFORCED — not "no code exists" — until you fill it, or add its `# DECLARED EMPTY —` line if that is this project's real answer. `check-board.sh`'s `[g]` arm reports which. |
-| `TEST_GLOBS` | The test-path definition the ablation-record rule needs — which paths `scripts/finish-pr.sh` treats as tests, gating the landing-time refusal for an undocumented ablation. **Ships empty; `kit-init.sh` never touches it.** Same empty-means-unenforced convention and the same `[g]`-measured `# DECLARED EMPTY —` escape as `CODE_GLOBS`. |
-| `POST_MERGE_PREP` | An optional command `scripts/finish-pr.sh` runs in the FRESH worktree it reads the landed trunk in (when the gate checkout has uncommitted tracked changes, or refuses the detach), before the gate — so a gate that needs installed dependencies can run there. **Ships empty; empty means nothing runs, and `[g]` does not report it.** Not overridable from the environment: it is read as text from the landed commit's own `config.sh`, so a single quote cannot appear in it. A non-zero exit reads UNRUNNABLE, never FAIL; there is no timeout. |
+| `CODE_GLOBS` | The code-vs-metadata boundary (§ 2.6), read by `scripts/githooks/pre-commit`. **Ships empty; `kit-init.sh` never touches it.** What empty means and how to declare it empty on purpose are the comment above the array in `config.sh`. |
+| `TEST_GLOBS` | The test-path definition the ablation-record rule needs, read by `scripts/finish-pr.sh`. **Ships empty; `kit-init.sh` never touches it.** Its convention is the comment above the array in `config.sh`. |
+| `POST_MERGE_PREP` | An optional command `scripts/finish-pr.sh` runs to prepare the fresh worktree it reads the landed trunk in. Declared and explained in `config.sh`; what the landing does with it is [`contracts/landing-gate.md`](contracts/landing-gate.md) § 4. |
 | The publication remote *(not a `config.sh` knob: `KWT_REMOTE`, in `scripts/lib/kanban-worktree.sh`)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain** in `scripts/lib/kanban-worktree.sh`: `<remote>/HEAD`, then `init.defaultBranch`, then the literal `KWT_TRUNK_LAST_RESORT`. Every step after the first **warns** and does not refuse, so a guessed trunk still runs. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
 
-Every scalar knob except `POST_MERGE_PREP` is a `${VAR:-default}`, so a one-off run can override it without an edit; `POST_MERGE_PREP` and the two glob arrays are deliberately not environment-overridable.
+Which knobs the environment may override, and which it may not (`POST_MERGE_PREP`, the glob arrays), is [`contracts/config-seam.md`](contracts/config-seam.md) § 2's declaration-shape rule.
 
 **The substitution keys on the HEADER KEY, never on a value shaped like the template's example.** A substitution that
 matches nothing fails *silently*, and every created item then carries the template's example
@@ -590,8 +590,8 @@ drift report flagged. This is contracted in
 
 ### 2.2 The status folder set
 
-The lifecycle is the set of directories under `progress/`: `todo`, `in_progress`,
-`dev_complete`, `qa_complete`, `blocked`, `done`, `declined` (+ `history/` for the rotated log).
+The lifecycle is the set of directories under `progress/`: the names in `STATUS_FOLDERS`
+(`scripts/check-board.sh`), plus `history/` for the rotated log.
 
 **`declined/` is terminal and is not swept.** A card lands there when it was considered and
 **refused**, and — like `blocked/` — the mover **requires a `--note`**, because *a decline with no
