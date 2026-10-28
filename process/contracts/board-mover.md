@@ -138,6 +138,23 @@ to change and making every change self-recording.
 - A move of a decomposed item into the reviewed state or the completed store while any of its children
   is neither reviewed nor declined ⇒ refuse, naming each such child. (Declining the item itself claims no
   completion and is not refused.) A child that will not be done is closed by declining it, with its reason.
+- **Extension: move checks in `scripts/move-check.d/<target>/` — THE ONE STATEMENT OF THEIR CONTRACT**
+  (`move-issue.sh` and `scripts/lib/addon-check.sh` point here). A move to `<target>` runs each
+  `<NN>-<name>.sh` in that folder, in file-name order, after every refusal above and before anything
+  changes; the first that does not allow it refuses the move (`move-check-refused`), naming the
+  check, quoting what it printed and ending in a `Next:` line, with nothing changed. The files are
+  **the trunk's** — read at its commit and run from a copy of those bytes — so a check that is not
+  published, or is edited in a checkout, is not what judges a move. A check is called with
+  `<id> <from> <to> <role> <card-file> <repo> <trunk-commit>`, may read and must not write. *Its
+  status:* `0` allows; `3` refuses, the lines it printed are the reason and one opening `Next: ` is
+  the way on (the refusal adds a `Next:` when it printed none); **any other status refuses too**
+  (`move-check-broken`) — a gate that cannot answer must not read as armed. A file in the folder not
+  named `<NN>-<name>.sh`, and a folder under `scripts/move-check.d/` that is no status folder, are
+  reported as not run. A record-without-moving runs no check. **The landing script runs them itself,
+  for the move it ends with, before its squash** (a refusal then stops the landing with nothing
+  merged, as any check of the landing gate does), and its own move, which comes after the squash and
+  names it, therefore skips them, for the reason it skips the verdict check above. A decomposed item's
+  child moves through its own mover and runs the same checks.
 - The publication of the move fails ⇒ report loudly that the board changed locally and did **not**
   reach the trunk, and name the recovery. A move that is silently local is a lie to everyone else.
 - The publication area holds uncommitted work ⇒ **refuse and wait**, listing what was found and

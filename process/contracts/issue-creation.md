@@ -188,6 +188,27 @@ request that refuses — that is a defect against this section, and it is fixed 
 rather than against the other tools**: reconcile a set to its own majority and the next reading
 finds a different majority and standardises on that instead.*
 
+**Extension: fragments in `process/fragments.d/<template>/` — THE ONE STATEMENT OF THEIR CONTRACT**
+(`kit_card_fragments` in `scripts/lib/card-head.sh`, called by `new-prd.sh` for `PRD` and by
+`new-issue.sh` for `ISSUE`, points here). A file there is minted into every new item of that template
+while it is there, and only then. It is read from the working tree, like the template. Its name is
+`<name>.<mode>`, `<name>` lowercase letters, digits and `-` opening with a letter, and the mode is one of:
+
+- `frontmatter` — the lines are added before the frontmatter's closing `---`;
+- `body-end` — a paragraph is added after the last section, above a closing `## Activity` heading when
+  the template has one, so the log stays last;
+- `slot-<slot>` — the lines are put where the template carries `<!-- KIT-MODULES:<slot> … -->` on a line of
+  its own, followed by one blank line. The core owns the slots and a fragment only fills one:
+  `PRD.template.md` carries `story-fields`, in its story block.
+
+Several fragments for one place are placed in file-name order; a `README.md` is not a fragment. **Every
+slot line is removed from a minted item, filled or not**, so a project that enables nothing has the bytes
+of a template without it. *Why a fragment and not a field in the template:* a core field is blank in
+every PRD of every project. A mint is refused, and writes nothing, for a name that is no mode
+(`fragment-name-unknown`), a slot the template does not carry (`fragment-slot-missing`), a
+`frontmatter` fragment for a template with none (`fragment-frontmatter-missing`), a fragment that
+itself carries a slot line (`fragment-content-markers`) and an unreadable one (`fragment-unreadable`).
+
 ## 4. WHAT GREEN MEANS
 
 1. **Exactly one** new item exists, in the starting state, and its path is printed.

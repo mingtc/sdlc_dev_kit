@@ -185,7 +185,8 @@ STORY_IDS=""
 kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story ids>" "$STORY_IDS" \
   "dev/plans/YYYY-MM-DD-<PREFIX>-NNN-" "dev/plans/YYYY-MM-DD-$ID-" \
   "dev/plans/YYYY-MM-DD-${ISSUE_PREFIX}-NNN-" "dev/plans/YYYY-MM-DD-$ID-" || exit 1   # exit-class: internal
-
+# What an add-on contributes (process/fragments.d/ISSUE/): process/contracts/issue-creation.md § 3.
+kit_card_fragments "$WORK" ISSUE "$ROOT/process/fragments.d" || exit 1   # exit-class: internal
 
 kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 

@@ -52,6 +52,10 @@
 #    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check.)
 #   (in_progress/ and dev_complete/ warn, never refuse, when a `blocked_by` card is not in
 #    qa_complete/ or done/ on the trunk.)
+#   (a move also runs each scripts/move-check.d/<target>/<NN>-<name>.sh the trunk holds, after the
+#    checks above and before anything changes; one that refuses, or fails to answer, refuses the move
+#    — process/contracts/board-mover.md § 3. finish-pr.sh runs them before its squash, so its
+#    --landed-at move runs none.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -541,6 +545,20 @@ else
       done <<< "$_mv_bl"
       [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the rebase rule is in .claude/roles/dev.md § Handoff to QA). Not a refusal." >&2
     fi
+  fi
+
+  # THE ADD-ON MOVE CHECKS (lib/addon-check.sh; process/contracts/board-mover.md § 3): each
+  # scripts/move-check.d/<target>/<NN>-<name>.sh the TRUNK holds judges this transition, after every
+  # check above and before the first change below. They are read at the trunk's commit, so a
+  # checkout that has not pushed one, or has edited one, is not what judges the move. The one move
+  # exempt is finish-pr.sh's, for the reason it is exempt from the QA Verdict check: it comes after
+  # the squash, and a refusal then would leave the code merged and the card in dev_complete/.
+  # finish-pr.sh runs the same checks (kit_move_checks) BEFORE its squash, so the skip below skips a
+  # check that has already answered, not one that never runs.
+  if [ -n "$LANDED_AT" ]; then
+    echo "Move checks skipped — finish-pr.sh ran them before landing ${ISSUE_ID}; a refusal now would leave the code merged and the card in dev_complete/."
+  else
+    kit_move_checks "$MAIN_ROOT" "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" "$ISSUE_ID" "$SRC_FOLDER" "$TARGET" "$ROLE" "$SRC"
   fi
 
   # Move: prefer `git mv` (tracks rename); fall back to `mv` if untracked.

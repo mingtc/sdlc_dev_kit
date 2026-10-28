@@ -118,7 +118,7 @@ fi
 
 # Built aside and moved in last, as new-issue.sh does: a failed step leaves no PRD to spend the id.
 WORK="$(kit_card_work "$DEST_DIR")"
-kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp"'
+kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"'
 
 cp "$TEMPLATE" "$WORK"
 
@@ -134,6 +134,9 @@ rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1   # exit-class: internal
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
+# What an add-on contributes (process/fragments.d/PRD/), and removal of every slot line the template
+# keeps for it: a project with nothing enabled has no trace of them (process/contracts/issue-creation.md § 3).
+kit_card_fragments "$WORK" PRD "$ROOT/process/fragments.d" || exit 1   # exit-class: internal
 
 kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 

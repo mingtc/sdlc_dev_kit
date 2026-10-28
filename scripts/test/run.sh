@@ -56,6 +56,11 @@
 #   is never used to hide a missing behaviour (`grep -rni 'no capability probe'
 #   scripts/test/cases` finds the cases that deliberately have none).
 #
+# AN ADD-ON'S CASES ride with the add-on: modules/<name>/test/cases/*.sh define them, loaded with the
+#   harness's own files, and modules/<name>/test/CASE-LIST lists them. They run after the core cases and
+#   before case_isolation; a case an add-on defines and does not list refuses the run, as a core
+#   case missing from CASES below does (lib/addon-cases.sh). A tree without that directory has none.
+#
 # RUN IT FROM A BUILT KIT. It is a witness only when run from an unzipped release given
 # day-one git topology. The repository that maintains the kit stores it DISARMED
 # (`_claude/`, not `.claude/`), so in place the day-one cases skip and false reds occur;
@@ -163,7 +168,7 @@ HARNESS_ENTRY="$HARNESS_DIR/$(basename "${BASH_SOURCE[0]}")"
 
 _harness_sourced() {  # the files the entry point sources, in load order — THE ONE LIST
   local LC_ALL=C f
-  for f in "$HARNESS_DIR"/lib/*.sh "$HARNESS_DIR"/cases/*.sh; do
+  for f in "$HARNESS_DIR"/lib/*.sh "$HARNESS_DIR"/cases/*.sh "$REAL_REPO_ROOT"/modules/*/test/cases/*.sh; do
     [ -f "$f" ] && printf '%s\n' "$f"
   done
   return 0
@@ -192,7 +197,11 @@ _harness_where() {
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     len="$(wc -l < "$f" | tr -d ' ')"
-    total=$(( total + len )); names+=("scripts/test/${f#"$HARNESS_DIR"/}"); ends+=("$total")
+    case "$f" in
+      "$HARNESS_DIR"/*) names+=("scripts/test/${f#"$HARNESS_DIR"/}") ;;
+      *) names+=("${f#"$REAL_REPO_ROOT"/}") ;;   # an add-on's case file
+    esac
+    total=$(( total + len )); ends+=("$total")
   done <<HARNESS_WHERE_EOF
 $(_harness_sources)
 HARNESS_WHERE_EOF
@@ -289,6 +298,10 @@ CASES=(
   case_qa_gate_reads_its_evidence_kinds_from_one_function_at_the_trunk
   case_marker_block_insert_is_idempotent_and_remove_restores_the_bytes
   case_marker_block_gitignore_block_goes_at_the_end_and_a_created_file_is_removed
+  case_a_template_fragment_is_minted_only_when_enabled_and_is_byte_absent_when_not
+  case_a_move_check_on_the_trunk_refuses_with_a_next_line_and_changes_nothing
+  case_a_qa_cell_check_runs_from_the_trunk_and_reads_the_landed_revision
+  case_a_qa_complete_move_check_stops_finish_pr_before_the_squash
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
   case_refusal_leaves_one_countable_record
@@ -743,9 +756,14 @@ CASES=(
   case_manifest_disposition_column_matches_the_headers
   case_restated_rules_are_registered
   case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes
+  case_the_harness_runs_an_add_ons_cases_and_refuses_one_that_is_not_listed
   case_ship_state
   case_isolation
 )
+
+# An add-on's cases (modules/<name>/test/, lib/addon-cases.sh) join the list here: each add-on's
+# own test/CASE-LIST is held against what its files define, and a disagreement refuses the run.
+_harness_add_addon_cases "$REAL_REPO_ROOT" || exit 2
 
 # Every case_* function that exists must be in CASES, and vice versa. A mismatch is
 # FATAL before any case runs.
@@ -766,8 +784,9 @@ if [ "$_defined_cases" != "$_listed_cases" ]; then
     comm -23 <(printf '%s\n' "$_defined_cases") <(printf '%s\n' "$_listed_cases") | sed 's/^/    /'
     echo "  listed but NOT defined (these would error):"
     comm -13 <(printf '%s\n' "$_defined_cases") <(printf '%s\n' "$_listed_cases") | sed 's/^/    /'
-    echo "  Fix the CASES array above. Both sides of this comparison are derived, so"
-    echo "  the only way to satisfy it is to actually list the case."
+    echo "  Fix the CASES array above, or the add-on's modules/<name>/test/CASE-LIST for one of its cases."
+    echo "  Both sides of this comparison are derived, so the only way to satisfy it is to"
+    echo "  actually list the case."
   } >&2
   exit 2
 fi

@@ -722,3 +722,98 @@ case_isolation() {
   fi
   finish "isolation: the real repo's HEAD and its WHOLE WORKING TREE — every path git reports, not a named subset — are unchanged across the run, as is the project's .progress-records/ (names and bytes), with scripts/test/ excluded as the harness's own home. The span is the whole tree because this harness READS far more of it than any list of surfaces named in advance; a narrower span reports the absence of findings it could not have made. Attribution is out of scope: a path that differs between t0 and t1 does not say who wrote it (see the case's note)"
 }
+
+# =============================================================================
+# CASE — THE HARNESS RUNS AN ADD-ON'S CASES AND REFUSES ONE THAT IS NOT LISTED.
+#   An add-on ships its cases in modules/<name>/test/cases/*.sh and lists them, one function name
+#   per line, in modules/<name>/test/CASE-LIST. run.sh loads those files with its own, runs the listed
+#   cases before case_isolation, and refuses the whole run on a case an add-on defines and does not
+#   list, lists and does not define, or names as a core case does. The proof is a REAL run of a
+#   copy of run.sh over a miniature harness (one core case, case_isolation, and the add-on under
+#   test): the discovery cannot be driven from inside a run that has already loaded its cases.
+# =============================================================================
+case_the_harness_runs_an_add_ons_cases_and_refuses_one_that_is_not_listed() {
+  cf_reset
+  local L="run.sh loads an add-on's case files from modules/<name>/test/cases/, runs the cases its test/CASE-LIST lists after the core cases and before case_isolation, and refuses the run (status 2, naming the add-on's CASE-LIST file) for a case it defines and does not list, one it lists and does not define, a name the core also lists, and case files with no CASE-LIST file; a tree with no add-on runs the core cases only"
+  if [ ! -f "$HARNESS_ENTRY" ]; then skp "$L" "scripts/test/run.sh is not where the harness says it is"; return; fi
+  # The fixture's case names are built, not written: the census of case names the shipped files cite
+  # reads every case_ token in this file, and these name nothing under cases/.
+  local P="case_" fx rc out ok_a="fx add-on case a ran"
+  local core="${P}fx_core" pa="${P}fx_probe_a" pb="${P}fx_probe_b" pm="${P}fx_probe_missing" iso="${P}isolation"
+  fx="$(mktemp -d)" || _fixture_die "${FUNCNAME[0]}: mktemp failed"
+  mkdir -p "$fx/scripts/test/lib" "$fx/scripts/test/cases" "$fx/scripts/lib" "$fx/process"
+  cp "$HARNESS_ENTRY" "$fx/scripts/test/run.sh"
+  cp "$HARNESS_DIR"/lib/*.sh "$fx/scripts/test/lib/"
+  cp "$REAL_SCRIPTS/lib/kanban-worktree.sh" "$fx/scripts/lib/"
+  cp "$REAL_SCRIPTS/config.sh" "$fx/scripts/"
+  : > "$fx/process/KIT-MANIFEST"
+  # The miniature harness: the real runner over its real loader, with its case list replaced by one core
+  # case and the isolation case, and no isolation snapshot to take.
+  perl -0pi -e 'BEGIN { $c = shift; $i = shift } s/\nCASES=\(\n.*?\n\)\n/\nCASES=(\n  $c\n  $i\n)\n/s' "$core" "$iso" "$fx/scripts/test/run.sh"
+  grep -qx "  $core" "$fx/scripts/test/run.sh" || _fixture_die "${FUNCNAME[0]}: the CASES block of run.sh was not replaced — its shape moved, so no run below tests the real discovery."
+  # Each definition starts one space in: a definition at column 0 in this file would be counted by the
+  # population census.
+  {
+    printf ' isolation_snapshot() { :; }\n'
+    printf ' %s() { ok "fx core case ran"; }\n' "$core"
+    printf ' %s() { ok "fx isolation ran"; }\n' "$iso"
+  } > "$fx/scripts/test/cases/mini.sh"
+  _fx_run() { rc=0; out="$( cd "$fx" && bash scripts/test/run.sh 2>&1 )" || rc=$?; out="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"; }
+  _fx_addon() {  # <defined, one name per line> <CASE-LIST body, or "-" for no file>
+    local n
+    rm -rf "${fx:?}/modules"; mkdir -p "$fx/modules/probe/test/cases"
+    : > "$fx/modules/probe/test/cases/probe.sh"
+    while IFS= read -r n; do
+      [ -z "$n" ] || printf '%s() { ok "fx add-on case %s ran"; }\n' "$n" "${n##*_}" >> "$fx/modules/probe/test/cases/probe.sh"
+    done <<FX_DEFINED_EOF
+$1
+FX_DEFINED_EOF
+    [ "$2" = "-" ] || printf '%s\n' "$2" > "$fx/modules/probe/test/CASE-LIST"
+  }
+
+  # (a) NO ADD-ON: the core cases run, and nothing else.
+  _fx_run
+  { [ "$rc" -eq 0 ] && [[ "$out" == *"fx core case ran"* ]]; } || cf "(a) (control) the miniature harness did not run clean with no add-on (exit $rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|' | cut -c1-300)"
+
+  # (b) A LISTED CASE RUNS, after the core case and before the isolation case, as its own outcome line.
+  _fx_addon "$pa" "# the add-on's cases
+$pa"
+  _fx_run
+  [ "$rc" -eq 0 ] || cf "(b) a listed add-on case made the run exit $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" == *"$ok_a"* ]] || cf "(b) the listed add-on case did not run"
+  [ "$(printf '%s\n' "$out" | grep '^case-outcome:' | awk '{print $2}' | tr '\n' ' ')" = "$core $pa $iso " ] \
+    || cf "(b) the outcome table is not core, add-on, then the isolation case: $(printf '%s\n' "$out" | grep '^case-outcome:' | awk '{print $2}' | tr '\n' ' ')"
+
+  # (c) A CASE THE ADD-ON DEFINES AND DOES NOT LIST refuses the run, naming the add-on's CASE-LIST file.
+  _fx_addon "$pa
+$pb" "$pa"
+  _fx_run
+  [ "$rc" -eq 2 ] || cf "(c) an unlisted add-on case did not refuse the run with status 2 (exit $rc)"
+  [[ "$out" == *"$pb"* ]] || cf "(c) the refusal does not name the unlisted case"
+  [[ "$out" == *"modules/probe/test/CASE-LIST"* ]] || cf "(c) the refusal does not name the add-on's CASE-LIST file as the place to list it: $(printf '%s' "$out" | grep -i refus | head -3 | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" != *"$ok_a"* ]] || cf "(c) a case ran though the run was to be refused"
+
+  # (d) A LISTED CASE THAT IS NOT DEFINED refuses it.
+  _fx_addon "$pa" "$pa
+$pm"
+  _fx_run
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"$pm"* ]] && [[ "$out" == *"modules/probe/test/CASE-LIST"* ]]; } || cf "(d) a listed case with no definition did not refuse the run naming it and the CASE-LIST file (exit $rc)"
+
+  # (e) A NAME THE CORE ALSO LISTS refuses it: one function cannot be two cases.
+  _fx_addon "$core" "$core"
+  _fx_run
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"$core"* ]]; } || cf "(e) an add-on case with a core case's name did not refuse the run (exit $rc)"
+
+  # (f) CASE FILES WITH NO CASE-LIST FILE refuse it: nothing says which of them are cases.
+  _fx_addon "$pa" "-"
+  _fx_run
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"has no modules/probe/test/CASE-LIST"* ]]; } || cf "(f) case files with no test/CASE-LIST did not refuse the run saying the list is missing (exit $rc)"
+
+  # (g) THE ADD-ON GOES: the run is the core's again.
+  rm -rf "${fx:?}/modules"
+  _fx_run
+  { [ "$rc" -eq 0 ] && [[ "$out" != *"$ok_a"* ]]; } || cf "(g) with the add-on removed the run is not the core's alone (exit $rc)"
+
+  rm -rf "${fx:?}"
+  finish "$L"
+}

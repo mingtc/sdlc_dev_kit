@@ -5,8 +5,9 @@
 # Each case adds through an extension point exactly as a project would (a file, not an edit to a
 # script), proves every reader of that point takes it up, removes it, and proves they refuse again.
 # The points pinned here: the role set's layers (process/ROLES, process/roles.d/), the board
-# report's arms (scripts/check-board.d/), the QA evidence kinds (process/evidence-kinds.d/) and the
-# shared-file blocks (scripts/lib/marker-block.sh).
+# report's arms (scripts/check-board.d/), the QA evidence kinds (process/evidence-kinds.d/), the
+# shared-file blocks (scripts/lib/marker-block.sh), the mint's fragments (process/fragments.d/), the
+# board mover's checks (scripts/move-check.d/) and the QA rows' cell checks (scripts/qa-cell.d/).
 # =============================================================================
 
 # _rl_hook <role> — the commit-msg hook's status on a subject carrying that tag.
@@ -815,5 +816,516 @@ case_marker_block_gitignore_block_goes_at_the_end_and_a_created_file_is_removed(
   [ "$(cat "$d/.gitignore")" = 'node_modules/' ] || cf "(d) the refused insert still wrote the file"
 
   finish "a .gitignore block is appended at the end of the file in # comments (never an HTML comment), the pattern takes effect through git itself and stops when the block goes, a file the insert created is deleted with its last block, an existing file's bytes are restored exactly (CRLF included), and a file with no final newline is refused unchanged"
+  teardown
+}
+
+# =============================================================================
+# CASE — A TEMPLATE FRAGMENT IS MINTED INTO A NEW PRD OR CARD ONLY WHILE ITS FILE IS THERE, AND A
+# PROJECT WITH NONE HAS NO TRACE OF THE SLOT.
+#   The fragments are files under process/fragments.d/<template>/: <name>.frontmatter, <name>.body-end
+#   and <name>.slot-<slot>. The core PRD template owns one slot (story-fields), a line the mint
+#   always removes. The proof of "no trace" is a comparison of bytes: the PRD minted with nothing
+#   enabled equals the PRD minted from the template with the slot line deleted, and the PRD minted
+#   again after a fragment is withdrawn equals the first.
+# =============================================================================
+_tf_files="" _tf_n=0 _tf_out="" _tf_rc=0
+_tf_mint() {  # prd <slug> | issue <slug> <id> -> status in _tf_rc, output in _tf_out; the new file in _tf_files
+  _tf_n=$((_tf_n + 1)); _tf_rc=0
+  case "$1" in
+    prd)   _tf_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/tf-rec-$_tf_n" ./scripts/new-prd.sh "$2" 2>&1 )" || _tf_rc=$? ;;
+    issue) _tf_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/tf-rec-$_tf_n" ./scripts/new-issue.sh "$2" --id "$3" 2>&1 )" || _tf_rc=$? ;;
+  esac
+}
+_tf_refused_for() { grep -q "refusal=$1" "$SB_TMP/tf-rec-$_tf_n"/*.tsv 2>/dev/null; }
+_tf_listing() { ls -A "$SB_WORK/requirements" "$SB_WORK/progress/todo" 2>/dev/null; }
+
+case_a_template_fragment_is_minted_only_when_enabled_and_is_byte_absent_when_not() {
+  cf_reset
+  local L="a fragment under process/fragments.d/ is minted into a new PRD and card (frontmatter, body end, and the PRD's story-fields slot) only while its file is there; with none the minted bytes equal those of a template without the slot line; a bad fragment is refused with a Next: line and mints nothing"
+  if ! has_issue_template || [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then skp "$L" "$ISSUE_TEMPLATE_ABSENT, or .claude/templates/PRD.template.md absent"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+  local tpl="$SB_WORK/.claude/templates/PRD.template.md" real="$SB_TMP/PRD.template.real" fd="$SB_WORK/process/fragments.d"
+  local id="$SB_PREFIX-901" prd="" card="" base_prd="$SB_TMP/prd-none.md" base_card="$SB_TMP/card-none.md" with_prd="$SB_TMP/prd-with.md" with_card="$SB_TMP/card-with.md"
+  cp "$tpl" "$real"
+
+  _tf_mint_now() {  # mint a PRD and a card under fixed slugs; copy them to $1 and $2; remove both
+    local pf cf2
+    _tf_mint prd probe; pf="$(probe_pick "$SB_WORK/requirements" -name 'PRD-*-probe.md')" || true
+    _tf_prd_rc=$_tf_rc; _tf_prd_out="$_tf_out"
+    _tf_mint issue probe "$id"; cf2="$SB_WORK/progress/todo/$id-probe.md"
+    [ -f "$pf" ] && cp "$pf" "$1" || : > "$1"
+    [ -f "$cf2" ] && cp "$cf2" "$2" || : > "$2"
+    rm -f "$pf" "$cf2"
+  }
+  local _tf_prd_rc=0 _tf_prd_out=""
+
+  # (control) the shipped template carries the slot line exactly once, in the story block.
+  if [ "$(grep -c '^<!-- KIT-MODULES:story-fields' "$real")" -ne 1 ]; then
+    cf "(control) PRD.template.md carries $(grep -c '^<!-- KIT-MODULES:story-fields' "$real") story-fields slot line(s), not one — the premise of every comparison below"
+    finish "$L"; teardown; return
+  fi
+
+  # (a) NOTHING ENABLED: no trace of the slot, and the bytes are those of a template with no slot line.
+  _tf_mint_now "$base_prd" "$base_card"
+  [ "$_tf_prd_rc" -eq 0 ] && [ -s "$base_prd" ] || _fixture_die "${FUNCNAME[0]}: new-prd.sh refused a plain mint (exit $_tf_prd_rc): $(printf '%s' "$_tf_prd_out" | tr '\n' '|' | cut -c1-200)"
+  [ -s "$base_card" ] || _fixture_die "${FUNCNAME[0]}: new-issue.sh refused a plain mint: $(printf '%s' "$_tf_out" | tr '\n' '|' | cut -c1-200)"
+  grep -F 'KIT-MODULES' "$base_prd" "$base_card" >/dev/null && cf "(a) a minted file still carries a KIT-MODULES slot line"
+  grep -F 'story-fields' "$base_prd" "$base_card" >/dev/null && cf "(a) a minted file still names the story-fields slot"
+  grep -v '^<!-- KIT-MODULES:story-fields' "$real" > "$tpl"
+  _tf_mint_now "$SB_TMP/prd-stripped.md" "$SB_TMP/card-stripped.md"
+  cmp -s "$base_prd" "$SB_TMP/prd-stripped.md" \
+    || cf "(a) the PRD minted with nothing enabled differs from the PRD minted from a template with no slot line: $(diff "$SB_TMP/prd-stripped.md" "$base_prd" | head -4 | tr '\n' '|')"
+  cp "$real" "$tpl"
+
+  # (b) ENABLED: two add-ons' files. The fragments land where their mode says, and in file-name order.
+  mkdir -p "$fd/PRD" "$fd/ISSUE"
+  printf '**Probe:** none\n' > "$fd/PRD/probe.slot-story-fields"
+  printf 'probe_flag: yes\n' > "$fd/PRD/probe.frontmatter"
+  printf 'aaa_flag: first\n' > "$fd/PRD/aaa.frontmatter"
+  printf '## Probe notes\n\nPROBE-BODY-END\n' > "$fd/PRD/probe.body-end"
+  printf 'probe_card: yes\n' > "$fd/ISSUE/probe.frontmatter"
+  printf 'PROBE-ISSUE-END\n' > "$fd/ISSUE/probe.body-end"
+  printf 'PROBE-README-MUST-NOT-APPEAR\n' > "$fd/PRD/README.md"
+  _tf_mint_now "$with_prd" "$with_card"
+  [ "$_tf_prd_rc" -eq 0 ] && [ -s "$with_prd" ] || cf "(b) new-prd.sh refused an enabled fragment (exit $_tf_prd_rc): $(printf '%s' "$_tf_prd_out" | tr '\n' '|' | cut -c1-240)"
+  [ -s "$with_card" ] || cf "(b) new-issue.sh refused an enabled fragment: $(printf '%s' "$_tf_out" | tr '\n' '|' | cut -c1-240)"
+  grep -F 'KIT-MODULES' "$with_prd" "$with_card" >/dev/null && cf "(b) a slot line survived into a minted file"
+  grep -F 'PROBE-README' "$with_prd" >/dev/null && cf "(b) a README.md in the fragment directory was minted as a fragment"
+  [ "$(grep -c -F '**Probe:** none' "$with_prd")" -eq 1 ] || cf "(b) the slot fragment is not in the PRD exactly once"
+  awk '/^##### F1-S1 /{h=NR} h && NR==h+1 && $0!="" {bad=1} /^\*\*Probe:\*\* none$/{p=NR} p && NR==p+1 && $0!="" {bad=1} p && NR==p+2 && $0 !~ /^\*\*Acceptance Criteria\*\*/ {bad=1} END{exit (p && h && p==h+2 && !bad) ? 0 : 1}' "$with_prd" \
+    || cf "(b) the slot fragment is not placed as: story heading, blank line, fragment, blank line, **Acceptance Criteria**"
+  awk '$0=="---"{n++; next} n==1 && /^aaa_flag: first$/{a=NR} n==1 && /^probe_flag: yes$/{b=NR} END{exit (a && b && a<b && n>=2) ? 0 : 1}' "$with_prd" \
+    || cf "(b) the PRD's frontmatter fragments are not both inside the frontmatter in file-name order"
+  [ "$(tail -1 "$with_prd")" = "PROBE-BODY-END" ] || cf "(b) the PRD's body-end fragment is not the last text of the file: $(tail -1 "$with_prd")"
+  [ "$(tail -4 "$with_prd" | sed -n 1p)" = "" ] || cf "(b) no blank line separates the PRD's body-end fragment from what precedes it"
+  awk '$0=="---"{n++; next} n==1 && /^probe_card: yes$/{a=1} END{exit (a && n>=2) ? 0 : 1}' "$with_card" || cf "(b) the card's frontmatter fragment is not inside its frontmatter"
+  awk '/^PROBE-ISSUE-END$/{p=NR} /^## Activity$/{a=NR} END{exit (p && a && a==p+2) ? 0 : 1}' "$with_card" \
+    || cf "(b) the card's body-end fragment is not placed one blank line above the ## Activity heading"
+  awk '/^## /{l=$0} END{exit (l=="## Activity") ? 0 : 1}' "$with_card" || cf "(b) ## Activity is no longer the card's last section"
+  grep -q "^- $(date +%Y-%m-%d) \[" "$with_card" || cf "(b) the seed Activity entry is gone from the card"
+
+  # (c) WITHDRAWN: remove the files and the minted bytes are the first mint's again.
+  rm -rf "$fd"
+  _tf_mint_now "$SB_TMP/prd-again.md" "$SB_TMP/card-again.md"
+  cmp -s "$base_prd" "$SB_TMP/prd-again.md" || cf "(c) the PRD minted after the fragments were withdrawn differs from the first: $(diff "$base_prd" "$SB_TMP/prd-again.md" | head -4 | tr '\n' '|')"
+  cmp -s "$base_card" "$SB_TMP/card-again.md" || cf "(c) the card minted after the fragments were withdrawn differs from the first: $(diff "$base_card" "$SB_TMP/card-again.md" | head -4 | tr '\n' '|')"
+
+  # (d) REFUSALS name a Next: line, record their rule id and leave the directories as they were.
+  local before after name rule
+  _tf_bad() {  # <file under fragments.d> <content> <expected rule id> <label> [issue]
+    mkdir -p "$fd/$(dirname "$1")"; printf '%s\n' "$2" > "$fd/$1"
+    before="$(_tf_listing)"
+    if [ "${5:-}" = issue ]; then _tf_mint issue probe "$id"; else _tf_mint prd probe; fi
+    after="$(_tf_listing)"
+    [ "$_tf_rc" -ne 0 ] || cf "(d) $4: the mint was not refused"
+    printf '%s\n' "$_tf_out" | grep '^Next:' >/dev/null || cf "(d) $4: the refusal carries no Next: line: $(printf '%s' "$_tf_out" | tr '\n' '|' | cut -c1-200)"
+    _tf_refused_for "$3" || cf "(d) $4: no refusal=$3 record: $(printf '%s' "$_tf_out" | tr '\n' '|' | cut -c1-200)"
+    [ "$before" = "$after" ] || cf "(d) $4: the refused mint left files behind: $(diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | tr '\n' '|' | cut -c1-200)"
+    rm -rf "$fd"
+  }
+  _tf_bad PRD/probe.slot-no-such-slot 'text' fragment-slot-missing "a slot the template does not carry"
+  _tf_bad ISSUE/probe.slot-story-fields 'text' fragment-slot-missing "a slot fragment for a template with no slots" issue
+  _tf_bad PRD/probe.weird 'text' fragment-name-unknown "a file name that is no mode"
+  _tf_bad PRD/Probe.body-end 'text' fragment-name-unknown "an add-on name that is not lowercase"
+  _tf_bad PRD/probe.body-end '<!-- KIT-MODULES:story-fields leaked -->' fragment-content-markers "a fragment that carries a slot line of its own"
+  printf '# PRD-NNN — frontmatter-less\n\nbody\n' > "$tpl"
+  _tf_bad PRD/probe.frontmatter 'probe_flag: yes' fragment-frontmatter-missing "a frontmatter fragment for a template with no frontmatter"
+  cp "$real" "$tpl"
+
+  finish "a fragment under process/fragments.d/<template>/ is minted into a new PRD (frontmatter in file-name order, the story-fields slot between the heading and the criteria, body end last) and a new card (frontmatter, body end above ## Activity) only while its file is there; the PRD minted with nothing enabled has the bytes of a template with no slot line, and the same bytes again once the files are withdrawn; a slot the template lacks, an unknown name, a fragment carrying a slot line and a frontmatter fragment for a template with none are each refused with a Next: line, a rule id and nothing minted"
+  teardown
+}
+
+# =============================================================================
+# CASE — A MOVE CHECK ON THE TRUNK REFUSES A TRANSITION WITH A NEXT: LINE AND CHANGES NOTHING.
+#   A check is scripts/move-check.d/<target folder>/<NN>-<name>.sh, run by move-issue.sh before it
+#   touches the board, in file-name order, with the card, the repo and the trunk's commit as
+#   arguments. Status 0 allows, 3 refuses, anything else is a broken check, and a broken check
+#   refuses too: a gate that cannot answer must not read as armed. The checks are the TRUNK's, not
+#   the operator's checkout's, so a card cannot be moved past a check by not having pushed it.
+# =============================================================================
+_mc_rc=0 _mc_out="" _mc_n=0
+_mc_move() {  # <id> <target> [more move-issue.sh args…] -> _mc_rc, _mc_out; record in $SB_TMP/mc-rec-N
+  local id="$1" target="$2"; shift 2
+  _mc_n=$((_mc_n + 1)); _mc_rc=0
+  _mc_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/mc-rec-$_mc_n" ./scripts/move-issue.sh "$id" "$target" --role "$SB_ROLE" "$@" 2>&1 )" || _mc_rc=$?
+}
+_mc_refused_for() { grep -q "refusal=$1" "$SB_TMP/mc-rec-$_mc_n"/*.tsv 2>/dev/null; }
+_mc_sync() {  # publish the checkout's commits: the mover has pushed board commits of its own since
+  git -C "$SB_WORK" pull -q --rebase origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+}
+_mc_land() {  # <repo-relative path> <body> [local] — commit a file to the trunk and, unless "local", push it
+  mkdir -p "$SB_WORK/$(dirname "$1")"; printf '%s' "$2" > "$SB_WORK/$1"
+  git -C "$SB_WORK" add -A scripts >/dev/null 2>&1
+  sbcommit -qm "[Dev] $SB_PREFIX-800: move check $1" >/dev/null 2>&1
+  [ "${3:-}" = local ] || _mc_sync
+}
+_mc_unland() {  # <repo-relative path> — remove a file from the trunk
+  git -C "$SB_WORK" rm -q -f "$1" >/dev/null 2>&1
+  sbcommit -qm "[Dev] $SB_PREFIX-800: remove move check $1" >/dev/null 2>&1
+  _mc_sync
+}
+_mc_trunk_sha() { origin_fetch_or_die; git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK"; }
+
+case_a_move_check_on_the_trunk_refuses_with_a_next_line_and_changes_nothing() {
+  cf_reset
+  local L="a move check under scripts/move-check.d/<target>/ on the trunk refuses the transition before anything changes (a Next: line, a rule id, the card still in its column and the trunk's commit unchanged), is called with the card, the repo and the trunk's commit, runs in file-name order and stops at the first refusal, is not read from an unpushed or uncommitted copy, is lifted by removing the file, is skipped by a note-only record, and a broken check refuses too"
+  make_sandbox
+  local a="$SB_PREFIX-801" b="$SB_PREFIX-802" c="$SB_PREFIX-803" e="$SB_PREFIX-805" f="$SB_PREFIX-806"
+  seed_issue todo "$a" one chore "Move check one"
+  seed_issue todo "$b" two chore "Move check two"
+  seed_issue todo "$c" three chore "Move check three"
+  seed_issue dev_complete "$e" five chore "Move check five"
+  seed_issue dev_complete "$f" six chore "Move check six"
+  publish_sandbox
+  local dir="scripts/move-check.d/in_progress" args="$SB_TMP/mc-args" order="$SB_TMP/mc-order" tip want
+  : > "$order"
+
+  # (a) A REFUSING CHECK on the trunk: refused with its reason and its own Next: line; the card stays in
+  #     todo/ on the trunk and the trunk does not move.
+  _mc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+printf '%s\\n' \"\$@\" > '$args'
+echo 'PROBE-REASON the card lacks the thing'
+echo 'Next: add the thing, then re-run.'
+exit 3
+"
+  tip="$(_mc_trunk_sha)"
+  _mc_move "$a" in_progress --note x
+  [ "$_mc_rc" -eq 1 ] || cf "(a) the move was not refused with status 1 (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  [[ "$_mc_out" == *PROBE-REASON* ]] || cf "(a) the check's reason is not in the refusal: $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  [[ "$_mc_out" == *"Next: add the thing, then re-run."* ]] || cf "(a) the check's own Next: line is not in the refusal"
+  [[ "$_mc_out" == *"NOTHING WAS CHANGED"* ]] || cf "(a) the refusal does not say nothing was changed"
+  _mc_refused_for move-check-refused || cf "(a) no refusal=move-check-refused record"
+  origin_has_path "progress/todo/$a-one.md" || cf "(a) the card left todo/ on the trunk though the move was refused"
+  [ "$(_mc_trunk_sha)" = "$tip" ] || cf "(a) the trunk moved though the move was refused"
+  [ "$(git -C "$SB_WORK" status --porcelain --untracked-files=no | wc -l | tr -d ' ')" = 0 ] || cf "(a) the refused move left the checkout dirty"
+
+  # (a2) THE ARGUMENTS: id, from, to, role, the card file, the repo, the trunk's commit — in that order.
+  want="$a
+todo
+in_progress
+$SB_ROLE"
+  [ "$(sed -n 1,4p "$args" 2>/dev/null)" = "$want" ] || cf "(a2) the first four arguments are not <id> <from> <to> <role>: $(sed -n 1,4p "$args" 2>/dev/null | tr '\n' '|')"
+  [ "$(awk 'END{print NR}' "$args")" = 7 ] || cf "(a2) the check was not called with seven arguments: $(tr '\n' '|' < "$args")"
+  case "$(sed -n 5p "$args")" in */progress/todo/"$a"-one.md) : ;; *) cf "(a2) argument 5 is not the trunk's copy of the card in the board worktree: $(sed -n 5p "$args")" ;; esac
+  [ "$(cd -P "$(sed -n 6p "$args")" 2>/dev/null && pwd -P)" = "$(cd -P "$SB_WORK" && pwd -P)" ] || cf "(a2) argument 6 is not the repository: $(sed -n 6p "$args")"
+  [ "$(sed -n 7p "$args")" = "$tip" ] || cf "(a2) argument 7 is not the trunk's commit $tip: $(sed -n 7p "$args")"
+
+  # (b) A REFUSAL WITH NO Next: LINE gets one from the mover: no refusal is left without a way on.
+  _mc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo 'PROBE-NO-NEXT only a reason'
+exit 3
+"
+  _mc_move "$a" in_progress --note x
+  [ "$_mc_rc" -eq 1 ] && printf '%s\n' "$_mc_out" | grep '^Next:' >/dev/null \
+    || cf "(b) a check that printed no Next: line was refused without one (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+
+  # (c) A BROKEN CHECK (any status but 0 and 3) refuses too, with its own rule id and a Next: line.
+  _mc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo 'PROBE-BROKEN could not look'
+exit 1
+"
+  _mc_move "$a" in_progress --note x
+  [ "$_mc_rc" -eq 1 ] || cf "(c) a broken check did not refuse (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-200)"
+  _mc_refused_for move-check-broken || cf "(c) no refusal=move-check-broken record: $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$_mc_out" | grep '^Next:' >/dev/null || cf "(c) the broken-check refusal has no Next: line"
+  origin_has_path "progress/todo/$a-one.md" || cf "(c) the card left todo/ though the broken check refused"
+
+  # (d) ORDER, AND THE FIRST REFUSAL STOPS THE REST: 10 allows, 20 refuses, 30 never runs.
+  _mc_unland "$dir/10-probe.sh"
+  _mc_land "$dir/10-first.sh" "#!/usr/bin/env bash
+echo first >> '$order'
+exit 0
+"
+  _mc_land "$dir/20-second.sh" "#!/usr/bin/env bash
+echo second >> '$order'
+echo 'Next: nothing to do here'
+exit 3
+"
+  _mc_land "$dir/30-third.sh" "#!/usr/bin/env bash
+echo third >> '$order'
+exit 0
+"
+  _mc_move "$a" in_progress --note x
+  [ "$_mc_rc" -eq 1 ] || cf "(d) the second check's refusal did not refuse the move (exit $_mc_rc)"
+  [ "$(tr '\n' ' ' < "$order")" = "first second " ] || cf "(d) the checks did not run in file-name order and stop at the refusal: '$(tr '\n' ' ' < "$order")'"
+
+  # (e) A CHECK UNDER ANOTHER FOLDER DOES NOT JUDGE THIS MOVE; a name that is no check, and a folder
+  #     that is no status folder, are said not to run.
+  _mc_unland "$dir/20-second.sh"
+  _mc_land "scripts/move-check.d/qa_complete/10-never.sh" "#!/usr/bin/env bash
+exit 3
+"
+  _mc_land "$dir/README.txt" "not a check
+"
+  _mc_land "scripts/move-check.d/no-such-folder/10-x.sh" "#!/usr/bin/env bash
+exit 3
+"
+  : > "$order"
+  _mc_move "$a" in_progress --note x
+  [ "$_mc_rc" -eq 0 ] || cf "(e) a move was refused by checks that do not judge it (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  [ "$(tr '\n' ' ' < "$order")" = "first third " ] || cf "(e) the in_progress checks did not run, in order, when all allowed: '$(tr '\n' ' ' < "$order")'"
+  origin_has_path "progress/in_progress/$a-one.md" || cf "(e) the allowed move did not reach in_progress/ on the trunk"
+  [[ "$_mc_out" == *"README.txt"*"not run"* ]] || cf "(e) a file in the check directory that is no check is not reported as not run: $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$_mc_out" == *"no-such-folder"* ]] || cf "(e) a check directory that names no status folder is not reported: $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-300)"
+
+  # (f) THE TRUNK'S CHECKS, NOT THE CHECKOUT'S: a refusing check that is committed but not pushed, and
+  #     one that is not committed, are not read; the trunk's own copy is.
+  _mc_unland "$dir/10-first.sh"; _mc_unland "$dir/30-third.sh"
+  _mc_land "$dir/40-local.sh" "#!/usr/bin/env bash
+exit 3
+" local
+  printf '#!/usr/bin/env bash\nexit 3\n' > "$SB_WORK/$dir/50-uncommitted.sh"
+  _mc_move "$b" in_progress --note x
+  [ "$_mc_rc" -eq 0 ] || cf "(f) an unpushed or uncommitted check refused a move (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  rm -f "${SB_WORK:?}/$dir/50-uncommitted.sh"
+  _mc_sync
+  _mc_move "$c" in_progress --note x
+  [ "$_mc_rc" -eq 1 ] || cf "(f) the check once pushed did not refuse (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+
+  # (g) REMOVAL lifts it; a note-only record runs no check at all.
+  _mc_land "$dir/10-always.sh" "#!/usr/bin/env bash
+exit 3
+"
+  _mc_move "$c" --note-only --note "recorded without a move"
+  [ "$_mc_rc" -eq 0 ] || cf "(g) a note-only record ran a move check (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-200)"
+  _mc_unland "$dir/10-always.sh"; _mc_unland "$dir/40-local.sh"
+  _mc_move "$c" in_progress --note x
+  [ "$_mc_rc" -eq 0 ] || cf "(g) the move was still refused after the checks were removed (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-200)"
+
+  # (h) A LANDED CARD IS NOT STRANDED: finish-pr.sh moves to qa_complete AFTER its squash, naming the
+  #     commit with --landed-at; a refusal there would leave the code merged and the card in
+  #     dev_complete/, so the check is skipped for that move, and said to be. Without --landed-at it runs.
+  _mc_land "scripts/move-check.d/qa_complete/10-never.sh" "#!/usr/bin/env bash
+echo 'PROBE-QA-CHECK refuses every landing'
+exit 3
+"
+  sbcommit -q --allow-empty -m "[Dev] $e: landed (squash-merge feature/$e-five)" >/dev/null 2>&1
+  _mc_sync
+  _mc_move "$f" qa_complete --note x
+  { [ "$_mc_rc" -eq 1 ] && _mc_refused_for move-check-refused; } || cf "(h) the qa_complete check did not refuse a move without --landed-at (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  _mc_move "$e" qa_complete --note x --landed-at "$(git -C "$SB_WORK" rev-parse HEAD)"
+  [ "$_mc_rc" -eq 0 ] || cf "(h) a verified --landed-at move was refused by a move check (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  [[ "$_mc_out" == *"Move checks skipped"* ]] || cf "(h) the skip is not said: $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  origin_has_path "progress/qa_complete/$e-five.md" || cf "(h) the landed card did not reach qa_complete/"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A QA CELL CHECK IS THE TRUNK'S CODE, RUN AGAINST THE REVISION BEING LANDED.
+#   A check is scripts/qa-cell.d/<evidence kind>/<NN>-<name>.sh. kit_qa_verdict_check calls it for each
+#   PASS row of that kind, with the AC id, the pointer cell, the repo and both revisions, and reads
+#   its own rule at the TRUNK: a branch that adds a check, or weakens one, changes nothing about the
+#   gate it is judged by. What the check examines is read at the landed revision, never in the
+#   working tree. Status 0 passes, 3 refuses, anything else is a broken check, which refuses too.
+# =============================================================================
+_qc_n=0 _qc_rc=0 _qc_out=""
+_qc_gate() {  # <card> [<rev> [<trunk-rev>]] -> _qc_rc, _qc_out; records in $SB_TMP/qc-rec-N
+  local card="$1"; shift
+  _qc_n=$((_qc_n + 1)); _qc_rc=0
+  _qc_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/qc-rec-$_qc_n" bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; kit_qa_verdict_check "$@"' _ "$card" "$QC_ID" "$SB_WORK" "${1:-HEAD}" ${2:+"$2"} 2>&1 )" || _qc_rc=$?
+}
+_qc_refused_for() { grep -q "refusal=$1" "$SB_TMP/qc-rec-$_qc_n"/*.tsv 2>/dev/null; }
+_qc_land() {  # <repo-relative path> <body> — commit a file to the current branch
+  mkdir -p "$SB_WORK/$(dirname "$1")"; printf '%s' "$2" > "$SB_WORK/$1"
+  git -C "$SB_WORK" add -A scripts process probe.txt >/dev/null 2>&1
+  sbcommit -qm "[Dev] $QC_ID: $1" >/dev/null 2>&1
+}
+_qc_unland() {
+  git -C "$SB_WORK" rm -q -f "$1" >/dev/null 2>&1
+  sbcommit -qm "[Dev] $QC_ID: remove $1" >/dev/null 2>&1
+}
+
+case_a_qa_cell_check_runs_from_the_trunk_and_reads_the_landed_revision() {
+  cf_reset
+  local L="a QA cell check under scripts/qa-cell.d/<kind>/ refuses a PASS row with a Next: line and a rule id, is called with the id, the cell, the repo and both revisions, examines the landed revision and not the working tree, is the trunk's own code (a branch cannot add one, remove one or weaken one), skips a FAIL row, a placeholder pointer and another kind's row, refuses when broken, and is lifted by removing the file"
+  make_sandbox
+  QC_ID="$SB_PREFIX-820"
+  local card="$SB_TMP/card.md" args="$SB_TMP/qc-args" dir="scripts/qa-cell.d/observation" good bad want
+  seed_issue dev_complete "$QC_ID" cell chore "Cell checks"
+  printf 'all good here\n' > "$SB_WORK/probe.txt"
+  mkdir -p "$SB_WORK/process/evidence-kinds.d"
+  printf 'observation\n' > "$SB_WORK/process/evidence-kinds.d/probe"
+  publish_sandbox
+  cp "$SB_WORK/progress/dev_complete/$QC_ID-cell.md" "$card"
+  perl -0pi -e 's/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — the second behaviour holds.\n/; s/(\| shadow-check )/| AC2 | PASS | observation | ARCHIVE.md:1 |\n$1/' "$card"
+  grep -qF '| AC2 | PASS | observation | ARCHIVE.md:1 |' "$card" || _fixture_die "${FUNCNAME[0]}: the AC2 row was not planted"
+  good="all good here"; bad="BAD content"
+  _qc_check_body() {  # the probe check: refuses when probe.txt AT THE LANDED REVISION holds BAD
+    printf '%s' "#!/usr/bin/env bash
+printf '%s\\n' \"\$@\" > '$args'
+body=\"\$(git -C \"\$4\" show \"\$5:probe.txt\" 2>/dev/null)\" || { echo 'PROBE-CELL probe.txt is not at the landed revision'; exit 3; }
+case \"\$body\" in *BAD*) echo \"PROBE-CELL probe.txt holds BAD at \${5:0:7}\"; echo 'Next: put the right text in probe.txt'; exit 3 ;; esac
+exit 0
+"
+  }
+
+  # (a) NO CHECK: the row passes (the premise), and a branch-only check is no check (see (d)).
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || _fixture_die "${FUNCNAME[0]}: the plain gate refused the sandbox card (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+
+  # (d1) A BRANCH-ONLY CHECK CHANGES NOTHING for that branch's own landing: set up before the trunk has one.
+  git -C "$SB_WORK" checkout -q -b branch-adds >/dev/null 2>&1
+  printf '%s\n' "$bad" > "$SB_WORK/probe.txt"
+  _qc_land "$dir/10-probe.sh" "$(_qc_check_body)"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _qc_gate "$card" branch-adds "$SB_TRUNK"
+  [ "$_qc_rc" -eq 0 ] || cf "(d1) a check that only the branch holds judged the branch's own landing (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+
+  # (b) THE TRUNK HOLDS THE CHECK: a good probe.txt passes; the arguments are the six the contract names.
+  _qc_land "$dir/10-probe.sh" "$(_qc_check_body)"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(b) a row whose evidence satisfies the check was refused (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  want="$QC_ID
+AC2
+ARCHIVE.md:1"
+  [ "$(sed -n 1,3p "$args" 2>/dev/null)" = "$want" ] || cf "(b) the first three arguments are not <id> <ac id> <cell>: $(sed -n 1,3p "$args" 2>/dev/null | tr '\n' '|')"
+  [ "$(awk 'END{print NR}' "$args")" = 6 ] || cf "(b) the check was not called with six arguments: $(tr '\n' '|' < "$args")"
+  [ "$(cd -P "$(sed -n 4p "$args")" 2>/dev/null && pwd -P)" = "$(cd -P "$SB_WORK" && pwd -P)" ] || cf "(b) argument 4 is not the repository: $(sed -n 4p "$args")"
+  [ "$(sed -n 5p "$args")" = "$(git -C "$SB_WORK" rev-parse HEAD)" ] || cf "(b) argument 5 is not the landed revision's commit: $(sed -n 5p "$args")"
+  [ "$(sed -n 6p "$args")" = "$(git -C "$SB_WORK" rev-parse HEAD)" ] || cf "(b) argument 6 is not the trunk revision's commit: $(sed -n 6p "$args")"
+
+  # (c) THE LANDED REVISION, NOT THE WORKING TREE. A branch whose probe.txt is BAD is refused though
+  #     the checked-out tree holds the good one; a BAD probe.txt in the working tree only is not read.
+  git -C "$SB_WORK" checkout -q -b branch-bad >/dev/null 2>&1
+  printf '%s\n' "$bad" > "$SB_WORK/probe.txt"
+  git -C "$SB_WORK" add probe.txt >/dev/null 2>&1; sbcommit -qm "[Dev] $QC_ID: bad content" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _qc_gate "$card" branch-bad "$SB_TRUNK"
+  [ "$_qc_rc" -eq 2 ] || cf "(c) a revision whose evidence fails the check was not refused with status 2 (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  _qc_refused_for qa-verdict-cell-refused || cf "(c) no refusal=qa-verdict-cell-refused record: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  [[ "$_qc_out" == *"PROBE-CELL probe.txt holds BAD at $(git -C "$SB_WORK" rev-parse --short=7 branch-bad)"* ]] || cf "(c) the check did not read the landed revision (its message names another commit, or none): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$_qc_out" == *"AC2"* ]] || cf "(c) the refusal does not name the row AC2"
+  printf '%s\n' "$_qc_out" | grep '^Next:' >/dev/null || cf "(c) the refusal has no Next: line"
+  [[ "$_qc_out" == *"NOTHING WAS CHANGED"* ]] || cf "(c) the refusal does not say nothing was changed"
+  printf '%s\n' "$bad" > "$SB_WORK/probe.txt"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(c) a BAD probe.txt in the working tree only was read (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  git -C "$SB_WORK" checkout -q -- probe.txt >/dev/null 2>&1
+
+  # (d2) A BRANCH CANNOT WEAKEN OR REMOVE THE TRUNK'S CHECK: the trunk's code judges the branch whose
+  #      own copy of the check allows everything, or has none.
+  git -C "$SB_WORK" checkout -q -b branch-weakens branch-bad >/dev/null 2>&1
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+exit 0
+"
+  git -C "$SB_WORK" checkout -q -b branch-removes branch-bad >/dev/null 2>&1
+  _qc_unland "$dir/10-probe.sh"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _qc_gate "$card" branch-weakens "$SB_TRUNK"
+  [ "$_qc_rc" -eq 2 ] || cf "(d2) a branch that weakened the trunk's check judged itself (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  _qc_gate "$card" branch-removes "$SB_TRUNK"
+  [ "$_qc_rc" -eq 2 ] || cf "(d2) a branch that deleted the trunk's check escaped it (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+
+  # (e) ONLY A PASS ROW OF THE CHECK'S OWN KIND IS CHECKED: a FAIL_AC row is not (the gate's own
+  #     FAIL refusal speaks), a placeholder pointer is not (the gate's evidence refusal speaks), and a
+  #     check under another kind's folder is never called for this row.
+  perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | FAIL_AC | observation |/' "$card"
+  _qc_gate "$card" branch-bad "$SB_TRUNK"
+  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-fail; } || cf "(e) a FAIL_AC row was judged by the cell check, or not refused as a FAIL (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  perl -pi -e 's/\| AC2 \| FAIL_AC \| observation \| ARCHIVE.md:1 \|/| AC2 | PASS | observation | tbd |/' "$card"
+  rm -f "${args:?}"
+  _qc_gate "$card" branch-bad "$SB_TRUNK"
+  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-evidence-missing && [ ! -e "$args" ]; } || cf "(e) a placeholder pointer reached the cell check, or was not refused as missing evidence (exit $_qc_rc, check ran: $([ -e "$args" ] && echo yes || echo no))"
+  perl -pi -e 's/\| AC2 \| PASS \| observation \| tbd \|/| AC2 | PASS | observation | ARCHIVE.md:1 |/' "$card"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _qc_unland "$dir/10-probe.sh"
+  _qc_land "scripts/qa-cell.d/gate-diff/10-never.sh" "#!/usr/bin/env bash
+exit 3
+"
+  _qc_gate "$card" branch-bad "$SB_TRUNK"
+  [ "$_qc_rc" -eq 0 ] || cf "(e) a check under another kind's folder judged an observation row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+
+  # (f) A BROKEN CHECK refuses on its own rule id, with a Next: line.
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo 'PROBE-BROKEN could not look'
+exit 1
+"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(f) a broken check did not refuse as qa-verdict-cell-check-broken (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_qc_out" | grep '^Next:' >/dev/null || cf "(f) the broken-check refusal has no Next: line"
+
+  # (g) REMOVAL lifts it.
+  _qc_unland "$dir/10-probe.sh"
+  _qc_gate "$card" branch-bad "$SB_TRUNK"
+  [ "$_qc_rc" -eq 0 ] || cf "(g) the row was still refused after the check was removed from the trunk (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A qa_complete MOVE CHECK STOPS finish-pr.sh BEFORE THE SQUASH, AND A SLICE'S MOVE RUNS THE CHECKS TOO.
+#   finish-pr.sh is the route nearly every card lands by, and its own move to qa_complete comes after the
+#   squash with --landed-at, which move-issue.sh answers by skipping the checks. So the landing runs them
+#   itself, first: a refusal leaves the trunk as it was, the card in dev_complete/ and the branch where it
+#   was, and names the check and its Next:. The same checks judge subtask.sh's own mover.
+# =============================================================================
+case_a_qa_complete_move_check_stops_finish_pr_before_the_squash() {
+  cf_reset
+  local L="a qa_complete move check on the trunk refuses finish-pr.sh before the squash (status 1, the trunk unchanged, the card in dev_complete/, the branch kept, the check named with its Next:), the landing succeeds once the check is withdrawn, and subtask.sh's own move runs the checks of its target"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-830" par="$SB_PREFIX-831" out rc tip n=0
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  seed_issue dev_complete "$id" landing chore "Landing behind a move check" "feature/$id-work"
+  seed_issue todo "$par" parent chore "Parent of a slice"
+  publish_sandbox
+  seed_branch "$id" work CHANGE.txt
+  _mc_land "scripts/move-check.d/qa_complete/10-never.sh" "#!/usr/bin/env bash
+echo 'PROBE-LANDING-CHECK refuses every landing'
+echo 'Next: do what the probe wants'
+exit 3
+"
+  _fp() { n=$((n + 1)); rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/fp-rec-$n" ./scripts/finish-pr.sh "$id" 2>&1 )" || rc=$?; }
+
+  # (a) REFUSED BEFORE ANYTHING IS DONE.
+  tip="$(_mc_trunk_sha)"
+  _fp
+  [ "$rc" -eq 1 ] || cf "(a) the landing was not refused with status 1 (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" == *"10-never.sh"* && "$out" == *PROBE-LANDING-CHECK* ]] || cf "(a) the refusal does not name the check and quote its reason: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" == *"Next: do what the probe wants"* ]] || cf "(a) the check's Next: line is not in the refusal"
+  [[ "$out" == *"NOTHING WAS CHANGED"* ]] || cf "(a) the refusal does not say nothing was changed"
+  grep -q 'refusal=move-check-refused' "$SB_TMP/fp-rec-$n"/*.tsv 2>/dev/null || cf "(a) no refusal=move-check-refused record"
+  [ "$(_mc_trunk_sha)" = "$tip" ] || cf "(a) the trunk moved though the landing was refused"
+  origin_has_path "CHANGE.txt" && cf "(a) the branch was squashed onto the trunk before the refusal"
+  origin_has_path "progress/dev_complete/$id-landing.md" || cf "(a) the card left dev_complete/ on the trunk"
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$id-work" >/dev/null 2>&1 || cf "(a) the local branch was deleted"
+  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$id-work" 2>/dev/null)" ] || cf "(a) the remote branch was deleted"
+
+  # (b) WITHDRAWN: the same landing goes through, and move-issue.sh's own move says it skipped the checks.
+  _mc_unland "scripts/move-check.d/qa_complete/10-never.sh"
+  _fp
+  [ "$rc" -eq 0 ] || cf "(b) the landing was refused after the check was withdrawn (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-landing.md" || cf "(b) the card did not reach qa_complete/"
+
+  # (c) A SLICE: subtask.sh's own mover runs the checks of its target and changes nothing on a refusal.
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" pull -q --rebase origin "$SB_TRUNK" >/dev/null 2>&1
+  ( cd "$SB_WORK" && ./scripts/subtask.sh new "$par" s1 slice --title "Slice" ) >/dev/null 2>&1 \
+    || _fixture_die "${FUNCNAME[0]}: subtask.sh new refused a legal slice"
+  _mc_land "scripts/move-check.d/in_progress/10-slice.sh" "#!/usr/bin/env bash
+echo 'PROBE-SLICE-CHECK refuses'
+exit 3
+"
+  n=$((n + 1)); rc=0
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/fp-rec-$n" ./scripts/subtask.sh move "$par-s1" in_progress --role "$SB_ROLE" --note x 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] && [[ "$out" == *PROBE-SLICE-CHECK* ]] && grep -q 'refusal=move-check-refused' "$SB_TMP/fp-rec-$n"/*.tsv 2>/dev/null \
+    || cf "(c) the slice's move was not refused by the move check (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/subtasks/$par/todo/$par-s1-slice.md" || cf "(c) the slice left todo/ on the trunk though the move was refused"
+  _mc_unland "scripts/move-check.d/in_progress/10-slice.sh"
+  ( cd "$SB_WORK" && ./scripts/subtask.sh move "$par-s1" in_progress --role "$SB_ROLE" --note x ) >/dev/null 2>&1 \
+    || cf "(c) the slice's move was refused after the check was withdrawn"
+
+  finish "$L"
   teardown
 }

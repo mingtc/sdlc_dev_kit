@@ -90,6 +90,22 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   The kinds are the built-in ones plus one per line of each file under `process/evidence-kinds.d/`
   **on the trunk**, so a branch cannot add one for its own landing; an added kind is read like
   `gate-diff`: no quote, and each `word:number` in its pointer must resolve.
+- **The board's move checks run here too.** Before the squash the landing runs the trunk's
+  `scripts/move-check.d/qa_complete/` checks for the move it ends with, with the item's current state as
+  `<from>` ([`board-mover.md`](board-mover.md) § 3 is their one statement); a refusal stops the landing
+  with nothing merged, under `move-check-refused` or `move-check-broken`.
+- **Extension: cell checks in `scripts/qa-cell.d/<evidence kind>/` — THE ONE STATEMENT OF THEIR
+  CONTRACT** (`lib/qa-gate.sh` and `scripts/lib/addon-check.sh` point here). For each `PASS` or
+  `PASS_AC_CORRECTED` row of that kind whose pointer is not a placeholder, the gate runs each
+  `<NN>-<name>.sh` in that folder, in file-name order, and stops at the first that does not pass.
+  The files are read **on the trunk**, as the kinds are, so a branch cannot add, weaken or delete
+  the check it is judged by. What a check examines is the revision being landed: it is given that
+  commit and reads the repository at it (`git show`), never the working tree. It is called with
+  `<id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>`, may read and must not write.
+  *Its status:* `0` passes; `3` refuses (`qa-verdict-cell-refused`, quoting what it printed);
+  **any other status refuses too** (`qa-verdict-cell-check-broken`), because a gate that cannot
+  answer must not read as armed. A check only adds refusals: every check above has already run, and
+  a failing row is refused whole without being handed to one.
 - The item's `forks:` field (which reads `D-NN` registers only; a register declared with another id shape is
   not read here) is missing, is neither `none` nor a bracketed list of register ids,
   names an id that is no live register entry, omits a fork the branch's own diff shows or that a

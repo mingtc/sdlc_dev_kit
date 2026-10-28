@@ -487,6 +487,10 @@ case "$CMD" in
       kit_agent_landing_check "$MAIN_ROOT" "$_st_trunk" "$ID" "$_st_new_rev" "progress/subtasks/${PARENT}"
     fi
 
+    # An add-on's move checks for this transition (scripts/move-check.d/<target>/, lib/addon-check.sh;
+    # process/contracts/board-mover.md § 3): the same ones move-issue.sh runs, before anything moves.
+    kit_move_checks "$MAIN_ROOT" "refs/remotes/${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ID" "$SRC_FOLDER" "$TARGET" "$ROLE" "$SRC"
+
     mkdir -p "$BASE/$TARGET"
     DEST="$BASE/$TARGET/$(basename "$SRC")"
     if git -C "$KWT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1; then

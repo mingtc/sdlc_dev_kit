@@ -134,6 +134,8 @@
 . "$(dirname "${BASH_SOURCE[0]}")/card-field.sh" || return 1   # return-class: internal
 # shellcheck source=glob-array.sh
 . "$(dirname "${BASH_SOURCE[0]}")/glob-array.sh" || return 1   # return-class: internal
+# shellcheck source=addon-check.sh
+. "$(dirname "${BASH_SOURCE[0]}")/addon-check.sh" || return 1   # return-class: internal
 
 # The whole-cell placeholder forms (an EMPTY cell is checked separately, with a plain shell
 # string test — a leading empty alternative in the regex itself makes some greps refuse the
@@ -403,6 +405,29 @@ kit_qa_verdict_begun() {
   return 1   # return-class: predicate
 }
 
+# _qav_cell_verdict <repo> <rev> <trunk-rev> <kind> <card-id> <ac-id> <cell> — run the cell checks of
+# <kind> (scripts/qa-cell.d/<kind>/, lib/addon-check.sh) on one PASS row, stopping at the first that does
+# not pass. Prints nothing when all pass, else one line: `R<TAB><check>: <what it printed>` for a
+# refusal (status 3) or `B<TAB>…` for a check that did not run to an answer. The check's code is read
+# at <trunk-rev>; what it examines is <rev>, which it is given to read.
+_qav_cell_verdict() {
+  local repo="$1" rev="$2" trunk="$3" kind="$4" id="$5" ac="$6" cell="$7" k path rc msg
+  local listing
+  listing="$(kit_addon_check_list "$repo" "$trunk" scripts/qa-cell.d "$kind")"
+  while IFS=$'\t' read -r k path; do
+    [ "$k" = run ] || continue
+    rc=0
+    kit_addon_check_run "$repo" "$trunk" "$path" "$id" "$ac" "$cell" "$repo" "$rev" "$trunk" || rc=$?
+    [ "$rc" -ne 0 ] || continue
+    msg="$(printf '%s' "$KIT_ADDON_CHECK_OUT" | tr '\r\n' '  ' | sed -E 's/  +/ /g; s/^ //; s/ $//' | cut -c1-240)"
+    if [ "$rc" -eq 3 ]; then printf 'R\t%s: %s\n' "${path##*/}" "${msg:-no reason printed}"; else printf 'B\t%s (status %s): %s\n' "${path##*/}" "$rc" "$msg"; fi
+    return 0   # return-class: predicate
+  done <<CELL_EOF
+$listing
+CELL_EOF
+  return 0   # return-class: predicate
+}
+
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>] ──────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
@@ -411,6 +436,7 @@ kit_qa_verdict_check() {
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
+  local _qav_cell_dir=0 _qav_cell_bad="" _qav_cell_broken="" _qav_cell_res
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
     echo "kit_qa_verdict_check: <repo> and <rev> are required — evidence pointers are read at the revision being landed." >&2
@@ -420,6 +446,14 @@ kit_qa_verdict_check() {
   # The kinds come from the TRUNK's layers: a branch cannot widen the gate it is judged by, and a
   # branch cut before the trunk gained a kind is still judged by the trunk's list.
   _qav_kinds="$(kit_qa_evidence_kinds "$repo" "$trunk_rev")"
+
+  # Cell checks come from the trunk too, and are called with the commits both revisions name. The
+  # directory is probed once, so a project with none pays one git call.
+  if git -C "$repo" cat-file -e "${trunk_rev}:scripts/qa-cell.d" 2>/dev/null; then
+    _qav_cell_dir=1
+    rev="$(_kit_ac_commit "$repo" "$rev")"
+    trunk_rev="$(_kit_ac_commit "$repo" "$trunk_rev")"
+  fi
 
   _qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
@@ -554,6 +588,18 @@ kit_qa_verdict_check() {
           _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_orphans} comes before any path:line)"
         fi
       fi
+      # An add-on's check of this kind of cell. Only a row the landing relies on is judged: a failing
+      # row is refused whole below, with its own reason.
+      if [ "$_qav_cell_dir" -eq 1 ]; then
+        case "$_qverdict" in
+          PASS|PASS_AC_CORRECTED)
+            _qav_cell_res="$(_qav_cell_verdict "$repo" "$rev" "$trunk_rev" "$_qkind" "$issue_id" "$_qid" "$_qptr_stripped")"
+            case "$_qav_cell_res" in
+              R"$(printf '\t')"*) _qav_cell_bad="${_qav_cell_bad}${_qav_cell_bad:+, }${_qid} (${_qav_cell_res#R?})" ;;
+              B"$(printf '\t')"*) _qav_cell_broken="${_qav_cell_broken}${_qav_cell_broken:+, }${_qid} (${_qav_cell_res#B?})" ;;
+            esac ;;
+        esac
+      fi
     fi
     case " $KIT_QAV_VERDICTS " in
       *" $_qverdict "*) : ;;
@@ -620,6 +666,24 @@ kit_qa_verdict_check() {
       "       The quote (surrounding whitespace normalised) must be a substring of the lines of the" \
       "       path:line/path:a-b it follows, at the revision being landed. (.claude/roles/qa.md step 4.)" \
       "Next: re-read the cited line at the revision being landed and quote what it says, or cite where the code now is. If the code no longer shows what the AC needs, the row is a FAIL (.claude/roles/qa.md step 6), not a re-quote. Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_cell_bad" ]; then
+    kit_refuse 2 qa-verdict-cell-refused \
+      "Error: ${issue_id}'s QA Verdict table has row(s) a cell check refused: ${_qav_cell_bad}" \
+      "       A cell check is the trunk's own code (scripts/qa-cell.d/<evidence kind>/), run against the" \
+      "       revision being landed; what it printed is quoted above. (.claude/roles/qa.md step 4.)" \
+      "Next: read what each check printed and fix what the row cites, or re-walk the AC if the check is right — a pointer edited to satisfy a check without re-reading is not a fix; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_cell_broken" ]; then
+    kit_refuse 2 qa-verdict-cell-check-broken \
+      "Error: ${issue_id}'s QA Verdict table has row(s) whose cell check did not run to an answer: ${_qav_cell_broken}" \
+      "       A cell check exits 0 to pass or 3 to refuse; any other status is a check that could not look," \
+      "       and a gate that cannot answer does not pass the row." \
+      "Next: read what the check printed and its code (git show <trunk>:scripts/qa-cell.d/<evidence kind>/<check>); a defective check is its owner to fix, and removing the file from the trunk lifts it. Then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

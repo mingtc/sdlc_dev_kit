@@ -427,6 +427,13 @@ kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH
 kit_agent_records_fetch "$MAIN_ROOT" "$KWT_REMOTE"
 kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "$BRANCH_REF"
 
+#    An add-on's move checks (scripts/move-check.d/qa_complete/, lib/addon-check.sh) for the move this
+#    landing ends with, run NOW, before the squash: a refusal after it would leave the code merged and the
+#    card in dev_complete/. move-issue.sh skips them for the --landed-at move below because they have
+#    run here (process/contracts/board-mover.md § 3). They are the trunk's, as the checks above are.
+kit_move_checks "$MAIN_ROOT" "refs/remotes/${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" \
+  "$(basename "$(dirname "$SRC")")" qa_complete "$ROLE" "$SRC"
+
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
 #    (§ 3). The test is the REVISION, not the ref name: a detached checkout exactly at the branch

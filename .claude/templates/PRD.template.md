@@ -71,6 +71,7 @@ Index of stories in F1.
 
 ##### F1-S1 — <story title>
 
+<!-- KIT-MODULES:story-fields — an add-on's per-story fields are placed here when the PRD is minted, and the mint removes this line either way. Leave it. -->
 **Acceptance Criteria** — written so QA can verify each one independently. Given/When/Then, or a numbered checklist.
 
 - [ ] AC1: <statement>

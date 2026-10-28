@@ -101,6 +101,114 @@ kit_fill_card() {
       print }' "$card" > "$card.fill" && mv "$card.fill" "$card"
 }
 
+# kit_card_fragments <card-file> <template> <fragments-dir> — the last step of a mint: place what an
+# add-on contributes, and remove what the core left for it. <template> is the template's stem
+# (`PRD`, `ISSUE`); the fragments are the files in <fragments-dir>/<template>/, read from the working tree
+# like the template itself, in file-name order:
+#
+#   <name>.frontmatter   lines added before the frontmatter's closing `---`
+#   <name>.body-end      a paragraph added after the last section, above a closing `## Activity`
+#   <name>.slot-<slot>   lines put where the template has its `<!-- KIT-MODULES:<slot> -->` line
+#
+# <name> and <slot> are lowercase letters, digits and `-`, opening with a letter; a README.md is not a
+# fragment. EVERY slot line is removed, fragment or none, so a project that enables nothing has no
+# trace of it. A fragment the template cannot take, a name that is no mode, or a fragment that carries
+# a slot line of its own, refuses through kit_refuse and the caller's EXIT trap removes the work file.
+# The work file is rewritten through <card-file>.fill, which that trap names.
+kit_card_fragments() {
+  local card="$1" tpl="$2" dir="$3/$2" f base name mode slot text nl=$'\n'
+  local fm="" be="" out="$1.fill" rs=$'\036' us=$'\037' slot_texts=""
+  if [ -d "$dir" ]; then
+    for f in "$dir"/*; do
+      [ -f "$f" ] || continue
+      base="${f##*/}"
+      [ "$base" != README.md ] || continue
+      name="${base%%.*}"; mode="${base#*.}"
+      case "$name" in ''|[!a-z]*|*[!a-z0-9-]*) name="" ;; esac
+      case "$mode" in
+        frontmatter|body-end) ;;
+        slot-[a-z]*) slot="${mode#slot-}"; case "$slot" in *[!a-z0-9-]*) name="" ;; esac ;;
+        *) name="" ;;
+      esac
+      if [ -z "$name" ] || [ "$base" = "$name" ]; then
+        kit_refuse 1 fragment-name-unknown \
+          "Error: process/fragments.d/${f#"$3"/} is not a fragment of the ${tpl} template." \
+          "       A fragment is <name>.frontmatter, <name>.body-end or <name>.slot-<slot>, with a lowercase <name>" \
+          "       (letters, digits and '-', opening with a letter)." \
+          "Next: rename it to one of those shapes, or remove it; the mint made nothing."
+      fi
+      if [ ! -r "$f" ]; then
+        kit_refuse 1 fragment-unreadable \
+          "Error: process/fragments.d/${f#"$3"/} is not readable, so the ${tpl} mint cannot place it." \
+          "Next: fix its permissions, or remove it; the mint made nothing."
+      fi
+      if grep -qF 'KIT-MODULES' "$f"; then
+        kit_refuse 1 fragment-content-markers \
+          "Error: process/fragments.d/${f#"$3"/} carries a KIT-MODULES slot line of its own, which would leave the minted file with a marker no reader removes." \
+          "Next: take that line out of the fragment (the template owns the slots); the mint made nothing."
+      fi
+      text="$(sed 's/\r$//' "$f")"
+      case "$mode" in
+        frontmatter) fm="${fm}${fm:+$nl}${text}" ;;
+        body-end)    be="${be}${be:+$nl}${text}" ;;
+        slot-*)
+          if ! grep -qE "^<!-- KIT-MODULES:${slot}( |-->|\$)" "$card"; then
+            kit_refuse 1 fragment-slot-missing \
+              "Error: process/fragments.d/${f#"$3"/} fills the '${slot}' slot, and this ${tpl} template has no <!-- KIT-MODULES:${slot} --> line." \
+              "Next: restore that line in the ${tpl} template (the release ships it; take it from there), or remove the fragment; the mint made nothing."
+          fi
+          slot_texts="${slot_texts}${slot_texts:+$rs}${slot}${us}${text}"
+          ;;
+      esac
+    done
+  fi
+  # The three placements and the strip, in one pass over the card. The texts travel through ENVIRON,
+  # since awk -v expands escapes; the slots arrive as <slot> US <text>, separated by RS.
+  KIT_FRAG_SLOTS="$slot_texts" KIT_FRAG_FM="$fm" KIT_FRAG_BE="$be" awk '
+    function lines(t, arr,   n) { n = split(t, arr, "\n"); return n }
+    function trim_end(arr, n) { while (n > 0 && arr[n] == "") n--; return n }
+    { L[NR] = $0 }
+    END {
+      nfm = lines(ENVIRON["KIT_FRAG_FM"], FM); nfm = (ENVIRON["KIT_FRAG_FM"] == "") ? 0 : nfm
+      nbe = lines(ENVIRON["KIT_FRAG_BE"], BE); nbe = (ENVIRON["KIT_FRAG_BE"] == "") ? 0 : trim_end(BE, nbe)
+      nsl = split(ENVIRON["KIT_FRAG_SLOTS"], SL, "\036")
+      for (k = 1; k <= nsl; k++) { p = index(SL[k], "\037"); sn = substr(SL[k], 1, p - 1); st = substr(SL[k], p + 1); ST[sn] = (sn in ST) ? ST[sn] "\n" st : st }
+      for (i = 1; i <= NR; i++) if (L[i] == "---") { if (++nd == 2) { close_ = i; break } }
+      act = 0
+      for (i = NR; i >= 1; i--) if (L[i] ~ /^## Activity[ \t]*$/) { act = i; break }
+      if (nfm > 0 && !close_) exit 3
+      for (i = 1; i <= NR; i++) {
+        if (act && i == act && nbe > 0) { if (prev != "") print ""; for (j = 1; j <= nbe; j++) print BE[j]; print ""; prev = "" }
+        if (i == close_) for (j = 1; j <= nfm; j++) print FM[j]
+        if (L[i] ~ /^<!-- KIT-MODULES:/) {
+          for (sn in ST) {
+            if (L[i] ~ ("^<!-- KIT-MODULES:" sn "( |-->|$)")) {
+              m = lines(ST[sn], T); m = trim_end(T, m)
+              for (j = 1; j <= m; j++) print T[j]
+              if (m > 0) print ""
+              break
+            }
+          }
+          continue
+        }
+        print L[i]; prev = L[i]
+      }
+      if (!act && nbe > 0) { if (prev != "") print ""; for (j = 1; j <= nbe; j++) print BE[j] }
+    }
+  ' "$card" > "$out"
+  case $? in
+    0) mv "$out" "$card" ;;
+    3) rm -f "${out:?}"
+       kit_refuse 1 fragment-frontmatter-missing \
+         "Error: a ${tpl} fragment adds frontmatter, and this ${tpl} template has no frontmatter (two '---' lines)." \
+         "Next: restore the frontmatter in the ${tpl} template (the release ships it), or remove the .frontmatter fragment; the mint made nothing." ;;
+    *) rm -f "${out:?}"
+       echo "kit_card_fragments: could not rewrite '$card' — the fragments were not placed." >&2
+       return 1 ;;   # return-class: internal
+  esac
+  return 0
+}
+
 # kit_prd_free_card <card-file> <stories-given> — a card minted with `--prd n/a` is on the lite
 # path: no PRD, no stories. Rewrite the PRD-shaped lines the template ships (the issue's References
 # line and seed entry, the bug's Expected and Related PRD lines) to say so, and set `stories: []`
