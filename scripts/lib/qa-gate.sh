@@ -19,12 +19,12 @@
 #     a caller that lands a branch passes the trunk, because the branch's author controls the branch.
 #     A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
-#     at that line, whitespace-normalised; `gate-diff`/`fixture-diff`/`artifact` are exempt from the
+#     at that line, whitespace-normalised; every other kind in KIT_QAV_KINDS is exempt from the
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
 #     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only
-#     gate-diff/fixture-diff/artifact rows (nothing the gate can re-read) is refused. Refuses through
+#     the other kinds (nothing the gate can re-read) is refused. Refuses through
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
@@ -142,7 +142,7 @@ KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|
 KIT_QAV_VERDICTS='PASS PASS_AC_CORRECTED FAIL_AC FAIL_REGRESSION'
 
 # The built-in evidence kinds of a QA Verdict row's third cell, exactly and case-sensitively: the one
-# list the kind check and its refusal text read. qa.md and the card templates state the same set in prose.
+# list the kind check and its refusal text read. Prose cites this variable; the row rules are process/contracts/landing-gate.md's.
 KIT_QAV_KINDS='test file:line gate-diff fixture-diff artifact'
 
 # The shortest quote a pointer may carry, in characters after whitespace is normalised: a shorter
@@ -421,7 +421,7 @@ kit_qa_verdict_check() {
       #    asked to invent one). An `artifact` row's `<path> <sha>` pair is read separately, at
       #    $trunk_rev, below.
       # In a file:line/test row every pointer carries a quote of its own, checked against the line
-      #    range it follows. gate-diff/fixture-diff/artifact are exempt from the quote (there is no single
+      #    range it follows. The other kinds are exempt from the quote (there is no single
       #    line to quote), but the token rule above still binds any path:line they carry.
       local _qav_events _qav_ev _qav_ev_kind _qav_ev_rest _qav_ev_detail
       local _qav_cur="" _qav_cur_state="" _qav_cur_lo="" _qav_cur_hi="" _qav_cur_quotes=0
@@ -574,8 +574,12 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ]; then
+    local _qav_k _qav_unquoted=""
+    for _qav_k in $KIT_QAV_KINDS; do
+      case "$_qav_k" in test|file:line) ;; *) _qav_unquoted="${_qav_unquoted}${_qav_unquoted:+|}${_qav_k}" ;; esac
+    done
     kit_refuse 2 qa-verdict-no-observed \
-      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is gate-diff, fixture-diff or artifact." \
+      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted}." \
       "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
       "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \

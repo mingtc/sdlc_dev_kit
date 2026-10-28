@@ -33,7 +33,7 @@
 #   Use --note-only when a card must carry a record BEFORE the act it authorizes (a budget,
 #   a ruling) while it already sits in the right column; the move refuses that as a no-op.
 #
-# Target folders: todo | in_progress | dev_complete | qa_complete | blocked | done | declined
+# Target folders: @TARGET_FOLDERS@
 #   (done/ is the permanent home for completed stories — normally populated by
 #    archive.sh sweeping qa_complete/, but a valid manual target too.)
 #   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
@@ -156,6 +156,10 @@ if [ ! -r "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progres
   kit_progress() { :; }
 fi
 
+# THE TARGETS THIS TOOL ACCEPTS, declared once: the header token, the refusal and the checks below
+# read this line. The set itself is the board's STATUS_FOLDERS (scripts/check-board.sh).
+TARGET_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'
+
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
   local roles tok='@ROLE_SET@'
   if command -v kit_role_display >/dev/null 2>&1; then
@@ -167,10 +171,10 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
     || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
   # SUBSTITUTED BY POSITION, NOT BY PATTERN: `sed` would read a `|`-bearing replacement through
   # its delimiter rules and awk's gsub would read a `&` as the whole match.
-  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
-    { i = index($0, t)
-      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
-      else   print }'
+  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" TARGETS_DISPLAY="${TARGET_FOLDERS//|/ | }" \
+    awk -v t="$tok" -v t2='@TARGET_FOLDERS@' '
+    function swap(s, tk, v,   i) { i = index(s, tk); return i ? substr(s, 1, i-1) v substr(s, i + length(tk)) : s }
+    { print swap(swap($0, t, ENVIRON["ROLE_SET_DISPLAY"]), t2, ENVIRON["TARGETS_DISPLAY"]) }'
 }
 
 # --help ALWAYS SUCCEEDS, in any position, and is answered BEFORE any argument is interpreted:
@@ -251,7 +255,7 @@ fi
 # reads the LAST `→ <folder>` or backticked `<folder>` token on the last Activity bullet as the
 # card's declared status. The formatter below emits none; this refuses one in the note itself.
 if [ "$NOTE_ONLY" -eq 1 ]; then
-  if grep -qE -- "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)" <<< "$NOTE"; then
+  if grep -qE -- "(→[[:space:]]*($TARGET_FOLDERS))|(\`($TARGET_FOLDERS)/?\`)" <<< "$NOTE"; then
     kit_refuse 1 note-only-reads-as-status \
       "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." \
       "  It contains a transition arrow or a backticked status folder, which the drift report" \
@@ -260,16 +264,15 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
   fi
 fi
 
-# The status folder set is a SEAM WITHOUT A VARIABLE: several files carry the column names as
-# literals, and not all the same ones. Adding or renaming a column means opening each carrier;
-# process/EXTRACTION.md § "the status folder set" is the list.
+# The status folder set is a SEAM WITHOUT A SHARED VARIABLE: several files carry the column names as
+# literals (this file's TARGET_FOLDERS is one), and not all the same ones. Adding or renaming a column means opening each carrier;
+# process/EXTRACTION.md § 2.2 (the status folder set) is the list.
 if [ "$NOTE_ONLY" -eq 0 ]; then
-  case "$TARGET" in
-    todo|in_progress|dev_complete|qa_complete|blocked|done|declined) ;;
-    *) kit_refuse 1 unknown-target \
-         "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done|declined (got '$TARGET')" \
-         "Next: re-run with one of those folders as the target." ;;
-  esac
+  if ! [[ "$TARGET" =~ ^($TARGET_FOLDERS)$ ]]; then
+    kit_refuse 1 unknown-target \
+      "Error: target must be one of $TARGET_FOLDERS (got '$TARGET')" \
+      "Next: re-run with one of those folders as the target."
+  fi
 
   # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK: the default note ("git mv to blocked/.")
   # records nothing about why, in the one column whose purpose is the reason.
@@ -535,7 +538,7 @@ else
         echo "Warning: ${ISSUE_ID} is blocked_by ${_mv_b}, which is not in qa_complete/ or done/ on ${KWT_REMOTE}/${DEFAULT_BRANCH} (${_mv_where})." >&2
         _mv_warned=1
       done <<< "$_mv_bl"
-      [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the Dev rebases it after the base lands). Not a refusal." >&2
+      [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the rebase rule is in .claude/roles/dev.md § Handoff to QA). Not a refusal." >&2
     fi
   fi
 
