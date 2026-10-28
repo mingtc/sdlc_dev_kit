@@ -184,7 +184,7 @@ pair makes the ruling, PM or the implementing leg, since routing is checked by w
 itself shows, not by who wrote it.** `forks: [D-NN, ...]`, or `forks: none` if it resolved none —
 checked, not merely trusted: `finish-pr.sh` refuses a landing where the field is absent, malformed,
 names an id that is not a live register entry, or where the branch itself (a register entry its diff
-adds or changes, a `[decision: D-NN]` citation anywhere on the card except on an AC bullet unchanged since it left `todo/`, or an entry added to the register on the trunk since the card left `todo/` whose Provenance names the card) shows a fork `forks:` does not name — or an added entry attributes to no card.
+adds or changes, a `[decision: D-NN]` citation anywhere on the card outside the AC-baseline carve-out ([`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline, the item *Record the ruling where it is looked up*), or an entry added to the register on the trunk since the card left `todo/` whose Provenance names the card) shows a fork `forks:` does not name — or an added entry attributes to no card.
 **So end each entry's Provenance with the work item that resolved it, or `no work item` where no card owns it (a recorded answer)**; commit it with `./scripts/register-commit.sh` from a checkout at the trunk tip, then discard your checkout's copy of the path (`git checkout -- <path>`) or a pull is refused for it.
 That check catches an unrouted fork; it does not decide whether a given reading is a fork in the
 first place, or whether it constrains a requirement — those are this section's diagnostic, above,
@@ -198,7 +198,7 @@ PM rarely moves files — Dev and QA handle most transitions. The exception is t
 ./scripts/move-issue.sh <PREFIX>-NNN <target> --role PM --note "Unblocked: <answer>."
 ```
 
-The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: `todo`, `in_progress`, `dev_complete`, `qa_complete`, `blocked`, `done`, `declined`. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
+The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: the board's status folders, which `./scripts/move-issue.sh --help` prints. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
 
 **`declined/` is PM's column**, because killing an issue is PM's call. The mover **requires `--note`** there, and the note must carry the *reasoning*, not the verdict: *a decline with no recorded why is a deletion with extra steps*, and the reason is the only thing that stops the same proposal being re-argued from zero. It is terminal — nothing sweeps it — and the drift report counts it without ever calling it drift.
 

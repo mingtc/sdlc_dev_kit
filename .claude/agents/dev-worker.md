@@ -20,8 +20,8 @@ contract**; anything outside the AC is out of scope for this pickup.
 ## Provisioning contract
 
 Opus **medium** is the seed default (the frontmatter above); fill `.claude/roles/dev.md`
-§ "Model & effort contract" to match it (`scripts/set-models.sh` writes the pin and the
-orchestrator's ladder row together). Deviations are the **caller's** to make, never yours to
+§ "Model & effort contract" to match it (`scripts/set-models.sh`, per
+[`process/contracts/model-provisioning-seam.md`](../../process/contracts/model-provisioning-seam.md)). Deviations are the **caller's** to make, never yours to
 assume. Whether the spawn call can carry an effort is the harness's to say: the caller checks the
 spawn tool's own parameter list
 ([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1

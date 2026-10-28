@@ -24,8 +24,8 @@ to update.
 ## Provisioning contract
 
 Opus **high** is the seed default (the frontmatter above); fill `.claude/roles/refactorer.md` § "Model
-& effort contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's
-ladder row together). The audit reads widely and holds the whole codebase in view. A narrow **cleanup /
+& effort contract" to match it (`scripts/set-models.sh`, per
+[`process/contracts/model-provisioning-seam.md`](../../process/contracts/model-provisioning-seam.md)). The audit reads widely and holds the whole codebase in view. A narrow **cleanup /
 classifier** pass is the cheaper class — the caller runs that as `cleanup-worker`. Effort
 escalations travel through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's

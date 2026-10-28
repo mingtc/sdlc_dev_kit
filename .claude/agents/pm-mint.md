@@ -21,8 +21,8 @@ are amending — say what changed and why.
 ## Provisioning contract
 
 Opus **high** is the seed default (the frontmatter above); fill `.claude/roles/pm.md` § "Model & effort
-contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's ladder row
-together). Minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
+contract" to match it (`scripts/set-models.sh`, per
+[`process/contracts/model-provisioning-seam.md`](../../process/contracts/model-provisioning-seam.md)). Minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
 reads it. An **XS / mechanical** PM chore (a one-field edit, a board relabel) is the caller's
 call to run on the cheaper model at **high** effort — the model half travels on the spawn
 call, the effort half through

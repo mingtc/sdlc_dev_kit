@@ -40,8 +40,8 @@ mechanisms that carry an escalation) lives in
 table below is this project's **instance**, and **ratifying it is the adapter's PM's job — it
 ships blank and is not ratified until they do it.** *An unratified ladder is a habit with a table*
 (`model-provisioning.md` § B.2).
-Fill it with `scripts/set-models.sh`, which writes a class's `(model, effort)` to its row here and to its
-leaf-worker pin together; the per-role tables in the role docs are hand-kept to match.
+Fill it with `scripts/set-models.sh` (what it writes: [`process/contracts/model-provisioning-seam.md`](../../process/contracts/model-provisioning-seam.md));
+the per-role tables in the role docs are hand-kept to match.
 
 | Role / work class | Model | Effort |
 | --- | --- | --- |

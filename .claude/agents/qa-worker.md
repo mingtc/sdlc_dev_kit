@@ -22,8 +22,8 @@ unmet AC named.
 ## Provisioning contract
 
 Opus **medium** is the seed default (the frontmatter above); fill `.claude/roles/qa.md` § "Model &
-effort contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's ladder
-row together). **high** is the caller's setting for a `Major` review or a review on a declared
+effort contract" to match it (`scripts/set-models.sh`, per
+[`process/contracts/model-provisioning-seam.md`](../../process/contracts/model-provisioning-seam.md)). **high** is the caller's setting for a `Major` review or a review on a declared
 risk surface — set through the Workflow tool's per-call `effort`, the serial frontmatter toggle on
 this file, or the spawn call where the spawn tool's own parameter list carries `effort`
 ([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
