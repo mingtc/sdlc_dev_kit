@@ -14,7 +14,7 @@
 #
 # THE CALLER DECLARES THE OPERANDS, as globals: STATUS_FOLDERS ISSUE_ID_KEY ISSUE_ID_PATTERN
 # FRONTMATTER_SCAN_LINES REGISTERS CITATION_EXCLUDE PRD_SURFACE CROSS_CUTTING_MARKER CORPUS_FILE.
-# check-board.sh declares them, except PRD_SURFACE, which is derived from config.sh's PRD_PREFIX; a
+# check-board.sh declares them, except PRD_SURFACE, which is derived from scripts/config.sh; a
 # landing reads them from the TRUNK's copies of check-board.sh and config.sh through
 # kit_bp_load_declarations, never from the branch it judges.
 #
@@ -319,7 +319,7 @@ kit_bp_citations() {
     l_shapes="$l_shapes
 $lreg_shape"
     # § Retired ids are read through two filters (HTML comment spans stripped, then anchored on the
-    # row's FIRST backticked id): lib/decision-register.sh, one parser shared with the forks check.
+    # row's FIRST backticked id): lib/decision-register.sh.
     # Each register's ids are kept only if they match THAT register's own declared shape.
     l_live="$l_live
 $(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"

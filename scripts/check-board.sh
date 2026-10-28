@@ -102,7 +102,7 @@ ISSUE_ID_PATTERN='[A-Za-z]+-[0-9]+'
 # Check (d)'s second identifier space, the registers (contracts/drift-report.md invariant 4).
 # One record per register:  <path>|<heading mark>|<id shape>   (path repo-relative; an absent
 # register SKIPS with its reason). Add a record per register you keep. Arm (l) resolves a citation
-# against each record's own id shape; the landing's `forks:` check reads the `D-[0-9]+` records only.
+# against each record's own id shape. Which records a landing reads: process/contracts/landing-gate.md.
 REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # ─── ARM (l)'s OPERANDS: declared reference integrity ────────────────────────
 # Only text that DECLARES itself a citation is read. Never a bare id grep plus a comment strip: a
@@ -110,7 +110,7 @@ REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # fails silently (a stray `<!--` in a shell string swallows everything up to the next `-->`, and
 # the file then reads clean).
 # The marker itself — case, spacing, list and range forms — is read by lib/decision-register.sh's
-# kit_decisions_cited, the ONE reader arms (l)/(r) and finish-pr.sh's `forks:` check all call:
+# kit_decisions_cited, the ONE reader of it, for every caller:
 # a second copy of the marker regex here would let one reader see a citation another cannot.
 # THE POPULATION: every tracked text file in this source, EXCEPT the paths below — named here so
 # the arm's own printed line states its population, not just its verdict. Widened from a declared
@@ -129,8 +129,8 @@ CITATION_EXCLUDE='scripts/
 .git/
 .claude/skills/'
 # ─── ARM (r)'s OPERAND: declared reverse coverage ─────────────────────────────
-# Where a PRD lives is not declared here: PRD_SURFACE is derived below from scripts/config.sh's
-# PRD_PREFIX, the one seam new-prd.sh writes by.
+# Where a PRD lives is not declared here: PRD_SURFACE is derived below from scripts/config.sh
+# (PRD_PREFIX is declared there).
 # The exemption token: format law lives in requirements/DECISIONS.md § "Which decisions live HERE"
 # — at the HEAD of an entry's Ruling field, the same place the THIRD/FOURTH states put theirs, in
 # the same three fields, never a fourth.
@@ -186,9 +186,9 @@ elif ! command -v kit_glob_array >/dev/null 2>&1; then
   CB_GLOB_LIB_ERR="scripts/lib/glob-array.sh sourced, but kit_glob_array is NOT DEFINED"
 fi
 
-# The shared register parser (arm [l] and finish-pr.sh's `forks:` precondition read the SAME
-# register the same way). A load failure degrades arm [l] to its own "no register read" line —
-# it already handles l_reg_read==0 as absence — never an exit.
+# The shared register parser (arm [l] reads the register through it, as a landing does). A load
+# failure degrades arm [l] to its own "no register read" line — it already handles l_reg_read==0
+# as absence — never an exit.
 # shellcheck source=lib/decision-register.sh
 [ -f "$CB_LIB_DIR/decision-register.sh" ] && . "$CB_LIB_DIR/decision-register.sh" 2>/dev/null || true
 
