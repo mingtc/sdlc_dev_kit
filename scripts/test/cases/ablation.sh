@@ -2,11 +2,7 @@
 # process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/ablation.sh — sourced by scripts/test/run.sh, never run on its own.
-# finish-pr.sh refuses a landing whose branch diff touches a project-declared TEST_GLOBS path
-# with no well-formed '## Ablation' section (a real 'Broken:' and 'Red line:' line, not
-# '<placeholder>'). TEST_GLOBS undeclared (the shipped empty state) makes the check UNRUNNABLE,
-# reported on stdout, never a silent pass. A branch whose diff touches no declared test path
-# lands with no '## Ablation' section at all.
+# Pins the '## Ablation' precondition (process/contracts/landing-gate.md § 3), as finish-pr.sh applies it.
 # =============================================================================
 
 # _declare_test_globs <glob> — plant TEST_GLOBS as EXACTLY one entry into the sandbox's

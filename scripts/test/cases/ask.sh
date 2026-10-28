@@ -637,8 +637,8 @@ case_ask_without_decision_names_the_file_as_the_record() {
 
 # =============================================================================
 # CASE — THE "To answer" LINE NAMES THE LANDING ACT.
-# The written question file must say who lands the answer and with what, and must not describe
-# reconciliation as a register edit alone. Expectations are hard-coded.
+# Pins the question file's landing wording (orchestrator.md § An answered question is ready work).
+# Expectations are hard-coded.
 # =============================================================================
 case_ask_question_file_names_who_lands_the_answer() {
   cf_reset

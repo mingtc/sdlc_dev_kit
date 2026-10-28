@@ -2190,8 +2190,7 @@ case_finish_pr_card_edited_on_the_branch_names_the_route() {
 # =============================================================================
 # CASE — finish-pr.sh --help NAMES POST_MERGE_PREP WHERE IT DESCRIBES THE FRESH WORKTREE.
 #
-# --help prints the header. A fresh post-merge worktree is described there; without the prep
-# clause a reader cannot learn that the landed config.sh may prepare it.
+# Pins the --help header's post-merge worktree clause (process/contracts/landing-gate.md § 4).
 # =============================================================================
 case_finish_pr_help_names_post_merge_prep() {
   cf_reset

@@ -1,9 +1,8 @@
 # KIT-CLASS: MIXED — self-test harness, card-title cases. See process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/card-titles.sh — sourced by scripts/test/run.sh, never run on its own.
-# A card's `title:` is free text that may hold `: `; the templates quote it, the one reader strips
-# one pair of quotes, subtask.sh writes it quoted, and check-board's [u] reports an unquoted
-# title that is not valid plain YAML. Plus the day-one homes and role exceptions that ride with them.
+# Pins the card `title:` rules (process/contracts/drift-report.md arm [u]) across the templates,
+# the one reader and subtask.sh. Plus the day-one homes and role exceptions that ride with them.
 # =============================================================================
 
 _ct_u_section() {  # reads a check-board report on stdin

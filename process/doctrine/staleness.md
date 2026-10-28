@@ -270,6 +270,20 @@ access to the evidence, [`consumer-output.md`](consumer-output.md) carries the a
 per-item read-vs-derived marking, and preferring the decomposed figure the reader can trace over the
 combined one they must trust.
 
+**A rule stated in prose is a list in prose.** A condition, an actor, a threshold or an exception
+restated on a second surface is a second copy and rots like one. Give each rule one home, where it is
+stated in full; every other surface cites it (naming a § or a symbol) or derives it. By surface:
+
+- **Role doc, agent, skill:** its own act, inline and complete; for another role's step, who does it
+  and a cite. An act stays inline: an agent told only to "see § X" may not open it.
+- **Card template:** the field's shape and a pointer to its rule.
+- **Refusal, `--help`, script header:** the rule's name, what the tool did, and the next act; a set the
+  tool holds is printed from its variable. Not another tool's behaviour.
+- **Contract sheet, process manual:** the invariants of its own tool or process, once; the rest cited.
+- **Front door, file manifest:** what a thing is and a pointer; no set that can grow.
+- **Test comment:** the row's name and the sheet it pins.
+- **Dated records** (release notes, changelog) are history and exempt.
+
 ## § D — Who pays, stated as a rule (the pattern)
 
 - **The Definition of Done for any change that lands a successor document, closes a plan, or

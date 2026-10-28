@@ -2,10 +2,7 @@
 # process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/forks.sh — sourced by scripts/test/run.sh, never run on its own.
-# finish-pr.sh refuses a landing whose card carries no `forks:` field, a malformed one, one
-# naming an id that is not a LIVE register entry, or one that CONTRADICTS what the branch itself
-# shows (a register D-NN entry the branch's diff adds or changes, or an Activity
-# `[decision: D-NN]` citation, absent from `forks:`).
+# Pins the `forks:` precondition (process/contracts/landing-gate.md § 3), as finish-pr.sh applies it.
 # =============================================================================
 
 # _forks_seed_register <path> [<D-01-ruling>] — a minimal, well-shaped register: one bucket

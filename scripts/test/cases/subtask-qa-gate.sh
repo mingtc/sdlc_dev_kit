@@ -2,8 +2,7 @@
 # See process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/subtask-qa-gate.sh — sourced by scripts/test/run.sh, never run on its own.
-# `subtask.sh move <id> qa_complete` refuses on the same conditions finish-pr.sh applies to a
-# landing card — one shared parser, scripts/lib/qa-gate.sh.
+# Pins `subtask.sh move <id> qa_complete` against the checks of scripts/lib/qa-gate.sh.
 # =============================================================================
 
 # _seed_subtask <parent> <suffix> <status> <slug> <title> [<branch>] — a slice card shaped like

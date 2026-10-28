@@ -1395,10 +1395,8 @@ DECISIONS_EOF
 }
 
 # =============================================================================
-# CASE — SEED's "Day one is done when" names what the arms measure but a script cannot write for
-# you: the PRD (step 6), the role docs' model rows (which set-models.sh does not write), and the
-# lines that are expected until the first card lands. Wording-level, for a checklist whose job is to
-# name the item. The section is cut from the shipped file with a fixed heading, not derived.
+# CASE — SEED's "Day one is done when" list names the PRD and the model rows. Wording-level; the
+# section is cut from the shipped file with a fixed heading, not derived.
 # =============================================================================
 case_seed_done_list_names_the_prd_and_the_model_rows() {
   cf_reset

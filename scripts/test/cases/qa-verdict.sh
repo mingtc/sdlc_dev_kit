@@ -426,9 +426,8 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
 }
 
 # =============================================================================
-# CASE — A TABLE OF ONLY gate-diff/fixture-diff/artifact ROWS REFUSES (qa-verdict-no-observed): those kinds carry
-# no quote, so a table made only of them gives the gate nothing to re-read. One test/file:line row
-# beside them lands.
+# CASE — A TABLE OF ONLY UNQUOTED-KIND ROWS REFUSES (qa-verdict-no-observed); one quoted-kind row
+# beside them lands. Kinds: KIT_QAV_KINDS in scripts/lib/qa-gate.sh.
 # =============================================================================
 case_finish_pr_qa_verdict_unquoted_kinds_only_refuses() {
   cf_reset
@@ -1484,21 +1483,21 @@ case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
 }
 
 # =============================================================================
-# CASE — THE SENTENCES THAT LIST THE QA EVIDENCE KINDS NAME ALL FIVE, AND THE DISPATCHED-LEG RULING IS
+# CASE — THE QA EVIDENCE-KIND SENTENCES CITE THE DECLARATION, AND THE DISPATCHED-LEG RULING IS
 # STATED WHERE QA AND THE WORKERS READ IT. Expectations are written out, not derived: the README
 # sentence cites KIT_QAV_KINDS and that declaration lists `artifact`; qa.md no longer says 'one file
 # per row' (a row lists every `<path> sha` pair) and says a dispatched leg never reads the image; the
 # QA worker may cite an artifact row; dev.md no longer points at 'the evidence directory'.
 # =============================================================================
-case_qa_evidence_kind_sentences_list_all_five() {
+case_qa_evidence_kind_sentences_cite_the_declaration() {
   cf_reset
   local r="$REAL_REPO_ROOT" f lived
   lived="$(_tree_has_lived)"
   if [ -n "$lived" ]; then
-    skp_lived "QA evidence-kind sentences list all five kinds" "README.md and the role files are this project's own once $lived"; return
+    skp_lived "QA evidence-kind sentences cite the declaration" "README.md and the role files are this project's own once $lived"; return
   fi
   for f in README.md scripts/lib/qa-gate.sh .claude/roles/qa.md .claude/roles/dev.md .claude/agents/qa-worker.md; do
-    [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_list_all_five: no $f in the published kit at $r"
+    [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no $f in the published kit at $r"
   done
   grep -q 'KIT_QAV_KINDS' "$r/README.md" \
     || cf "README.md's QA-verdict sentence does not cite KIT_QAV_KINDS, the one declaration of the evidence kinds"
