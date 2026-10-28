@@ -464,6 +464,7 @@ CASES=(
   case_kit_init_markers_intact
   case_kit_init_commits_under_the_pre_role_hat
   case_kit_init_disposition_markers_intact
+  case_kit_init_prefix_stamp_keeps_the_prd_template_slot_line
   case_kit_init_prefix_stamp_keeps_shipped_file_names
   case_release_notes_stamp_checks_print_nothing_on_an_adopted_tree
   case_release_notes_roles_stamp_check_works_on_both_routes

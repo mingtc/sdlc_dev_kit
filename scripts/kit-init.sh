@@ -74,7 +74,7 @@ PREFIX_PLACEHOLDER='<PREFIX>'
 # would read `XYZ-CLASS:` / `XYZ-DISPOSITION:` / `XYZ-FEEDBACK.md`. ONE LIST: a later key or shipped
 # name joins this line and nowhere else; the hiding, the census exclusion and the self-check all
 # read it. Space-separated (bash 3.2 has no nameref). KIT-CLASS: stays first: the harness reads it.
-MARKER_KEYS='KIT-CLASS: KIT-DISPOSITION: KIT-FEEDBACK'
+MARKER_KEYS='KIT-CLASS: KIT-DISPOSITION: KIT-MODULES: KIT-FEEDBACK'
 # marker_sentinel <key> → that key's own sentinel, derived from the key so no second list of
 # sentinels can drift out of step with MARKER_KEYS.
 marker_sentinel() { printf '@@KITMARKER-%s@@' "$(printf '%s' "$1" | tr -cd 'A-Za-z0-9')"; }

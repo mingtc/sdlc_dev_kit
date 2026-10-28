@@ -128,6 +128,44 @@ $(printf '%s' "$rewritten" | sed 's/^/      /')"
 }
 
 # =============================================================================
+# POST-INIT, THE PRD TEMPLATE'S KIT-MODULES SLOT LINE SURVIVES THE PREFIX STAMP
+# =============================================================================
+# The slot line is a marker key the mint and the marker-block library match by its shipped
+# spelling. `KIT-` before a non-digit is rewritten to the prefix in .claude/templates, so an
+# unprotected key becomes <PREFIX>-MODULES: in every initialized project: the mint then leaves the
+# line in every PRD and a slot fragment has nowhere to go. The harness's own sandboxes neutralize
+# the prefix back to KIT, so only a case that runs kit-init and reads the template afterwards sees it.
+# THE EXPECTED COUNT IS HARD-CODED: one slot line, in and out.
+case_kit_init_prefix_stamp_keeps_the_prd_template_slot_line() {
+  cf_reset
+  local L="kit-init: PRD.template.md's KIT-MODULES slot line survives the prefix stamp — exactly one before and after, no <PREFIX>-MODULES variant"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local real="$REAL_REPO_ROOT/.claude/templates/PRD.template.md"
+  if [ ! -f "$real" ]; then skp "$L" ".claude/templates/PRD.template.md absent"; return; fi
+  local before; before="$(grep -c '^<!-- KIT-MODULES:story-fields' "$real" 2>/dev/null || true)"
+  if [ "$before" != 1 ]; then
+    local why; why="$(_tree_has_lived)"
+    if [ -n "$why" ]; then
+      skp_lived "$L" "PRD.template.md carries $before story-fields slot line(s) in this tree ($why), not the one it ships with"; return
+    fi
+    cf "(control) the shipped PRD.template.md carries $before story-fields slot line(s), not one — the premise of the comparison below"; finish "$L"; return
+  fi
+  kit_init_sandbox
+  publish_sandbox
+  local tpl="$SB_WORK/.claude/templates/PRD.template.md" after
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "$L"; teardown; return; }
+  after="$(grep -c '^<!-- KIT-MODULES:story-fields' "$tpl" 2>/dev/null || true)"
+  [ "$after" = 1 ] || cf "PRD.template.md carries $after '<!-- KIT-MODULES:story-fields' line(s) after kit-init, not one: $(grep -n 'MODULES' "$tpl" | cut -c1-120 | tr '\n' '|')"
+  grep -rn 'SBX-MODULES' "$SB_WORK/.claude" >/dev/null 2>&1 \
+    && cf "the prefix substitution rewrote the KIT-MODULES: marker's KEY to SBX-MODULES: $(grep -rn 'SBX-MODULES' "$SB_WORK/.claude" | head -2 | cut -c1-140 | tr '\n' '|')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # POST-INIT, EVERY SHIPPED FILE NAME OF THE SHAPE KIT-<WORD>.md SURVIVES THE PREFIX STAMP
 # =============================================================================
 # A role doc names process/KIT-FEEDBACK.md; the prefix substitution matches `KIT-` before any
