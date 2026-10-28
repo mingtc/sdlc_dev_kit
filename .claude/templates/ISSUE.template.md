@@ -19,7 +19,7 @@ type: feature            # feature | spike | chore
 #title note: write a " or \ inside the quotes as \" or \\
 title: "<one-line summary>"
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it — scripts/subtask.sh)
-prd: PRD-NNN             # or n/a on the lite path — legal, and then prd_reason is expected (check-board [m] counts landed cards that omit it)
+prd: PRD-NNN             # or n/a on the lite path (`process/MANUAL.md` § The default path is lite); then fill prd_reason
 prd_reason:              # with prd: n/a only — ONE line: why no PRD covers this work
 stories: [PRD-NNN-F1-S1] # one or more story IDs from the PRD; [] on the lite path
 branch: feature/<PREFIX>-NNN-<slug>
@@ -33,7 +33,7 @@ forks: none              # or a bracketed list [D-NN, ...], one id per fork reso
 
 # <PREFIX>-NNN — <one-line summary>
 
-> **Status** is the folder this file is in (`progress/todo/`, `progress/in_progress/`, `progress/dev_complete/`, `progress/qa_complete/`, `progress/blocked/`, `progress/done/`, `progress/declined/`). Move the file with **`./scripts/move-issue.sh`** — never by hand (`process/contracts/board-mover.md`: *"Only the mover moves it"*, and every move is published to the trunk as its own commit). Do not duplicate status into frontmatter.
+> **Status** is the folder this file is in (a folder under `progress/`; `./scripts/move-issue.sh --help` prints them). Move the file with **`./scripts/move-issue.sh`** — never by hand (`process/contracts/board-mover.md`: *"Only the mover moves it"*, and every move is published to the trunk as its own commit). Do not duplicate status into frontmatter.
 
 ## References
 
@@ -46,7 +46,7 @@ One paragraph: what this issue solves and why it exists. Distilled from the PRD 
 
 ## Acceptance Criteria
 
-Copied from the PRD stories listed in frontmatter (or authored here on the lite path). Each must be independently verifiable by QA. **This text is frozen once the card leaves `todo/`:** a later change to an AC needs a `[decision: D-NN]` citation on that bullet's own line (`process/MANUAL.md` § Execution discipline, item 6). The issue is `dev_complete` only when every AC has a passing test, or a documented justification in `progress.md` for why it cannot be automated (e.g. behavior observable only through the project's declared live/manual gate). For an AC whose deliverable is prose describing code behaviour, *"it is a description"* is not such a justification: each behavioural claim it makes needs a test or a `file:line` QA can check it against ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4). An AC whose prose makes no claim about behaviour is unaffected.
+Copied from the PRD stories listed in frontmatter (or authored here on the lite path). Each must be independently verifiable by QA. **This text is frozen once the card leaves `todo/`:** a later change to an AC needs a decision citation on that bullet (`process/MANUAL.md` § Execution discipline, item 6). The issue is `dev_complete` only when every AC has a passing test, or a documented justification in `progress.md` for why it cannot be automated (e.g. behavior observable only through the project's declared live/manual gate). For an AC whose deliverable is prose describing code behaviour, *"it is a description"* is not such a justification: each behavioural claim it makes needs a test or a `file:line` QA can check it against ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4). An AC whose prose makes no claim about behaviour is unaffected.
 
 - [ ] AC1 — from <story id>: <statement>
 - [ ] AC2 — from <story id>: <statement>
@@ -73,7 +73,7 @@ Red line: <placeholder>
 
 ## QA Verdict
 
-Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per AC id above, plus the fixed `shadow-check` row, whose bracketed prompt you replace with `assertions removed: none` or each removed or weakened assertion with its replacement (the landing refuses the row while it is still the prompt). `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff` · `artifact`. A `test`/`file:line` row's pointer carries a `path:line` (or `path:a-b`) and a short verbatim quote in double quotes, e.g. `src/add.js:12 "return a + b"` (a `|` inside a quoted line is written `\|` and a `"` is written `\"`, or quote a substring of the line with no `"`; backticks are ignored, and only the first quoted string after a pointer, with each that follows it after whitespace or `;` alone, is read as a quote; a double-quoted phrase written before the cell's first `path:line` is refused, so put the pointer first) — `finish-pr.sh` reads the quote at that line in the revision being landed, whitespace normalised; an AC with several pieces of evidence is ONE row listing every pointer, each followed by its own quote; `gate-diff`/`fixture-diff` rows are exempt from the quote, but not from the pointer check: every `word:number` in a pointer cell is read as a `path:line` and must resolve, so write a time or a host and port without the colon-number form; an `artifact` row cites a file QA committed on the trunk under `dev/evidence/<card-id>/`, as `<path> <full blob sha>` (from `git rev-parse <remote>/<trunk>:<path>`), and is read on the trunk, not the branch. `finish-pr.sh` — and `move-issue.sh <ID> qa_complete` for a card that did not land through it — refuses a PASS landing if this table is missing, a row's evidence kind is wrong, a `path:line` does not resolve or its line is past the file's length, a pointer names the card's own file (cite the content the AC is about), a pointer has no quote of its own, a quote is shorter than eight characters (unless it is the cited line's whole text) or is not on the line its pointer cites, the pointer is empty or a placeholder (`<placeholder>`, `n/a`, `tbd`, `see above`, `-`, `x`, … — case-insensitive), any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, or is not exactly one of the four tokens, the AC ids here do not match the AC bullets above one for one or one AC id has two rows, the table has no `test`/`file:line` row (every AC row is `gate-diff`, `fixture-diff` or `artifact`), or the `shadow-check` row is absent or empty. `PASS_AC_CORRECTED` amends the bullet text above, which is frozen once the card leaves `todo/`: cite the register entry that records the correction as `[decision: D-NN]` on the amended bullet's own line (a citation elsewhere on the card does not cover it), or the landing is refused (`process/MANUAL.md` § Execution discipline, item 6). The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
+Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4, which gives the row rules), one row per AC id above, plus the fixed `shadow-check` row, whose bracketed prompt you replace with `assertions removed: none` or each removed or weakened assertion with its replacement. `verdict` is one of the four tokens the first row's blank lists; `evidence kind` is one of the kinds in `KIT_QAV_KINDS` (`scripts/lib/qa-gate.sh`); a `test`/`file:line` pointer is a `path:line` and a short verbatim quote in double quotes, e.g. `src/add.js:12 "return a + b"`, and the other kinds' pointer forms are in that step and `dev/evidence/README.md`. `finish-pr.sh` — and `move-issue.sh <ID> qa_complete` for a card that did not land through it — refuses a PASS landing when the table breaks a rule in `process/contracts/landing-gate.md` § 3. `PASS_AC_CORRECTED` amends a bullet frozen since the card left `todo/`, so it needs a decision citation on that bullet (`process/MANUAL.md` § Execution discipline, item 6). The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
 
 | AC id | verdict | evidence kind | evidence pointer |
 |---|---|---|---|
@@ -104,17 +104,9 @@ Filled in by Dev. Empty when PM hands off. The card is the trunk's: land this se
 ## Activity
 
 `./scripts/move-issue.sh` appends a line for you on every move; append one by hand only when a
-significant decision is logged elsewhere.
-
-**"Elsewhere" has one name: the decision register**
-([`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)). A ruling made while working this
-card is **not durable on this card** — an Activity entry records *this issue*, and a reader asking
-*what is currently true* reads the register. So the seat that makes it **promotes it to the register
-in the same change**, and the Activity line here cites the id it was given:
-`[decision: D-NN]`. Which rulings earn an entry, and the one-question diagnostic that separates a
-**fork** (→ the register) from a **fact** (→ amend the PRD), are in
-[`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)
-§ *Which decisions live HERE*; *when* is
+significant decision is logged elsewhere. Elsewhere is the decision register,
+[`requirements/DECISIONS.md`](../../requirements/DECISIONS.md); cite its id as `[decision: D-NN]`. Which
+rulings earn an entry is its § *Which decisions live HERE*; *when* is
 [`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6.
 
 **The entry shape is the INDENTED line below, deliberately not a bullet** — it is an example, not

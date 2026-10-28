@@ -112,21 +112,9 @@ the decision register ([`DECISIONS.md`](DECISIONS.md)), under a stable `D-NN` id
 the ones that govern this PRD, so a reader rebuilding the feature sees every governing fork without
 hunting — and each row resolves into the register rather than restating it.
 
-**Cite by id; never inline the ruling's text.** A copy here is a second authoring site, and it is the
-copy that drifts. The register's **Why** field is where the reason is written — *capture the reason,
-not only the conclusion* is that field's instruction, stated in [`DECISIONS.md`](DECISIONS.md) § *Which decisions live HERE*,
-because a later ruling may supersede the conclusion and the reason is what
-stops the same argument being re-litigated
-([`process/doctrine/supersession.md`](../process/doctrine/supersession.md)).
-
-**What goes here versus what amends the PRD above** is the fork/fact split, and the diagnostic is one
-question: *could a competent stranger, reading only this PRD, arrive at a different answer and be
-reasonable?* **Yes** → it is a fork; rule it in the register and cite it here. **No** → it is a fact;
-amend the relevant section above and cite nothing.
-
-**Format law: the marker is `[decision: D-NN]`** — anchored, so prose *about* a ruling is never read
-as a citation of one. A board check joins each marker to the register's `### D-NN` headings: a
-citation to an id that does not exist, or to a retired one, is a finding.
+**Cite by id; never inline the ruling's text** — a copy here is a second authoring site. Whether a
+ruling is a fork (rule it in the register, cite it here) or a fact (amend the PRD above), and the
+citation marker's format, are in [`DECISIONS.md`](DECISIONS.md) § *Which decisions live HERE*.
 
 - `[decision: D-NN]` — <the ruling's short title, as the register's heading spells it>
 
