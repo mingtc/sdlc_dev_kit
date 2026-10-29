@@ -85,7 +85,7 @@ each settings example (`.claude/settings.json.example`, `.claude/settings.unatte
 other underscore-prefixed notes. *A convention that cannot be expressed in a file's own syntax is
 expressed in that file's own terms, not abandoned.*
 
-**A carve-out to the FLOOR, stated here because this is where the rule lives.** The kit assumes **git and a
+**A carve-out to the FLOOR, stated here because this is where the rule lives.** The kit's core assumes **git and a
 POSIX shell** — and `scripts/hygiene/` is **Python 3, standard library only**. Those files are
 **advisory instruments, never a gate**: they run only by hand, no gate calls them, no consumer inherits
 them, and **a project that forbids Python deletes the directory and loses only the measurements** —
@@ -94,6 +94,9 @@ re-implementable in whatever the project already runs. Say so in the adapter if 
 Python, the same way the shipped skill set handles its one optional Node dependency
 (`.claude/skills/README.md`). *The floor is a claim about what the kit REQUIRES, not about what it
 contains; an instrument you can delete is not a requirement.*
+**A module is the other carve-out, and the general one.** Anything that needs more than the floor ships as a
+module ([`MODULES.md`](MODULES.md)): stored disarmed, enabled per project, and free to be as stack-specific as its
+job needs. The core does not name one.
 
 **In this seed almost everything is `KIT`, and that is a fact about the seed, not a boast.** The
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
@@ -181,7 +184,7 @@ and a disposition at the same time.
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half, `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` — **the initializer never stamps these two**, the same FILL shape as `GATES`, not done until filled or declared deliberately empty |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `AGENTS.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**`, `process/ROLES` |
-| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines), and the release and refactor routes: `scripts/release.sh`, and the Refactorer with the files that exist only to serve it (`scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md`, `.claude/templates/REFACTOR.template.md`). A project that ships nothing, or never restructures, removes them; one that keeps them says so |
+| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `modules/` (or the directory of each module the project will not enable), `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines), and the release and refactor routes: `scripts/release.sh`, and the Refactorer with the files that exist only to serve it (`scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md`, `.claude/templates/REFACTOR.template.md`). A project that ships nothing, or never restructures, removes them; one that keeps them says so |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
 row names is `KEEP`.** A project that adds a surface gives it a disposition then.)*
@@ -355,6 +358,7 @@ names the guard whose job is to keep it honest.
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree and landed on the trunk by `register-commit.sh`, checklist, self-test, the project's own gates, finish, handoff. Adopt unedited; it names no project. |
 | `process/ROLES` | The roles this project adds to its role set, one line each; ships with no role line. `MIXED`, `SEED`: the shape is the kit's, the lines are yours (§ 2.4). Adopt as shipped and add lines. |
+| `process/MODULES.md` | What an optional module is, how to enable and disable one, each extension point it can use, and how to write one. Adopt unedited; it names no project. |
 | `process/KIT-RELEASE-NOTES.md` | The adopter-facing notes: § How to upgrade, then the newest release's section and an unreleased section. Adopt unedited; `scripts/kit-upgrade.sh` reads it. |
 | `process/KIT-VERSION` | The one version literal of the kit you adopted, and nothing else. Adopt unedited; it is what an upgrade compares against. |
 | `process/KIT-MANIFEST` | Generated when the zip is built, never tracked in the kit's own source: one row per shipped file (hash, path, `KIT-CLASS`, `KIT-DISPOSITION` — `-` where a file declares none). Adopt unedited; the initializer, the upgrade script and the self-test read it. The disposition column is how the self-test knows a missing `DELETE-IF-UNUSED` member was removed on purpose: the declaration leaves with the file, the manifest keeps it. |
@@ -371,6 +375,7 @@ names the guard whose job is to keep it honest.
 | `.claude/templates/` | **COPY — and every file in it is marked `KIT-CLASS: KIT`, which is the authority.** The item templates travel whole; `kit-init.sh` stamps values INTO them, and § 4.6 states exactly how far that stamp reaches. |
 | **The kanban script set** — § 1.1 | The executable half of the kit. |
 | `setup.sh` | **MIXED**: the frame is the kit's, the language runtime is yours. See § 1.1. |
+| `modules/` | **Optional overlays, shipped DISARMED and off.** One directory per module (`module.manifest`, its files, its own self-test cases under `test/`); a harness-facing name is stored as the core stores it (`_claude/`), so nothing here is read by a harness. A file that is copied into a shared file or minted into a card carries no `KIT-CLASS:` marker, since it would be copied with it; its class is the module's. `scripts/module.sh enable <name>` places a module and records it, with the sha256 of each file, in `process/MODULES` — **a state file `module.sh` writes and the zip never ships, `MIXED`**, so an upgrade has no copy of it to replace. Delete a module's directory, or `modules/`, to decline it; [`MODULES.md`](MODULES.md) is the guide and [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) the contract. |
 | `consumers/` | **OPTIONAL, and delete it if it does not apply.** The thin machinery for the case where something else vendors your project, governed by [`doctrine/distribution.md`](doctrine/distribution.md). **If your project ships to nobody, remove the directory** — an unused distribution surface reads as a promise. |
 
 **THE MODEL PINS ARE PRODUCT NAMES, AND THIS TABLE IS WHERE THEY ARE DECLARED.** Every leaf-worker
@@ -414,6 +419,9 @@ written around it.
 it takes what the project never changed, stages the rest behind a checklist, and stamps
 `process/KIT-VERSION` only when the checklist is done.
 
+**Modules (KIT):** `module.sh` — lists, enables and disables the optional modules under `modules/`; `lib/modules.sh` is its
+manifest reader, planner and record (`process/MODULES`). See [`MODULES.md`](MODULES.md).
+
 **Provisioning (KIT):** `set-models.sh` — writes a work class's `(model, effort)` pair to its
 leaf-worker pin(s), the ladder row and, for the runner default, the workflow runners together, so
 none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree with another. It
@@ -425,7 +433,7 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/modules.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it

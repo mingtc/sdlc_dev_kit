@@ -12,7 +12,7 @@ your memory of it.
 
 ## 1. Check the environment
 
-- **Git and a POSIX shell** are the kit's only hard requirement (the project's `PROJECT.md` may name more tools it needs).
+- **Git and a POSIX shell** are the kit core's only hard requirement (the project's `PROJECT.md` may name more tools it needs, and a module the project enables states what it needs).
   Confirm both are on `PATH` (`git --version`, `echo $0` or equivalent). If either is missing, stop
   here and tell the human what to install — nothing else in this skill can run without them.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
@@ -29,7 +29,7 @@ your memory of it.
   unattended, ask through `scripts/ask.sh` once `PROJECT.md` names the principal (SEED step 3),
   and on a yes the human runs that `cp`. Record the consent as a register entry. An unattended
   launch also passes `.claude/settings.unattended.json.example`.
-- **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
+- **The optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
   (`python3 --version`). Check for these only if the adapter (once one exists — see section 3 of this skill) says
   the project actually uses them. Neither is required; say so rather than treating an absence as a

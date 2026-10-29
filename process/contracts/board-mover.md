@@ -153,7 +153,8 @@ to change and making every change self-recording.
   reported as not run. A record-without-moving runs no check. **The landing script runs them itself,
   for the move it ends with, before its squash** (a refusal then stops the landing with nothing
   merged, as any check of the landing gate does), and its own move, which comes after the squash and
-  names it, therefore skips them, for the reason it skips the verdict check above. A decomposed item's
+  names it, therefore skips them, for the reason it skips the verdict check above. **The archive sweep runs
+  them too**, for each card it moves to `done/`, before it writes anything. A decomposed item's
   child moves through its own mover and runs the same checks.
 - The publication of the move fails ⇒ report loudly that the board changed locally and did **not**
   reach the trunk, and name the recovery. A move that is silently local is a lie to everyone else.

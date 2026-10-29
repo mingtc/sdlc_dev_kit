@@ -10,8 +10,8 @@ agent roles (see `.claude/roles/`) that follow a disciplined Dev → QA handoff,
 behind why each rule exists. Drop it into a new or existing repository, point your agent at it, and
 it runs the process for you — you run `/start` and answer its questions.
 
-**Language- and stack-agnostic.** Works with any codebase, any test framework, any forge. Requires
-only **git** and a **POSIX shell**. Built with [Claude Code](https://claude.com/claude-code) in
+**Language- and stack-agnostic in its core.** Works with any codebase, any test framework, any forge. The core
+requires only **git** and a **POSIX shell**; an optional module you enable (`process/MODULES.md`) may need more. Built with [Claude Code](https://claude.com/claude-code) in
 mind — that's where the skills, agent definitions and hooks under `.claude/` actually run (the hooks stay
 inactive until you copy `.claude/settings.json.example` to `.claude/settings.json`; `process/MANUAL.md` § The
 default path is lite says what it wires) — with a
@@ -125,11 +125,11 @@ filesystem-as-kanban board (the folder a file sits in *is* its status), **roles 
 worker wears one role at a time, from a doc that is its workflow), a hard **Dev → QA boundary**
 with a landing gate, a set of **contract sheets** that say what each gate must guarantee, a set of
 **doctrine sheets** that carry the reasoning behind the rules, and **launch-pack orchestration**
-for running a batch of work with minimal human relay. It assumes **git and a POSIX shell** — no
-language, no test framework, no hosted forge. *(Two optional extras are carved out where they live
-and are deletable without loss: the hygiene instruments under `scripts/hygiene/` are Python 3,
-standard-library only and never a gate; `brainstorming`'s visual companion wants Node and is opt-in
-per question.)* The primary agent harness is
+for running a batch of work with minimal human relay. Its core assumes **git and a POSIX shell** — no
+language, no test framework, no hosted forge. *(Optional modules, which ship off, state their own needs
+([`process/MODULES.md`](process/MODULES.md)). The hygiene instruments under `scripts/hygiene/` are Python 3,
+standard-library only and never a gate, and `brainstorming`'s visual companion wants Node and is opt-in
+per question; both are carved out where they live and deletable without loss.)* The primary agent harness is
 **Claude Code**, and the `.claude/` machinery here is Claude-specific on purpose; the *contracts*
 those files encode (the roles, the commit prefixes, the board rules) bind every agent regardless of
 harness — see [`AGENTS.md`](AGENTS.md).

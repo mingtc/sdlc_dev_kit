@@ -1,0 +1,2 @@
+# The example module's cache (a toy).
+.example-cache/

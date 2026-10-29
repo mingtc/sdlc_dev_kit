@@ -15,7 +15,6 @@ _ku_sha() {
   elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
   fi
 }
-_ku_have_sha() { command -v shasum >/dev/null 2>&1 || command -v sha256sum >/dev/null 2>&1; }
 
 # _ku_manifest <dir> — write <dir>/process/KIT-MANIFEST over every file in <dir>, as the build does.
 _ku_manifest() {

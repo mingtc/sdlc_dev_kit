@@ -30,9 +30,10 @@ this file at the start of every session.**
 - **Language / runtime:** `<name and version policy>`
 - **Dependency policy:** `<e.g. no new runtime dependency without its own decision; state the
   narrow class, if any, that is exempt and why>`
-- **What the tooling floor is:** `<the kit itself requires git + a POSIX shell; its two optional
+- **What the tooling floor is:** `<the kit's core requires git + a POSIX shell; its optional
   extras — the Python hygiene instruments and the Node visual companion — are deletable and never
-  gates. Name anything else a contributor must have installed>`
+  gates, and a module you enable may need more (process/MODULES.md). Name anything else a contributor
+  must have installed>`
 
 > `./setup.sh`'s **kit half is real and working** in a fresh seed (git hooks, the board sanity
 > check, the `.env` seed). Its **runtime half is a marked fill-in** — wire your language
@@ -118,6 +119,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The model-provisioning seam — one pair per work class, everywhere it is written | `<e.g. ./scripts/set-models.sh>` | [`process/contracts/model-provisioning-seam.md`](process/contracts/model-provisioning-seam.md) |
 | The unattended Stop hook (optional — launched only with the unattended profile) | `<e.g. the Stop hook in .claude/settings.unattended.json.example>` | [`process/contracts/stop-ask.md`](process/contracts/stop-ask.md) |
 | The agent record — the QA verdict's (session, agent) is not the code's | `<e.g. the Bash hooks in .claude/settings.json.example; finish-pr.sh and subtask.sh read it>` | [`process/contracts/agent-record.md`](process/contracts/agent-record.md) |
+| The module lifecycle — enable and disable an optional module without a hand edit | `./scripts/module.sh` | [`process/contracts/module-lifecycle.md`](process/contracts/module-lifecycle.md) |
 
 <!-- KIT-MODULES:gates — an add-on's own gate table goes above this line, between its KIT-MODULE BEGIN and END marker lines; scripts/lib/marker-block.sh writes and removes it. Leave this line. -->
 

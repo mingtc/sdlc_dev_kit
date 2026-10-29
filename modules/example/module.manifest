@@ -1,0 +1,16 @@
+# KIT-CLASS: KIT — the example module's manifest: a toy to read and copy. See process/EXTRACTION.md.
+# Every line is `<key>: <value>`; process/MODULES.md § Writing a module says what each key takes.
+name: example
+version: 0.1.0
+purpose: A toy module to read and copy; enable it to see what a module does, then disable it.
+role: Example   a toy seat the example module adds to the role set
+file: _claude/roles/example.md -> .claude/roles/example.md
+file: _claude/skills/example-skill/SKILL.md -> .claude/skills/example-skill/SKILL.md
+arm: check-board.d/50-example.sh -> 50-example.sh
+evidence-kind: example-note   a pointer to a note under dev/, checked by the cell check below
+qa-cell: qa-cell.d/50-example.sh -> example-note/50-example.sh
+move-check: move-check.d/50-example.sh -> in_progress/50-example.sh
+fragment: PRD slot-story-fields fragments/prd-story-field.txt
+fragment: ISSUE body-end fragments/issue-sign-off.txt
+block: PROJECT.md gates gates.md
+gitignore: gitignore.txt

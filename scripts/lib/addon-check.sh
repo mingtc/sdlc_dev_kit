@@ -19,7 +19,8 @@
 #       cannot be read, or a scratch file that cannot be made, returns 70.
 #   kit_move_checks <repo> <rev> <id> <from> <to> <role> <card-file>
 #       The checks of a board move (scripts/move-check.d/<to>/): refuses through kit_refuse on the first
-#       that does not allow it. Called by move-issue.sh before it changes anything.
+#       that does not allow it. Called by every script that moves a card, before it changes anything
+#       (process/contracts/board-mover.md § 3 names them).
 #
 # THE CONTRACT OF A CHECK, one for every folder (process/contracts/board-mover.md § 3 for a move,
 # landing-gate.md § 3 for a QA cell): status 0 allows, status 3 says "I looked and this is wrong", any

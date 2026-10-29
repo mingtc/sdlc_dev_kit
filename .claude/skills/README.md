@@ -14,10 +14,11 @@ not state*).
 The skill set is **stack-agnostic**. Nothing here assumes a language, a test runner, a build
 tool or a forge. Where a skill needs a concrete command it says
 `<the project's test command>` and expects the **project adapter** (`AGENTS.md`) and the
-**project facts** (`PROJECT.md`) to supply the real one. The floor the kit itself **requires** is
-**git + a POSIX shell**.
+**project facts** (`PROJECT.md`) to supply the real one. The floor the kit's core **requires** is
+**git + a POSIX shell**; a module you enable (`process/MODULES.md`) places its own skills and may need more,
+which its manifest states.
 
-> **Two optional extras sit above that floor, and both are deletable without loss.** They are
+> **Optional extras sit above that floor, and each is deletable without loss.** They are
 > named here, beside the floor, so that neither the claim nor its exceptions can travel alone.
 >
 > - `brainstorming`'s optional **visual companion** ships a small local server

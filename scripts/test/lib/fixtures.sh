@@ -202,6 +202,11 @@ make_sandbox() {
   # rewriting. So nothing here executes run.sh, and case_cli_shape_across_the_shipped_set
   # lists it as unreached on every run.
   rm -rf "$SB_WORK/scripts/test"
+  # ...and so is whatever an enabled module placed where add-ons extend the board scripts (the real tree
+  # carries it because a module is enabled there): a sandbox is the neutral baseline, and a case that wants
+  # an arm or a check plants it. Only the files go; the directory's README stays.
+  rm -f "$SB_WORK"/scripts/check-board.d/[0-9][0-9]-*.sh
+  rm -rf "$SB_WORK/scripts/move-check.d" "$SB_WORK/scripts/qa-cell.d"
   # ...and reset every config-block seam `cp` just carried in (see _kit_neutral_config).
   # PLACEMENT IS LOAD-BEARING: it must run BEFORE _declare_sandbox_gate, which declares the
   # sandbox's gate into the emptied GATES table. case_kit_init_gate_and_remote_refusals(a)

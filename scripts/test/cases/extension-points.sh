@@ -1329,3 +1329,47 @@ exit 3
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A done/ MOVE CHECK STOPS THE ARCHIVE SWEEP BEFORE IT WRITES ANYTHING.
+#   archive.sh moves qa_complete -> done, so it is a mover like move-issue.sh: the trunk's
+#   scripts/move-check.d/done/ checks judge each card it would retire, and the first refusal ends the
+#   sweep with the trunk, ARCHIVE.md and the column as they were. A preview runs them too, so it does not
+#   promise a sweep the apply would refuse.
+# =============================================================================
+case_a_done_move_check_stops_the_archive_sweep_before_it_writes() {
+  cf_reset
+  local L="a done/ move check on the trunk refuses archive.sh --apply and the preview with the check's reason and Next: line, a rule id and nothing changed (the card still in qa_complete/ on the trunk, ARCHIVE.md and the trunk's commit as they were), and the sweep goes through once the check is withdrawn"
+  make_sandbox
+  local id="$SB_PREFIX-840" tip arch out rc n=0
+  seed_issue qa_complete "$id" sweep chore "A card behind a done check"
+  publish_sandbox
+  _mc_land "scripts/move-check.d/done/10-never.sh" "#!/usr/bin/env bash
+echo 'PROBE-ARCHIVE-CHECK refuses every retirement'
+echo 'Next: do what the probe wants'
+exit 3
+"
+  _ar() { n=$((n + 1)); rc=0; out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/ar-rec-$n" ./scripts/archive.sh "$@" 2>&1 )" || rc=$?; }
+  tip="$(_mc_trunk_sha)"; arch="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:ARCHIVE.md" 2>/dev/null)"
+
+  _ar --apply
+  [ "$rc" -eq 1 ] || cf "(a) the sweep was not refused with status 1 (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" == *PROBE-ARCHIVE-CHECK* && "$out" == *"10-never.sh"* ]] || cf "(a) the refusal does not name the check and quote its reason: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [[ "$out" == *"Next: do what the probe wants"* ]] || cf "(a) the check's own Next: line is not in the refusal"
+  [[ "$out" == *"NOTHING WAS CHANGED"* ]] || cf "(a) the refusal does not say nothing was changed"
+  grep -q 'refusal=move-check-refused' "$SB_TMP/ar-rec-$n"/*.tsv 2>/dev/null || cf "(a) no refusal=move-check-refused record"
+  [ "$(_mc_trunk_sha)" = "$tip" ] || cf "(a) the trunk moved though the sweep was refused"
+  origin_has_path "progress/qa_complete/$id-sweep.md" || cf "(a) the card left qa_complete/ on the trunk"
+  [ "$(git -C "$SB_WORK" show "origin/$SB_TRUNK:ARCHIVE.md" 2>/dev/null)" = "$arch" ] || cf "(a) ARCHIVE.md changed though the sweep was refused"
+
+  _ar
+  { [ "$rc" -eq 1 ] && [[ "$out" == *PROBE-ARCHIVE-CHECK* ]]; } || cf "(b) the preview was not refused by the check (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  _mc_unland "scripts/move-check.d/done/10-never.sh"
+  _ar --apply
+  [ "$rc" -eq 0 ] || cf "(c) the sweep was refused after the check was withdrawn (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/done/$id-sweep.md" || cf "(c) the card did not reach done/"
+
+  finish "$L"
+  teardown
+}

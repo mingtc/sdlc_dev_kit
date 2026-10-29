@@ -1399,7 +1399,8 @@ case_travelling_scripts_have_a_sheet() {
 
   # THE OPERAND IS EVERY TRAVELLING SCRIPT (scripts/, consumers/, setup.sh) IN BOTH COMMENT
   # SYNTAXES, as contracts/README.md's recipe says.
-  local exempt n=0 judged=0 skipped=0 miss="" f rel items=0
+  local exempt n=0 judged=0 skipped=0 miss="" f rel items=0 placed=""
+  [ ! -f "$REAL_REPO_ROOT/process/MODULES" ] || placed="$(awk '$1 == "file" { print $3 }' "$REAL_REPO_ROOT/process/MODULES")"
   # THE EXEMPT CLASSES ARE THE NUMBERED ITEMS between the markers, each carrying a backticked
   # path prefix — not every backtick there, or a sentence in the block's prose naming a prefix
   # like `scripts/` would exempt the whole population.
@@ -1435,6 +1436,13 @@ case_travelling_scripts_have_a_sheet() {
     # the JUDGED count, which a mass exemption does move.
     local e2 skip=0
     for e2 in $exempt; do case "$rel" in "$e2"*) skip=1 ;; esac; done
+    # A file process/MODULES records is a module's, placed in this project on enable: it is the project's
+    # own, not part of what the kit ships, so no sheet is owed for it. Counted with the skipped.
+    case "
+$placed
+" in *"
+$rel
+"*) skip=1 ;; esac
     if [ "$skip" -eq 1 ]; then skipped=$(( skipped + 1 )); continue; fi
     judged=$(( judged + 1 ))
     # Cited by some sheet — literally, or in the placeholder form a sheet may legitimately
@@ -3600,7 +3608,8 @@ case_cited_case_names_exist() {
     skp "cited case names exist" "scripts/test/cases/ is absent from this tree"
     return
   fi
-  defined="$(grep -h '^case_[A-Za-z0-9_]*()' "$cdir"/*.sh | sed 's/().*$//' | sort -u)"
+  # A case an add-on ships (modules/<name>/test/cases/) is defined too: its CASE-LIST cites it.
+  defined="$(for f in "$cdir"/*.sh "$REAL_REPO_ROOT"/modules/*/test/cases/*.sh; do [ -f "$f" ] && grep -h '^case_[A-Za-z0-9_]*()' "$f"; done | sed 's/().*$//' | sort -u)"
   [ "$(printf '%s\n' "$defined" | grep -c .)" -gt 20 ] \
     || _fixture_die "case_cited_case_names_exist: only $(printf '%s\n' "$defined" | grep -c .) case definition(s) were read — the derivation stopped matching, and 'every cited case exists' would be true of nothing."
 
@@ -3627,7 +3636,7 @@ $(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
 EOF_MAN
   [ "$n" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the scan covered nothing"
   [ "$ncited" -gt 20 ] || cf "(control) only $ncited case name(s) were found cited across $n file(s) — the pattern stopped matching"
-  [ -z "$miss" ] || cf "shipped prose cites a case that no file under scripts/test/cases/ defines:$miss"
+  [ -z "$miss" ] || cf "shipped prose cites a case that no file under scripts/test/cases/ or modules/*/test/cases/ defines:$miss"
   finish "every case_* name cited in the $n shipped file(s) the manifest lists is defined under scripts/test/cases/ (or, for a trailing-star prefix, matches a defined name) — $ncited citation(s) read; the resolver was shown to report a planted undefined name"
 }
 

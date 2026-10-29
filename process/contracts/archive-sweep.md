@@ -117,6 +117,8 @@ indexed store — **without ever losing the record it is retiring**.
 - The sweep commits as one seat (`ARCHIVE_ROLE`, default `Orchestrator`) and the declared role set
   does not hold that tag ⇒ refuse **before anything moves**, naming `ARCHIVE_ROLE` as the knob to set.
   *Why:* a tag the commit hook rejects would leave the moved files uncommitted.
+- A card to be retired is refused by an add-on's move check for `done/` ⇒ refuse **before anything moves**
+  ([`board-mover.md`](board-mover.md) § 3 states those checks once).
 - The publication of the sweep fails ⇒ report that the sweep is committed locally and did **not**
   reach the trunk, and name the recovery.
 

@@ -926,6 +926,7 @@ dispatched one leg per surface. The reasoning, and the rules behind these two st
 | Which paths count as **code** | the adapter (§ The code-vs-metadata rule) |
 | House rules, credentials, capability/documentation duties | the adapter — **project law, and none of this file's business** |
 | Where kit feedback is sent, and how kit updates reach the project | `PROJECT.md` § The kit, upstream |
+| Which optional modules are enabled | `process/MODULES`, written by `scripts/module.sh` — [`MODULES.md`](MODULES.md) |
 | Whether kit findings are recorded without being asked (`kit-feedback:`) | `PROJECT.md` § The kit, upstream — `process/MANUAL.md` § Kit feedback |
 
 ## Doctrine — the files this manual points at
@@ -961,8 +962,9 @@ Neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and
 the instruments that look — **the periodic cadence is advisory; the pre-cut sweep in it is
 MANDATORY when the slate came from a round**), [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
-local-only-to-hosted spectrum) and [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) (the brief for the seat that
-applies a kit upgrade). None is doctrine, so none has a row above.
+local-only-to-hosted spectrum), [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) (the brief for the seat that
+applies a kit upgrade) and [`MODULES.md`](MODULES.md) (what an optional module is, enabling and
+disabling one, and writing one). None is doctrine, so none has a row above.
 
 The honest inventory of what is copyable, what must be configured, what is pinned in place and
 what is **still entangled** is [`EXTRACTION.md`](EXTRACTION.md). Read it before lifting this kit

@@ -76,6 +76,8 @@ fi
 . "$SCRIPT_DIR/lib/role-set.sh"
 # shellcheck source=lib/card-field.sh
 . "$SCRIPT_DIR/lib/card-field.sh"
+# shellcheck source=lib/addon-check.sh
+. "$SCRIPT_DIR/lib/addon-check.sh"
 
 DRY_RUN=true
 # A loop, so no argument is silently discarded. The bare form stays legal and stays a preview
@@ -256,6 +258,14 @@ for p in "${SUBTASK_TREES[@]:-}"; do
       "Error: progress/done/subtasks/$p/ already exists — refusing before any write rather than nest progress/subtasks/$p/ inside it." \
       "Next: merge the two trees by hand, then re-run."
   fi
+done
+
+# AN ADD-ON'S MOVE CHECKS for qa_complete -> done (scripts/move-check.d/done/, lib/addon-check.sh; the
+# contract is process/contracts/board-mover.md § 3): the sweep is a mover, so each card it retires is
+# judged as move-issue.sh would judge it, before anything is written. The first that refuses ends the
+# sweep with nothing changed. A preview runs them too, so it never promises a sweep the apply would refuse.
+for f in "${FILES[@]}"; do
+  kit_move_checks "$MAIN_ROOT" "refs/remotes/${KWT_REMOTE}/${DEFAULT_BRANCH}" "$(kit_card_field "$f" id)" qa_complete done "$ROLE" "$f"
 done
 
 # Build entries.

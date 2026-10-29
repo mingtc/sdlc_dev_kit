@@ -57,6 +57,7 @@ about counting).
 | The model-provisioning seam | [model-provisioning-seam.md](model-provisioning-seam.md) | one (model, effort) pair per class, written everywhere it is read |
 | The unattended Stop hook | [stop-ask.md](stop-ask.md) | block once on a turn ending unaddressed, never on an attended launch |
 | The agent record | [agent-record.md](agent-record.md) | which (session, agent) made each commit; the verdict's is not the code's |
+| The module lifecycle | [module-lifecycle.md](module-lifecycle.md) | an optional module enabled and disabled without a hand edit, never costing anything while off |
 
 **A row named in the additions table below is an addition; every other row is the minimum set** —
 the set the completeness rule treats as a floor. Most additions are justified by the rule that makes
@@ -78,6 +79,7 @@ reason.**
 | The non-blocking ask | A blocking question and an interactive one are two different acts with two different failure modes; this sheet is what keeps the non-blocking route from quietly growing a wait into it. |
 | The model-provisioning seam | A model is set in several places; leaving one unwritten when another changes is how a re-provisioning silently half-happens, including inside the kit's own self-test. |
 | The unattended Stop hook | An unattended launch has a mechanical point where a question with no addressee would otherwise go unanswered forever; the invariant (judge the ending, not the content; fire at most once) is otherwise only prose. |
+| The module lifecycle | A module is optional by construction, so the cost of enabling one, and the leftovers of disabling it, are the whole risk; the sheet is what keeps disable from deleting an edited file and an enable from leaving a half-placed module. |
 | The agent record | "The checker is not the author" is otherwise a role's promise; the record makes it a landing refusal, and its invariants (only a commit the call created, never an overwritten claim, never a blocked call) are what keep that refusal from misattributing. |
 
 ## The rules that hold this directory honest
@@ -123,6 +125,8 @@ reason.**
   form** — `notification.md` says `scripts/notify/<channel>.sh`, because the channel is the adopter's
   instance. A sweep matching literal paths reports the shipped example as uncovered; it is not.
 <!-- EXEMPT-CLASSES:END -->
+
+**A file `process/MODULES` records** — one a module placed in this project on enable — is the project's, not the kit's, and the self-test's census of travelling scripts skips it: no sheet is owed for a module's script.
 
 **THE HAZARD THIS BLOCK'S SHAPE ANSWERS, stated here because it cannot be stated inside the block.**
 The self-test derives the exempt prefixes from the block above, so **anything in that block that
