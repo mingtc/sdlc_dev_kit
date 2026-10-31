@@ -1502,7 +1502,7 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
   grep -q 'kit_qa_evidence_kinds' "$r/README.md" \
     || cf "README.md's QA-verdict sentence does not cite kit_qa_evidence_kinds, the one reader of the evidence kinds"
   grep -q "^KIT_QAV_KINDS_BUILTIN='test file:line gate-diff fixture-diff artifact'$" "$r/scripts/lib/qa-gate.sh" \
-    || cf "scripts/lib/qa-gate.sh's KIT_QAV_KINDS_BUILTIN does not list all five kinds, artifact included"
+    || cf "scripts/lib/qa-gate.sh's KIT_QAV_KINDS_BUILTIN is not the declared built-in evidence-kind line the cites point to"
   ! grep -qE '^KIT_QAV_KINDS=' "$r/scripts/lib/qa-gate.sh" \
     || cf "scripts/lib/qa-gate.sh still declares KIT_QAV_KINDS, a second home beside kit_qa_evidence_kinds"
   for f in .claude/templates/ISSUE.template.md .claude/templates/BUG.template.md .claude/templates/REFACTOR.template.md .claude/templates/SUBTASK.template.md; do
