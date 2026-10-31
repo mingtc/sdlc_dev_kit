@@ -922,7 +922,7 @@ dispatched one leg per surface. The reasoning, and the rules behind these two st
 |---|---|
 | Issue / spec prefix, id validation | `scripts/config.sh` |
 | Trunk name | resolved and confirmed from the remote's published default branch |
-| Status folder set | `KIT_STATUS_FOLDERS` in `scripts/lib/status-folders.sh` (the kanban scripts read it) |
+| Status folder set | `KIT_STATUS_FOLDERS` in `scripts/lib/status-folders.sh`, which the kanban scripts read (not every one takes the whole of it: [`EXTRACTION.md`](EXTRACTION.md) § 2.2); the folders themselves are the `progress/` directory |
 | The gate commands | the project doc + `scripts/verify.sh` |
 | The role set + the commit-prefix table | the adapter + `.claude/roles/`; a role added after day one, `process/ROLES` ([`EXTRACTION.md`](EXTRACTION.md) § 2.4) |
 | Which paths count as **code** | the adapter (§ The code-vs-metadata rule) |
