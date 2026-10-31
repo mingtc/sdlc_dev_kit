@@ -834,6 +834,7 @@ kit_mod_plans_collide() {
 kit_mod_enable() {
   local name="$1" plan="$KIT_MOD_TMP/plan" rows="$KIT_MOD_TMP/rows" placed_f="$KIT_MOD_TMP/placed" conflicts blockers kind tgt rend extra dst placed=0 blocks=0 bid out resuming=0 sha has next_text unfilled=""
   KIT_MOD_TOUCHED=""
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before any refusal, as disable does: a killed run's side file of the record
   kit_mod_plan "$name" "$plan"
   if kit_mod_is_enabled "$name"; then
     echo "module: $name is already enabled (version $(kit_mod_enabled_version "$name")); nothing to do."
@@ -1136,7 +1137,7 @@ _kit_mod_status_rows() {
 # kit_mod_stray_note — status changes no byte, so the record's side file that a killed run left is named, not removed.
 kit_mod_stray_note() {
   if [ -e "${KIT_MOD_ROOT:?}/$KIT_MOD_STATE_REL.kit-mod-new" ]; then
-    echo "note: $KIT_MOD_STATE_REL.kit-mod-new is the leftover of a killed run; ./scripts/module.sh enable <name> (to finish) or disable <name> (to take it back) removes it."
+    echo "note: $KIT_MOD_STATE_REL.kit-mod-new is the leftover of a killed run. Running ./scripts/module.sh enable with any module name removes it, or delete the file; do not disable a working module for this."
   fi
   return 0
 }
@@ -1145,7 +1146,6 @@ kit_mod_stray_note() {
 kit_mod_status() {
   local name="$1" kv
   _kit_mod_need_name "$name"
-  kit_mod_stray_note
   if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then
     echo "module: $name is NOT enabled: an enable of it did not finish. Each recorded thing and its state:"
     kit_mod_pending_rows "$name" > "$KIT_MOD_TMP/status-rows"
