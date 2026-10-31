@@ -117,6 +117,7 @@ case_a_requirement_check_is_bounded_and_the_kit_never_runs_a_modules_setup_scrip
   [ $((t1 - t0)) -le 20 ] || cf "(a) the check ran for $((t1 - t0))s, so nothing stopped it"
   printf '%s\n' "$_md_out" | grep -E 'did not finish|timed out' >/dev/null || cf "(a) the refusal does not say the check did not finish: $(_mq_flat)"
   printf '%s\n' "$_md_out" | grep -F 'wait less' >/dev/null || cf "(a) the refusal does not say how to get it: $(_mq_flat)"
+  printf '%s\n' "$_md_out" | grep -F 'KIT_MOD_CHECK_SECONDS' >/dev/null || cf "(a) the timeout refusal does not name KIT_MOD_CHECK_SECONDS, so a slow tool that is there has no way out: $(_mq_flat)"
 
   # (b) setup: printed, named, never run
   _mq_mod setup1 "requires: sh | command -v sh | a shell | required"
@@ -174,7 +175,6 @@ case_status_reports_a_requirement_that_stopped_holding() {
   printf '%s\n' "$_md_out" | grep -E 'requirement nice: not holding \(optional\)' | grep -F 'the nice view' >/dev/null || cf "(c) status does not report the optional requirement that stopped holding, with what is lost: $(_mq_flat 400)"
   printf '%s\n' "$_md_out" | grep -E 'requirement flag: holds' >/dev/null || cf "(c) status does not say the flag requirement holds again"
 
-  # the tree is not touched by asking
   finish "$L"
   teardown
 }
@@ -185,7 +185,7 @@ case_status_reports_a_requirement_that_stopped_holding() {
 # =============================================================================
 case_the_catalogue_lists_a_disabled_module_with_what_it_needs() {
   cf_reset
-  local L="module.sh list, with nothing enabled, shows a disabled module with its purpose and what it needs (a required requirement, an optional one, an agent check), and a module that needs nothing says so"
+  local L="module.sh list, with nothing enabled, shows a disabled module with its purpose and what it needs (a required requirement, an optional one, an agent check), and a module that declares no requirement says so"
   _mq_subject_ok || { finish "$L"; return; }
   _md_sandbox
   _mq_mod cat1 \
@@ -198,7 +198,7 @@ case_the_catalogue_lists_a_disabled_module_with_what_it_needs() {
   [ "$_md_rc" -eq 0 ] || cf "(a) list exited $_md_rc: $(_mq_flat)"
   printf '%s\n' "$_md_out" | grep -E '^  cat1 +0\.1\.0 +disabled +A fabricated module that needs things\.' >/dev/null || cf "(a) list does not show cat1 as disabled with its purpose: $(_mq_flat 400)"
   printf '%s\n' "$_md_out" | grep -F 'needs: flag (required), gizmo (optional), login (agent check)' >/dev/null || cf "(a) list does not show what cat1 needs: $(_mq_flat 500)"
-  printf '%s\n' "$_md_out" | awk '/^  cat2 /{f=1; next} f && /needs:/{print; exit}' | grep -F 'nothing beyond the core' >/dev/null || cf "(b) list does not say that cat2 needs nothing: $(_mq_flat 500)"
+  printf '%s\n' "$_md_out" | awk '/^  cat2 /{f=1; next} f && /needs:/{print; exit}' | grep -F 'declares nothing' >/dev/null || cf "(b) list does not say that cat2 declares nothing: $(_mq_flat 500)"
   [ ! -e "$SB_WORK/process/MODULES" ] || cf "(c) asking for the catalogue created a record"
   finish "$L"
   teardown
@@ -278,6 +278,7 @@ case_kit_init_with_refuses_a_module_whose_required_command_is_missing() {
   printf '%s\n' "$out" | grep -F 'install toolx from its vendor' >/dev/null || cf "(a) the refusal does not say how to get it"
   printf '%s\n' "$out" | grep '^Next:' >/dev/null || cf "(a) the refusal carries no Next: line"
   _md_snap "$SB_WORK" > "$s1"; cmp -s "$s0" "$s1" || cf "(a) the refused run changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+  "$SB_WORK/scripts/kit-init.sh" --help 2>&1 | tr '\n' ' ' | grep -E -i -- '--with.*requirement' >/dev/null || cf "(a) kit-init --help does not say the --with preflight runs the module's requirement checks"
   grep -q 'Stamped by scripts/kit-init.sh' "$SB_WORK/scripts/config.sh" && cf "(a) the refused run stamped scripts/config.sh"
 
   _mq_mod dayone "requires: sh | command -v sh | a shell | required"
@@ -298,8 +299,8 @@ case_kit_init_with_refuses_a_module_whose_required_command_is_missing() {
 # =============================================================================
 case_every_shipped_module_has_setup_steps_and_a_catalogue_row_that_agrees_with_its_manifest() {
   cf_reset
-  local L="each module under modules/ has a non-empty SETUP.md, and process/MODULES.md carries a catalogue row naming it with its manifest's purpose and the id of each requirement it declares"
-  local m name dirs="" purpose ids row doc="$REAL_REPO_ROOT/process/MODULES.md"
+  local L="each module under modules/ has a non-empty SETUP.md, and process/MODULES.md carries a catalogue row naming it with its manifest's purpose and each requirement it declares, by id and by severity"
+  local m name dirs="" purpose ids labels row lab doc="$REAL_REPO_ROOT/process/MODULES.md"
   for m in "$REAL_REPO_ROOT"/modules/*/module.manifest; do
     [ -f "$m" ] || continue
     dirs="${dirs}$(basename "$(dirname "$m")")
@@ -312,6 +313,7 @@ case_every_shipped_module_has_setup_steps_and_a_catalogue_row_that_agrees_with_i
     [ -s "$REAL_REPO_ROOT/modules/$name/SETUP.md" ] || cf "($name) modules/$name/SETUP.md is absent or empty"
     purpose="$(sed -n 's/^purpose:[[:space:]]*//p' "$REAL_REPO_ROOT/modules/$name/module.manifest" | head -1)"
     ids="$(sed -n -E 's/^requires(-agent)?:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*/\2/p' "$REAL_REPO_ROOT/modules/$name/module.manifest")"
+    labels="$(sed -n -E -e 's/^requires:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*\| required[[:space:]]*$/\1 (required)/p' -e 's/^requires:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*\| optional:.*$/\1 (optional)/p' -e 's/^requires-agent:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*/\1 (agent check)/p' "$REAL_REPO_ROOT/modules/$name/module.manifest")"
     row="$(grep -F "| \`$name\` |" "$doc" | head -1)"
     if [ -z "$row" ]; then cf "($name) process/MODULES.md has no catalogue row for it"; continue; fi
     case "$row" in *"$purpose"*) ;; *) cf "($name) its catalogue row does not carry the manifest's purpose line" ;; esac
@@ -321,6 +323,12 @@ case_every_shipped_module_has_setup_steps_and_a_catalogue_row_that_agrees_with_i
     done <<MQ_IDS_EOF
 $ids
 MQ_IDS_EOF
+    while IFS= read -r lab; do
+      [ -n "$lab" ] || continue
+      case "$row" in *"$lab"*) ;; *) cf "($name) its catalogue row does not say '$lab', which is how the manifest declares it" ;; esac
+    done <<MQ_LABELS_EOF
+$labels
+MQ_LABELS_EOF
   done <<MQ_DIRS_EOF
 $dirs
 MQ_DIRS_EOF
@@ -346,4 +354,78 @@ case_the_files_an_agent_reads_first_name_the_module_catalogue() {
   done
   if [ "$any" = 0 ]; then skp_lived "$L" "AGENTS.md is no longer the day-one stub, and the adapter template and .claude/skills/start/SKILL.md are absent from this tree"; return; fi
   finish "$L"
+}
+
+# =============================================================================
+# CASE — ASKING RUNS NO CHECK, A CHECK GETS NO INPUT FROM THE CALLER, AND ASKING CHANGES NO BYTE.
+#   A check that touches a marker file shows what ran. list and status of a disabled module must leave it absent;
+#   enable must create it (the control that the marker can be seen). Enable is run with the caller's stdin carrying
+#   data, and a check that waits for input must see none. list and status leave the tree as it was, snapshot to snapshot.
+# =============================================================================
+case_asking_runs_no_check_gives_a_check_no_input_and_changes_no_byte() {
+  cf_reset
+  local L="module.sh list and status of a disabled module run no module check (a marker file stays absent while enable creates it), a check is given no input from the caller's stdin, and list and status leave every byte of the tree as it was"
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mq_subject_ok || { finish "$L"; return; }
+  _md_sandbox
+  local mark="$SB_TMP/check-ran" s0="$SB_TMP/snap0" s1="$SB_TMP/snap1"
+  export KIT_TEST_MARK="$mark"
+
+  # (a) nothing that only asks runs a check; (c) and it changes no byte
+  _mq_mod marked 'requires: m | touch "$KIT_TEST_MARK" | get m | required'
+  _md_snap "$SB_WORK" > "$s0"
+  _md_mod list; _md_mod status marked; _md_mod status
+  _md_snap "$SB_WORK" > "$s1"
+  [ -e "$mark" ] && cf "(a) list or status of a disabled module ran the module's check"
+  cmp -s "$s0" "$s1" || cf "(c) list or status changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+  _md_mod enable marked
+  [ "$_md_rc" -eq 0 ] || cf "(a) the control: enable exited $_md_rc: $(_mq_flat)"
+  [ -e "$mark" ] || cf "(a) the control: enable did not run the check, so the marker proves nothing"
+  _md_snap "$SB_WORK" > "$s0"
+  _md_mod status marked
+  _md_snap "$SB_WORK" > "$s1"
+  cmp -s "$s0" "$s1" || cf "(c) status of an enabled module changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+  _md_mod disable marked
+
+  # (b) the caller's stdin is not the check's: with data on it, a check that waits for input must see none
+  # (a second requirement follows, so a check that is handed the kit's own list of them reads something)
+  _mq_mod stdinless 'requires: nostdin | test -z "$(cat)" | close stdin | required' 'requires: after | true | nothing | required'
+  rm -rf "$SB_TMP/records"
+  ( cd "$SB_WORK" && printf 'caller data\n' | env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/module.sh enable stdinless ) >"$SB_TMP/stdin.out" 2>&1
+  _md_rc=$?
+  [ "$_md_rc" -eq 0 ] || cf "(b) a check that reads input saw the caller's stdin, exit $_md_rc: $(tr '\n' '|' < "$SB_TMP/stdin.out" | cut -c1-240)"
+
+  unset KIT_TEST_MARK
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — status IS A REPORT: ONE MODULE IT CANNOT READ DOES NOT STOP THE REST, AND IT EXITS 0.
+#   Two modules are enabled and the first one's manifest is then made unreadable. Status without a name reports the
+#   second in full, says of the first that its requirements were not checked and why, and exits 0; named, the broken
+#   one exits 0 too.
+# =============================================================================
+case_status_reports_every_enabled_module_and_exits_0_when_one_manifest_cannot_be_read() {
+  cf_reset
+  local L="module.sh status, with one enabled module's manifest unreadable, still reports the other module in full, says the broken one's requirements were not checked and why, and exits 0 with or without a name"
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mq_subject_ok || { finish "$L"; return; }
+  _md_sandbox
+  _mq_mod aa 'requires: sh | command -v sh | a shell | required'
+  _mq_mod zz 'requires: sh | command -v sh | a shell | required'
+  _md_mod enable aa; [ "$_md_rc" -eq 0 ] || cf "(prereq) enable aa exited $_md_rc: $(_mq_flat)"
+  _md_mod enable zz; [ "$_md_rc" -eq 0 ] || cf "(prereq) enable zz exited $_md_rc: $(_mq_flat)"
+  printf 'requires: broken | only two\n' >> "$SB_WORK/modules/aa/module.manifest"
+
+  _md_mod status
+  [ "$_md_rc" -eq 0 ] || cf "(a) status exited $_md_rc"
+  printf '%s\n' "$_md_out" | grep -F 'zz 0.1.0' >/dev/null || cf "(a) status does not report zz: $(_mq_flat 400)"
+  printf '%s\n' "$_md_out" | grep -F 'requirement sh: holds' >/dev/null || cf "(a) status does not report zz's requirement: $(_mq_flat 400)"
+  printf '%s\n' "$_md_out" | grep -F 'requirements: not checked' | grep -F 'manifest' >/dev/null || cf "(a) status does not say aa's requirements were not checked, and why: $(_mq_flat 400)"
+  _md_mod status aa
+  [ "$_md_rc" -eq 0 ] || cf "(b) status aa exited $_md_rc"
+  printf '%s\n' "$_md_out" | grep -F 'intact' >/dev/null || cf "(b) status aa does not report what aa placed: $(_mq_flat 400)"
+  finish "$L"
+  teardown
 }

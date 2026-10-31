@@ -33,10 +33,11 @@
 # project: <PREFIX> the issue prefix, <trunk> the trunk, <project name>. Before the stamp they stay.
 #
 # REQUIREMENTS, from the manifest's `requires:` and `requires-agent:` lines (process/MODULES.md § What a module
-# needs). A `requires:` check is a SHELL COMMAND THE MANIFEST DECLARES, so it is run only as a read-only probe:
-# in the project's top directory, with no input, its output discarded, under `sh -c`, and stopped after
-# KIT_MOD_CHECK_SECONDS (10 when unset). A check that does not finish counts as failing. Enable, the day-one
-# preflight and status run the probes; list never does; NOTHING in the kit runs a module's setup.sh.
+# needs). A `requires:` check is a SHELL COMMAND THE MANIFEST DECLARES. It runs with the person's rights, in the
+# project's top directory, under `sh -c`, with no input and its output discarded, and the kit stops waiting for it
+# after KIT_MOD_CHECK_SECONDS (10 when unset); one that does not finish counts as failing. The kit cannot stop it
+# writing: read-only is its author's duty (contracts/module-lifecycle.md § 2 states the rule). Enable, the day-one
+# preflight and status run the checks; list never does; NOTHING in the kit runs a module's setup.sh.
 
 # shellcheck source=refuse.sh
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
@@ -428,7 +429,9 @@ _kit_mod_trim() { sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
 #   requires:       <id> | <shell check> | <how to get it> | required
 #   requires:       <id> | <shell check> | <how to get it> | optional: <what is lost>
 #   requires-agent: <id> | <the call> | <what a pass looks like> | <how to get it>
-# The fields are split at ` | ` and read from both ends, so a shell check may itself contain a pipe.
+# The fields are split at ` | ` and read from both ends, so a shell check may itself contain a pipe. THE HOW AND THE
+# `optional:` TEXT MAY NOT CONTAIN ` | `: a how that does is read as more check, and runs. Nothing can tell the two
+# apart, so it is documented, not refused.
 _kit_mod_req_parse() {
   local key="$1" val="$2" tab n=0 f id last how check pass i
   local -a F
@@ -469,8 +472,9 @@ _kit_mod_check_seconds() {
   case "${KIT_MOD_CHECK_SECONDS:-}" in ''|*[!0-9]*|0*) echo 10 ;; *) echo "$KIT_MOD_CHECK_SECONDS" ;; esac
 }
 
-# _kit_mod_probe <shell check> — run it as a read-only probe and report: 0 it held, 1 it failed, 2 it did not
-# finish in time and was stopped. No input, output discarded, in the project's top directory, under `sh -c`.
+# _kit_mod_probe <shell check> — run it and report: 0 it held, 1 it failed, 2 it did not finish in time and the
+# kit stopped waiting. No input, output discarded, in the project's top directory, under `sh -c`, with the person's
+# rights: nothing here stops it writing, and a child it started may outlive it (the limit ends the kit's wait).
 _kit_mod_probe() {
   local limit pid ticks n=0 tick=0.1 rc
   limit="$(_kit_mod_check_seconds)"; ticks=$((limit * 10))
@@ -502,7 +506,7 @@ _kit_mod_req_run() {
     [ -n "$kind" ] || continue
     if [ "$kind" = A ]; then st=agent
     else
-      rc=0; _kit_mod_probe "$check" || rc=$?
+      rc=0; _kit_mod_probe "$check" 2>/dev/null || rc=$?
       case "$rc" in 0) st=holds ;; 2) st=timeout ;; *) st=fails ;; esac
     fi
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$st" "$id" "$sev" "$check" "$how" "$extra" >> "$2"
@@ -517,7 +521,7 @@ _kit_mod_req_blockers() {
     [ "$sev" = required ] || continue
     case "$st" in
       fails)   why="its check failed" ;;
-      timeout) why="its check did not finish within $(_kit_mod_check_seconds)s" ;;
+      timeout) why="its check did not finish within $(_kit_mod_check_seconds)s; a slow tool that is there needs KIT_MOD_CHECK_SECONDS set higher" ;;
       *)       continue ;;
     esac
     echo "  - $id: $how ($why: $check)"
@@ -535,7 +539,7 @@ _kit_mod_req_lines() {
       holds)   if [ "$2" = status ]; then echo "  requirement $id: holds"; fi ;;
       agent)   echo "  agent check $id: $check — a pass looks like: $extra; if it fails: $how (a script cannot make this call; the module's first use does)" ;;
       fails|timeout)
-        if [ "$st" = timeout ]; then why="its check did not finish within $(_kit_mod_check_seconds)s"; else why="its check failed"; fi
+        if [ "$st" = timeout ]; then why="its check did not finish within $(_kit_mod_check_seconds)s (KIT_MOD_CHECK_SECONDS sets the limit)"; else why="its check failed"; fi
         if [ "$sev" = required ]; then
           if [ "$2" = status ]; then echo "  requirement $id: NOT HOLDING (required) — $why; get it: $how"; fi
         elif [ "$2" = status ]; then echo "  requirement $id: not holding (optional) — $why; loses: $extra; get it: $how"
@@ -546,7 +550,7 @@ _kit_mod_req_lines() {
 }
 
 # kit_mod_needs <name> — what the module declares it needs, for the catalogue: `id (required), id (optional), id (agent check)`
-# in manifest order, or `nothing beyond the core`. Reads the manifest's requirement lines through the reader enable uses
+# in manifest order, or `declares nothing`. Reads the manifest's requirement lines through the reader enable uses
 # and runs no check; a line that does not read is shown as `?`.
 kit_mod_needs() {
   local man tab k v rec out="" sev
@@ -562,7 +566,7 @@ kit_mod_needs() {
   done <<NEEDS_EOF
 $(awk '/^(requires|requires-agent):/ { k = $0; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ \t]*/, "", v); sub(/[ \t\r]*$/, "", v); print k "\t" v }' "$man")
 NEEDS_EOF
-  echo "${out:-nothing beyond the core}"
+  echo "${out:-declares nothing}"
 }
 
 # ── the readers ───────────────────────────────────────────────────────────────
@@ -816,7 +820,7 @@ kit_mod_enable() {
     kit_refuse 1 module-requires-missing \
       "Error: module $name needs what this machine does not have:" \
       "$blockers" \
-      "  NOTHING WAS CHANGED." \
+      "  NOTHING WAS CHANGED BY THE KIT (process/contracts/module-lifecycle.md § 2 says what a check may do)." \
       "Next: $next_text"
   fi
   if [ -z "$KMS_PREFIX" ]; then
@@ -1120,9 +1124,13 @@ kit_mod_status() {
   kit_mod_rows_merged "$name" > "$KIT_MOD_TMP/status-rows"
   _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
   if [ -f "$(_kit_mod_src)/modules/$name/module.manifest" ]; then
-    kit_mod_plan "$name" "$KIT_MOD_TMP/status-plan-$name"
-    _kit_mod_req_run "$KIT_MOD_TMP/status-plan-$name.reqs" "$KIT_MOD_TMP/status-req-$name"
-    _kit_mod_req_lines "$KIT_MOD_TMP/status-req-$name" status
+    # a subshell: a manifest that does not read refuses and exits, and a report goes on with the next module
+    if ( kit_mod_plan "$name" "$KIT_MOD_TMP/status-plan-$name" ) >/dev/null 2>"$KIT_MOD_TMP/status-err-$name"; then
+      _kit_mod_req_run "$KIT_MOD_TMP/status-plan-$name.reqs" "$KIT_MOD_TMP/status-req-$name"
+      _kit_mod_req_lines "$KIT_MOD_TMP/status-req-$name" status
+    else
+      echo "  requirements: not checked; the manifest does not read — $(sed -n '1p' "$KIT_MOD_TMP/status-err-$name")"
+    fi
   else
     echo "  requirements: not checked; modules/$name is not in this project, so its manifest cannot be read."
   fi

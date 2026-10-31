@@ -179,8 +179,10 @@ Options:
                       stamped and before the initialization commit, so they arrive in it. The flag
                       may be given more than once. Each name is checked in the preflight, by the
                       questions scripts/module.sh enable asks: the module exists, its manifest reads,
-                      this copy of the kit reads every point it uses, and nothing it would place
-                      exists already or is ignored by git. A refusal there writes nothing.
+                      the commands its required requirements name are there (each check is run, as
+                      process/contracts/module-lifecycle.md § 2 says), this copy of the kit reads every
+                      point it uses, and nothing it would place exists already or is ignored by git. A
+                      refusal there writes nothing of kit-init's.
                       ./scripts/module.sh list names the modules; process/MODULES.md says what
                       enabling does. Omit it and no module is enabled; enable one later with
                       ./scripts/module.sh enable <M>.

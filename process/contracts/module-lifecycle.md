@@ -29,16 +29,22 @@ what "enabled" and "disabled" must mean.
   merge, and nothing is changed.
   *Why:* a check that is placed and never run reads as armed. A project on an older kit gets that silently
   unless the lifecycle asks.
-- **A module's requirements are checked before anything is written, by probes that change nothing.** Each `requires:`
-  line of the manifest ([`MODULES.md`](../MODULES.md) § Writing a module has the grammar) is a shell command the manifest
-  declares, run by enable, by the day-one preflight and by status. A required one that fails, or does not finish, refuses with
-  the way to get it; an optional one warns; `requires-agent:` is printed and never judged by a script. **The safety rule,
-  stated here once:** a check runs only as a read-only probe, in the project's top directory, with no input and its output
-  discarded, and is stopped after a limit (a check that does not finish counts as failing). **A check never installs or
-  writes, and no command of the kit runs a module's `setup.sh`:** a person does, or an agent on the person's yes.
-  *Why:* the command comes from a manifest the project has not yet chosen to trust and runs on the day-one path, so it
-  may be asked for nothing but an answer; an unbounded one would hang day one; and a module needing something the machine
-  lacks should say so before it places a file that cannot work.
+- **A module's requirements are checked before the kit writes anything, by commands the manifest declares.** Each
+  `requires:` line of the manifest ([`MODULES.md`](../MODULES.md) § Writing a module has the grammar) is a shell command,
+  run by enable, by the day-one preflight and by status. A required one that fails, or does not finish, refuses with the way
+  to get it; an optional one warns; `requires-agent:` is printed and never judged by a script. **The safety rule, stated
+  here once.** The kit runs a check **with the person's own rights**, in the project's top directory, under `sh -c`, with no
+  input and its output discarded, and stops waiting for it after `KIT_MOD_CHECK_SECONDS` seconds (10 when unset; a check
+  that does not finish counts as failing). **It cannot stop the check writing:** that a check only reads is its
+  author's duty, and a person enabling a module from a source they do not trust reads its `requires:` lines first. The limit
+  ends the kit's wait, not necessarily the check's descendants: a child it started may outlive it. **A check never installs
+  or writes, and no command of the kit runs a module's `setup.sh`:** a person does, or an agent on the person's yes.
+  **What "NOTHING WAS CHANGED" and "NOTHING WAS WRITTEN" mean** anywhere in the module commands: the kit wrote nothing;
+  a check the module declared is outside that promise.
+  *Why:* the command comes from a manifest the project has not yet chosen to trust and runs on the day-one path, and POSIX
+  sh has no way to confine it, so the rule is written for the author and the reader rather than claimed as a guard; an
+  unbounded wait would hang day one; and a module needing something the machine lacks should say so before it places a
+  file that cannot work.
 - **An enable that is killed is finished or taken back, never left for hand repair.** The record is written
   ahead of the files, as `pending`, one row before each path, and each file is written beside its target
   and moved in. Running enable again finishes it, trusting only the paths that record names and only while

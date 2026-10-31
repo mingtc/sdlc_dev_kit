@@ -134,12 +134,15 @@ know refuses the manifest.
 
 **What a module needs.** A `requires:` line is a command the shell can run and a way to get what it finds absent.
 The fields are split at ` | `, and the check is whatever lies between the id and the last two fields, so it may hold a pipe.
-`enable` runs every check first: a failed `required` one refuses, with the id and the way to get it in a `Next:` line;
-a failed `optional` one warns and says what is lost. A version floor or an installed app is a shell check. A need no shell
+**The way to get it and the `optional:` text may not contain ` | `:** one that does is read as more check, and runs.
+`enable` runs every check first: a failed `required` one refuses, naming the id and the way to get it (the `Next:` line
+points at them); a failed `optional` one warns and says what is lost. A version floor or an installed app is a shell check. A need no shell
 can check, such as a signed-in account, is a `requires-agent:` line: `enable` prints it and cannot refuse on it, and the
-module's own first use makes the call and stops with the way to get it. **A check is a read-only probe, and the safety
-rule is in [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) § 2.** Anything that installs or writes belongs
-in `setup.sh`, which only a person runs. `list` shows the ids and never runs a check.
+module's own first use makes the call and stops with the way to get it. **A check runs with your rights and should only read; the
+safety rule, and what the kit does and does not promise, is in [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) § 2,
+and you read an unfamiliar module's `requires:` lines before enabling it.** The kit stops waiting for a check after
+`KIT_MOD_CHECK_SECONDS` seconds (10 when unset). Anything that installs or writes belongs in `setup.sh`, which only a person
+runs. `list` shows the ids and never runs a check.
 
 **Rules for a module's files.**
 - **Stored disarmed.** A source path never carries a name a harness reads (`KIT_MOD_ARMED_NAMES` in
@@ -175,4 +178,7 @@ is the template; `modules/example/` is the module to copy.
   kit ships do not see a script a module placed.
 - A `Verify:` line in a module's release notes is not run at `--finish`; its item is declared by whoever marks it.
 - An evidence kind a module adds is pointer-only.
+- `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
+  `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
+  an Action required entry.
 - The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file.
