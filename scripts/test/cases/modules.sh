@@ -573,7 +573,7 @@ case_module_disable_checks_before_it_removes_and_keeps_a_role_layer_that_history
 # =============================================================================
 case_a_kill_leaves_no_stray_file_and_a_resume_records_the_bytes_it_writes() {
   cf_reset
-  local L="a hard kill at a block host's move leaves no marker-block side file after the resume or the disable, a kill while a missing .gitignore is created leaves no empty .gitignore, and a resume after the module's source changed places the new bytes and records their sha, so status reports nothing edited and disable keeps nothing, and a record side file left with nothing enabled is named by status, which leaves it, and removed by enable and by disable, and disable also removes the directories of a placed file the project had removed"
+  local L="a hard kill at a block host's move leaves no marker-block side file after the resume or the disable, a kill while a missing .gitignore is created leaves no empty .gitignore, and a resume after the module's source changed places the new bytes and records their sha, so status reports nothing edited and disable keeps nothing, and a record side file left with nothing enabled is named by status, which leaves it, and removed by enable and by disable, also when the name is refused, and disable also removes the directories of a placed file the project had removed"
   if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   command -v ps >/dev/null 2>&1 || { skp "$L" "no ps: the stand-in cannot find the process tree to kill"; return; }
@@ -638,6 +638,10 @@ case_a_kill_leaves_no_stray_file_and_a_resume_records_the_bytes_it_writes() {
   _md_mod disable example
   [ "$_md_rc" -eq 0 ] || cf "(d) disable of a module that is not enabled exited $_md_rc"
   [ ! -e "$SB_WORK/process/MODULES.kit-mod-new" ] || cf "(d) disable left the record's side file when nothing was enabled"
+  printf 'half a record\n' > "$SB_WORK/process/MODULES.kit-mod-new"
+  _md_mod disable ../x
+  [ "$_md_rc" -ne 0 ] || cf "(d) (premise) disable of a name that is no module name exited 0"
+  [ ! -e "$SB_WORK/process/MODULES.kit-mod-new" ] || cf "(d) a disable refused for its name left the record's side file, which enable removes before any refusal of a named run"
 
   # (e0) enable of a module takes the leftover too, also when that module is already enabled, and status names it once.
   _md_mod enable example

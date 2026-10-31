@@ -1014,8 +1014,8 @@ _kit_mod_disable_blockers() {
 kit_mod_disable() {
   local name="$1" rows="$KIT_MOD_TMP/rows" keptf="$KIT_MOD_TMP/kept-rows" ver kind sha tgt slot dst bid removed=0 gone=0 was=module blockers tag t
   KIT_MOD_TOUCHED=""; KIT_MOD_KEPT=""; KIT_MOD_ROLES_KEPT=""
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before the name is checked, as enable does: a run killed between the record's copy and its move leaves the copy, with no row naming it
   _kit_mod_need_name "$name"
-  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # a run killed between the record's copy and its move leaves the copy, with no row naming it
   if ! kit_mod_is_enabled "$name" && ! kit_mod_is_pending "$name"; then
     echo "module: $name is not enabled; nothing to do."
     return 0
