@@ -1227,3 +1227,29 @@ case_a_real_kit_upgrade_with_a_module_enabled_runs_to_finish() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — module.sh status WITH NO SHA256 TOOL SAYS IT CANNOT JUDGE, NOT THAT EVERY FILE IS EDITED.
+#   Operand: status of an enabled module, run on a PATH without shasum and sha256sum. enable and disable
+#   refuse there; status only reports, so it names what it cannot do and calls no present file edited.
+# =============================================================================
+case_module_status_without_a_sha256_tool_says_it_cannot_judge() {
+  cf_reset
+  local L="module.sh status of an enabled module, on a machine with no sha256 tool, exits 0, says it cannot judge a file as intact or edited, and calls no present file edited or intact; with the tool back the same files read intact"
+  if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _md_sandbox
+  [ -f "$SB_WORK/scripts/module.sh" ] || cf "(prereq) scripts/module.sh is absent from the tree under test"
+  local out rc=0
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq) enable exited $_md_rc"; finish "$L"; teardown; return; }
+  out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" PATH="$(_mu_nosha_path)" ./scripts/module.sh status example 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) status exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F 'cannot judge' | grep -F 'sha256' >/dev/null || cf "(a) status does not say it cannot judge without a sha256 tool: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -E '^  (edited|intact) ' >/dev/null && cf "(a) status judged a file without a sha256 tool: $(printf '%s' "$out" | grep -E '^  (edited|intact) ' | head -2 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -E '^  unjudged +\.claude/roles/example\.md' >/dev/null || cf "(a) the role doc's row is not marked unjudged: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -E '^  intact +\.claude/roles/example\.md' >/dev/null || cf "(b) with the tool, the role doc does not read intact: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}

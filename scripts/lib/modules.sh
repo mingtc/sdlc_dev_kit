@@ -1107,14 +1107,17 @@ kit_mod_available() {
   done
 }
 
-# _kit_mod_file_state <path> <sha> — intact | edited | missing, by the recorded sha.
+# _kit_mod_file_state <path> <sha> — intact | edited | missing, by the recorded sha; unjudged for a file that is
+# there when the machine has no sha256 tool to judge it by.
 _kit_mod_file_state() {
   if [ ! -e "$KIT_MOD_ROOT/$1" ]; then echo missing
+  elif ! kit_mod_have_sha; then echo unjudged
   elif _kit_mod_sha_in "$(_kit_mod_sha "$KIT_MOD_ROOT/$1")" "$2"; then echo intact
   else echo edited; fi
 }
 _kit_mod_block_state() {  # <path> <block id> <sha>
   if [ ! -f "$KIT_MOD_ROOT/$1" ] || ! kit_mb_has "$KIT_MOD_ROOT/$1" "$2"; then echo missing
+  elif ! kit_mod_have_sha; then echo unjudged
   elif _kit_mod_sha_in "$(_kit_mod_block_sha "$KIT_MOD_ROOT/$1" "$2")" "$3"; then echo intact
   else echo edited; fi
 }
@@ -1122,6 +1125,7 @@ _kit_mod_block_state() {  # <path> <block id> <sha>
 # _kit_mod_status_rows <name> <rows-file> — one line per recorded row, with its state.
 _kit_mod_status_rows() {
   local name="$1" kind sha tgt slot st
+  kit_mod_have_sha || echo "  No sha256 tool (shasum or sha256sum) is on this machine, so status cannot judge a present file as intact or edited; install one and run it again."
   while read -r kind sha tgt slot; do
     [ -n "$kind" ] || continue
     if [ "$kind" = file ]; then st="$(_kit_mod_file_state "$tgt" "$sha")"; else st="$(_kit_mod_block_state "$tgt" "$(_kit_mod_bid "$name" "$slot")" "$sha")"; fi
