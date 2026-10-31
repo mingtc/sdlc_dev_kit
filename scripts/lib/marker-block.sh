@@ -24,8 +24,9 @@
 #
 # THE `gitignore` SLOT has no slot line: an id that ends in `:gitignore` goes at the END of the file
 # (created when absent), written in `#` comments, which a .gitignore reads as comments (`<!--` there
-# would be a pattern). Removing the last block of a file leaves it empty, and an empty file is
-# deleted, which undoes a file the insert created:
+# would be a pattern). A file the insert created holds the block alone, with no blank line after it;
+# removing that block deletes the file, and removing a block from a file that existed (even an empty
+# one) leaves it:
 #
 #   # KIT-MODULE:<id> BEGIN
 #   # KIT-MODULE:<id> END
@@ -154,9 +155,9 @@ kit_mb_insert() {
       skip { if (l == e) skip = 0; next }
       { print }' "$file" > "$tmp" || rc=1
   elif _kit_mb_hash "$name"; then
-    KMB_B="$(kit_mb_begin_line "$name")" KMB_E="$(kit_mb_end_line "$name")" KMB_C="$content" awk '
-      function emit(  l) { print b cr; while ((getline l < cf) > 0) { sub(/\r$/, "", l); print l cr } close(cf); print e cr; print cr }
-      BEGIN { b = ENVIRON["KMB_B"]; e = ENVIRON["KMB_E"]; cf = ENVIRON["KMB_C"] }
+    KMB_NB="$([ "$created" = 1 ] && echo 1)" KMB_B="$(kit_mb_begin_line "$name")" KMB_E="$(kit_mb_end_line "$name")" KMB_C="$content" awk '
+      function emit(  l) { print b cr; while ((getline l < cf) > 0) { sub(/\r$/, "", l); print l cr } close(cf); print e cr; if (!nb) print cr }
+      BEGIN { b = ENVIRON["KMB_B"]; e = ENVIRON["KMB_E"]; cf = ENVIRON["KMB_C"]; nb = ENVIRON["KMB_NB"] }
       { print; cr = ($0 ~ /\r$/) ? "\r" : "" }
       END { emit() }' "$file" > "$tmp" || rc=1
   else
@@ -185,11 +186,18 @@ kit_mb_insert() {
 }
 
 kit_mb_remove() {
-  local file="$1" name="$2" state tmp rc=0
+  local file="$1" name="$2" state tmp rc=0 alone=0
   KIT_MB_CHANGED=0
   _kit_mb_precheck "$file" "$name"
   state="$(_kit_mb_state "$file" "$name")"
   [ "$state" = none ] && return 0
+  if _kit_mb_hash "$name"; then
+    [ "$(KMB_B="$(kit_mb_begin_line "$name")" KMB_E="$(kit_mb_end_line "$name")" awk '
+      { l = $0; sub(/\r$/, "", l) }
+      NR == 1 { first = l }
+      { last = l }
+      END { print (first == ENVIRON["KMB_B"] && last == ENVIRON["KMB_E"]) ? 1 : 0 }' "$file")" = 1 ] && alone=1
+  fi
   if [ "$state" = bad ]; then
     kit_refuse 1 marker-block-markers-malformed "Error: marker-block: $file has a lone, repeated or misordered marker for block '$name'." "Next: open $file, leave exactly one '$(kit_mb_begin_line "$name")' line above one '$(kit_mb_end_line "$name")' line (or delete both), then re-run." "      NOTHING WAS CHANGED."
   fi
@@ -207,6 +215,6 @@ kit_mb_remove() {
   fi
   _kit_mb_commit "$file" "$tmp"
   rm -f "$tmp"
-  if _kit_mb_hash "$name" && [ ! -s "$file" ]; then rm -f "$file"; fi
+  if [ "$alone" = 1 ] && [ ! -s "$file" ]; then rm -f "$file"; fi
   return 0
 }

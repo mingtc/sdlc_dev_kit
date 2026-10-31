@@ -749,6 +749,44 @@ case_marker_block_insert_is_idempotent_and_remove_restores_the_bytes() {
 }
 
 # =============================================================================
+# A `:gitignore` block's removal undoes only what its insert made: a .gitignore that existed EMPTY comes back
+# empty (zero bytes, still there), and one the insert created is deleted, also after a replace of its block.
+# =============================================================================
+case_marker_block_remove_keeps_a_gitignore_that_existed_empty() {
+  cf_reset
+  make_sandbox
+  local d="$SB_TMP/mbe" rc out
+  mkdir -p "$d"
+  printf '*.zebra\n' > "$d/ignore-one.txt"
+  _mb() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; "$@"; rc=$?; printf 'CHANGED=%s\n' "$KIT_MB_CHANGED"; exit "$rc" ) 2>&1; }
+
+  # (a) existed and empty: insert then remove gives back the zero-byte file.
+  : > "$d/.gitignore"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) inserting into an empty .gitignore exited $rc: $out"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) removing the block exited $rc: $out"
+  [ -f "$d/.gitignore" ] || cf "(a) the .gitignore that existed empty was deleted by the removal"
+  [ ! -s "$d/.gitignore" ] || cf "(a) the removal left bytes in the file that began empty: $(tr '\n' '|' < "$d/.gitignore")"
+
+  # (b) absent: the insert creates it, the removal deletes it.
+  rm -f "$d/.gitignore"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) inserting into an absent .gitignore exited $rc: $out"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"
+  [ ! -e "$d/.gitignore" ] || cf "(b) the file the insert created survived the removal"
+
+  # (c) created, then re-inserted (a replace), then removed: still deleted.
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"
+  out="$(_mb kit_mb_insert "$d/.gitignore" alpha:gitignore gitignore "$d/ignore-one.txt")"
+  out="$(_mb kit_mb_remove "$d/.gitignore" alpha:gitignore)"
+  [ ! -e "$d/.gitignore" ] || cf "(c) the created file survived after a replace and a removal"
+
+  finish "a .gitignore that existed empty comes back as the zero-byte file after its block is inserted and removed, and a file the insert created is still deleted, also after its block was replaced"
+  teardown
+}
+
+# =============================================================================
 # CASE — A .gitignore BLOCK GOES AT THE END OF THE FILE IN # COMMENTS, AND A FILE THE INSERT CREATED
 # IS DELETED WHEN ITS LAST BLOCK GOES.
 #   .gitignore has no slot line and no place for an HTML comment (`<!--` there is a pattern). Proved
