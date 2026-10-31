@@ -172,7 +172,8 @@ kit_rehead_card "$WORK" || exit 1   # exit-class: internal
 # The body's known values: the H1's id, the seed entry's date, the refactor pass.
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
 kit_fill_card "$WORK" "dev/refactor/<file>.md" "$PASS" || exit 1   # exit-class: internal
-
+# What an add-on contributes (process/fragments.d/ISSUE/): process/contracts/issue-creation.md § 3.
+kit_card_fragments "$WORK" ISSUE "$ROOT/process/fragments.d" || exit 1   # exit-class: internal
 
 kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 

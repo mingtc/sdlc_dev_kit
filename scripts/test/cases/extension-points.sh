@@ -1373,3 +1373,77 @@ exit 3
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A FRAGMENT FOR ISSUE-SHAPED CARDS REACHES A BUG, A REFACTOR AND A SLICE.
+#   new-bug.sh, new-refactor.sh and subtask.sh mint from a template as new-issue.sh does, so they
+#   place what an add-on contributes under process/fragments.d/ISSUE/ the same way: only while the
+#   file is there, and byte-absent once it is withdrawn. A slice reads the fragment from the
+#   trunk's tree, like its template.
+# =============================================================================
+case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enabled() {
+  cf_reset
+  local L="a fragment under process/fragments.d/ISSUE/ (frontmatter and body end) is in a minted bug, refactor and slice only while its files are there, and the cards minted before it and after its withdrawal carry no trace of it (the bug and the refactor are byte-equal to the first mint)"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local t
+  for t in BUG REFACTOR SUBTASK; do
+    if [ ! -f "$REAL_REPO_ROOT/.claude/templates/$t.template.md" ]; then skp "$L" ".claude/templates/$t.template.md is absent from this tree"; return; fi
+  done
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  local pid="$SB_PREFIX-910" bug="$SB_PREFIX-911" ref="$SB_PREFIX-912" fd="$SB_WORK/process/fragments.d/ISSUE"
+  seed_issue todo "$pid" parent chore "Slice parent"
+  publish_sandbox
+  local out rc=0 slice_rel=""
+
+  _fb_mint() {  # <stage> -> the three cards in $SB_TMP/<kind>-<stage>.md; the bug and the refactor are removed from the board again
+    local stage="$1" n
+    n="$stage"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh probe --id "$bug" --prd n/a 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || _fixture_die "${FUNCNAME[1]}: new-bug.sh exited $rc ($stage): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    cp "$SB_WORK/progress/todo/$bug-probe.md" "$SB_TMP/bug-$n.md"; rm -f "$SB_WORK/progress/todo/$bug-probe.md"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh probe --id "$ref" --prd n/a 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || _fixture_die "${FUNCNAME[1]}: new-refactor.sh exited $rc ($stage): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    cp "$SB_WORK/progress/todo/$ref-probe.md" "$SB_TMP/ref-$n.md"; rm -f "$SB_WORK/progress/todo/$ref-probe.md"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$pid" "$n" probe --title "Slice" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || _fixture_die "${FUNCNAME[1]}: subtask.sh new exited $rc ($stage): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    slice_rel="progress/subtasks/$pid/todo/$pid-$n-probe.md"
+    git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+    git -C "$SB_WORK" show "origin/$SB_TRUNK:$slice_rel" > "$SB_TMP/slice-$n.md" 2>/dev/null \
+      || _fixture_die "${FUNCNAME[1]}: the slice $slice_rel is not on the trunk ($stage)"
+  }
+
+  # (a) NOTHING ENABLED.
+  _fb_mint s1
+  # (b) ENABLED: the add-on's files are on the trunk (the slice reads them there) and in the checkout.
+  mkdir -p "$fd"
+  printf 'probe_card: yes\n' > "$fd/probe.frontmatter"
+  printf 'PROBE-ISSUE-END\n' > "$fd/probe.body-end"
+  git -C "$SB_WORK" add process/fragments.d >/dev/null 2>&1
+  sbcommit -m "[PM] enable the probe fragment" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  _fb_mint s2
+  # (c) WITHDRAWN.
+  git -C "$SB_WORK" rm -q -r -f process/fragments.d >/dev/null 2>&1
+  sbcommit -m "[PM] withdraw the probe fragment" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  _fb_mint s3
+
+  local k
+  for k in bug ref slice; do
+    grep -F 'probe_card' "$SB_TMP/$k-s1.md" "$SB_TMP/$k-s3.md" >/dev/null && cf "a $k minted with the fragment not enabled carries its frontmatter"
+    grep -F 'PROBE-ISSUE-END' "$SB_TMP/$k-s1.md" "$SB_TMP/$k-s3.md" >/dev/null && cf "a $k minted with the fragment not enabled carries its body end"
+    awk '$0=="---"{n++; next} n==1 && /^probe_card: yes$/{a=1} END{exit (a && n>=2) ? 0 : 1}' "$SB_TMP/$k-s2.md" \
+      || cf "the $k minted with the fragment enabled has no frontmatter fragment inside its frontmatter"
+    [ "$(grep -c -F 'PROBE-ISSUE-END' "$SB_TMP/$k-s2.md")" -eq 1 ] || cf "the $k minted with the fragment enabled does not carry the body-end fragment exactly once"
+    [ "$(grep -n -F 'PROBE-ISSUE-END' "$SB_TMP/$k-s2.md" | cut -d: -f1)" -lt "$(grep -n '^## Activity' "$SB_TMP/$k-s2.md" | cut -d: -f1)" ] \
+      || cf "the $k's body-end fragment is not above ## Activity"
+  done
+  for k in bug ref; do
+    cmp -s "$SB_TMP/$k-s1.md" "$SB_TMP/$k-s3.md" || cf "the $k minted after the fragment was withdrawn differs from the first: $(diff "$SB_TMP/$k-s1.md" "$SB_TMP/$k-s3.md" | head -4 | tr '\n' '|')"
+  done
+  finish "$L"
+  teardown
+}

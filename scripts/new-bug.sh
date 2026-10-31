@@ -199,7 +199,8 @@ kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story i
   "Related issue: ${ISSUE_PREFIX}-NNN" "Related issue: ${DISCOVERED:-<issue id, or none>}" \
   "during review of <PREFIX>-NNN" "during review of ${DISCOVERED:-<issue id, or none>}" \
   "during review of ${ISSUE_PREFIX}-NNN" "during review of ${DISCOVERED:-<issue id, or none>}" || exit 1   # exit-class: internal
-
+# What an add-on contributes (process/fragments.d/ISSUE/): process/contracts/issue-creation.md § 3.
+kit_card_fragments "$WORK" ISSUE "$ROOT/process/fragments.d" || exit 1   # exit-class: internal
 
 kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 

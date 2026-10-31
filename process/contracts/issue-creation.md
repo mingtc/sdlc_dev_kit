@@ -190,8 +190,9 @@ finds a different majority and standardises on that instead.*
 
 **Extension: fragments in `process/fragments.d/<template>/` — THE ONE STATEMENT OF THEIR CONTRACT**
 (`kit_card_fragments` in `scripts/lib/card-head.sh`, called by `new-prd.sh` for `PRD` and by
-`new-issue.sh` for `ISSUE`, points here). A file there is minted into every new item of that template
-while it is there, and only then. It is read from the working tree, like the template. Its name is
+`new-issue.sh`, `new-bug.sh`, `new-refactor.sh` and `subtask.sh` for `ISSUE`, points here). A file there is minted
+into every new item of that template while it is there, and only then. It is read from the working tree, like
+the template (`subtask.sh` reads the trunk's tree, as it reads its template). Its name is
 `<name>.<mode>`, `<name>` lowercase letters, digits and `-` opening with a letter, and the mode is one of:
 
 - `frontmatter` — the lines are added before the frontmatter's closing `---`;

@@ -321,6 +321,9 @@ case "$CMD" in
     kit_fill_card "$WORK" "<PREFIX>-NNN" "$PARENT" "${PARENT%-*}-NNN" "$PARENT" \
       "decomposition slice M." "decomposition slice ${SUFFIX}." \
       "<parent card>" "$(basename "$PARENT_CARD")" || exit 1   # exit-class: internal
+    # What an add-on contributes (process/fragments.d/ISSUE/), read from the trunk's tree like the
+    # template: process/contracts/issue-creation.md § 3.
+    kit_card_fragments "$WORK" ISSUE "$KWT/process/fragments.d" || exit 1   # exit-class: internal
 
 
     # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which
