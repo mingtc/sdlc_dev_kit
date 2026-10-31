@@ -1,8 +1,9 @@
 # KIT-CLASS: KIT — the design module's manifest. Every line is `<key>: <value>`; process/MODULES.md says what each key takes. See process/EXTRACTION.md.
 name: design
-version: 0.1.0
+version: 0.2.0
 purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true.
 release-notes: RELEASE-NOTES.md
+requires: python3 | python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' | install Python 3.9 or later from your system's packages | required
 role: Designer   briefs the design tool's agent, takes the screens it makes into the repo, and keeps the design record true; commits as [Designer]
 file: _claude/roles/designer.md -> .claude/roles/designer.md
 file: _claude/templates/design/CANVAS.template.md -> .claude/templates/design/CANVAS.template.md
@@ -11,6 +12,11 @@ file: _claude/templates/design/PRD-design.fragment.md -> .claude/templates/desig
 file: _claude/templates/design/ISSUE-design.fragment.md -> .claude/templates/design/ISSUE-design.fragment.md
 file: _claude/templates/design/QA-verdict-design.fragment.md -> .claude/templates/design/QA-verdict-design.fragment.md
 file: requirements/design/README.md -> requirements/design/README.md
+file: scripts/design/check-design-links.py -> scripts/design/check-design-links.py
+file: scripts/design/prd-view.py -> scripts/design/prd-view.py
+file: scripts/design/flow-from-links.py -> scripts/design/flow-from-links.py
+file: scripts/design/pin-drift.py -> scripts/design/pin-drift.py
+arm: check-board.d/50-design-drift.sh -> 50-design-drift.sh
 evidence-kind: design   a pointer to a design cell, `UX-NNN#state@<pin>: identical | diffs: <element ids>`, with the render files
 fragment: PRD slot-story-fields fragments/prd-ui-line.txt
 fragment: ISSUE frontmatter fragments/issue-design.txt

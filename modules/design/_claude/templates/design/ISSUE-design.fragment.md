@@ -18,8 +18,8 @@ The QA gate reads a checklist line only when the separator follows the id direct
 to it, needs no verdict row, and a row QA writes for it is refused as extra.
 
 - In `todo/` the key is unpinned. Leaving `todo/` copies `@<commit>`, written by the PM at the Designer's `Pin-ready: <sha>`,
-  in a `register-commit` before the move. Only a row whose `gate1` is `approved@<sha>` can be pinned, or the pin carries a
-  named waiver in a `[decision: D-NN]`.
+  in a `register-commit` before the move. Only a row whose `gate1` is `approved@<sha>` can be pinned, or the `design:` line
+  carries a named waiver, a `[decision: D-NN]` in its trailing comment (`design: [UX-001#<state>@<commit>]  # [decision: D-NN]`).
 - A pinned card is never re-targeted; a later design change to a pinned state is new work and needs a `D-NN`
   (`scripts/ask.sh --role Designer --card <PREFIX>-NNN`).
 - `design-scope:` lists element ids drawn in the pinned render that this card does not build (dimmed, inert, titled in the

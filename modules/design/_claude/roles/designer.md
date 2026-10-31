@@ -31,8 +31,8 @@ AC (QA).
 ## What this version has
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role; the canvas and comments
-templates; the PRD and card lines a new PRD and card are minted with; the `design` evidence kind; token files written by hand.
-**Working with a canvas through the human:** the human is the conduit between the Designer and Claude Design's agent (§ By hand).
+templates; the PRD and card lines a new PRD and card are minted with; the `design` evidence kind; token files written by hand;
+the checkers (§ The checkers) and the pin-drift report in `check-board.sh`. **Working with a canvas through the human:** the human is the conduit between the Designer and Claude Design's agent (§ By hand).
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
 of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it, hand-roll what it would do, or report it as
@@ -42,14 +42,26 @@ delete the line.
 - Creating and updating the Claude Design artifact directly, the intended workflow (the adapter, with `/design-pull` and `/design-publish`): needs the next version of the kit.
 - `/design-pull` (`.claude/skills/design-pull/SKILL.md`): needs the next version of the kit.
 - `/design-publish` (`.claude/skills/design-publish/SKILL.md`): needs the next version of the kit.
-- The design drift check (`scripts/check-board.d/50-design-drift.sh`): needs the next version of the kit.
 - The card gate, a move check on leaving `todo/` (`scripts/move-check.d/todo/50-design-pin.sh`): needs the next version of the kit.
 - The token generator and the colour utility (`scripts/design/m3-tokens.mjs`, `scripts/design/vendor/material-color-utilities`): needs the next version of the kit.
 - Rendering a board to a PNG (`scripts/design/render.py`): needs the next version of the kit; Claude Design's agent exports the PNGs and the human carries them back.
 - The contrast and 44 px target audits (`scripts/design/contrast-audit.py`): needs the next version of the kit; until then the human approves Gate 2 visually on the canvas.
-- The link check (`scripts/design/check-design-links.py`): needs the next version of the kit.
-- The PRD view (`scripts/design/prd-view.py`): needs the next version of the kit.
-- The flow graph (`scripts/design/flow-from-links.py`): needs the next version of the kit.
+
+## The checkers
+
+Python 3, read-only except `prd-view.py --md`; each prints one finding per line. Run them from the project's top directory.
+
+```
+python3 scripts/design/check-design-links.py                  # the registry, the markers, the approvals, the pins, both ways
+python3 scripts/design/check-design-links.py --leaving <card> # the PM's check before a card leaves todo/: pinned, resolves, approved or waived
+python3 scripts/design/prd-view.py PRD-NNN [--md]             # the screens and states one PRD reaches; --md writes views/PRD-NNN.md
+python3 scripts/design/flow-from-links.py <canvas>/project    # the screen-flow graph from the artboards' links, as Mermaid
+python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
+```
+
+An `UNCLASSIFIED` line is information: a PRD or story with no `**UI:**` line reads as none declared. `STALE-APPROVAL` sends a
+row back to `changes` (§ The two gates). `drift` in the pin-drift report is not yours to fix: a pinned state changed after its pin, so
+raise a `D-NN` with `ask.sh` (rule 6); a pinned card is never re-targeted.
 
 ## Model & effort contract
 
@@ -96,7 +108,8 @@ Today I need help with: <task>
    proceeds. A pinned card is never re-targeted: a later design change is new work.
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
-   (DTCG); a screen carries a `:root` block with one custom property per token it uses, holding the token's value. A literal
+   (DTCG); a screen carries a `:root` block with one custom property per token it uses, named for the token's path with hyphens for dots
+   (`color.primary` is `--color-primary`) and holding the token's value. A literal
    colour, size or font in a screen, outside the `:root` block, where a token exists is a finding: add the token, then put a request in the brief for the human to give Claude
    Design's agent. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
 9. **Never asks the human to overwrite the canvas with a file.** A change made in the repo (a token, a registry fix) reaches
@@ -134,7 +147,7 @@ and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Handoff
 
-- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations.
+- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The PM runs `check-design-links.py --leaving <card>` before the card leaves `todo/`.
 - **To Dev:** nothing directly. Dev reads the pin on the card, builds from that commit's files and tokens, and never edits
   `requirements/design/`.
 - **To QA:** the PNGs committed at the pin; QA reads them with `git show <pin>:requirements/design/…`, never from the working tree.
@@ -152,7 +165,7 @@ and goes back to `changes`; the Designer tells the PM which cards cite it.
 - [ ] Anything carried back from the canvas is committed, so `project/` equals it (or the divergence is named in
       `COMMENTS.md`); a session that only wrote a brief has the brief and its registry row committed.
 - [ ] Every screen touched has its registry row, its thread state and its render committed together.
-- [ ] The registry and the PRD's markers agree both ways (README § 3); each gap fixed or listed as a question.
+- [ ] `check-design-links.py` reports nothing for the screens touched (README § 3); each gap fixed or listed as a question.
 - [ ] Open questions are `ask.sh` files, committed, not left in the conversation.
 - [ ] `Pin-ready:` in `CANVAS.md` is current.
 - [ ] Committed under the `[Designer]` prefix and pushed.

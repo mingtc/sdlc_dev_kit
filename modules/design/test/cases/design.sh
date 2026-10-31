@@ -337,3 +337,355 @@ DM_FILES_EOF
   grep -iE 'not (a )?PASS|does not pass|never (a )?PASS' "$qa" >/dev/null || cf "(b) the QA guide does not say a row with no image is not a PASS"
   finish "$L"
 }
+
+# =============================================================================
+# THE CHECKERS AND THE DRIFT ARM. The operand of each case below is the placed tool or the placed arm, run in a sandbox that
+# enabled the module, over a project fixture whose answer is written here: each expected verdict is hard-coded, none is
+# derived from the tools or from the fixture's own files.
+# =============================================================================
+
+# _dm_python — status 0 when the tools can run here (python3 3.9 or later); the cases SKIP loudly otherwise.
+_dm_python() { command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; }
+_dm_has() { case "$1" in *"$2"*) return 0 ;; esac; return 1; }   # <text> <fixed needle>
+# _dm_py <args…> — python3 in the sandbox, status in _dm_rc and output in _dm_out.
+_dm_py() { _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env PYTHONDONTWRITEBYTECODE=1 python3 "$@" 2>&1 </dev/null )" || _dm_rc=$?; }
+# _dm_commit <message> — commit the whole sandbox tree; the new commit is in _DM_SHA.
+_dm_commit() { git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] $_MD_ID: $1" >/dev/null 2>&1; _DM_SHA="$(git -C "$SB_WORK" rev-parse HEAD)"; }
+_dm_report() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 ); }
+# _dm_arm <report> — the lines of the [+design-drift] arm.
+_dm_arm() { printf '%s\n' "$1" | awk '/^\[\+design-drift\]/ { f = 1; print; next } f && /^$/ { exit } f { print }'; }
+# _dm_row <text> <card> <ux#state@pin prefix> — the pin-drift row for that card and pinned state, or nothing.
+_dm_row() { printf '%s\n' "$1" | awk -v c="$2" -v u="$3" '$1 == c && index($2, u) == 1 { print; exit }'; }
+# _dm_verdict <text> <card> <ux#state@pin prefix> — the verdict word of that row, or "absent".
+_dm_verdict() { local r; r="$(_dm_row "$1" "$2" "$3")"; if [ -z "$r" ]; then printf 'absent'; else printf '%s' "$r" | awk '{ print $3 }'; fi; }
+# _dm_edit <file> <sed expression> — an in-place edit that leaves no backup file.
+_dm_edit() { sed -i.dmbak "$2" "$1" && rm -f "$1.dmbak"; }
+
+# _dm_art <path> <nnn> <root vars> <body> [<stories>] — an artboard whose :root block holds the vars it uses.
+_dm_art() {
+  mkdir -p "$(dirname "$1")"
+  printf '<!doctype html><html><body><x-dc>\n<style>:root { %s }</style>\n<div id="ux-%s-root" data-ux="UX-%s" data-stories="%s">\n%s\n</div></x-dc></body></html>\n' "$3" "$2" "$2" "${5:-PRD-001-F1-S1}" "$4" > "$1"
+}
+# _dm_registry <canvas dir> <row>… — the canvas record with its screen registry; a row is `UX-id|file|states|stories|gate1|gate2`.
+_dm_registry() {
+  local d="$1" r; shift
+  mkdir -p "$d"
+  { printf '# CANVAS — app\n\n### Screens\n\n| UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |\n|---|---|---|---|---|---|---|---|---|\n'
+    for r in "$@"; do printf '%s\n' "$r" | awk -F'|' '{ printf "| %s | %s | t | phone |  | %s | %s | %s | %s |\n", $1, $2, $3, $4, $5, $6 }'; done; } > "$d/CANVAS.md"
+}
+_dm_tokens() { mkdir -p "$SB_WORK/requirements/design/tokens"; printf '%s\n' "$1" > "$SB_WORK/requirements/design/tokens/app.tokens.json"; }
+# _dm_card <number> <shelf> <design line> — a card on a status shelf of the sandbox.
+_dm_card() {  # a shelf name written beside its number reads as a citation to the builder, so the number comes first
+  mkdir -p "$SB_WORK/progress/$2"
+  printf -- '---\nid: %s-%s\ntype: chore\ntitle: t\nbranch: n/a\npr: null\ncreated_at: 2026-01-01\ncreated_by: PM\nforks: none\n%s\n---\n\n# card\n' "$SB_PREFIX" "$1" "$3" > "$SB_WORK/progress/$2/$SB_PREFIX-$1-c.md"
+}
+
+# _dm_drift_fixture — the module enabled in a sandbox, a design project whose pin commit is _DM_P, cards pinned to it, and a
+# later trunk commit that changes the design. Every screen of the pin has one fixed answer at the later commit:
+#   UX-001 text changed (drift)           UX-002 file moved (moved)          UX-003 removed (gone)       UX-004 same (clean)
+#   UX-005 states a,b marked: only b's text changed        UX-006 states a,b unmarked: one text changed
+#   UX-007 same bytes, a token it uses changed             UX-008 same bytes, an unused token changed and one added
+#   UX-009 only the root's data-stories changed
+_dm_drift_fixture() {
+  local S='--color-surface: #ffffff;' P='--color-primary: #485d92;'
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; return 1; }
+  _dm_land "enable the design module"
+  _dm_tokens '{"color":{"primary":{"$value":"#485d92"},"surface":{"$value":"#ffffff"},"error":{"$value":"#b3261e"}}}'
+  local D="$SB_WORK/requirements/design/app/project"
+  _dm_art "$D/A.dc.html" 001 "$P" '<h1 id="ux-001-title" style="color: var(--color-primary)">List</h1>'
+  _dm_art "$D/B.dc.html" 002 "$S" '<h1 id="ux-002-title" style="color: var(--color-surface)">Edit</h1>'
+  _dm_art "$D/D.dc.html" 003 "$S" '<h1 id="ux-003-title" style="color: var(--color-surface)">Gone</h1>'
+  _dm_art "$D/E.dc.html" 004 "$S" '<h1 id="ux-004-title" style="color: var(--color-surface)">Same</h1>'
+  _dm_art "$D/F.dc.html" 005 "$S" '<sc-if value="{{a}}"><div id="ux-005-a" data-state="a"><p id="ux-005-a-text" style="color: var(--color-surface)">Alpha</p></div></sc-if><sc-if value="{{b}}"><div id="ux-005-b" data-state="b"><p id="ux-005-b-text">Beta</p></div></sc-if>'
+  _dm_art "$D/G.dc.html" 006 "$S" '<sc-if value="{{a}}"><div id="ux-006-a"><p id="ux-006-a-text" style="color: var(--color-surface)">Alpha</p></div></sc-if><sc-if value="{{b}}"><div id="ux-006-b"><p id="ux-006-b-text">Beta</p></div></sc-if>'
+  _dm_art "$D/H.dc.html" 007 "$P" '<h1 id="ux-007-title" style="color: var(--color-primary)">Tok</h1>'
+  _dm_art "$D/I.dc.html" 008 "$S" '<h1 id="ux-008-title" style="color: var(--color-surface)">Quiet</h1>'
+  _dm_art "$D/J.dc.html" 009 "$S" '<h1 id="ux-009-title" style="color: var(--color-surface)">Meta</h1>'
+  _dm_registry "$SB_WORK/requirements/design/app" \
+    'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-003|D.dc.html|default|PRD-001-F1-S1|open|open' 'UX-004|E.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-005|F.dc.html|a, b|PRD-001-F1-S1|open|open' 'UX-006|G.dc.html|a, b|PRD-001-F1-S1|open|open' \
+    'UX-007|H.dc.html|default|PRD-001-F1-S1|open|open' 'UX-008|I.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-009|J.dc.html|default|PRD-001-F1-S1|open|open'
+  _dm_commit "the design at its pin"; _DM_P="$_DM_SHA"
+  local p="@$_DM_P" id="$SB_PREFIX"
+  _dm_card 701 in_progress "design: [UX-001#default$p, UX-002#default$p, UX-003#default$p, UX-004#default$p, UX-004#default@deadbee, UX-099#x$p, UX-005#a$p, UX-005#b$p, UX-006#a$p, UX-007#default$p, UX-008#default$p, UX-009#default$p]"
+  _dm_card 704 qa_complete "design: [UX-001#empty$p]"
+  _dm_card 702 done "design: [UX-001#default$p]"
+  _dm_card 705 declined "design: [UX-001#default$p]"
+  _dm_card 703 todo "design: [UX-001#default]"
+  mkdir -p "$SB_WORK/dev/questions"
+  printf 'Question about %s-701 and the screen UX-001: is the list title final?\n' "$id" > "$SB_WORK/dev/questions/Q-1-title.md"
+  _dm_commit "pin the cards"
+  # the later commit: the design moves on under the pinned cards
+  _dm_edit "$D/A.dc.html" 's|>List<|>Lists<|'
+  git -C "$SB_WORK" mv "$D/B.dc.html" "$D/B2.dc.html"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/UX-002 | B.dc.html/UX-002 | B2.dc.html/'
+  git -C "$SB_WORK" rm -q -f "$D/D.dc.html"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" '/^| UX-003 /d'
+  _dm_edit "$D/F.dc.html" 's|>Beta<|>Beta two<|'
+  _dm_edit "$D/G.dc.html" 's|>Beta<|>Beta two<|'
+  _dm_edit "$D/J.dc.html" 's|data-stories="PRD-001-F1-S1"|data-stories="PRD-001-F1-S1 PRD-002-F1-S1"|'
+  _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"},"error":{"$value":"#ba1a1a"},"success":{"$value":"#1b6d2f"}}}'
+  _dm_land "the design moves on"
+  return 0
+}
+
+# =============================================================================
+# CASE — THE DRIFT ARM NAMES EACH PINNED STATE'S VERDICT IN check-board.sh, READS ONLY CARDS PAST todo/ AND NOT LANDED, AND REPORTS.
+#   Operand: the [+design-drift] section of the project's own check-board.sh, which reads the trunk. Absent after disable; an
+#   advisory arm (its header says it reports only).
+# =============================================================================
+case_the_design_drift_arm_names_each_pin_verdict_in_check_board_and_reads_only_cards_past_todo_and_not_landed() {
+  cf_reset
+  local L="check-board.sh runs the design drift arm only while the module is enabled; it reports reports-only, gives each pinned state of a card past todo/ its verdict (clean, moved, drift, gone, unresolved), says ruling pending or owed on a drift, and reads no card in todo/, done/ or declined/"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_drift_fixture || { finish "$L"; teardown; return; }
+  local rep arm p7 c="$SB_PREFIX-701" v
+  p7="${_DM_P:0:7}"
+  rep="$(_dm_report)"; arm="$(_dm_arm "$rep")"
+  [ -n "$arm" ] || { cf "(a) the report has no [+design-drift] section: $(printf '%s' "$rep" | tail -5 | tr '\n' '|' | cut -c1-240)"; finish "$L"; teardown; return; }
+  _dm_has "$arm" "reports only" || cf "(a) the arm's header does not say it reports only"
+  _dm_has "$arm" "compared with origin/$SB_TRUNK" || cf "(a) the arm does not name the revision it compared with"
+  v="$(_dm_verdict "$arm" "$c" "UX-001#default@$p7")"; [ "$v" = drift ] || cf "(b) UX-001, whose text changed, reads '$v', not drift"
+  v="$(_dm_verdict "$arm" "$c" "UX-002#default@$p7")"; [ "$v" = moved ] || cf "(b) UX-002, whose file moved with its bytes, reads '$v', not moved"
+  v="$(_dm_verdict "$arm" "$c" "UX-003#default@$p7")"; [ "$v" = gone ] || cf "(b) UX-003, whose row was removed, reads '$v', not gone"
+  v="$(_dm_verdict "$arm" "$c" "UX-004#default@$p7")"; [ "$v" = clean ] || cf "(b) UX-004, unchanged, reads '$v', not clean"
+  v="$(_dm_verdict "$arm" "$c" "UX-004#default@deadbee")"; [ "$v" = unresolved ] || cf "(b) a pin to a commit that does not exist reads '$v', not unresolved"
+  v="$(_dm_verdict "$arm" "$c" "UX-099#x@$p7")"; [ "$v" = unresolved ] || cf "(b) a pin to a screen with no row at the pin reads '$v', not unresolved"
+  _dm_has "$(_dm_row "$arm" "$c" "UX-001#default@$p7")" "drift, ruling pending" || cf "(c) the drift on UX-001, whose card and screen a question file names, does not say ruling pending"
+  _dm_has "$(_dm_row "$arm" "$SB_PREFIX-704" "UX-001#empty@$p7")" "drift, owed" || cf "(c) the drift on a qa_complete card nothing rules on does not say owed"
+  [ "$(_dm_verdict "$arm" "$SB_PREFIX-704" "UX-001#empty@$p7")" = drift ] || cf "(d) a card in qa_complete/ was not read: it is past todo/ and not landed"
+  for v in 702 703 705; do
+    [ -z "$(printf '%s\n' "$arm" | awk -v c="$SB_PREFIX-$v" '$1 == c { print }')" ] || cf "(d) the arm read the card $SB_PREFIX-$v, which sits in a shelf it must not read"
+  done
+  # the arm is the module's: gone with it
+  _md_mod disable design
+  [ "$_md_rc" -eq 0 ] || cf "(e) disable exited $_md_rc: $_md_out"
+  [ ! -e "$SB_WORK/scripts/check-board.d/50-design-drift.sh" ] || cf "(e) the arm file is still placed after disable"
+  _dm_has "$(_dm_report)" "[+design-drift]" && cf "(e) check-board still runs the design drift arm after disable"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A PINNED STATE IS JUDGED BY ITS data-state BRANCH WHEN THE ARTBOARD MARKS ONE, BY THE FILE WHEN IT DOES NOT, AND BY THE
+# TOKENS IT USES.
+#   Operand: scripts/design/pin-drift.py run by hand over the fixture. A change under another state's branch reads clean;
+#   the same change on an unmarked artboard reads drift and says per-file; a token a screen uses that changed is drift though
+#   its bytes are the same; an unused token's change and an added token are not; a change of the root's data-stories alone is not.
+# =============================================================================
+case_pin_drift_judges_a_state_by_its_data_state_branch_and_the_tokens_it_uses() {
+  cf_reset
+  local L="pin-drift.py reads a change under another state's data-state branch as clean, the same change on an artboard with no data-state as drift marked per-file, a changed token the screen uses as drift with unchanged bytes, an unused token's change or an added token as clean, and a change of the root's data-stories alone as clean"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_drift_fixture || { finish "$L"; teardown; return; }
+  local c="$SB_PREFIX-701" p7 r
+  p7="${_DM_P:0:7}"
+  _dm_py scripts/design/pin-drift.py
+  [ "$_dm_rc" -eq 0 ] || cf "(prereq) pin-drift.py exited $_dm_rc: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  r="$(_dm_row "$_dm_out" "$c" "UX-005#a@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-005#a@$p7")" = clean ] && _dm_has "$r" "changed only under other states"; } || cf "(a) UX-005#a, whose only change is under state b, does not read clean with that noted: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-005#b@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-005#b@$p7")" = drift ] && _dm_has "$r" "ids: ~ux-005-b-text"; } || cf "(a) UX-005#b, whose branch text changed, does not read drift naming ~ux-005-b-text: $r"
+  _dm_has "$r" "[per-file" && cf "(a) UX-005#b, whose artboard marks its states, is called per-file"
+  r="$(_dm_row "$_dm_out" "$c" "UX-006#a@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-006#a@$p7")" = drift ] && _dm_has "$r" "[per-file: no data-state marks]"; } || cf "(b) UX-006#a, an artboard with no data-state, does not read drift marked per-file: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-007#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-007#default@$p7")" = drift ] && _dm_has "$r" "tokens: --color-primary" && _dm_has "$r" "(none: tokens only)"; } || cf "(c) UX-007, whose bytes are the same and whose token color.primary changed, does not read drift on --color-primary alone: $r"
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-008#default@$p7")" = clean ] || cf "(c) UX-008, which uses neither the changed nor the added token, does not read clean: $(_dm_row "$_dm_out" "$c" "UX-008#default@$p7")"
+  r="$(_dm_row "$_dm_out" "$c" "UX-009#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-009#default@$p7")" = clean ] && _dm_has "$r" "registry bookkeeping"; } || cf "(d) UX-009, whose root's data-stories alone changed, does not read clean as bookkeeping: $r"
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#default@$p7")" = drift ] || cf "(e) UX-001, whose title text changed, does not read drift"
+  finish "$L"
+  teardown
+}
+
+# _dm_links_fixture — the module enabled in a sandbox with a design project that the link check judges clean: two screens, a PRD that
+# cites both, a PRD with no UI line (not design-classified) and one with a UI line in one story only (partly), and a colour literal
+# inside an artboard's :root block. Approval of UX-001 is recorded against the commit that took the artboard in (_DM_X).
+_dm_links_fixture() {
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; return 1; }
+  _dm_land "enable the design module"
+  local D="$SB_WORK/requirements/design/app/project"
+  _dm_tokens '{"color":{"primary":{"$value":"#485d92"}}}'
+  _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
+  _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
+  _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — See the list\n\n**UI:** default, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#default]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: the list is sorted.\n\n##### F1-S2 — Edit\n\n**UI:** default\n\n- [ ] AC1: (UI) the edit form shows. [design: UX-002#default]\n' > "$SB_WORK/requirements/PRD-001-app.md"
+  printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n' > "$SB_WORK/requirements/PRD-002-api.md"
+  printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
+  _dm_commit "the screens"; _DM_X="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$_DM_X|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_commit "approve UX-001"
+  return 0
+}
+
+# =============================================================================
+# CASE — THE LINK CHECK REPORTS EACH GAP BETWEEN THE PRDs, THE REGISTRY, THE ARTBOARDS AND THE CARDS, AND IS QUIET ABOUT WHAT IS NOT ONE.
+#   Operand: scripts/design/check-design-links.py --strict over a clean fixture (exit 0, no finding: a colour in :root, a PRD with no
+#   UI line, a PRD with one) and then over the same fixture with one defect of each class added.
+# =============================================================================
+case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_root_block_and_unclassified_prds() {
+  cf_reset
+  local L="check-design-links.py --strict exits 0 with no finding over a project whose :root block holds colour literals and whose PRDs are not or only partly design-classified (info lines only), and exits 1 naming an uncovered (UI) AC, an unresolved citation, a row citing no story, a stale Design: pending, a stale approval, an approval with no sha and a colour literal outside :root"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" X="$_DM_X" out
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 0 ] || cf "(a) the clean fixture exits $_dm_rc under --strict: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "; 0 finding(s)" || cf "(a) the clean fixture does not end on 0 findings: $(printf '%s' "$_dm_out" | tail -1)"
+  _dm_has "$_dm_out" "PRD-002-api.md: not design-classified: no story carries a UI: line (info)" || cf "(b) a PRD with no UI line gets no info line saying it is not design-classified: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "PRD-003-mixed.md: not design-classified: F1-S2 carry no UI: line (info)" || cf "(b) a PRD with a UI line in one story only gets no info line naming the story without one: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "UNCLASSIFIED  requirements/PRD-001" && cf "(b) a fully classified PRD got an UNCLASSIFIED line"
+  # one defect of each class
+  printf '\n##### F1-S3 — Hint\n\n**UI:** default\n\n- [ ] AC1: (UI) a hint shows.\n- [ ] AC2: (UI) a bad state. [design: UX-001#nostate]\n- [ ] AC3: (UI) no such screen. [design: UX-077#a]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
+  printf '\n### F2 — Later\n\n**Design:** pending\n\n##### F2-S1 — Later\n\n**UI:** default\n\n- [ ] AC1: (UI) already designed. [design: UX-002#default]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
+  printf '| UX-003 | C.dc.html | t | phone |  | default |  | open | approved |\n' >> "$SB_WORK/requirements/design/app/CANVAS.md"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title" style="color: #ff0000">Lit</h1>'
+  _dm_commit "defects"
+  _dm_py scripts/design/check-design-links.py --strict
+  out="$_dm_out"
+  [ "$_dm_rc" -eq 1 ] || cf "(c) the project with defects exits $_dm_rc under --strict, not 1"
+  _dm_has "$out" "UNCOVERED     requirements/PRD-001-app.md:" || cf "(d) no UNCOVERED line for an (UI) AC with no marker"
+  { _dm_has "$out" "UNRESOLVED    requirements/PRD-001-app.md:" && _dm_has "$out" "UX-077 has no registry row"; } || cf "(d) no UNRESOLVED line for a citation of a screen with no row"
+  _dm_has "$out" "UX-001#nostate - the registry lists states" || cf "(d) no UNRESOLVED line for a citation of a state the row does not list"
+  _dm_has "$out" "NO-STORY      requirements/design/app/CANVAS.md" || cf "(d) no NO-STORY line for a row that cites no story"
+  _dm_has "$out" "STALE-PENDING requirements/PRD-001-app.md" || cf "(d) no STALE-PENDING line for a Design: pending section that already has a marker"
+  _dm_has "$out" "APPROVAL-NO-SHA" || cf "(d) no APPROVAL-NO-SHA line for a gate cell that says approved with no sha"
+  _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(d) no LITERAL-COLOUR line for a colour literal outside the :root block"
+  _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/A.dc.html" && cf "(d) a colour literal inside a :root block was reported"
+  # the approval of UX-001 was recorded against the commit that took in the artboard, which has not changed since
+  _dm_has "$out" "STALE-APPROVAL" && cf "(e) an approval of an artboard that has not changed since reads stale"
+  _dm_edit "$D/A.dc.html" 's|>List<|>Lists<|'
+  _dm_commit "the approved artboard changes"
+  _dm_py scripts/design/check-design-links.py
+  { _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "UX-001 gate1 approved@${X:0:7}"; } || cf "(e) no STALE-APPROVAL for UX-001 after its artboard changed"
+  [ "$_dm_rc" -eq 0 ] || cf "(f) without --strict the check is a report and exits $_dm_rc, not 0"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — --leaving ANSWERS FOR A CARD ABOUT TO LEAVE todo/: A PIN, A COMMIT THAT RESOLVES, AN APPROVED ROW OR A WAIVER.
+#   Operand: scripts/design/check-design-links.py --leaving <card>, exit 1 with the class named for each refusal and 0 for a
+#   card that has all three or none to give (design: none); 2 for a card it cannot read.
+# =============================================================================
+case_the_leaving_check_refuses_an_unpinned_unresolved_or_unapproved_pin_and_accepts_a_waiver() {
+  cf_reset
+  local L="check-design-links.py --leaving exits 1 naming UNPINNED, BARE-PIN, UNRESOLVED (a pin that is not a commit) and NOT-APPROVED for a card in todo/ that owes them, exits 0 for a pin to an approved row, for a waiver on the design: line and for design: none, and 2 for a card it cannot read"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local X="$_DM_X"
+  _dm_card 801 todo "design: [UX-001#default]"
+  _dm_card 802 todo "design: [UX-001]"
+  _dm_card 803 todo "design: [UX-001#default@$X]"
+  _dm_card 804 todo "design: [UX-002#default@$X]"
+  _dm_card 805 todo "design: [UX-002#default@$X]   # [decision: D-12]"
+  _dm_card 806 todo "design: [UX-001#default@deadbee]"
+  _dm_card 807 todo "design: none"
+  _dm_leaving 801; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNPINNED"; } || cf "(a) an unpinned design: entry is not refused with UNPINNED (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 802; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "BARE-PIN" && _dm_has "$_dm_out" "UNPINNED"; } || cf "(b) a bare UX id is not refused with BARE-PIN and UNPINNED (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 803; { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "0 finding(s)"; } || cf "(c) a pin to an approved row at a real commit is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 804; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NOT-APPROVED"; } || cf "(d) a pin to a row whose gate1 is open is not refused with NOT-APPROVED (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 805; [ "$_dm_rc" -eq 0 ] || cf "(e) a pin to an open row with a [decision: D-NN] waiver on the design: line is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 806; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "deadbee of UX-001#default is not a commit"; } || cf "(f) a pin to a commit that does not exist is not refused as UNRESOLVED (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_leaving 807; [ "$_dm_rc" -eq 0 ] || cf "(g) design: none is refused (exit $_dm_rc)"
+  _dm_py scripts/design/check-design-links.py --leaving "progress/todo/nothing.md"
+  [ "$_dm_rc" -eq 2 ] || cf "(h) a card that is not a file exits $_dm_rc, not 2"
+  finish "$L"
+  teardown
+}
+_dm_leaving() { _dm_py scripts/design/check-design-links.py --leaving "progress/todo/$SB_PREFIX-$1-c.md"; }   # <card number>
+
+# =============================================================================
+# CASE — THE PRD VIEW LISTS WHAT A PRD REACHES AND WHERE THE REGISTRY AND THE MARKERS DISAGREE; THE FLOW GRAPH COMES FROM THE LINKS.
+#   Operand: scripts/design/prd-view.py and scripts/design/flow-from-links.py over the links fixture. The view's file is
+#   generated and says so; the graph has one edge per board link, a '#anchor' read off the target.
+# =============================================================================
+case_the_prd_view_lists_what_a_prd_reaches_and_the_flow_graph_comes_from_the_artboards_links() {
+  cf_reset
+  local L="prd-view.py lists the screens and states PRD-001 reaches, flags a registry story no marker cites and a marker the row does not list, and --md writes a views/ file that says it is generated; flow-from-links.py prints one Mermaid edge per board link"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local v="$SB_WORK/requirements/design/views/PRD-001.md" n
+  _dm_py scripts/design/prd-view.py PRD-001
+  _dm_has "$_dm_out" "reaches 2 screen(s)" || cf "(a) the view of PRD-001 does not say it reaches 2 screens: $(printf '%s' "$_dm_out" | head -2 | tr '\n' '|' | cut -c1-200)"
+  { _dm_has "$_dm_out" "UX-001#default" && _dm_has "$_dm_out" "UX-001#empty" && _dm_has "$_dm_out" "UX-002#default"; } || cf "(a) the view does not list each cited state"
+  _dm_has "$_dm_out" "0 disagreement(s)" || cf "(a) the consistent fixture shows a disagreement: $(printf '%s' "$_dm_out" | tail -3 | tr '\n' '|' | cut -c1-200)"
+  [ ! -e "$v" ] || cf "(b) the view wrote a file without --md"
+  _dm_py scripts/design/prd-view.py PRD-001 --md
+  [ -f "$v" ] || cf "(b) --md wrote no requirements/design/views/PRD-001.md"
+  if [ -f "$v" ]; then head -1 "$v" | grep -F 'GENERATED' >/dev/null || cf "(b) the written view's first line does not say it is generated"; fi
+  # a story the registry gives a row and no marker cites; a marker the row does not list
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/| UX-002 | B.dc.html | t | phone |  | default | PRD-001-F1-S2 |/| UX-002 | B.dc.html | t | phone |  | default | PRD-001-F1-S2 PRD-001-F1-S1 |/'
+  printf -- '- [ ] AC4: (UI) a hint. [design: UX-001#default]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/PRD-001-F1-S1 | approved@/PRD-001-F1-S2 | approved@/'
+  _dm_py scripts/design/prd-view.py PRD-001
+  _dm_has "$_dm_out" "REGISTRY-ONLY  UX-002: registry lists PRD-001-F1-S1" || cf "(c) no REGISTRY-ONLY line for a story the registry lists on a screen none of its markers cites: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "MARKER-ONLY" || cf "(c) no MARKER-ONLY line for a marker on a story the row does not list"
+  # the graph
+  _dm_py scripts/design/flow-from-links.py requirements/design/app/project
+  _dm_has "$_dm_out" "flowchart LR" || cf "(d) flow-from-links.py prints no Mermaid flowchart: $(printf '%s' "$_dm_out" | head -3 | tr '\n' '|')"
+  { _dm_has "$_dm_out" 'A -->|"List"| B' && _dm_has "$_dm_out" 'B -->|"Edit"| A'; } || cf "(d) the graph lacks an edge for each board link: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  n="$(printf '%s\n' "$_dm_out" | grep -c -- '-->' || true)"
+  [ "$n" = 2 ] || cf "(d) the graph has $n edges for two links"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — WHILE THE MODULE PLACES A PYTHON TOOL ITS MANIFEST REQUIRES PYTHON 3, AND status SAYS WHETHER IT HOLDS.
+#   The expected answer is fixed here: a `requires:` line with the id python3 and severity required, read from module.manifest,
+#   whenever a line of that manifest places a file ending .py; SETUP.md names it. Enable refuses, with the way to get it, when
+#   the check fails (the check is run with python3 absent from PATH).
+# =============================================================================
+case_the_manifest_requires_python3_while_it_places_a_python_tool_and_enable_refuses_without_it() {
+  cf_reset
+  local L="while module.manifest places a .py file it declares a required requirement with the id python3, SETUP.md names it, status says it holds, and enable refuses with a Next: line when python3 is not found"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" bare t
+  if awk '$1 == "file:" && $0 ~ /[.]py[[:space:]]*$/ { f = 1 } END { exit !f }' "$m/module.manifest"; then
+    grep -E '^requires:[[:space:]]*python3 \|.*\| required[[:space:]]*$' "$m/module.manifest" >/dev/null || cf "(a) the manifest places a .py file and declares no required python3 requirement"
+    grep -F 'Python 3' "$m/SETUP.md" >/dev/null || cf "(a) SETUP.md does not name Python 3"
+  else
+    cf "(prereq) the manifest places no .py file: this case's subject is gone"
+  fi
+  if _dm_python; then
+    _md_sandbox
+    _md_mod enable design
+    [ "$_md_rc" -eq 0 ] || cf "(b) enable exited $_md_rc with python3 present: $_md_out"
+    _md_mod status design
+    _dm_has "$_md_out" "python3" || cf "(b) status does not name the python3 requirement: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    teardown
+  fi
+  # python3 hidden: a PATH holding the programs enable needs and no python3
+  bare="$(mktemp -d)"
+  _md_sandbox
+  for t in sh bash git awk sed grep cat cp mv rm mkdir mktemp dirname basename sort find tr head tail cut wc tee printf date env ls ln chmod touch uniq comm xargs perl shasum sha256sum diff cmp od; do
+    if command -v "$t" >/dev/null 2>&1; then ln -s "$(command -v "$t")" "$bare/$t"; fi
+  done
+  rm -rf "$SB_TMP/records"; _md_rc=0
+  _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" PATH="$bare" /bin/bash ./scripts/module.sh enable design 2>&1 </dev/null )" || _md_rc=$?
+  [ "$_md_rc" -ne 0 ] || cf "(c) enable succeeded with python3 not found"
+  { _dm_has "$_md_out" "python3" && _dm_has "$_md_out" "Next:"; } || cf "(c) enable's refusal does not name python3 and a Next: line: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  [ ! -e "$SB_WORK/process/MODULES" ] || cf "(c) the refused enable wrote the record"
+  rm -rf "${bare:?}"
+  finish "$L"
+  teardown
+}

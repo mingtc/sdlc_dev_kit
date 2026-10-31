@@ -56,7 +56,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 - Every story carries a `**UI:**` line: the states it needs, or `none`. A PRD minted while the module is enabled gets
   `**UI:** none` in its first story; the PM adds the line to every later story. A PRD with no `**UI:**` lines at all
-  predates the module and reads as "none declared", not as a defect.
+  predates the module and reads as "none declared", not as a defect; so does a story that lacks the line in a PRD whose other
+  stories have it. The link check prints an `UNCLASSIFIED` info line for each such PRD and never a finding.
 - Each AC visible on a screen is tagged `(UI)`, **including an AC that opens a surface**. The tag goes after the id and its
   separator (`AC1: (UI) …`; on a card, `AC1 — (UI) from <story id>: …`): the QA gate reads a checklist line only when the
   separator follows the id, and a line it cannot read is an AC that needs no verdict row.
@@ -69,8 +70,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   **delta stories** (new ids after the last, marked *(delta, PRD-NNN)*) under a `## Deltas` section of the owning PRD.
   **An AC a card already carries is never edited**: add a delta story.
 - Both directions are read: every (UI) AC has a marker; every marker resolves to a registry row and state; every row cites
-  a story; no `Design: pending` outlives its first marker. Where a checker is installed it reports these; otherwise the
-  Designer and PM read them at each hand-off.
+  a story; no `Design: pending` outlives its first marker. `python3 scripts/design/check-design-links.py` reports these, and
+  `--strict` makes it the design-record gate in `PROJECT.md`; `prd-view.py PRD-NNN` lists the screens and states one PRD reaches.
 
 ## 4. Pins
 
@@ -78,11 +79,17 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - Leaving `todo/`, each entry gains `@<commit>`: written by the PM, who owns the card in `todo/`, at the Designer's
   `Pin-ready: <sha>`. That sha is the last commit that touched the screen files and tokens the card cites, **excluding
   `CANVAS.md` bookkeeping** (recording a pin touches that file, so counting it would never settle).
-- Only a row whose `gate1` is `approved@<sha>` can be pinned, or the pin carries a named waiver in a `D-NN`. The sha in an
+- Only a row whose `gate1` is `approved@<sha>` can be pinned, or the card's `design:` line carries a named waiver, a
+  `[decision: D-NN]` in its trailing comment. The sha in an
   approval is the commit that took in the approved version; an approval whose artboard has since changed is **stale** and the row goes back to
-  `changes`.
+  `changes`; the link check reports it as `STALE-APPROVAL`.
 - Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
-  waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's.
+  waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's, and
+  `python3 scripts/design/check-design-links.py --leaving <card>` runs it.
+- **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
+  `history/`, each pinned state as `clean`, `moved`, `drift`, `gone` or `unresolved` (`[+design-drift]`). A state is compared by
+  its artboard and the tokens it uses, per state when the artboard marks its branches with `data-state`, else per file. A
+  `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
 - **A pinned card is never re-targeted.** A change to a pinned state needs a `D-NN`, which the Designer raises with
   `scripts/ask.sh` and then proceeds; a later design change is new work. An element added to a pinned state is a change; a
   new state on a pinned screen is not. The pin includes the tokens.
@@ -103,7 +110,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
 screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
-carries a `:root` block with one custom property per token it uses, holding the token's value. A token change on a screen is a
+carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
+token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`) outside the
+`:root` block is a `LITERAL-COLOUR` finding of the link check; the `:root` block is exempt. A token change on a screen is a
 request the human carries to the design tool's agent.
 
 - **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks
@@ -117,7 +126,7 @@ request the human carries to the design tool's agent.
 ## 7. Flows
 
 One flow artboard per user journey, embedding the real screens, with labelled action (solid) and condition (dashed) arrows.
-Every navigation is an `<a href>`, so the graph can be derived from the screens and compared with the drawn flow.
+Every navigation is an `<a href>`, so `scripts/design/flow-from-links.py` derives the graph from the screens, to compare with the drawn flow.
 
 ## 8. Who owns what
 

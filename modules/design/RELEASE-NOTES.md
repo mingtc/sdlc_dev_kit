@@ -5,6 +5,33 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.2.0]
+
+### Action required
+
+- **Install Python 3.9 or later.** The checkers below are Python 3 (standard library only), and the manifest now requires it:
+  `./scripts/module.sh status design` says whether it holds, and `enable` refuses a project that lacks it. Without
+  Python, the new pin-drift report prints a skip line and the gate row's command fails.
+  Verify: python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'
+
+### Added
+
+- **The checkers.** `scripts/design/check-design-links.py` reports the links between PRD stories, screens and cards in both
+  directions (an uncovered `(UI)` AC, an unresolved citation, a row citing no story, a stale `Design: pending`, a stale or
+  sha-less approval, a colour literal outside a screen's `:root` block) and, with `--leaving <card>`, what a card leaving
+  `todo/` owes: a pin, a commit that resolves, an approved row or a `[decision: D-NN]` waiver on its `design:` line.
+  `prd-view.py` lists the screens and states one PRD reaches, `flow-from-links.py` derives the screen-flow graph from the
+  artboards' links, and `pin-drift.py` compares each pinned state with HEAD. A PRD or story with no `**UI:**` line reads as
+  none declared and gets an info line, not a finding.
+- **The pin-drift report.** `check-board.sh` prints `[+design-drift]`: for every card past `todo/` and not landed or declined,
+  each pinned state as `clean`, `moved`, `drift`, `gone` or `unresolved`, by its artboard and the tokens it uses. It reports and
+  decides nothing. A screen names a token's custom property by the token's path with hyphens for dots.
+
+### Changed
+
+- The gate row the module puts in `PROJECT.md` runs `python3 scripts/design/check-design-links.py --strict`; it said `N/A`.
+  Upgrading replaces the block, or stages it for a merge if you edited it.
+
 ## [0.1.0]
 
 ### Added

@@ -1,7 +1,7 @@
 <!-- KIT-CLASS: KIT — the human steps to start using the design module. Stays in modules/design/; nothing here is placed into a project. See process/EXTRACTION.md. -->
 # Setting up the design module
 
-What you do, once, before the Designer is useful. Nothing here needs more than the kit's own git and shell.
+What you do, once, before the Designer is useful. The checkers need Python 3.9 or later (standard library only): `enable` refuses without it and names how to get it, and `./scripts/module.sh status design` says whether it still holds.
 
 1. **Enable it and push.** `./scripts/module.sh enable design`, commit the paths it prints, push the trunk. Until the push,
    `check-board.sh` does not know the `[Designer]` tag.
@@ -19,6 +19,6 @@ What you do, once, before the Designer is useful. Nothing here needs more than t
    going the other way. You look and approve; you do not draw. Until `.claude/skills/design-pull/SKILL.md` is in your project
    you are that conduit; creating and updating the artifact directly is the adapter's.
 
-The pull and publish commands, the drift check, the card gate, the token generator and the other tools state their own
+The pull and publish commands, the card gate, the token generator and the other tools state their own
 requirements here once they are installed. While one is absent from your project, asking the Designer for it gets the answer
 that it needs the next version of the kit, which brings it.

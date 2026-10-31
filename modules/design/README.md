@@ -22,6 +22,8 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 | Canvas and comments templates; guides for a PRD, a card and a QA design cell | `.claude/templates/design/` |
 | `**UI:** none` in a new PRD's first story; `design: none` in a new card | `process/fragments.d/` |
 | Evidence kind `design` | `process/evidence-kinds.d/design` |
+| The checkers: the link check, the PRD view, the flow graph, the pin-drift report | `scripts/design/`; Python 3, which `enable` requires |
+| The pin-drift arm of `check-board.sh`, report only | `scripts/check-board.d/50-design-drift.sh` |
 | Gate row, CORPUS manifest and bucket rows | blocks in `PROJECT.md` and `requirements/CORPUS.md` |
 | Ignore lines for the renderer's cache and generated tokens | a block at the end of `.gitignore` |
 
@@ -29,8 +31,10 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 
 Available now: the layout, the Designer role, the rules, token files written by hand, and Claude Design used through the human
 (the human carries the Designer's brief to Claude Design's agent, and its files, PNG exports and comments back). Creating and
-updating the artifact from the kit's own agent is the intended workflow and part of what follows. While a capability the Designer role
-lists (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, the
-renderer and audits, the checkers) is absent from your project, asking for it gets the answer that
+updating the artifact from the kit's own agent is the intended workflow and part of what follows. The checkers are installed: the
+link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the
+pin-drift report that `check-board.sh` prints. While a capability the Designer role
+lists (the pull and publish commands, the card gate, the token generator and the colour utility, the
+renderer and audits) is absent from your project, asking for it gets the answer that
 it needs the next version of the kit, which brings it.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.
