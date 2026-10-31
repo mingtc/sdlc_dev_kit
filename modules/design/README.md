@@ -27,7 +27,9 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 
 ## What this version has
 
-Available now: the layout, the Designer role, the rules, and working with Claude Design by hand (the human carries files
-between the canvas and the repo). While `/design-pull`, `/design-publish`, the design drift check, the card gate or the
-token generator is absent from your project, asking for it gets the answer that it needs the next version of the kit.
+Available now: the layout, the Designer role, the rules, token files written by hand, and Claude Design used by hand (the
+human draws on the canvas and carries files, PNG exports and comments to the repo). While a capability the Designer role
+lists (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, the
+renderer and audits, the checkers) is absent from your project, asking for it gets the answer that
+it needs the next version of the kit.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.

@@ -3,17 +3,19 @@
 
 Design is **evergreen corpus**, like the PRDs: it describes what the product looks like *now*, and git is its version
 store. A design tool's canvas is the *working surface* a human edits; this directory is the *record* and the authority.
-The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md), which also says
-what this version of the module can and cannot do.
+The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
+
+**Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
+version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit.
 
 ## 1. Layout
 
 ```
 requirements/design/<canvas>/        one canvas per PRODUCT, or per platform or major area once it outgrows one; never per PRD
-  project/                           the canvas's files exactly: artboards and whatever else the tool holds
+  project/                           the canvas's files exactly as taken in: artboards and whatever else the tool holds
   CANVAS.md                          canvas URL, last pull, pin-ready, breakpoint, the SCREEN REGISTRY, proposed citations
   COMMENTS.md                        every review thread, as last pulled
-  renders/<Screen>-<state>.png       committed renders: the human-readable record
+  renders/<Screen>-<state>.png       committed renders (the canvas's PNG exports): the human-readable record
 requirements/design/views/PRD-NNN.md GENERATED, never hand-edited
 requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of truth; generated outputs are never hand-edited
 ```
@@ -23,7 +25,7 @@ requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of tru
 - **Organised by product structure, never by PRD.** Pages by product area, flows by user journey. The canvas directory and
   title are named for the product. A canvas tool's files are flat, so **product areas are registry sections** (one table per
   area, same header), not directories. A second PRD adds story ids to existing rows and adds no directory.
-- **One canvas per product**, split by platform or major area once it outgrows about 500 files or 40 pages.
+- **One canvas per product**, split by platform or major area once it outgrows 512 files or 40 pages.
 - `views` and `tokens` are reserved names: no canvas takes either. `views/` is a `generated` CORPUS bucket.
 - Dated design **passes** (the parked UI Designer's) live in `dev/design-passes/`, never here.
 
@@ -52,7 +54,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - Every story carries a `**UI:**` line: the states it needs, or `none`. A PRD minted while the module is enabled gets
   `**UI:** none` in its first story; the PM adds the line to every later story. A PRD with no `**UI:**` lines at all
   predates the module and reads as "none declared", not as a defect.
-- Each AC visible on a screen is tagged `(UI)`, **including an AC that opens a surface**.
+- Each AC visible on a screen is tagged `(UI)`, **including an AC that opens a surface**. The tag goes after the id and its
+  separator (`AC1: (UI) …`; on a card, `AC1 — (UI) from <story id>: …`): the QA gate reads a checklist line only when the
+  separator follows the id, and a line it cannot read is an AC that needs no verdict row.
 - The marker is `[design: UX-NNN#state]`, **on the AC line**, one per state, and one per width where a screen has a pair. A
   range is not a citation. A marker in a code span or fenced block is prose. Cite by UX-id and state, never by path.
 - A feature with UI and no screens yet carries `**Design:** pending — UX states needed: <state>, <state>`: the Designer's
@@ -81,7 +85,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   new state on a pinned screen is not. The pin includes the tokens.
 - **A pin is a commit; a path is not.** A screen may move. Where a card or a QA record must show a path, qualify it with the
   commit it was true at.
-- `CANVAS.md` records `Last pull: <canvas version> @ <repo commit>`.
+- `CANVAS.md` records `Last pull: <canvas version> @ <repo commit>`, or `by hand (<date>) @ <repo commit>` when the human
+  brought the files. Taking the canvas in is two commits: the files, then the record of the first one's sha.
 
 ## 5. Scope and evidence
 
@@ -93,10 +98,12 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 ## 6. Fidelity: one artifact, two gates
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
-screen is not allowed**.
+screen is not allowed**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
+carries a `:root` block with one custom property per token it uses, holding the token's value.
 
 - **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy.
-- **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit.
+- **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit. The human approves the render on the
+  canvas; the audits are tools, and while they are not installed no figure is given for them.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
   the Designer's deliverable per state.
 

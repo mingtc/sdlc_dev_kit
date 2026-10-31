@@ -2,8 +2,8 @@
 # CANVAS — <canvas>
 
 - **Canvas:** <canvas title, named for the product, never a PRD id> — <URL, or "none yet"> (a canvas that takes comments is private to the owner or shared within the organisation; a public link cannot)
-- **Last pull:** none (when there is one: `<canvas version id> @ <repo commit>`, the commit that took the canvas's files into `project/`)
-- **Last publish:** none
+- **Last pull:** none (then `<canvas version id> @ <repo commit>`, or `by hand (<date>) @ <repo commit>` when the human brought the files; the commit is the one that took them into `project/`)
+- **Last publish:** none (nothing is sent to the canvas by hand; the human makes repo-side changes there)
 - **Pin-ready:** none (the last commit that touched the screen files and tokens a card cites, `CANVAS.md` bookkeeping excluded; set only when every row the card cites has `approved@<sha>` in `gate1`)
 - **Breakpoint:** <the width where phone becomes desktop>; widths covered: <phone width>, <desktop width>. A PRD covers the gap between them or says it is out of scope.
 - **PRDs served:** <PRD-NNN, PRD-NNN: listed for the reader; no screen belongs to one PRD>

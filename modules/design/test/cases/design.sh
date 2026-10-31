@@ -10,6 +10,10 @@
 _dm_have() { [ -f "$REAL_REPO_ROOT/modules/design/module.manifest" ]; }
 _dm_gone_reason() { printf '%s' "modules/design/RELEASE-NOTES.md is absent from this tree"; }
 
+# _dm_manifest_places <manifest> <key> <target regex> — status 0 when a line of that key places something at a target of that shape.
+_dm_manifest_places() {
+  awk -v k="$2:" -v re="$3" '$1 == k { t = $0; sub(/^.*-> */, "", t); if (t ~ re) f = 1 } END { exit !f }' "$1"
+}
 # _dm_corpus — a CORPUS.md of the sandbox's own with the two slot lines the module's blocks go above.
 _dm_corpus() {
   mkdir -p "$SB_WORK/requirements"
@@ -211,45 +215,88 @@ case_the_designer_role_and_the_design_evidence_kind_are_read_while_the_module_is
 }
 
 # =============================================================================
-# CASE — THE DESIGNER ROLE SAYS, FOR EACH CAPABILITY THIS VERSION LACKS, THAT IT NEEDS THE NEXT VERSION OF THE KIT.
-#   The expected answer is fixed here: six capabilities, each named by a token the role must carry and by the file
-#   whose presence in the module means it ships. The line is required while the file is absent and forbidden once
-#   it is present, so a lane that ships a capability must take its line out, and the module README's one line goes
-#   with the last of them.
+# CASE — THE DESIGNER ROLE SAYS, FOR EACH CAPABILITY THE MODULE DOES NOT SHIP, THAT IT NEEDS THE NEXT VERSION OF THE KIT.
+#   The expected answer is fixed here: each capability is named by a token the role must carry and by the manifest line
+#   that places it, read from module.manifest (a capability ships when a line of that key has a target of that shape,
+#   wherever the module keeps the source). The role's line is required while nothing places it and forbidden once
+#   something does, so a lane that ships a capability must take its line out. The module README and the rules'
+#   README carry their one line while any capability is missing, and the gate row's N/A goes with the link check.
 # =============================================================================
 case_the_designer_role_names_each_capability_this_version_lacks_and_drops_the_line_when_it_ships() {
   cf_reset
-  local L="the shipped Designer role carries a 'needs the next version of the kit' line for each capability whose file the module does not ship yet (design-pull, design-publish, the design drift check, the card gate, tokens and the colour utility) and no such line for one it does ship, and the module README carries its one line while any is missing"
+  local L="the shipped Designer role carries a 'needs the next version of the kit' line for each capability that module.manifest does not place yet (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, render, the audits, the link check, the PRD view, the flow graph) and none for one it places, the module README and the rules README carry their line while any is missing, and the gate row is N/A only while the link check is not placed"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
-  local m="$REAL_REPO_ROOT/modules/design" role readme row tok glob shipped missing=0 lines
-  role="$m/_claude/roles/designer.md"; readme="$m/README.md"
-  [ -f "$role" ] || { cf "(prereq) modules/design/_claude/roles/designer.md is absent"; finish "$L"; return; }
-  [ -f "$readme" ] || { cf "(prereq) modules/design/README.md is absent"; finish "$L"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" role readme rules tok key re missing=0 lines f
+  role="$m/_claude/roles/designer.md"; readme="$m/README.md"; rules="$m/requirements/design/README.md"
+  for f in "$role" "$readme" "$rules" "$m/gates.md"; do
+    [ -f "$f" ] || { cf "(prereq) ${f#$REAL_REPO_ROOT/} is absent"; finish "$L"; return; }
+  done
   lines="$(grep -F 'needs the next version of the kit' "$role" || true)"
-  while IFS='|' read -r tok glob; do
+  while IFS='|' read -r tok key re; do
     [ -n "$tok" ] || continue
-    shipped=0
-    # shellcheck disable=SC2086
-    [ -z "$(ls $m/$glob 2>/dev/null)" ] || shipped=1
-    if [ "$shipped" = 1 ]; then
-      printf '%s\n' "$lines" | grep -F -- "$tok" >/dev/null && cf "(a) the module ships $glob and the Designer role still says $tok needs the next version of the kit"
+    if _dm_manifest_places "$m/module.manifest" "$key" "$re"; then
+      printf '%s\n' "$lines" | grep -F -- "$tok" >/dev/null && cf "(a) module.manifest places $tok and the Designer role still says it needs the next version of the kit"
     else
       missing=1
-      printf '%s\n' "$lines" | grep -F -- "$tok" >/dev/null || cf "(a) $glob is not shipped and the Designer role has no 'needs the next version of the kit' line naming $tok"
+      printf '%s\n' "$lines" | grep -F -- "$tok" >/dev/null || cf "(a) module.manifest does not place $tok and the Designer role has no 'needs the next version of the kit' line naming it"
     fi
-  done <<DM_CAPS_EOF
-/design-pull|_claude/skills/design-pull/SKILL.md
-/design-publish|_claude/skills/design-publish/SKILL.md
-50-design-drift.sh|check-board.d/50-design-drift.sh
-move-check.d/todo|move-check.d/todo/*.sh
-m3-tokens.mjs|scripts/design/m3-tokens.mjs
-material-color-utilities|scripts/design/vendor/material-color-utilities/index.js
+  done <<'DM_CAPS_EOF'
+/design-pull|file|^[.]claude/skills/design-pull/SKILL[.]md$
+/design-publish|file|^[.]claude/skills/design-publish/SKILL[.]md$
+50-design-drift.sh|arm|.
+50-design-pin.sh|move-check|^todo/
+m3-tokens.mjs|file|^scripts/design/m3-tokens[.]mjs$
+material-color-utilities|file|^scripts/design/vendor/material-color-utilities/index[.]js$
+render.py|file|^scripts/design/render[.]py$
+contrast-audit.py|file|^scripts/design/contrast-audit[.]py$
+check-design-links.py|file|^scripts/design/check-design-links[.]py$
+prd-view.py|file|^scripts/design/prd-view[.]py$
+flow-from-links.py|file|^scripts/design/flow-from-links[.]py$
 DM_CAPS_EOF
   if [ "$missing" = 1 ]; then
     grep -F 'do not improvise' "$role" >/dev/null || cf "(b) the Designer role does not tell the agent not to improvise a capability that is not installed"
     grep -F 'needs the next version of the kit' "$readme" >/dev/null || cf "(c) the module README carries no 'needs the next version of the kit' line while a capability is missing"
+    grep -F 'needs the next version of the kit' "$rules" >/dev/null || cf "(c) the rules README carries no 'needs the next version of the kit' line while a capability is missing"
   else
-    grep -F 'needs the next version of the kit' "$readme" >/dev/null && cf "(c) every capability ships and the module README still says one needs the next version of the kit"
+    grep -F 'needs the next version of the kit' "$readme" >/dev/null && cf "(c) every capability is placed and the module README still says one needs the next version of the kit"
+    grep -F 'needs the next version of the kit' "$rules" >/dev/null && cf "(c) every capability is placed and the rules README still says one needs the next version of the kit"
   fi
+  if _dm_manifest_places "$m/module.manifest" file '^scripts/design/check-design-links[.]py$'; then
+    grep -F 'N/A' "$m/gates.md" >/dev/null && cf "(d) the link check is placed and the gate row still says N/A"
+  else
+    grep -F 'N/A' "$m/gates.md" >/dev/null || cf "(d) the link check is not placed and the gate row carries no N/A with its reason"
+  fi
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — EVERY AC SHAPE THE DESIGN GUIDES TEACH IS READ BY THE QA GATE'S OWN READER.
+#   Operand: the checklist lines of the PRD guide and the card guide, run through _qav_ac_ids from the shipped
+#   scripts/lib/qa-gate.sh. The expected id is the one the line itself starts with (AC then digits), so a tag
+#   or a phrase placed between the id and its separator makes the line invisible to the gate and fails here:
+#   a checklist bullet the gate cannot see is a (UI) AC that needs no verdict row, and a row QA writes for it is
+#   refused as extra.
+# =============================================================================
+case_the_ac_lines_the_design_guides_teach_are_read_by_the_qa_gates_own_reader() {
+  cf_reset
+  local L="every checklist line in the design module's PRD guide and card guide, run through the QA gate's own AC reader, yields exactly the id it starts with, and each guide teaches a (UI) line"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  [ -f "$REAL_SCRIPTS/lib/qa-gate.sh" ] || { cf "(prereq) scripts/lib/qa-gate.sh is absent"; finish "$L"; return; }
+  local g f lines line want got
+  for f in PRD-design.fragment.md ISSUE-design.fragment.md; do
+    g="$REAL_REPO_ROOT/modules/design/_claude/templates/design/$f"
+    [ -f "$g" ] || { cf "(prereq) modules/design/_claude/templates/design/$f is absent"; continue; }
+    lines="$(grep -E '^- \[[ xX]\] AC[0-9]+' "$g" || true)"
+    [ -n "$lines" ] || { cf "($f) teaches no checklist line"; continue; }
+    printf '%s\n' "$lines" | grep -F '(UI)' >/dev/null || cf "($f) teaches no (UI) checklist line"
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      want="$(printf '%s' "$line" | grep -oE '^- \[[ xX]\] AC[0-9]+' | grep -oE 'AC[0-9]+')"
+      got="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_ids "$2"' _ "$REAL_SCRIPTS" "$line" 2>&1)"
+      [ "$got" = "$want" ] || cf "($f) the QA gate reads '$line' as [${got:-nothing}], not [$want]"
+    done <<DM_ACS_EOF
+$lines
+DM_ACS_EOF
+  done
   finish "$L"
 }

@@ -12,6 +12,6 @@ any other heading are not read. Nothing here is read while the module is disable
 - **The skeleton.** A Designer role (`[Designer]` commits), the rules for `requirements/design/` (layout, ids, citations,
   pins, the two review gates, flows), canvas and comments templates, a `**UI:** none` line minted into a new PRD's first
   story and `design: none` into a new card, the `design` evidence kind, and CORPUS, gate and ignore rows. No action.
-- **Not in this version:** the canvas adapter (`/design-pull`, `/design-publish`), the design drift check, the card gate,
-  and the token generator with its colour utility. The Designer role says so, and says to tell the user the capability
-  needs the next version of the kit rather than improvise it.
+- **Not in 0.1.0:** the canvas adapter (`/design-pull`, `/design-publish`), the design drift check, the card gate, the
+  token generator and the colour utility, the renderer and audits, and the checkers. The Designer role lists them, and says
+  to tell the user a capability needs the next version of the kit rather than improvise it.

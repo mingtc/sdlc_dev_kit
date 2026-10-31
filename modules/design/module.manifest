@@ -1,7 +1,7 @@
 # KIT-CLASS: KIT — the design module's manifest. Every line is `<key>: <value>`; process/MODULES.md says what each key takes. See process/EXTRACTION.md.
 name: design
 version: 0.1.0
-purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true. Tools and a canvas adapter follow in later versions.
+purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true.
 release-notes: RELEASE-NOTES.md
 role: Designer   turns PRD stories into reviewable screens and keeps the design record true; commits as [Designer]
 file: _claude/roles/designer.md -> .claude/roles/designer.md
