@@ -30,7 +30,7 @@ consent for the Claude Code hooks is.
 ```sh
 ./scripts/module.sh list                 # what this kit ships, what each needs, and what is enabled
 ./scripts/module.sh enable <name>        # place it, register it, record it
-./scripts/module.sh status [<name>]      # each placed thing: intact, edited or missing; each requirement: holding or not
+./scripts/module.sh status [<name>]      # each placed thing: intact, edited, missing or (no sha256 tool) unjudged; each requirement: holding or not
 ./scripts/module.sh disable <name>       # take back what enable wrote
 ./scripts/kit-init.sh --prefix <P> --trunk <T> --with <name>   # on day one: enabled inside the initialization commit
 ```

@@ -15,7 +15,7 @@
 #   ./scripts/module.sh disable <name>
 #
 # list      the modules this kit ships, enabled or not: version, purpose, and what each needs.
-# status    every enabled module, or one: each thing it placed, as intact, edited or missing, and each
+# status    every enabled module, or one: each thing it placed, as intact, edited or missing (unjudged on a machine with no sha256 tool), and each
 #           requirement as holding or not (it runs the module's checks).
 # enable    place the module and register it. A required command the module's checks do not find, a path
 #           that is not the module's to take (a file that exists, a core kit file, a missing slot), or an
