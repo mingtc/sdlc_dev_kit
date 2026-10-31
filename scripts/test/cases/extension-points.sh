@@ -1005,7 +1005,7 @@ case_a_template_fragment_is_minted_only_when_enabled_and_is_byte_absent_when_not
 
   # (b) ENABLED: two add-ons' files. The fragments land where their mode says, and in file-name order.
   mkdir -p "$fd/PRD" "$fd/ISSUE"
-  printf '**Probe:** none\n' > "$fd/PRD/probe.slot-story-fields"
+  printf '**Probe:** none\n**Probe two:** LINE-TWO\n' > "$fd/PRD/probe.slot-story-fields"
   printf 'probe_flag: yes\n' > "$fd/PRD/probe.frontmatter"
   printf 'aaa_flag: first\n' > "$fd/PRD/aaa.frontmatter"
   printf '## Probe notes\n\nPROBE-BODY-END\n' > "$fd/PRD/probe.body-end"
@@ -1018,8 +1018,9 @@ case_a_template_fragment_is_minted_only_when_enabled_and_is_byte_absent_when_not
   grep -F 'KIT-MODULES' "$with_prd" "$with_card" >/dev/null && cf "(b) a slot line survived into a minted file"
   grep -F 'PROBE-README' "$with_prd" >/dev/null && cf "(b) a README.md in the fragment directory was minted as a fragment"
   [ "$(grep -c -F '**Probe:** none' "$with_prd")" -eq 1 ] || cf "(b) the slot fragment is not in the PRD exactly once"
-  awk '/^##### F1-S1 /{h=NR} h && NR==h+1 && $0!="" {bad=1} /^\*\*Probe:\*\* none$/{p=NR} p && NR==p+1 && $0!="" {bad=1} p && NR==p+2 && $0 !~ /^\*\*Acceptance Criteria\*\*/ {bad=1} END{exit (p && h && p==h+2 && !bad) ? 0 : 1}' "$with_prd" \
-    || cf "(b) the slot fragment is not placed as: story heading, blank line, fragment, blank line, **Acceptance Criteria**"
+  [ "$(grep -c -F '**Probe two:** LINE-TWO' "$with_prd")" -eq 1 ] || cf "(b) the second line of a two-line slot fragment is not in the PRD exactly once (an awk that splits on the newline loses it)"
+  awk '/^##### F1-S1 /{h=NR} h && NR==h+1 && $0!="" {bad=1} /^\*\*Probe:\*\* none$/{p=NR} p && NR==p+1 && $0!="**Probe two:** LINE-TWO" {bad=1} p && NR==p+2 && $0!="" {bad=1} p && NR==p+3 && $0 !~ /^\*\*Acceptance Criteria\*\*/ {bad=1} END{exit (p && h && p==h+2 && !bad) ? 0 : 1}' "$with_prd" \
+    || cf "(b) the slot fragment is not placed as: story heading, blank line, its two lines, blank line, **Acceptance Criteria**"
   awk '$0=="---"{n++; next} n==1 && /^aaa_flag: first$/{a=NR} n==1 && /^probe_flag: yes$/{b=NR} END{exit (a && b && a<b && n>=2) ? 0 : 1}' "$with_prd" \
     || cf "(b) the PRD's frontmatter fragments are not both inside the frontmatter in file-name order"
   [ "$(tail -1 "$with_prd")" = "PROBE-BODY-END" ] || cf "(b) the PRD's body-end fragment is not the last text of the file: $(tail -1 "$with_prd")"

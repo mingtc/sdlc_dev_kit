@@ -117,7 +117,7 @@ kit_fill_card() {
 # The work file is rewritten through <card-file>.fill, which that trap names.
 kit_card_fragments() {
   local card="$1" tpl="$2" dir="$3/$2" f base name mode slot text nl=$'\n'
-  local fm="" be="" out="$1.fill" rs=$'\036' us=$'\037' slot_texts=""
+  local fm="" be="" out="$1.fill" rs=$'\036' us=$'\037' gs=$'\035' slot_texts=""
   if [ -d "$dir" ]; then
     for f in "$dir"/*; do
       [ -f "$f" ] || continue
@@ -157,13 +157,14 @@ kit_card_fragments() {
               "Error: process/fragments.d/${f#"$3"/} fills the '${slot}' slot, and this ${tpl} template has no <!-- KIT-MODULES:${slot} --> line." \
               "Next: restore that line in the ${tpl} template (the release ships it; take it from there), or remove the fragment; the mint made nothing."
           fi
-          slot_texts="${slot_texts}${slot_texts:+$rs}${slot}${us}${text}"
+          slot_texts="${slot_texts}${slot_texts:+$rs}${slot}${us}${text//$nl/$gs}"
           ;;
       esac
     done
   fi
   # The three placements and the strip, in one pass over the card. The texts travel through ENVIRON,
-  # since awk -v expands escapes; the slots arrive as <slot> US <text>, separated by RS.
+  # since awk -v expands escapes; the slots arrive as <slot> US <text>, separated by RS, a text's newlines
+  # carried as GS (macOS awk splits on a newline when asked to split on another separator).
   KIT_FRAG_SLOTS="$slot_texts" KIT_FRAG_FM="$fm" KIT_FRAG_BE="$be" awk '
     function lines(t, arr,   n) { n = split(t, arr, "\n"); return n }
     function trim_end(arr, n) { while (n > 0 && arr[n] == "") n--; return n }
@@ -172,7 +173,7 @@ kit_card_fragments() {
       nfm = lines(ENVIRON["KIT_FRAG_FM"], FM); nfm = (ENVIRON["KIT_FRAG_FM"] == "") ? 0 : nfm
       nbe = lines(ENVIRON["KIT_FRAG_BE"], BE); nbe = (ENVIRON["KIT_FRAG_BE"] == "") ? 0 : trim_end(BE, nbe)
       nsl = split(ENVIRON["KIT_FRAG_SLOTS"], SL, "\036")
-      for (k = 1; k <= nsl; k++) { p = index(SL[k], "\037"); sn = substr(SL[k], 1, p - 1); st = substr(SL[k], p + 1); ST[sn] = (sn in ST) ? ST[sn] "\n" st : st }
+      for (k = 1; k <= nsl; k++) { p = index(SL[k], "\037"); sn = substr(SL[k], 1, p - 1); st = substr(SL[k], p + 1); gsub("\035", "\n", st); ST[sn] = (sn in ST) ? ST[sn] "\n" st : st }
       for (i = 1; i <= NR; i++) if (L[i] == "---") { if (++nd == 2) { close_ = i; break } }
       act = 0
       for (i = NR; i >= 1; i--) if (L[i] ~ /^## Activity[ \t]*$/) { act = i; break }
