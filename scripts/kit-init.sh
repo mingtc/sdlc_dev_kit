@@ -923,7 +923,7 @@ else
 fi
 
 # --- the role set: every ENFORCING script seam at once ---------------------
-# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set (this script
+# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's _kit_role_base (this script
 # does not source lib/role-set.sh; the self-test holds the sites identical). FALLBACK POLICY
 # HERE: fatal — an initializer that cannot read the set it is about to rewrite must not guess.
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"

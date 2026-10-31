@@ -13,13 +13,13 @@ loads until it does.
 
 ## The catalogue
 
-What the kit ships, enabled or not; nothing here is read by a harness. The words in a row are the manifest's, and
+What the kit ships, enabled or not; nothing here is read by a harness. The words in a row are the manifest's (its `purpose`, and the ids of its requirements or `declares nothing`), and
 `./scripts/module.sh list` prints them from the manifests. A project that deleted a module's directory may keep its row.
 
 | Module | What it enables | What it needs |
 |---|---|---|
 | `example` | A toy module to read and copy; enable it to see what a module does, then disable it. | git (required), awk (optional), example-account (agent check) |
-| `design` | Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true. | Nothing beyond the kit. |
+| `design` | Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true. | declares nothing |
 
 **Asked for something a disabled module provides, an agent says which module does it, what it needs, and offers to
 enable it. It never enables one on its own:** enabling is the person's yes, recorded as a register entry the way the

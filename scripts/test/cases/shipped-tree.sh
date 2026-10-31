@@ -3912,8 +3912,8 @@ EOF_MAN
 # =============================================================================
 # THE DESIGN-PASS DIRECTORY IS dev/design-passes/, AND dev/README.md INDEXES IT
 # =============================================================================
-# The name `dev/design/` is kept for a design module's canvas files, so the dated passes live
-# beside it under another name. Hard-coded expectations: the answer is not derived from the tree.
+# The dated passes live in `dev/design-passes/` and `dev/design/` no longer exists. Hard-coded
+# expectations: the answer is not derived from the tree.
 case_the_design_pass_directory_is_design_passes_and_indexed() {
   cf_reset
   local L="the shipped tree has dev/design-passes/ and no dev/design/, and dev/README.md indexes design-passes/ and no design/"

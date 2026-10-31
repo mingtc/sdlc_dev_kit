@@ -97,7 +97,8 @@ one row per role, each linking its doc and naming what it owns — in the **adap
 adapter's table is the source of truth for which hats exist. This kit ships the role docs under
 `.claude/roles/` plus an archive of parked ones; `ls .claude/roles/` is the list;
 adding, parking or renaming a hat is a project decision, made in the adapter and in
-`.claude/roles/`.
+`.claude/roles/`; a role added after day one is also a line in `process/ROLES`
+([`EXTRACTION.md`](EXTRACTION.md) § 2.4).
 
 **Session topology — who owns a session, and how many hats it wears.** A **session belongs to
 whoever holds the seat**: one actor, one working context, one hat at a time. **Each dispatched
@@ -701,7 +702,8 @@ a co-author line naming a tool or a *generated with* line** (wired via `git conf
 core.hooksPath scripts/githooks` — `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone (contracts/initializer.md § 2);
 [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) carries the rule and its
 reason). The **set of legal prefixes is the project's** —
-it is declared in one table in the adapter and enforced from the hook, and the two must agree.
+it is declared in the adapter's table (a role added after day one is a line in `process/ROLES`,
+[`EXTRACTION.md`](EXTRACTION.md) § 2.4) and enforced from the hook, and the two must agree.
 
 Two attribution rules are the kit's:
 
@@ -920,9 +922,9 @@ dispatched one leg per surface. The reasoning, and the rules behind these two st
 |---|---|
 | Issue / spec prefix, id validation | `scripts/config.sh` |
 | Trunk name | resolved and confirmed from the remote's published default branch |
-| Status folder set | the `progress/` directory + the kanban scripts |
+| Status folder set | `KIT_STATUS_FOLDERS` in `scripts/lib/status-folders.sh` (the kanban scripts read it) |
 | The gate commands | the project doc + `scripts/verify.sh` |
-| The role set + the commit-prefix table | the adapter + `.claude/roles/` |
+| The role set + the commit-prefix table | the adapter + `.claude/roles/`; a role added after day one, `process/ROLES` ([`EXTRACTION.md`](EXTRACTION.md) § 2.4) |
 | Which paths count as **code** | the adapter (§ The code-vs-metadata rule) |
 | House rules, credentials, capability/documentation duties | the adapter — **project law, and none of this file's business** |
 | Where kit feedback is sent, and how kit updates reach the project | `PROJECT.md` § The kit, upstream |

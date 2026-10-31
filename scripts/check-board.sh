@@ -531,7 +531,7 @@ fi
 #     and its narrowness. The prefixes and the subjects are read from the same source.
 # ---------------------------------------------------------------------------
 echo
-# The canonical read, byte-identical to scripts/lib/role-set.sh's kit_role_set (the self-test
+# The canonical read, byte-identical to scripts/lib/role-set.sh's _kit_role_base (the self-test
 # holds every site identical). FALLBACK POLICY HERE: a hardcoded set, ANNOUNCED in the output.
 ROLE_PREFIXES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$CB_TREE/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
 # The literal below is the fallback and the half that drifts: correct it, never replace the

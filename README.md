@@ -259,7 +259,7 @@ without one.
   [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff, the standing queue and a LIVING
   standing handoff (see [`dev/README.md`](dev/README.md)).
   It also holds the directories the process writes into by name — `specs/`, `plans/`, `refactor/`,
-  `design/`, `launch/` — so a role doc's stated output path lands somewhere that exists.
+  `design-passes/`, `launch/` — so a role doc's stated output path lands somewhere that exists.
 - [`docs/`](docs/) — reference material **this project did not write**: a vendor's API guide, a spec
   somebody else owns, an artifact produced to leave the project. Not the working records of building
   — those are `dev/`'s, and [`docs/README.md`](docs/README.md) states the test that tells them apart.

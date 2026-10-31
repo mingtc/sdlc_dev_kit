@@ -1611,7 +1611,7 @@ case_commit_msg() {
   # DERIVE the accepted prefixes from the hook's own ROLE_PREFIXES line — do NOT
   # re-hardcode them, or a set change makes these assertions vacuous.
   local prefixes
-  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's kit_role_set.
+  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's _kit_role_base.
   # FALLBACK POLICY HERE: cf (a case finding). The set is derived to keep the assertions
   # below non-vacuous, so an unreadable hook makes this case meaningless, not skippable.
   prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
