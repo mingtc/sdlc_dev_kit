@@ -43,7 +43,7 @@ _ex_mint() {  # prd|issue -> the minted file's text on stdout; the file is remov
 case_the_example_module_is_read_by_what_it_registers_with_while_enabled_and_by_nothing_after() {
   cf_reset
   local L="while the example module is enabled the commit-msg hook and the board mover accept its role, check-board runs its arm, the QA gate lists its evidence kind and runs its cell check, a new PRD and card carry its fragments and the board mover refuses a card without the sign-off line with a Next: line; before enable and once the module is disabled and its kept role layer deleted none of that is so"
-  if [ ! -f "$REAL_REPO_ROOT/modules/example/module.manifest" ]; then skp_lived "$L" "modules/example/module.manifest is absent from this tree"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/modules/example/module.manifest" ]; then skp_lived "$L" "modules/example/RELEASE-NOTES.md is absent from this tree"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   if [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then skp "$L" ".claude/templates/PRD.template.md absent (copy-list incomplete)"; return; fi
   _md_sandbox

@@ -775,7 +775,7 @@ case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
     dirs="${dirs}$(basename "$(dirname "$m")")
 "
   done
-  if [ -z "$dirs" ]; then skp_lived "$L" "modules/example/module.manifest is absent from this tree, and so is every other module"; return; fi
+  if [ -z "$dirs" ]; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _md_sandbox
   [ -f "$SB_WORK/scripts/module.sh" ] || cf "(prereq) scripts/module.sh is absent from the tree under test"

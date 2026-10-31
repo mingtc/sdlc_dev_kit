@@ -306,7 +306,7 @@ case_every_shipped_module_has_setup_steps_and_a_catalogue_row_that_agrees_with_i
     dirs="${dirs}$(basename "$(dirname "$m")")
 "
   done
-  if [ -z "$dirs" ]; then skp_lived "$L" "modules/example/module.manifest is absent from this tree, and so is every other module"; return; fi
+  if [ -z "$dirs" ]; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
   [ -f "$doc" ] || { cf "(prereq) process/MODULES.md is absent from the tree under test"; finish "$L"; return; }
   while IFS= read -r name; do
     [ -n "$name" ] || continue
