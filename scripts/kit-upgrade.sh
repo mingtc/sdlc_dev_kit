@@ -71,7 +71,8 @@
 # --finish runs each command, in the project's top level, with bash, and refuses while one exits
 # non-zero. The command is read from that staged copy of the NEW kit's notes, never from the
 # checklist's text, which whoever marks the item can edit. An item with no Verify: is declared by
-# whoever marked it: the archived checklist says so, item by item.
+# whoever marked it: the archived checklist says so, item by item. An enabled module's own notes are
+# staged as .kit-upgrade/module-notes/<name>.kit-new and read the same way.
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
 # Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
@@ -109,7 +110,8 @@ UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
 STAGED_NOTES='KIT-RELEASE-NOTES.md.kit-new'
 STAGED_HISTORY='KIT-RELEASE-HISTORY.md.kit-new'
-STAGED_ARRIVED='arrived'   # in the stage: one "A<TAB>path" or "R<TAB>path" row per file this run adds or replaces
+STAGED_MODULE_NOTES='module-notes'   # in the stage: <module>.kit-new, each enabled module's release notes
+STAGED_ARRIVED='arrived'  # in the stage: one "A<TAB>path" or "R<TAB>path" row per file this run adds or replaces
 
 # THE SCAFFOLDING SENTINEL — the exact whole line scripts/check-board.sh arm (g1) matches with
 # `grep -qxF` (process/EXTRACTION.md § The marker and graduation). Declared here rather than read
@@ -348,25 +350,33 @@ notes_items() {
 # ("[<section>] item <n>: <title>"), and VF_ABSENT when the staged notes are missing.
 VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
 vf_run() {
-  local rows="" line sec n row title cmd out rc
+  local rows="" mrows line mn sec n row title cmd out rc lbl
   VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
   if [ -f "$ST/$STAGED_NOTES" ]; then
     if [ -f "$ST/$STAGED_HISTORY" ]; then rows="$(notes_items "$ST/$STAGED_NOTES" "$ST/$STAGED_HISTORY")"
     else rows="$(notes_items "$ST/$STAGED_NOTES")"; fi
   else VF_ABSENT=1; fi
+  # An item of a module's own release notes reads "module <name>, Action required, …"; its rows come from the
+  # module's staged notes through the same reader.
   while IFS= read -r line; do
-    sec="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\1/p')"
-    n="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\2/p')"
+    sec="$(printf '%s' "$line" | sed -n 's/^- \[.\] \(module [^,]*, \)\{0,1\}Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\2/p')"
+    n="$(printf '%s' "$line" | sed -n 's/^- \[.\] \(module [^,]*, \)\{0,1\}Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\3/p')"
     [ -n "$sec" ] && [ -n "$n" ] || continue
-    row="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { print; exit }')"
+    mn="$(printf '%s' "$line" | sed -n 's/^- \[.\] module \([^,]*\), Action required, \[.*$/\1/p')"
+    lbl=""; mrows="$rows"
+    if [ -n "$mn" ]; then
+      lbl="module $mn "; mrows=""
+      [ ! -f "$ST/$STAGED_MODULE_NOTES/$mn.kit-new" ] || mrows="$(notes_items "$ST/$STAGED_MODULE_NOTES/$mn.kit-new")"
+    fi
+    row="$(printf '%s\n' "$mrows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { print; exit }')"
     title="$(printf '%s' "$row" | cut -f3)"; cmd="$(printf '%s' "$row" | cut -f5)"
-    if [ -z "$cmd" ]; then VF_NONE+=("[$sec] item $n: ${title:-<not in the staged notes>}"); continue; fi
+    if [ -z "$cmd" ]; then VF_NONE+=("$lbl[$sec] item $n: ${title:-<not in the staged notes>}"); continue; fi
     out="$(cd "$TGT" && bash -c "$cmd" </dev/null 2>&1)"; rc=$?
-    if [ "$rc" -eq 0 ]; then VF_PASSED+=("[$sec] item $n: $title — Verify: $cmd"); continue; fi
+    if [ "$rc" -eq 0 ]; then VF_PASSED+=("$lbl[$sec] item $n: $title — Verify: $cmd"); continue; fi
     VF_NFAIL=$((VF_NFAIL + 1))
-    VF_FAILED+=("  [$sec] item $n: $title" "    Verify: $cmd" "    exit $rc${out:+: $(printf '%s' "$out" | sed -n 1p)}")
+    VF_FAILED+=("  $lbl[$sec] item $n: $title" "    Verify: $cmd" "    exit $rc${out:+: $(printf '%s' "$out" | sed -n 1p)}")
   done <<VF_EOF
-$(grep '^- \[.\] Action required, \[' "$CL")
+$(grep -E '^- \[.\] (module [^,]+, )?Action required, \[' "$CL")
 VF_EOF
 }
 # vf_record — the archived checklist's closing section: what --finish ran, and what it could not.
@@ -629,6 +639,7 @@ fi
 # Scanned now, and written with the other files below. MOD_NAMES is every module process/MODULES records as
 # enabled; each leaves its findings in $MODTMP/up-<name>/ (lib/modules.sh says what they are).
 MOD_NAMES=""; MOD_LIVE=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
+MOD_NOTES=()   # "<module>|<notes file>" for each live module that declares release notes: staged for --finish's Verify: run
 if mod_lib_need; then
   MOD_NAMES="$(kit_mod_enabled_names)"
   if [ -n "$MOD_NAMES" ] && ! kit_mod_have_sha; then
@@ -659,6 +670,7 @@ MODPEND_EOF
       esac
     done < "$KMU_DIR/act"
     # The module's own Action required entries between the version recorded here and the one the kit holds.
+    [ -z "$KMU_NOTES" ] || MOD_NOTES+=("$mn|$KMU_NOTES")
     if [ -n "$KMU_NOTES" ] && ver_ok "$KMU_OLD_VERSION" && ver_ok "$KMU_VERSION"; then
       while IFS="$(printf '\t')" read -r sec n t _ _; do
         [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
@@ -759,6 +771,10 @@ cp "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE
 if [ -f "$SRC/process/KIT-RELEASE-HISTORY.md" ]; then
   cp "$SRC/process/KIT-RELEASE-HISTORY.md" "$ST/$STAGED_HISTORY" || fail_write "$STAGE_DIR/$STAGED_HISTORY"
 fi
+# Each live module's release notes, staged beside the core's: --finish reads their Verify: commands from these copies.
+for l in ${MOD_NOTES[@]+"${MOD_NOTES[@]}"}; do
+  put "$SRC/modules/${l%%|*}/${l#*|}" "$ST/$STAGED_MODULE_NOTES/${l%%|*}.kit-new" || fail_write "$STAGE_DIR/$STAGED_MODULE_NOTES/${l%%|*}.kit-new"
+done
 # The new kit's own scripts/lib/, staged so the landing checks are read from it at --finish too.
 for p in "$SRC/scripts/lib/"*.sh; do
   [ -f "$p" ] || continue

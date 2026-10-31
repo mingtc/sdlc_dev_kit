@@ -786,6 +786,74 @@ case_kit_upgrade_refuses_before_it_writes_when_an_enabled_module_cannot_be_judge
 }
 
 # =============================================================================
+# CASE — --finish RUNS THE Verify: LINES OF AN ENABLED MODULE'S OWN RELEASE NOTES, AND REFUSES ON A FAILING ONE.
+#   The module's notes are read by the same reader as the kit's (notes_items), from a copy staged at the first run.
+#   A module that is shipped and not enabled has no item on the checklist and contributes none.
+#   Known answers: one passing and one failing line refuse by name and change nothing; once the failing line's
+#   action is done, --finish stamps and the archive says the passing line was verified.
+# =============================================================================
+case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
+  cf_reset
+  local L="kit-upgrade.sh --finish runs the Verify: line of each Action required item from an enabled module's own release notes: a failing one is refused as upgrade-verify-failed naming the module and the item and stamps nothing, a passing one is recorded as verified, and a shipped module that is not enabled adds no line"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local cl rc out arch
+  _mu_pair
+  _mu_new_version
+  cat > "$MU_NEW/modules/example/RELEASE-NOTES.md" <<MU_VF_EOF
+# The example module — release notes
+
+## [$MU_NEWVER] — 2026-01-02
+
+### Action required
+
+- **Passing item.** Nothing to do.
+  Verify: true
+
+- **Failing item.** Create the marker file module-verify-marker at the project's top level.
+  Verify: [ -f module-verify-marker ]
+
+## [$MU_OLDVER] — 2026-01-01
+
+### Added
+
+- **The toy module.**
+MU_VF_EOF
+  # a module the project did not enable, whose notes would fail if they were read
+  _mu_second_module "$MU_NEW" 0.5.0
+  printf '# second — release notes\n\n## [0.5.0]\n\n### Action required\n\n- **Unread item.**\n  Verify: false\n' > "$MU_NEW/modules/second/RELEASE-NOTES.md"
+  _mu_manifest "$MU_NEW"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || { cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
+  cl="$SB_WORK/process/UPGRADE-CHECKLIST.md"
+  [ "$(grep -c 'Action required, \[' "$cl")" = 2 ] || cf "(a) the checklist should carry the module's two Action required items and no more: $(grep -F 'Action required' "$cl" | cut -c1-100 | tr '\n' '|')"
+  sed -i.bak 's/^- \[ \] /- [x] /' "$cl"; rm -f "$cl.bak"
+  _mu_land "the upgrade, marked"
+
+  # (b) the failing line refuses, by module and item, and stamps nothing.
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b) --finish exited $rc, want the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  grep -h 'refusal=upgrade-verify-failed' "$SB_TMP"/rec-fin/*.tsv >/dev/null 2>&1 || cf "(b) no refusal=upgrade-verify-failed record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'module example' | grep -F 'Failing item' >/dev/null || cf "(b) the refusal does not name the module and the failing item: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Passing item' >/dev/null && cf "(b) the refusal lists the passing item as failed"
+  [ "$(cat "$SB_WORK/process/KIT-VERSION")" = 0.1.0 ] || cf "(b) process/KIT-VERSION was stamped though a Verify: line failed"
+  [ -f "$cl" ] || cf "(b) the checklist was removed by a refused --finish"
+
+  # (c) the action done, --finish stamps and the archive records the passing line.
+  : > "$SB_WORK/module-verify-marker"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin2" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) --finish exited $rc once the marker existed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(cat "$SB_WORK/process/KIT-VERSION")" = 0.2.0 ] || cf "(c) --finish did not stamp process/KIT-VERSION: $(cat "$SB_WORK/process/KIT-VERSION")"
+  arch="$(ls "$SB_WORK"/process/upgrades/*-to-0.2.0.md 2>/dev/null | head -1)"
+  { [ -n "$arch" ] && grep -F 'verified, exit 0:' "$arch" | grep -F 'module example' | grep -F 'Passing item' >/dev/null; } \
+    || cf "(c) the archive does not record the module's passing line as verified"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — kit-upgrade NAMES WHAT IT CANNOT CARRY FOR AN ENABLED MODULE, AND CARRIES THE REST.
 #   Each row is a checklist item, not a refusal: the files that can be written are written.
 #     (a) an enable that never finished           (b) a module the new kit no longer ships

@@ -186,6 +186,10 @@ is `notes_items` in `scripts/kit-upgrade.sh`.
   is not upgraded to. A failing command is `upgrade-verify-failed`, naming the item, the command and its
   exit status; there is no override, because a command that fails where the entry does not apply is a
   defect in the entry.
+- **An enabled module's notes:** an Action required entry of a module's own release notes (`module <name>, Action
+  required, …` on the checklist) is read by the same reader, from a copy of those notes staged beside the kit's
+  (`.kit-upgrade/module-notes/<name>.kit-new`), and its `Verify:` command is run and refused on in the same way. A module
+  that is shipped and not enabled has no item, so contributes none.
 - **No `Verify:` line:** the item is whatever its marker says. The archived checklist's last section
   lists it as declared and unverified; every item that is not an Action required entry is declared the
   same way.

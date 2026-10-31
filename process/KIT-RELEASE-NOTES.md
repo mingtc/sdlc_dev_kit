@@ -356,6 +356,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **`kit-upgrade.sh --finish` now runs the `Verify:` line of an enabled module's own release notes.** A module's Action required entry that carries one is checked like the kit's own: a non-zero exit refuses `--finish` as `upgrade-verify-failed`, naming the module and the item. The module's notes are staged at `.kit-upgrade/module-notes/<name>.kit-new` by the first run. A module you have not enabled adds nothing; an entry without a `Verify:` line is still declared by whoever marks it.
 - **An upgrade killed part-way and run again now lists every file it replaced or added in the "stamp what arrived" item.** `kit-upgrade.sh` writes `.kit-upgrade/arrived` before it writes the first file (committed with the rest of `.kit-upgrade/`, removed by `--finish`); a re-run used to count only the files the killed run had not reached, so the item undercounted or went missing.
 - **`kit-init.sh --help` now says a role can also be added after init**, by a line in `process/ROLES` or a file under `process/roles.d/`. Help text only; nothing to do.
 - **A merge item for `scripts/githooks/commit-msg` now says what to keep.** Like `scripts/config.sh` and `scripts/verify.sh`, a stamped hook holds your own values: merge the new copy into it, keep your `ROLE_PREFIXES` line, and take the role-set block.

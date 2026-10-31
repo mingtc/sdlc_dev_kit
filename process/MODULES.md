@@ -176,7 +176,6 @@ is the template; `modules/example/` is the module to copy.
 - A manifest key a newer kit adds is refused by an older kit's `module.sh`.
 - Placed files are tracked in `process/MODULES`, not in `process/KIT-MANIFEST`: tools that ask which scripts the
   kit ships do not see a script a module placed.
-- A `Verify:` line in a module's release notes is not run at `--finish`; its item is declared by whoever marks it.
 - An evidence kind a module adds is pointer-only.
 - `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
   `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
