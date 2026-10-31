@@ -75,11 +75,11 @@ case_module_enable_refuses_a_missing_required_command_and_warns_of_an_optional_o
   _md_mod disable soft
 
   # (d) a check with a pipe in it holds, and fails, as the shell says
-  _mq_mod piped "requires: pipe | printf abc | grep -q b | install grep | required"
+  _mq_mod piped "requires: pipe | printf abc | grep -F b | install grep | required"
   _md_mod enable piped
   [ "$_md_rc" -eq 0 ] || cf "(d) a check containing ' | ' that holds was refused: $(_mq_flat)"
   _md_mod disable piped
-  _mq_mod pipedno "requires: pipe | printf abc | grep -q z | install grep | required"
+  _mq_mod pipedno "requires: pipe | printf abc | grep -F z | install grep | required"
   _md_mod enable pipedno
   [ "$_md_rc" -eq 1 ] || cf "(d) a check containing ' | ' that fails enabled, exit $_md_rc: $(_mq_flat)"
 
