@@ -105,6 +105,7 @@ case "$CMD" in
   status)
     if [ -n "$NAME" ]; then kit_mod_status "$NAME"
     else
+      _kit_mod_clean_strays "$KIT_MOD_STATE_REL"
       names="$(kit_mod_enabled_names)"
       if [ -z "$names" ]; then echo "module: none enabled (no process/MODULES, or it records none). ./scripts/module.sh list names what could be."
       else printf '%s\n' "$names" | while read -r n; do kit_mod_status "$n"; done; fi

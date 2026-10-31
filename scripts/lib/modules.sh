@@ -1014,6 +1014,7 @@ kit_mod_disable() {
   local name="$1" rows="$KIT_MOD_TMP/rows" keptf="$KIT_MOD_TMP/kept-rows" ver kind sha tgt slot dst bid removed=0 gone=0 was=module blockers tag t
   KIT_MOD_TOUCHED=""; KIT_MOD_KEPT=""; KIT_MOD_ROLES_KEPT=""
   _kit_mod_need_name "$name"
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # a run killed between the record's copy and its move leaves the copy, with no row naming it
   if ! kit_mod_is_enabled "$name" && ! kit_mod_is_pending "$name"; then
     echo "module: $name is not enabled; nothing to do."
     return 0
@@ -1035,7 +1036,7 @@ kit_mod_disable() {
     dst="$KIT_MOD_ROOT/$tgt"
     _kit_mod_clean_strays "$tgt"
     if [ "$kind" = file ]; then
-      if [ ! -e "$dst" ]; then gone=$((gone + 1)); continue; fi
+      if [ ! -e "$dst" ]; then gone=$((gone + 1)); _kit_mod_prune "$tgt"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_sha "$dst")" "$sha"; then
         sha="$(_kit_mod_sha "$dst")"
         # A role layer that history uses stays: [e] would flag every commit under the role without it.
@@ -1132,6 +1133,7 @@ _kit_mod_status_rows() {
 kit_mod_status() {
   local name="$1" kv
   _kit_mod_need_name "$name"
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"
   if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then
     echo "module: $name is NOT enabled: an enable of it did not finish. Each recorded thing and its state:"
     kit_mod_pending_rows "$name" > "$KIT_MOD_TMP/status-rows"
