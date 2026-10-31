@@ -1137,7 +1137,7 @@ _kit_mod_status_rows() {
 # kit_mod_stray_note — status changes no byte, so the record's side file that a killed run left is named, not removed.
 kit_mod_stray_note() {
   if [ -e "${KIT_MOD_ROOT:?}/$KIT_MOD_STATE_REL.kit-mod-new" ]; then
-    echo "note: $KIT_MOD_STATE_REL.kit-mod-new is the leftover of a killed run. Running ./scripts/module.sh enable with any module name removes it, or delete the file; do not disable a working module for this."
+    echo "note: $KIT_MOD_STATE_REL.kit-mod-new is the leftover of a killed run. Delete the file; ./scripts/module.sh enable <name> also removes it, but places that module if it is not enabled. Do not disable a working module for this."
   fi
   return 0
 }

@@ -50,7 +50,7 @@ what "enabled" and "disabled" must mean.
   and moved in. Running enable again finishes it, trusting only the paths that record names and only while
   they hold the planned bytes or the bytes the record names (so a module source that changed in between is
   placed afresh); disable takes back what the record names. A file the project changed in between is refused
-  by name and kept, never adopted. The next enable or disable removes the record's side file a killed run left, whichever module it names, and the side files beside the paths of the module it names; status names only the record's side file and changes no byte. A kill leaves no empty file the run created.
+  by name and kept, never adopted. The next enable or disable, whichever module it names, removes the record's side file a killed run left, before any refusal; the side files beside a module's paths go only when an enable or disable reaches those paths, so a refused run, or an enable of a module already enabled, leaves them. Status names only the record's side file and changes no byte. A kill leaves no empty file the run created.
   *Why:* a kill leaves no cleanup to run, so the proof of ownership has to be on disk before the first write.
 - **Disable asks before it removes.** A shared file it must rewrite and cannot (no final newline) is found
   first and named, and nothing has been removed when it refuses.
