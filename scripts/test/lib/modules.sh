@@ -18,8 +18,9 @@ _md_snap() {
 }
 
 # _md_sandbox — a sandbox holding every module the tree ships, the item templates (a fragment is minted
-# into them) and a PROJECT.md of its own, a gate table and the `gates` slot, published. The PROJECT.md is
-# fabricated, so an adopter's edited one is not the operand. Sets _MD_ID, a card the role checks can move.
+# into them), a PROJECT.md of its own with a gate table and the `gates` slot, and a CORPUS.md with the two corpus slots,
+# published. Both documents are fabricated, so an adopter's edited ones are not the operand. Sets _MD_ID, a card the
+# role checks can move.
 _md_sandbox() {
   make_sandbox
   cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"
@@ -31,6 +32,9 @@ _md_sandbox() {
   # A project that did day one: kit-init's receipt line in config.sh is how enable reads the stamped values.
   printf '\n# Stamped by scripts/kit-init.sh on 2026-01-01 — prefix %s, trunk %s (kit-init.sh --help explains the re-run refusal).\n' "$SB_PREFIX" "$SB_TRUNK" >> "$SB_WORK/scripts/config.sh"
   printf '# PROJECT.md (sandbox)\n\n| Gate | Your command | The contract it implements |\n|---|---|---|\n| g | `x` | y |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$SB_WORK/PROJECT.md"
+  # ...and a CORPUS.md with the two slots a module's corpus rows go above, for the same reason.
+  mkdir -p "$SB_WORK/requirements"
+  printf '# CORPUS.md (sandbox)\n\n| Entry | Kind | Status | Why it is corpus |\n|---|---|---|---|\n| `DECISIONS.md` | `file` | `present` | the rulings |\n\n<!-- KIT-MODULES:corpus-manifest the slot -->\n\n| Path | Bucket |\n|---|---|\n| `requirements/` | `corpus` |\n\n<!-- KIT-MODULES:corpus-buckets the slot -->\n\ntail\n' > "$SB_WORK/requirements/CORPUS.md"
   _MD_ID="$SB_PREFIX-730"
   seed_issue todo "$_MD_ID" modules chore "A card for the module lifecycle case"
   publish_sandbox

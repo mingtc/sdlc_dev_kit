@@ -13,3 +13,4 @@ A new module joins this table, and the catalogue it points at, in the same chang
 | Module | What it is |
 |---|---|
 | [`example`](example/module.manifest) | Described, with what it needs, in [`process/MODULES.md`](../process/MODULES.md) § The catalogue. |
+| [`design`](design/README.md) | Evergreen screen designs beside the PRDs: where they live, how a story and a card cite them, a Designer role, and Claude Design as the working canvas. For a project with a UI. |
