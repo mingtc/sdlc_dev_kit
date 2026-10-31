@@ -151,6 +151,52 @@ case_a_role_added_by_a_layer_file_is_read_by_every_consumer_and_refused_again_wh
 }
 
 # =============================================================================
+# CASE — THE MOVER'S --role CHECK READS THE SET THE COMMIT HOOK WILL READ: THE TRUNK'S.
+#   The board commit is made in the shared kanban worktree, a copy of the trunk, and a project's
+#   `core.hooksPath` is the relative `scripts/githooks`, so the hook that judges the commit reads the
+#   role layers from THAT tree. A role line added to process/ROLES in the operator's checkout and not
+#   yet pushed passes a check that reads the checkout and is refused by the hook after the move began.
+#   The sandbox's own hooksPath is absolute (the hook resolves to the checkout), so the case sets the
+#   relative one a project has.
+# =============================================================================
+_rt_rc=0 _rt_out="" _rt_n=0
+_rt_move() {  # <id> <role> -> _rt_rc, _rt_out; the refusal record is in $SB_TMP/rt-rec-N
+  _rt_n=$((_rt_n + 1)); _rt_rc=0
+  _rt_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rt-rec-$_rt_n" ./scripts/move-issue.sh "$1" in_progress --role "$2" --note x 2>&1 )" || _rt_rc=$?
+}
+case_the_movers_role_check_reads_the_trunks_layers_not_the_checkouts() {
+  cf_reset
+  local L="a role declared only in the checkout's process/ROLES is refused by move-issue.sh BEFORE the board is touched, naming the push as the next act, and is accepted once it is on the trunk"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local role="Zebra" id="$SB_PREFIX-713" dirty
+  seed_issue todo "$id" trunkroles chore "A card for the trunk-read role check"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+
+  # (a) declared in the checkout only.
+  mkdir -p "$SB_WORK/process"
+  printf '%s   a seat only this checkout declares\n' "$role" > "$SB_WORK/process/ROLES"
+  _rt_move "$id" "$role"
+  [ "$_rt_rc" -ne 0 ] || cf "(a) the mover accepted --role $role though only the checkout declares it: $_rt_out"
+  grep -q 'refusal=role-not-on-trunk' "$SB_TMP/rt-rec-$_rt_n"/*.tsv 2>/dev/null \
+    || cf "(a) the refusal is not the pre-mutation role-not-on-trunk one (exit $_rt_rc): $(printf '%s' "$_rt_out" | tail -4 | tr '\n' '|')"
+  [[ "$_rt_out" == *"Next:"* ]] || cf "(a) the refusal names no next act: $_rt_out"
+  origin_has_path "progress/in_progress/$id-trunkroles.md" && cf "(a) the card reached in_progress/ on the trunk"
+  dirty="$(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>/dev/null || true)"
+  [ -z "$dirty" ] || cf "(a) the refusal left the kanban worktree dirty: $dirty"
+
+  # (b) landed on the trunk: the same call is accepted.
+  _rl_land "add the $role role"
+  _rt_move "$id" "$role"
+  [ "$_rt_rc" -eq 0 ] || cf "(b) the mover refused --role $role once the trunk declares it (exit $_rt_rc): $_rt_out"
+  origin_has_path "progress/in_progress/$id-trunkroles.md" || cf "(b) the card did not reach in_progress/ on the trunk"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A LAYER FILE WITH CRLF LINE ENDINGS IS READ.
 #   A checkout with core.autocrlf writes them. A `\r` kept inside the tag makes the role silently
 #   unreadable, with nothing to name the cause.
