@@ -2626,6 +2626,26 @@ case_creation_link_options_are_shape_checked() {
 }
 
 # =============================================================================
+# CASE — kit-init.sh --help's --roles entry names BOTH routes to a role: the flag, and a line in
+# process/ROLES or a file under process/roles.d/ after init. A reader of --help otherwise learns one.
+# The expectation is typed here, not derived from the help it judges.
+# =============================================================================
+case_kit_init_roles_help_names_the_layer_files_as_the_other_route() {
+  cf_reset
+  local L="kit-init.sh --help's --roles entry names process/ROLES and process/roles.d/ as the way to add a role after init"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  make_sandbox
+  local out entry
+  out="$( cd "$SB_WORK" && ./scripts/kit-init.sh --help 2>&1 )" || true
+  entry="$(printf '%s\n' "$out" | awk '/^ *--roles /{f=1; print; next} f && /^ *--[a-z]/{exit} f{print}')"
+  [ -n "$entry" ] || _fixture_die "case_kit_init_roles_help_names_the_layer_files_as_the_other_route: the --roles entry was not found in --help"
+  printf '%s\n' "$entry" | grep -F 'process/ROLES' >/dev/null || cf "the --roles entry does not name process/ROLES: $(printf '%s' "$entry" | tr '\n' '|')"
+  printf '%s\n' "$entry" | grep -F 'process/roles.d/' >/dev/null || cf "the --roles entry does not name process/roles.d/: $(printf '%s' "$entry" | tr '\n' '|')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — the Next: lines and help texts name commands that run as printed, and what they check.
 #   (a) verify.sh's empty-table refusal prints a kit-init.sh line with --prefix and --trunk, which
 #       kit-init.sh requires; finish-pr.sh prints the same line where no gate runner exists;

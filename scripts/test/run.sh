@@ -683,6 +683,7 @@ CASES=(
   case_subtask_parent_is_an_open_issue
   case_creation_scripts_substitute_hostile_values
   case_creation_link_options_are_shape_checked
+  case_kit_init_roles_help_names_the_layer_files_as_the_other_route
   case_next_steps_and_help_name_what_runs
   case_first_mile
   case_release_happy

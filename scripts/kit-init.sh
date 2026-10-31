@@ -152,7 +152,9 @@ Options:
                       letter. Stamped into every script seam that ENFORCES it —
                       the seams are DERIVED at run time, not listed here, and the
                       run prints the ones it stamped. process/EXTRACTION.md § 2.4
-                      is where the register lives. Default: left as copied.
+                      is where the register lives. After init a role is also added
+                      by a line in process/ROLES or a file under process/roles.d/
+                      (§ 2.4). Default: left as copied.
   --gate-command <C>  Declare <C> as the gate. If scripts/verify.sh is the shipped
                       frame with an EMPTY GATES table, <C> is written into that
                       table as its first record (name "gate", class core). If no
