@@ -741,9 +741,8 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
   teardown
 }
 
-# _mu_snap_body <project> — _md_snap without the checklist, whose lines for the core's own files a rerun lists from what
-# it replaces itself and so are not the operand of the cases that use this.
-_mu_snap_body() { _md_snap "$1" | grep -v '  \./process/UPGRADE-CHECKLIST\.md$'; }
+# _mu_snap_body <project> — the whole tree, the checklist too: a rerun lists every file the killed run replaced or added.
+_mu_snap_body() { _md_snap "$1"; }
 # _mu_module_items <project> — the checklist's lines about the modules, sorted: what a rerun owes the project whole.
 _mu_module_items() { grep -E 'module (example|second)' "$1/process/UPGRADE-CHECKLIST.md" 2>/dev/null | LC_ALL=C sort; }
 

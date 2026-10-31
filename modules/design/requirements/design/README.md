@@ -14,7 +14,7 @@ every role: Dev and QA compare a build against the PNG committed at the pin, and
 ```
 requirements/design/<canvas>/        one canvas per PRODUCT, or per platform or major area once it outgrows one; never per PRD
   project/                           the canvas's files exactly as taken in: artboards and whatever else the tool holds
-  CANVAS.md                          canvas URL, last pull, pin-ready, breakpoint, the SCREEN REGISTRY, proposed citations
+  CANVAS.md                          canvas URL, last pull, pin-ready, breakpoint, the SCREEN REGISTRY, the brief, proposed citations
   COMMENTS.md                        every review thread, as last pulled
   renders/<Screen>-<state>.png       committed renders (the canvas's PNG exports): the human-readable record
 requirements/design/views/PRD-NNN.md GENERATED, never hand-edited
