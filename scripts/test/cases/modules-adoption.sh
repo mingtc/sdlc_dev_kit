@@ -622,14 +622,16 @@ case_the_upgrades_module_duties_are_listed_once() {
 
 # =============================================================================
 # CASE — A KILLED kit-upgrade IS FINISHED BY RUNNING IT AGAIN, AT EVERY WRITE IT MAKES.
-#   The upgrade runs once under stand-ins for cp, mv, mkdir, rm, mktemp and chmod that SIGKILL it (no trap, no cleanup)
-#   before the Nth write into the project, N = 1, 2, 3 … until a run is not killed: every write the upgrade makes is a
-#   kill point, the core's, the module's, the staging's, the checklist's and the record's. After EACH kill:
+#   The upgrade runs under stand-ins for cp, mv, mkdir, rm, mktemp and chmod that SIGKILL it (no trap, no cleanup)
+#   before the Nth write into the project, for the N that _md_kill_points chooses from an uninterrupted run's writes (all
+#   of them with KIT_TEST_KILL_ALL=1): the core's, the module's, the staging's, the checklist's and the record's. After EACH kill:
 #     - `module.sh disable` keeps none of the module's own files (a record that named a replaced file by its old sha256
 #       would keep it as "edited");
 #     - running the upgrade again reaches the tree an uninterrupted run leaves, byte for byte, with no stray file, and
 #       "nothing was changed" is printed only by a rerun that changed nothing.
 #   A write that FAILS (not a kill) is refused as upgrade-write-failed, saying what was written and how to finish.
+#   Kill points: the boundaries, the writes around every one to a shared file, the record or the checklist, and one in
+#   eight (_md_kill_points); the second-kill pass uses nine of the first forty. KIT_TEST_KILL_ALL=1 runs every write.
 # =============================================================================
 case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
   cf_reset
@@ -641,19 +643,24 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
   _mu_project_edits; _mu_land "the project's edits to the module"
   _mu_new_version
   _md_make_count_shim
-  local clean="$SB_TMP/clean" run="$SB_TMP/run" run2="$SB_TMP/run2" n=1 total=0 rootp out f pre kept strays nf="" n2 n1 G
+  local clean="$SB_TMP/clean" run="$SB_TMP/run" run2="$SB_TMP/run2" n total=0 rootp out f pre kept strays nf="" n2 n1 G pts n2s
   cp -R "$SB_WORK" "$clean"
   _mu_up "$clean"
   [ "$_mu_rc" -eq 0 ] || { cf "(control) the uninterrupted upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
   _md_snap "$clean" > "$SB_TMP/clean.snap"
   [ -s "$SB_TMP/clean.snap" ] || _fixture_die "${FUNCNAME[0]}: the snapshot of the uninterrupted run is empty."
 
-  while [ "$n" -le 600 ]; do
+  # the writes of an uninterrupted run, counted and traced, are the kill points to choose from
+  rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"; rm -f "$SB_TMP/trace"
+  _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH=999999999 KILL_COUNT="$SB_TMP/count" KILL_TRACE="$SB_TMP/trace"
+  [ "$_mu_rc" -eq 0 ] || { cf "(control) the counted upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
+  total="$(cat "$SB_TMP/count")"
+  pts="$(_md_kill_points "$SB_TMP/trace" "$rootp" 'PROJECT\.md|\.gitignore|process/MODULES|UPGRADE-CHECKLIST|module-records|KIT-VERSION')"
+  for n in $pts; do
     rm -rf "$run"; cp -R "$SB_WORK" "$run"
     rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
     _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
-    if [ "$_mu_rc" -eq 0 ]; then total=$((n - 1)); break; fi
-    if [ "$_mu_rc" -ne 137 ]; then cf "(write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; n=$((n + 1)); continue; fi
+    if [ "$_mu_rc" -ne 137 ]; then cf "(write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; continue; fi
     # (1) disable, straight after the kill
     rm -rf "$run2"; cp -R "$run" "$run2"
     kept="$( cd "$run2" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/module.sh disable example 2>&1 </dev/null )"
@@ -665,7 +672,7 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
     # (2) the rerun
     _md_snap "$run" > "$SB_TMP/pre.snap"
     _mu_up "$run"
-    if [ "$_mu_rc" -ne 0 ]; then cf "(write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; n=$((n + 1)); continue; fi
+    if [ "$_mu_rc" -ne 0 ]; then cf "(write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; continue; fi
     if printf '%s\n' "$_mu_out" | grep -i 'nothing was changed' >/dev/null; then
       _md_snap "$run" > "$SB_TMP/post.snap"
       cmp -s "$SB_TMP/pre.snap" "$SB_TMP/post.snap" || cf "(write $n) the rerun printed 'nothing was changed' and changed the tree"
@@ -674,10 +681,9 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
     cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" || cf "(write $n) the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
     strays="$(_md_strays "$run"; find "$run/process" -name 'MODULES.*' -o -name 'UPGRADE-CHECKLIST.md.*' 2>/dev/null)"
     [ -z "$strays" ] || cf "(write $n) a temporary file survived the rerun: $(printf '%s' "$strays" | tr '\n' ' ')"
-    n=$((n + 1))
   done
   [ "$total" -ge 10 ] || cf "(control) the kill stand-ins counted only $total write(s) in the upgrade, so the enumeration did not reach them"
-  echo "      (the upgrade makes $total write(s) into the project; each was a kill point)"
+  echo "      (the upgrade makes $total write(s) into the project; $(printf '%s\n' "$pts" | wc -l | tr -d ' ') of them were kill points)"
 
   # (3) --finish finishes a record the checklist outlived: kill at the first write after the checklist, mark, commit, finish
   G=(git -c user.email=s@k.invalid -c user.name=s -c commit.gpgsign=false -c core.hooksPath=/dev/null)
@@ -695,26 +701,23 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
   # (4) a rerun that is itself killed, at each of its first 40 writes in turn (the clean-up, the record and the module's files), is finished by a third run: the ahead rows are kept whole
   n1=""
   # the first kill point after the newly placed file is on disk and before the module's block is replaced
-  n=1
-  while [ "$n" -le "$total" ]; do
+  for n in $pts; do
     rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
     _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
     if [ -f "$run/.claude/skills/example-skill/NOTES.md" ] && ! grep -F 'a revised toy' "$run/PROJECT.md" >/dev/null && [ ! -f "$run/process/UPGRADE-CHECKLIST.md" ]; then n1="$n"; break; fi
-    n=$((n + 1))
   done
   if [ -z "$n1" ]; then cf "(control) no kill point fell after the newly placed file and before the checklist"; else
-    n2=1
-    while [ "$n2" -le 40 ]; do
+    n2s="1 2 3 5 8 13 21 34 40"; [ -z "${KIT_TEST_KILL_ALL:-}" ] || n2s="$(seq 1 40)"
+    for n2 in $n2s; do
       rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
       _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n1" KILL_COUNT="$SB_TMP/count"
       echo 0 > "$SB_TMP/count"
       _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n2" KILL_COUNT="$SB_TMP/count"
       [ "$_mu_rc" -ne 0 ] || break
       _mu_up "$run"
-      if [ "$_mu_rc" -ne 0 ]; then cf "(second kill $n1/$n2) the third run exited $_mu_rc: $(_mu_flat)"; n2=$((n2 + 1)); continue; fi
+      if [ "$_mu_rc" -ne 0 ]; then cf "(second kill $n1/$n2) the third run exited $_mu_rc: $(_mu_flat)"; continue; fi
       _md_snap "$run" > "$SB_TMP/run.snap"
       cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" || cf "(second kill $n1/$n2) the third run did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
-      n2=$((n2 + 1))
     done
   fi
 
@@ -755,6 +758,9 @@ _mu_module_items() { grep -E 'module (example|second)' "$1/process/UPGRADE-CHECK
 #   changed by the kill, the same state with a line of the project's own added outside any block, and with a block edited
 #   by hand, must still be refused as upgrade-target-dirty, and the refusal's own route (stash only the path it names)
 #   must lead to the tree an uninterrupted run leaves.
+#   Kill points: the boundaries, the writes around every one to a shared file, the record or the checklist, and one in
+#   eight (_md_kill_points), for the first order only, the project's-edit rows at every third of them; KIT_TEST_KILL_ALL=1
+#   runs every write and every row, in all three orders.
 # =============================================================================
 case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_running_it_again() {
   cf_reset
@@ -762,9 +768,10 @@ case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_runni
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _mu_subject_ok || { finish "$L"; return; }
-  local order clean run run3 n total rootp dirtied edited G
+  local order clean run run3 n total rootp dirtied edited G pts orders=("example second")
+  [ -z "${KIT_TEST_KILL_ALL:-}" ] || orders=("example second" "second example" "second")
   G=(git -c user.email=s@k.invalid -c user.name=s -c commit.gpgsign=false -c core.hooksPath=/dev/null)
-  for order in "example second" "second example" "second"; do
+  for order in "${orders[@]}"; do
     MU_ENABLE="$order" _mu_pair _mu_shared_hosts_pre
     clean="$SB_TMP/clean"; run="$SB_TMP/run"; run3="$SB_TMP/run3"
     _mu_new_version
@@ -776,17 +783,24 @@ case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_runni
     grep -F 'revised toy' "$clean/PROJECT.md" >/dev/null || [ "$order" = second ] || cf "($order, control) the uninterrupted upgrade did not rewrite the example module's block"
     grep -F 'second gate 0.6.0' "$clean/PROJECT.md" >/dev/null || cf "($order, control) the uninterrupted upgrade did not rewrite the second module's block"
     _mu_snap_body "$clean" > "$SB_TMP/clean.snap"; _mu_module_items "$clean" > "$SB_TMP/clean.items"
-    n=1; total=0; dirtied=0; edited=0
-    while [ "$n" -le 400 ]; do
+    dirtied=0; edited=0
+    # the writes of an uninterrupted run, counted and traced, are the kill points to choose from
+    rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"; rm -f "$SB_TMP/trace"
+    _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH=999999999 KILL_COUNT="$SB_TMP/count" KILL_TRACE="$SB_TMP/trace"
+    [ "$_mu_rc" -eq 0 ] || { cf "($order, control) the counted upgrade exited $_mu_rc: $(_mu_flat)"; teardown; continue; }
+    total="$(cat "$SB_TMP/count")"
+    pts="$(_md_kill_points "$SB_TMP/trace" "$rootp" 'PROJECT\.md|\.gitignore|process/MODULES|UPGRADE-CHECKLIST|module-records')"
+    for n in $pts; do
       rm -rf "$run"; cp -R "$SB_WORK" "$run"
       rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
       _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
-      if [ "$_mu_rc" -eq 0 ]; then total=$((n - 1)); break; fi
-      [ "$_mu_rc" -eq 137 ] || { cf "($order, write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; n=$((n + 1)); continue; }
+      [ "$_mu_rc" -eq 137 ] || { cf "($order, write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; continue; }
       # the project's own edit, in a state the kill left PROJECT.md short of what a finished upgrade leaves (a rerun still
       # writes a block there, so an edit of the project's is in its way): refused, whatever the kill had written
       if ! cmp -s "$run/PROJECT.md" "$clean/PROJECT.md"; then
         dirtied=$((dirtied + 1))
+        # the three rows below run at every such point with KIT_TEST_KILL_ALL=1, and at every third without it
+        if [ -z "${KIT_TEST_KILL_ALL:-}" ] && [ $((dirtied % 3)) -ne 1 ]; then :; else
         rm -rf "$run3"; cp -R "$run" "$run3"
         printf 'the project own line\n' >> "$run3/PROJECT.md"
         _mu_up "$run3"
@@ -814,19 +828,19 @@ case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_runni
           _mu_snap_body "$run3" > "$SB_TMP/run.snap"; _mu_module_items "$run3" > "$SB_TMP/run.items"
           { cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" && cmp -s "$SB_TMP/clean.items" "$SB_TMP/run.items"; } || cf "($order, write $n) after the stash the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
         fi
+        fi
       fi
       # the rerun with nothing of the project's in it
       _mu_up "$run"
-      if [ "$_mu_rc" -ne 0 ]; then cf "($order, write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; n=$((n + 1)); continue; fi
+      if [ "$_mu_rc" -ne 0 ]; then cf "($order, write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; continue; fi
       _mu_snap_body "$run" > "$SB_TMP/run.snap"; _mu_module_items "$run" > "$SB_TMP/run.items"
       { cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" && cmp -s "$SB_TMP/clean.items" "$SB_TMP/run.items"; } || cf "($order, write $n) the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
       grep -E '^pending ' "$run/process/MODULES" >/dev/null && cf "($order, write $n) a pending section is left in the record"
-      n=$((n + 1))
     done
     [ "$total" -ge 10 ] || cf "($order, control) the kill stand-ins counted only $total write(s) in the upgrade"
     [ "$dirtied" -ge 3 ] || cf "($order, control) only $dirtied kill point(s) left PROJECT.md changed, so the project's-edit rows were barely exercised"
     [ "$edited" -ge 3 ] || cf "($order, control) only $edited kill point(s) held a written block to edit, so the edited-block row was barely exercised"
-    echo "      ($order: $total write(s), each a kill point; PROJECT.md changed at $dirtied of them)"
+    echo "      ($order: $total write(s), $(printf '%s\n' "$pts" | wc -l | tr -d ' ') of them kill points; PROJECT.md changed at $dirtied of them)"
     teardown
   done
   finish "$L"

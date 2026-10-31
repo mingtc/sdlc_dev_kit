@@ -135,6 +135,8 @@ _md_strays() { find "$1" -path "$1/.git" -prune -o \( -name '*.kit-mod-new' -o -
 # number is $KILL_NTH SIGKILLs the marked process and the processes between it and the call (see _md_make_kill_walk),
 # then itself, before it writes. Run with
 # KILL_NTH = 1, 2, 3 … to stop a program before each write in turn; a run that is not killed made fewer writes than that.
+# A KILL_NTH too large to be reached counts the writes of a run without stopping it, and with $KILL_TRACE naming a file
+# each counted call is appended to it as `<number> TAB <command> TAB <arguments>`.
 _md_make_count_shim() {
   local c real
   mkdir -p "$SB_TMP/cshim"
@@ -155,6 +157,7 @@ for a in "$@"; do
 done
 if [ "$hit" = 1 ] && [ -n "${KILL_NTH:-}" ]; then
   n=$(( $(cat "$KILL_COUNT" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$KILL_COUNT"
+  [ -z "${KILL_TRACE:-}" ] || printf '%s\t%s\t%s\n' "$n" "$me" "$*" >> "$KILL_TRACE"
   if [ "$n" -eq "$KILL_NTH" ]; then
     . "$(dirname "$0")/kill-walk.sh"
     if kill_marked; then kill -9 $$; fi
@@ -167,4 +170,28 @@ CSHIM_EOF
     chmod +x "$SB_TMP/cshim/$c"
   done
   _md_make_kill_walk "$SB_TMP/cshim"
+}
+
+# KIT_TEST_KILL_ALL=1 makes every case that kills a program before each of its writes use every write, and every order of
+# enabling its fixture offers. Without it a case uses _md_kill_points: the writes that mark a boundary (the first and last,
+# each change of the project's top-level path, and the ones on either side of every write to a path the case names), and
+# one in every eight, in the first order alone.
+
+# _md_kill_points <trace file> <root> <regex> — the kill points a case runs, one per line, from the trace a counting run
+# left (see _md_make_count_shim). <root> is the project the counted run wrote in; <regex> names the paths whose writes the
+# case's defects hide behind: a record, a shared file, the checklist. With KIT_TEST_KILL_ALL=1 every write is a point.
+_md_kill_points() {
+  [ -s "$1" ] || return 0
+  if [ -n "${KIT_TEST_KILL_ALL:-}" ]; then awk 'END { for (i = 1; i <= NR; i++) print i }' "$1"; return 0; fi
+  KP_ROOT="$2" KP_RE="$3" awk -F'\t' '
+    BEGIN { root = ENVIRON["KP_ROOT"] "/"; re = ENVIRON["KP_RE"] }
+    { n = $1; last = ""
+      m = split($3, a, " ")
+      for (i = 1; i <= m; i++) if (index(a[i], root) == 1) last = substr(a[i], length(root) + 1)
+      top = last; sub(/\/.*/, "", top)
+      if (n > 1 && top != prev) { keep[n - 1] = 1; keep[n] = 1 }
+      if (last ~ re) { keep[n - 1] = 1; keep[n] = 1; keep[n + 1] = 1 }
+      if (n % 8 == 0) keep[n] = 1
+      prev = top; total = n }
+    END { keep[1] = 1; keep[total] = 1; for (i = 1; i <= total; i++) if (i in keep) print i }' "$1"
 }

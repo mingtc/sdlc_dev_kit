@@ -5,6 +5,9 @@
 #
 # HOW TO RUN
 #   ./scripts/test/run.sh          # run every case; exit 0 iff none FAILed
+#   KIT_TEST_KILL_ALL=1 ./scripts/test/run.sh
+#                                  # the cases that kill a program before each of its writes use every write
+#                                  # and every order of enabling, not the bounded set (lib/modules.sh)
 #
 # It exits 0 when no case FAILs, and NONZERO when any does, printing a summary at the end of four
 # outcomes: PASS, FAIL, SKIP, and N/A-on-lived-tree — a case whose subject (a shipped file) is
