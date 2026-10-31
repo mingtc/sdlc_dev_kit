@@ -50,6 +50,10 @@ trunk, what counts as code here, the role set, which gates bind — is what the 
 to write will supply; the gate commands go in [`PROJECT.md`](PROJECT.md). **True whether you are the
 bootstrap stub or the adapter**, and it needs no configuring either way.
 
+**Optional modules ship off.** [`process/MODULES.md`](process/MODULES.md) § The catalogue lists them and what each needs
+(`./scripts/module.sh list` prints it). When the person asks for something a disabled module provides, say which one, what
+it needs, and offer to enable it; enable one only on their yes.
+
 ## `.claude/` is Claude-specific machinery. Its CONTRACTS are not.
 
 The [`.claude/`](.claude/) directory holds mechanics only the Claude Code harness executes: agent

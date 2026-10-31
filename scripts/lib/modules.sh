@@ -31,6 +31,12 @@
 #
 # PLACEHOLDERS a module's files may carry, replaced as they are placed once kit-init has stamped the
 # project: <PREFIX> the issue prefix, <trunk> the trunk, <project name>. Before the stamp they stay.
+#
+# REQUIREMENTS, from the manifest's `requires:` and `requires-agent:` lines (process/MODULES.md § What a module
+# needs). A `requires:` check is a SHELL COMMAND THE MANIFEST DECLARES, so it is run only as a read-only probe:
+# in the project's top directory, with no input, its output discarded, under `sh -c`, and stopped after
+# KIT_MOD_CHECK_SECONDS (10 when unset). A check that does not finish counts as failing. Enable, the day-one
+# preflight and status run the probes; list never does; NOTHING in the kit runs a module's setup.sh.
 
 # shellcheck source=refuse.sh
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
@@ -261,11 +267,14 @@ _kit_mod_status_folders() {
 # the plan: one tab-separated row per thing enabling places,
 #   file<TAB><target><TAB><rendered copy><TAB>x|-            (a copied file)
 #   block<TAB><target><TAB><rendered copy><TAB><slot>        (a marker block; the `gitignore` slot is the end of .gitignore)
-# the rendered copies living under $KIT_MOD_TMP, and <needs-file> beside it (one line per extension point
-# the module uses, for the reader check). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the
-# module's release-notes file, or nothing). Refuses a manifest that is wrong.
+# the rendered copies living under $KIT_MOD_TMP, <plan>.needs beside it (one line per extension point the
+# module uses, for the reader check) and <plan>.reqs (one tab-separated record per requirement:
+# kind R|A, id, severity required|optional|agent, check or call, how to get it, what is lost or what a pass
+# looks like). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the module's release-notes file, or
+# nothing), and KIT_MOD_SETUP and KIT_MOD_SETUP_SH (the module's SETUP.md and setup.sh, as paths under the kit, or
+# nothing). Refuses a manifest that is wrong.
 kit_mod_plan() {
-  local name="$1" plan="$2" dir man line key val src tgt slot extra n=0 gen mode seen tpl fmode folders
+  local name="$1" plan="$2" dir man line key val src tgt slot extra n=0 gen mode seen tpl fmode folders rec
   _kit_mod_need_name "$name"
   dir="$(_kit_mod_src)/modules/$name"; man="$dir/module.manifest"
   [ -f "$man" ] || kit_refuse 1 module-unknown \
@@ -273,12 +282,12 @@ kit_mod_plan() {
     "Next: ./scripts/module.sh list names the modules this kit ships."
   _kit_mod_stamp
   : > "$plan"
-  KIT_MOD_VERSION=""; KIT_MOD_PURPOSE=""; KIT_MOD_NOTES=""
+  KIT_MOD_VERSION=""; KIT_MOD_PURPOSE=""; KIT_MOD_NOTES=""; KIT_MOD_SETUP=""; KIT_MOD_SETUP_SH=""
   # The rendered copies live in a directory of this module's own, so two plans never share a name.
   local wd="$KIT_MOD_TMP/render-of-$name" mname="" roles_f kinds_f needs
   rm -rf "$wd"; mkdir -p "$wd" || _kit_mod_bad "$name" "could not make a scratch directory under $KIT_MOD_TMP."
   roles_f="$wd/gen-roles"; kinds_f="$wd/gen-kinds"; needs="$plan.needs"
-  : > "$roles_f"; : > "$kinds_f"; : > "$needs"
+  : > "$roles_f"; : > "$kinds_f"; : > "$needs"; : > "$plan.reqs"
   folders="$(_kit_mod_status_folders)"
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
@@ -295,6 +304,11 @@ kit_mod_plan() {
                 _kit_mod_safe_rel "$val" && [ -f "$dir/$val" ] || _kit_mod_bad "$name" "release-notes '$val' is not a file of the module (plain characters, no '..')."
                 ! _kit_mod_armed_component "$val" || _kit_mod_bad "$name" "release-notes '$val' carries a name a harness reads; store it disarmed."
                 KIT_MOD_NOTES="$val" ;;
+      requires|requires-agent)
+                rec="$(_kit_mod_req_parse "$key" "$val")" || _kit_mod_bad "$name" "$key '$val': $rec"
+                awk -F'\t' -v i="$(printf '%s' "$rec" | cut -f2)" '$2 == i { f = 1 } END { exit !f }' "$plan.reqs" \
+                  && _kit_mod_bad "$name" "requires and requires-agent lines may not repeat an id: '$(printf '%s' "$rec" | cut -f2)' is declared twice."
+                printf '%s\n' "$rec" >> "$plan.reqs" ;;
       role)     tgt="${val%%[[:space:]]*}"
                 grep -qE '^[A-Za-z][A-Za-z0-9_-]*$' <<< "$tgt" || _kit_mod_bad "$name" "role '$tgt' is not a role tag (letters, digits, '_' and '-', opening with a letter)."
                 printf '%s\n' "$val" >> "$roles_f"
@@ -375,6 +389,8 @@ BLOCK_EOF
   [ "$mname" = "$name" ] || _kit_mod_bad "$name" "name is '${mname:-<missing>}', and the directory is '$name'."
   [ -n "$KIT_MOD_VERSION" ] || _kit_mod_bad "$name" "no version."
   [ -n "$KIT_MOD_PURPOSE" ] || _kit_mod_bad "$name" "no purpose."
+  [ ! -f "$dir/SETUP.md" ] || KIT_MOD_SETUP="modules/$name/SETUP.md"
+  [ ! -f "$dir/setup.sh" ] || KIT_MOD_SETUP_SH="modules/$name/setup.sh"
   # The generated files: one role layer and one evidence-kind layer, whole files so that removing one
   # is removing a file.
   if [ -s "$roles_f" ]; then
@@ -399,6 +415,154 @@ BLOCK_EOF
     case "$lc" in modules/*|.git|.git/*) _kit_mod_bad "$name" "target '$tgt' is inside modules/ or .git/." ;; esac
   done < "$plan"
   return 0
+}
+
+# ── requirements ──────────────────────────────────────────────────────────────
+
+# _kit_mod_trim — stdin, without leading and trailing white space.
+_kit_mod_trim() { sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
+# _kit_mod_req_parse <key> <value> — the one reader of a requirement line. On success prints the record
+#   R|A <TAB> id <TAB> required|optional|agent <TAB> check-or-call <TAB> how to get it <TAB> lost-or-pass
+# and returns 0; otherwise prints why the line does not read and returns 1.
+#   requires:       <id> | <shell check> | <how to get it> | required
+#   requires:       <id> | <shell check> | <how to get it> | optional: <what is lost>
+#   requires-agent: <id> | <the call> | <what a pass looks like> | <how to get it>
+# The fields are split at ` | ` and read from both ends, so a shell check may itself contain a pipe.
+_kit_mod_req_parse() {
+  local key="$1" val="$2" tab n=0 f id last how check pass i
+  local -a F
+  tab="$(printf '\t')"
+  case "$val" in *"$tab"*) echo "a tab character cannot be in a requirement line."; return 1 ;; esac   # return-class: predicate
+  while IFS= read -r f; do n=$((n + 1)); F[$n]="$(printf '%s' "$f" | _kit_mod_trim)"; done <<REQ_SPLIT_EOF
+$(RV="$val" awk 'BEGIN { c = split(ENVIRON["RV"], a, / \| /); for (i = 1; i <= c; i++) print a[i] }')
+REQ_SPLIT_EOF
+  id="${F[1]}"
+  case "$id" in
+    ''|[!a-z0-9]*|*[!a-z0-9._-]*) echo "'$id' is not a requirement id (lowercase letters, digits, '.', '_' and '-')."; return 1 ;;   # return-class: predicate
+  esac
+  if [ "$key" = requires-agent ]; then
+    [ "$n" -eq 4 ] || { echo "takes '<id> | <the call> | <what a pass looks like> | <how to get it>': four fields split at ' | ', not $n."; return 1; }   # return-class: predicate
+    check="${F[2]}"; pass="${F[3]}"; how="${F[4]}"
+    { [ -n "$check" ] && [ -n "$pass" ] && [ -n "$how" ]; } || { echo "a field is empty."; return 1; }   # return-class: predicate
+    printf 'A\t%s\tagent\t%s\t%s\t%s\n' "$id" "$check" "$how" "$pass"
+    return 0
+  fi
+  [ "$n" -ge 4 ] || { echo "takes '<id> | <shell check> | <how to get it> | required' or '... | optional: <what is lost>': at least four fields split at ' | ', not $n."; return 1; }   # return-class: predicate
+  last="${F[$n]}"; how="${F[$((n - 1))]}"; check=""
+  i=2
+  while [ "$i" -le $((n - 2)) ]; do check="${check:+$check | }${F[$i]}"; i=$((i + 1)); done
+  { [ -n "$check" ] && [ -n "$how" ]; } || { echo "the check or the way to get it is empty."; return 1; }   # return-class: predicate
+  case "$last" in
+    required) printf 'R\t%s\trequired\t%s\t%s\t\n' "$id" "$check" "$how" ;;
+    optional:*)
+      pass="$(printf '%s' "${last#optional:}" | _kit_mod_trim)"
+      [ -n "$pass" ] || { echo "'optional:' must say what is lost without it."; return 1; }   # return-class: predicate
+      printf 'R\t%s\toptional\t%s\t%s\t%s\n' "$id" "$check" "$how" "$pass" ;;
+    *) echo "the last field is '$last', which is neither 'required' nor 'optional: <what is lost>'."; return 1 ;;   # return-class: predicate
+  esac
+  return 0
+}
+
+# _kit_mod_check_seconds — how long a check may run: KIT_MOD_CHECK_SECONDS when it is a positive integer, else 10.
+_kit_mod_check_seconds() {
+  case "${KIT_MOD_CHECK_SECONDS:-}" in ''|*[!0-9]*|0*) echo 10 ;; *) echo "$KIT_MOD_CHECK_SECONDS" ;; esac
+}
+
+# _kit_mod_probe <shell check> — run it as a read-only probe and report: 0 it held, 1 it failed, 2 it did not
+# finish in time and was stopped. No input, output discarded, in the project's top directory, under `sh -c`.
+_kit_mod_probe() {
+  local limit pid ticks n=0 tick=0.1 rc
+  limit="$(_kit_mod_check_seconds)"; ticks=$((limit * 10))
+  sleep 0.1 2>/dev/null || { tick=1; ticks=$limit; }
+  ( cd "$KIT_MOD_ROOT" 2>/dev/null && exec sh -c "$1" ) </dev/null >/dev/null 2>&1 &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$n" -ge "$ticks" ]; then
+      pkill -P "$pid" 2>/dev/null
+      kill "$pid" 2>/dev/null; sleep "$tick"; kill -9 "$pid" 2>/dev/null
+      { wait "$pid"; } 2>/dev/null
+      return 2   # return-class: predicate
+    fi
+    sleep "$tick"; n=$((n + 1))
+  done
+  rc=0; { wait "$pid"; } 2>/dev/null || rc=$?
+  [ "$rc" -eq 0 ] || return 1   # return-class: predicate
+  return 0
+}
+
+# _kit_mod_req_run <reqs-file> <results-file> — run the checks of a plan's requirements. One line per requirement:
+#   holds|fails|timeout|agent <TAB> id <TAB> severity <TAB> check-or-call <TAB> how <TAB> lost-or-pass
+# An agent check is not run: only an agent can make the call.
+_kit_mod_req_run() {
+  local kind id sev check how extra tab st rc
+  tab="$(printf '\t')"
+  : > "$2"
+  while IFS="$tab" read -r kind id sev check how extra; do
+    [ -n "$kind" ] || continue
+    if [ "$kind" = A ]; then st=agent
+    else
+      rc=0; _kit_mod_probe "$check" || rc=$?
+      case "$rc" in 0) st=holds ;; 2) st=timeout ;; *) st=fails ;; esac
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$st" "$id" "$sev" "$check" "$how" "$extra" >> "$2"
+  done < "$1"
+}
+
+# _kit_mod_req_blockers <results-file> — one line for each required requirement that does not hold, or nothing.
+_kit_mod_req_blockers() {
+  local st id sev check how extra tab why
+  tab="$(printf '\t')"
+  while IFS="$tab" read -r st id sev check how extra; do
+    [ "$sev" = required ] || continue
+    case "$st" in
+      fails)   why="its check failed" ;;
+      timeout) why="its check did not finish within $(_kit_mod_check_seconds)s" ;;
+      *)       continue ;;
+    esac
+    echo "  - $id: $how ($why: $check)"
+  done < "$1"
+  return 0
+}
+
+# _kit_mod_req_lines <results-file> <warn|status> — the report on the requirements, one line each. enable prints, with
+# `warn`, the optional ones that do not hold and every agent check; status prints, with `status`, every requirement.
+_kit_mod_req_lines() {
+  local st id sev check how extra tab why
+  tab="$(printf '\t')"
+  while IFS="$tab" read -r st id sev check how extra; do
+    case "$st" in
+      holds)   if [ "$2" = status ]; then echo "  requirement $id: holds"; fi ;;
+      agent)   echo "  agent check $id: $check — a pass looks like: $extra; if it fails: $how (a script cannot make this call; the module's first use does)" ;;
+      fails|timeout)
+        if [ "$st" = timeout ]; then why="its check did not finish within $(_kit_mod_check_seconds)s"; else why="its check failed"; fi
+        if [ "$sev" = required ]; then
+          if [ "$2" = status ]; then echo "  requirement $id: NOT HOLDING (required) — $why; get it: $how"; fi
+        elif [ "$2" = status ]; then echo "  requirement $id: not holding (optional) — $why; loses: $extra; get it: $how"
+        else echo "  warning: optional requirement $id does not hold ($why): loses $extra. Get it: $how"; fi ;;
+    esac
+  done < "$1"
+  return 0
+}
+
+# kit_mod_needs <name> — what the module declares it needs, for the catalogue: `id (required), id (optional), id (agent check)`
+# in manifest order, or `nothing beyond the core`. Reads the manifest's requirement lines through the reader enable uses
+# and runs no check; a line that does not read is shown as `?`.
+kit_mod_needs() {
+  local man tab k v rec out="" sev
+  man="$(_kit_mod_src)/modules/$1/module.manifest"
+  tab="$(printf '\t')"
+  [ -f "$man" ] || { echo "?"; return 0; }
+  while IFS="$tab" read -r k v; do
+    [ -n "$k" ] || continue
+    if rec="$(_kit_mod_req_parse "$k" "$v")"; then
+      sev="$(printf '%s' "$rec" | cut -f3)"; [ "$sev" != agent ] || sev="agent check"
+      out="${out:+$out, }$(printf '%s' "$rec" | cut -f2) ($sev)"
+    else out="${out:+$out, }?"; fi
+  done <<NEEDS_EOF
+$(awk '/^(requires|requires-agent):/ { k = $0; sub(/:.*/, "", k); v = $0; sub(/^[^:]*:[ \t]*/, "", v); sub(/[ \t\r]*$/, "", v); print k "\t" v }' "$man")
+NEEDS_EOF
+  echo "${out:-nothing beyond the core}"
 }
 
 # ── the readers ───────────────────────────────────────────────────────────────
@@ -609,6 +773,8 @@ kit_mod_would_place() {
   shift
   kit_mod_plan "$name" "$plan"
   kit_mod_have_sha || echo "  no sha256 tool (shasum or sha256sum) is on this machine, and enable records one per file"
+  _kit_mod_req_run "$plan.reqs" "$KIT_MOD_TMP/would-req-$name"
+  _kit_mod_req_blockers "$KIT_MOD_TMP/would-req-$name"
   _kit_mod_reader_blockers "$plan.needs"
   _kit_mod_conflicts "$plan" "$name"
   while IFS="$(printf '\t')" read -r kind tgt rend extra; do
@@ -642,6 +808,17 @@ kit_mod_enable() {
     "Error: no sha256 tool (shasum or sha256sum) is on this machine, and enable records one per file so that disable can tell an edited file from the module's." \
     "Next: install one (shasum ships with perl and macOS; sha256sum with coreutils), then re-run."
   if kit_mod_is_pending "$name"; then resuming=1; echo "module: an earlier enable of $name did not finish; finishing it."; fi
+  _kit_mod_req_run "$plan.reqs" "$KIT_MOD_TMP/req-results"
+  blockers="$(_kit_mod_req_blockers "$KIT_MOD_TMP/req-results")"
+  if [ -n "$blockers" ]; then
+    if [ "$resuming" = 1 ]; then next_text="get each one above, then run ./scripts/module.sh enable $name again to finish it, or ./scripts/module.sh disable $name to take it back."
+    else next_text="get each one above (the text after the colon says how), then run ./scripts/module.sh enable $name again."; fi
+    kit_refuse 1 module-requires-missing \
+      "Error: module $name needs what this machine does not have:" \
+      "$blockers" \
+      "  NOTHING WAS CHANGED." \
+      "Next: $next_text"
+  fi
   if [ -z "$KMS_PREFIX" ]; then
     while IFS="$(printf '\t')" read -r kind tgt rend extra; do
       if grep -qE '<PREFIX>|<trunk>|<project name>' "$rend"; then unfilled="${unfilled}  $tgt
@@ -735,6 +912,14 @@ kit_mod_enable() {
   echo "module: enabled $name $KIT_MOD_VERSION — $KIT_MOD_PURPOSE"
   echo "  placed $placed file(s), $blocks block(s); recorded in $KIT_MOD_STATE_REL"
   awk -F' ' '{ print "    " $3 }' "$rows" | sort -u
+  _kit_mod_req_lines "$KIT_MOD_TMP/req-results" warn
+  if [ -n "$KIT_MOD_SETUP" ]; then
+    echo "  setup — the steps no script can do (modules/$name/SETUP.md):"
+    sed -e '/^<!-- KIT-CLASS:.*-->$/d' -e 's/^/    /' "$(_kit_mod_src)/$KIT_MOD_SETUP"
+  fi
+  if [ -n "$KIT_MOD_SETUP_SH" ]; then
+    echo "  setup script: sh $KIT_MOD_SETUP_SH   (nothing in the kit runs it; run it yourself, or have an agent run it on your yes)"
+  fi
   return 0
 }
 
@@ -934,6 +1119,13 @@ kit_mod_status() {
   fi
   kit_mod_rows_merged "$name" > "$KIT_MOD_TMP/status-rows"
   _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
+  if [ -f "$(_kit_mod_src)/modules/$name/module.manifest" ]; then
+    kit_mod_plan "$name" "$KIT_MOD_TMP/status-plan-$name"
+    _kit_mod_req_run "$KIT_MOD_TMP/status-plan-$name.reqs" "$KIT_MOD_TMP/status-req-$name"
+    _kit_mod_req_lines "$KIT_MOD_TMP/status-req-$name" status
+  else
+    echo "  requirements: not checked; modules/$name is not in this project, so its manifest cannot be read."
+  fi
   return 0
 }
 

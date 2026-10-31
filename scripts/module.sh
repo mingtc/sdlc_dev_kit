@@ -14,12 +14,14 @@
 #   ./scripts/module.sh enable <name>
 #   ./scripts/module.sh disable <name>
 #
-# list      the modules this kit ships, with their version, purpose, and whether each is enabled.
-# status    every enabled module, or one: each thing it placed, as intact, edited or missing.
-# enable    place the module and register it. A path that is not the module's to take (a file that
-#           exists, a core kit file, a missing slot), or an extension point whose reader this project's
-#           copy of the kit lacks, refuses before anything is written. An enable that was killed part-way
-#           is finished by running it again.
+# list      the modules this kit ships, enabled or not: version, purpose, and what each needs.
+# status    every enabled module, or one: each thing it placed, as intact, edited or missing, and each
+#           requirement as holding or not (it runs the module's checks).
+# enable    place the module and register it. A required command the module's checks do not find, a path
+#           that is not the module's to take (a file that exists, a core kit file, a missing slot), or an
+#           extension point whose reader this project's copy of the kit lacks, refuses before anything is
+#           written. An optional requirement that fails is a warning. It prints the module's setup steps
+#           and never runs its setup.sh. An enable that was killed part-way is finished by running it again.
 # disable   take back what enable wrote; an edited file is kept and named. It also takes back an
 #           enable that did not finish.
 # -h, --help  this text.
@@ -96,9 +98,10 @@ case "$CMD" in
         if kit_mod_is_enabled "$n"; then st="enabled "; elif kit_mod_is_pending "$n"; then st="UNFINISHED"; else st="disabled"; fi
         kept=""; [ -n "$(kit_mod_kept_version "$n")" ] && kept="  [files kept from an earlier disable: ./scripts/module.sh status $n]"
         printf '  %-16s %-8s %s  %s%s\n' "$n" "$v" "$st" "$p" "$kept"
+        printf '  %-16s needs: %s\n' "" "$(kit_mod_needs "$n")"
       done
     fi
-    echo "Enable one with: ./scripts/module.sh enable <name>   (process/MODULES.md says what that does)" ;;
+    echo "Enable one with: ./scripts/module.sh enable <name>   (process/MODULES.md § The catalogue says what each does; enable checks what it needs)" ;;
   status)
     if [ -n "$NAME" ]; then kit_mod_status "$NAME"
     else

@@ -35,6 +35,10 @@ quality bar, the gates, credentials, the active-roles table) live in
 | [`PROJECT.md`](PROJECT.md) | This project's facts — stack, commands, quality bar, gates, credentials. |
 | **This file** | The **adapter**: which parts of the manual are on, which are off, and **this project's own law**. |
 
+**Optional modules ship off.** [`process/MODULES.md`](process/MODULES.md) § The catalogue lists them and what each needs
+(`./scripts/module.sh list` prints it). When the person asks for something a disabled module provides, say which one, what
+it needs, and offer to enable it; enable one only on their yes.
+
 ## Session start
 
 1. Read [`PROJECT.md`](PROJECT.md).

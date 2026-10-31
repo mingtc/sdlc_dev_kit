@@ -8,8 +8,8 @@ Nothing here is read by a harness: a module is stored disarmed and does nothing 
 and disable one, and how to write one: [`process/MODULES.md`](../process/MODULES.md). `./scripts/module.sh list`
 shows what is enabled.
 
-A new module joins this table in the same change that adds its directory; the self-test checks that each module has a row. A row may outlive a module whose directory the project deleted.
+A new module joins this table, and the catalogue it points at, in the same change that adds its directory; the self-test checks that each module has a row. A row may outlive a module whose directory the project deleted.
 
 | Module | What it is |
 |---|---|
-| [`example`](example/module.manifest) | A toy to read and copy, and what the self-test enables: it shows where each kind of thing a module adds lands. |
+| [`example`](example/module.manifest) | Described, with what it needs, in [`process/MODULES.md`](../process/MODULES.md) § The catalogue. |

@@ -11,12 +11,25 @@ stores them (`_claude/`, not `.claude/`), so a module that is off is read by not
 or that some projects want and others would find in the way, is a module: the project decides, and nothing
 loads until it does.
 
+## The catalogue
+
+What the kit ships, enabled or not; nothing here is read by a harness. The words in a row are the manifest's, and
+`./scripts/module.sh list` prints them from the manifests. A project that deleted a module's directory may keep its row.
+
+| Module | What it enables | What it needs |
+|---|---|---|
+| `example` | A toy module to read and copy; enable it to see what a module does, then disable it. | git (required), awk (optional), example-account (agent check) |
+
+**Asked for something a disabled module provides, an agent says which module does it, what it needs, and offers to
+enable it. It never enables one on its own:** enabling is the person's yes, recorded as a register entry the way the
+consent for the Claude Code hooks is.
+
 ## Using a module
 
 ```sh
-./scripts/module.sh list                 # what this kit ships, and what is enabled
+./scripts/module.sh list                 # what this kit ships, what each needs, and what is enabled
 ./scripts/module.sh enable <name>        # place it, register it, record it
-./scripts/module.sh status [<name>]      # each placed thing: intact, edited or missing
+./scripts/module.sh status [<name>]      # each placed thing: intact, edited or missing; each requirement: holding or not
 ./scripts/module.sh disable <name>       # take back what enable wrote
 ./scripts/kit-init.sh --prefix <P> --trunk <T> --with <name>   # on day one: enabled inside the initialization commit
 ```
@@ -27,6 +40,8 @@ the module with the extension points below, and records the module and the sha25
 wrote in **`process/MODULES`** — tracked, created by the first enable, deleted by the last disable. It refuses,
 naming every path and writing nothing, when:
 
+- **a required command the module declares is not there** (`requires:`, under Writing a module). An optional one only warns,
+  naming what is lost;
 - a path is not the module's to take: a file that exists (whatever it holds: enable takes no file it did not
   write), a file the kit itself ships, a block whose host has no slot, no final newline or a stray marker;
 - **the project's copy of the kit does not read a point the module uses** (a project that took an older kit
@@ -38,6 +53,10 @@ it commits, so the module's files and `process/MODULES` are in the initializatio
 question enable asks, plus whether git would add what enable places, and refuses with nothing written when any
 fails: `kit-init.sh` has no resume path, so an enable that refused after the stamp would leave a half-initialized
 repository.
+
+**After the files land,** enable prints the module's `SETUP.md` (the steps no script can do), the line that runs its
+`setup.sh` when it has one, and the agent checks it declares. **Nothing in the kit runs `setup.sh`:** a person does, or an
+agent on the person's yes. `status` runs the module's checks again, so a requirement that has stopped holding is named.
 
 **After a kill.** Enable records the module as `pending`, one row ahead of each path it writes, and writes each
 file beside its target and moves it in. Run `enable` again to finish it, or `disable` to take it back; both
@@ -92,6 +111,8 @@ Layout, in the kit source (`kit/modules/<name>/`; the zip carries it unchanged):
 
 ```
 modules/<name>/module.manifest
+modules/<name>/SETUP.md              # the steps a person does by hand; enable prints it
+modules/<name>/setup.sh              # optional: the part a script can do; the kit never runs it
 modules/<name>/RELEASE-NOTES.md      # optional: the `release-notes` key; read by kit-upgrade.sh while enabled
 modules/<name>/_claude/…             # anything that lands under .claude/, disarmed
 modules/<name>/test/cases/*.sh       # the module's own self-test cases
@@ -107,7 +128,18 @@ know refuses the manifest.
 | `name` | the directory's name: lowercase letters, digits, `-` | yes |
 | `version` | `X.Y.Z` | yes |
 | `purpose` | one line | yes |
+| `requires` | `<id> \| <shell check> \| <how to get it> \| required`, or `… \| optional: <what is lost>` | no |
+| `requires-agent` | `<id> \| <the call> \| <what a pass looks like> \| <how to get it>` | no |
 | the keys of the table above | as that table says; repeat a key for more | no |
+
+**What a module needs.** A `requires:` line is a command the shell can run and a way to get what it finds absent.
+The fields are split at ` | `, and the check is whatever lies between the id and the last two fields, so it may hold a pipe.
+`enable` runs every check first: a failed `required` one refuses, with the id and the way to get it in a `Next:` line;
+a failed `optional` one warns and says what is lost. A version floor or an installed app is a shell check. A need no shell
+can check, such as a signed-in account, is a `requires-agent:` line: `enable` prints it and cannot refuse on it, and the
+module's own first use makes the call and stops with the way to get it. **A check is a read-only probe, and the safety
+rule is in [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) § 2.** Anything that installs or writes belongs
+in `setup.sh`, which only a person runs. `list` shows the ids and never runs a check.
 
 **Rules for a module's files.**
 - **Stored disarmed.** A source path never carries a name a harness reads (`KIT_MOD_ARMED_NAMES` in
@@ -115,6 +147,9 @@ know refuses the manifest.
   the build.
 - **Placeholders, never a project's values:** `<PREFIX>`, `<trunk>`, `<project name>`. A literal `main` or issue
   prefix is not stamped.
+- **`SETUP.md` is shipped by every module** and opens with a one-line `KIT-CLASS` comment, which `enable` does not print.
+  **A module is a catalogue row too:** the row carries the manifest's `purpose` and the ids of its requirements; the
+  self-test holds both to the manifest.
 - **A `KIT-CLASS:` marker** at the top of each script, role doc and process file, as everywhere in the kit; the
   `modules/` row of [`EXTRACTION.md`](EXTRACTION.md) says which of a module's files carry none.
 - **No census numbers in prose**, and nothing of the maintainers' own repository's ids.

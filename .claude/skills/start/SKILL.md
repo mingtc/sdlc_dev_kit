@@ -107,6 +107,9 @@ launch) is the signal; without it, a human just typed `/start` and is waiting fo
     (`.claude/skills/README.md`'s own rule: derive, don't recall).
   - **Common next actions**, if evident from the board: resume an `in_progress` item, pick up the
     next `todo`, or review something sitting in `dev_complete`.
+  - **Optional modules** — `./scripts/module.sh list` shows what the kit ships, what each needs and what is
+    enabled (`process/MODULES.md` § The catalogue). Offer one only when the person's request is something it provides;
+    enable it on their yes, never on your own.
 
   Ask what they want to do, then hand off to the relevant role doc or skill — this skill's job
   ends at the handoff; it does not perform the work itself.

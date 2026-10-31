@@ -29,6 +29,16 @@ what "enabled" and "disabled" must mean.
   merge, and nothing is changed.
   *Why:* a check that is placed and never run reads as armed. A project on an older kit gets that silently
   unless the lifecycle asks.
+- **A module's requirements are checked before anything is written, by probes that change nothing.** Each `requires:`
+  line of the manifest ([`MODULES.md`](../MODULES.md) § Writing a module has the grammar) is a shell command the manifest
+  declares, run by enable, by the day-one preflight and by status. A required one that fails, or does not finish, refuses with
+  the way to get it; an optional one warns; `requires-agent:` is printed and never judged by a script. **The safety rule,
+  stated here once:** a check runs only as a read-only probe, in the project's top directory, with no input and its output
+  discarded, and is stopped after a limit (a check that does not finish counts as failing). **A check never installs or
+  writes, and no command of the kit runs a module's `setup.sh`:** a person does, or an agent on the person's yes.
+  *Why:* the command comes from a manifest the project has not yet chosen to trust and runs on the day-one path, so it
+  may be asked for nothing but an answer; an unbounded one would hang day one; and a module needing something the machine
+  lacks should say so before it places a file that cannot work.
 - **An enable that is killed is finished or taken back, never left for hand repair.** The record is written
   ahead of the files, as `pending`, one row before each path, and each file is written beside its target
   and moved in. Running enable again finishes it, trusting only the paths that record names and only while
@@ -97,6 +107,8 @@ what "enabled" and "disabled" must mean.
 - A module whose files carry the blanks, in a project not yet stamped ⇒ refuse, pointing at kit-init.
 - A disable that cannot rewrite a shared file ⇒ refuse before removing anything.
 - An extension point whose reader is missing from the project's copy of the kit ⇒ refuse, naming each file.
+- A required requirement whose check fails or does not finish ⇒ refuse, naming each one and how to get it, before anything
+  is written (an optional one warns). A requirement line that does not read ⇒ the manifest refusal above.
 - A record row whose path leaves the project ⇒ refuse: nothing may act on it.
 - No sha256 tool on the machine ⇒ refuse: without one the record cannot be written or checked. An upgrade
   over enabled modules refuses the same way, before it writes.
@@ -126,7 +138,9 @@ what "enabled" and "disabled" must mean.
    project's with the module's copy staged, a file the project deleted is still deleted, and `process/MODULES`
    records the module at the new version with every row true; running the upgrade again after a kill reaches the
    same tree and record as an uninterrupted run.
-9. Not covered: a manifest key a future kit adds; a module's own correctness.
+9. A module that is off is listed with what it needs, and status names a requirement that has stopped holding, by id.
+   Enable prints the module's setup steps, and no command of the kit runs its `setup.sh`.
+10. Not covered: a manifest key a future kit adds; a module's own correctness.
 
 ## 5. MINIMAL INTERFACE
 
@@ -146,5 +160,5 @@ record dropped; every refusal as above. Nothing is committed: the caller is told
 - `scripts/kit-init.sh` — KIT-CLASS: KIT. `--with`: the preflight, the enable after the stamp, the commit.
 - `scripts/kit-upgrade.sh` with `lib/modules.sh`'s `kit_mod_upgrade_*` — the upgrade over enabled modules.
 - `process/MODULES.md` — what a module is, each extension point, and how to write one.
-- `scripts/test/cases/modules.sh` and `modules-adoption.sh` — the self-test cases for each of § 4's lines (the second
-  for day one and the upgrade); the module's own cases ride with them under `modules/<name>/test/`.
+- `scripts/test/cases/modules.sh`, `modules-adoption.sh` and `modules-requirements.sh` — the self-test cases for each of § 4's
+  lines (the second for day one and the upgrade, the third for requirements, setup and the catalogue); the module's own cases ride with them under `modules/<name>/test/`.
