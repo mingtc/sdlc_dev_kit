@@ -1227,18 +1227,20 @@ case_kit_upgrade_reads_the_release_history_for_skipped_releases() {
 #
 # A tree two releases behind: the newest release is in the notes, the one before it only in the history.
 # Every `§ [x]` pointer must resolve with grep in the file it names (a pointer that does not is a defect,
-# counted), and the merge items for scripts/config.sh and scripts/verify.sh, which the project edited,
+# counted), and the merge items for scripts/config.sh, scripts/verify.sh and scripts/githooks/commit-msg, which the project edited,
 # carry their own wording while an ordinary merge item does not.
 case_kit_upgrade_pointers_name_the_file_that_holds_the_entry() {
   cf_reset
   make_sandbox
-  local L="kit-upgrade.sh names, on each Action required line, the file the entry was read from (notes or history), and its merge items for scripts/config.sh and scripts/verify.sh say what the project keeps"
+  local L="kit-upgrade.sh names, on each Action required line, the file the entry was read from (notes or history), and its merge items for scripts/config.sh, scripts/verify.sh and scripts/githooks/commit-msg say what the project keeps"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
   _ku_pair 0.1.0 0.3.0
   mkdir -p "$KU_OLD/scripts" "$KU_NEW/scripts"
   printf 'ISSUE_PREFIX=KIT\n' > "$KU_OLD/scripts/config.sh"; printf 'ISSUE_PREFIX=KIT\n# new\n' > "$KU_NEW/scripts/config.sh"
   printf 'GATES=()\n' > "$KU_OLD/scripts/verify.sh"; printf 'GATES=()\n# new\n' > "$KU_NEW/scripts/verify.sh"
+  mkdir -p "$KU_OLD/scripts/githooks" "$KU_NEW/scripts/githooks"
+  printf "ROLE_PREFIXES='PM|Dev'\n" > "$KU_OLD/scripts/githooks/commit-msg"; printf "ROLE_PREFIXES='PM|Dev'\n# new\n" > "$KU_NEW/scripts/githooks/commit-msg"
   {
     printf '# The process kit — release notes\n\n## [Unreleased]\n\n_Nothing yet._\n\n## [0.3.0] — 2026-01-03\n\n### Action required\n\n'
     printf -- '- **Newest item.** Keep marker.txt.\n'
@@ -1251,6 +1253,7 @@ case_kit_upgrade_pointers_name_the_file_that_holds_the_entry() {
   _ku_manifest "$KU_OLD"; _ku_manifest "$KU_NEW"
   rm -rf "$KU_T"; _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
   printf 'ISSUE_PREFIX=ACME\n' > "$KU_T/scripts/config.sh"; printf 'GATES=(mine)\n' > "$KU_T/scripts/verify.sh"
+  printf "ROLE_PREFIXES='ACME|Dev'\n" > "$KU_T/scripts/githooks/commit-msg"
   git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "project values" >/dev/null 2>&1
   local cl="$KU_T/$KU_CHECKLIST_REL" line file sec bad=0 seen=0
   _ku_run up --into "$KU_T"
@@ -1273,6 +1276,8 @@ KU_PTR_EOF
     || cf "the config.sh merge item does not say what to keep: $(grep -F 'merge scripts/' "$cl" | tr '\n' '|')"
   grep -F 'merge scripts/verify.sh' "$cl" | grep -F 'GATES' >/dev/null \
     || cf "the verify.sh merge item does not say what to keep: $(grep -F 'merge scripts/' "$cl" | tr '\n' '|')"
+  grep -F 'merge scripts/githooks/commit-msg' "$cl" | grep -F 'ROLE_PREFIXES' | grep -F 'role-set block' >/dev/null \
+    || cf "the commit-msg merge item does not say what to keep: $(grep -F 'merge scripts/' "$cl" | tr '\n' '|')"
   grep -F 'merge b.txt' "$cl" | grep -F 'GATES' >/dev/null && cf "an ordinary merge item carries the verify.sh wording"
   finish "$L"
   teardown

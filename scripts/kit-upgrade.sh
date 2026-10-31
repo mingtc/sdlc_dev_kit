@@ -682,6 +682,7 @@ merge_keep() {
   case "$1" in
     scripts/config.sh) printf '%s' "; this file holds the project's own stamped values, so merge the new copy into it and keep ISSUE_PREFIX, PROJECT_NAME and POST_MERGE_PREP, and CODE_GLOBS and TEST_GLOBS (with their # DECLARED EMPTY comments), and kit-init's stamp receipt line" ;;
     scripts/verify.sh) printf '%s' "; this file holds the project's own gates, so merge the new copy into it and keep the project's GATES table" ;;
+    scripts/githooks/commit-msg) printf '%s' "; this file holds the project's own stamped values, so merge the new copy into it, keep your ROLE_PREFIXES line, and take the role-set block" ;;
   esac
 }
 disarm_path() {
