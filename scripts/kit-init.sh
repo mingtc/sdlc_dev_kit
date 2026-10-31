@@ -17,6 +17,8 @@
 #                    entries the kanban worktree needs.
 #   4. HOOKS       — git config core.hooksPath scripts/githooks; with --enable-hooks,
 #                    also copy .claude/settings.json.example to .claude/settings.json.
+#                    Then, with --with, the modules named there are enabled
+#                    (scripts/module.sh enable), so they arrive in the commit below.
 #   5. COMMIT+PUSH — the initialized tree reaches the trunk, because the board
 #                    scripts operate on the REMOTE's copy of the board.
 #   6. SELF-CHECK  — a subset of scripts/test/run.sh's concerns, run against THIS
@@ -102,7 +104,7 @@ marker_restore() {
 KIT_INIT_ROLE_DEFAULT='PM'
 SELF_ROLE="${KIT_INIT_ROLE:-$KIT_INIT_ROLE_DEFAULT}"
 
-PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true; ENABLE_HOOKS=false; DROP_ENABLE_HOOKS=false
+PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true; ENABLE_HOOKS=false; DROP_ENABLE_HOOKS=false; WITH_NEW=""
 PROJECT_NAME_NEW=""
 
 usage() {
@@ -173,6 +175,15 @@ Options:
                       .claude/settings.json exists and differs from the example; an
                       identical file is left alone. Without it nothing is copied, and
                       the closing output names the human's own command.
+  --with <M>[,<M>]    Also enable the named optional modules (modules/<M>/), after the seams are
+                      stamped and before the initialization commit, so they arrive in it. The flag
+                      may be given more than once. Each name is checked in the preflight, by the
+                      questions scripts/module.sh enable asks: the module exists, its manifest reads,
+                      this copy of the kit reads every point it uses, and nothing it would place
+                      exists already or is ignored by git. A refusal there writes nothing.
+                      ./scripts/module.sh list names the modules; process/MODULES.md says what
+                      enabling does. Omit it and no module is enabled; enable one later with
+                      ./scripts/module.sh enable <M>.
   --skip-self-check   Stamp and create, but do not run the self-check. Discouraged
                       — the self-check is the only part that PROVES the result.
   -h, --help          This text.
@@ -303,6 +314,7 @@ while [ $# -gt 0 ]; do
     --gate-command)   need_val "$@"; GATE_CMD="$2"; shift 2 ;;
     --skip-self-check) RUN_SELFCHECK=false; shift ;;
     --enable-hooks)   ENABLE_HOOKS=true; shift ;;
+    --with)           need_val "$@"; WITH_NEW="${WITH_NEW:+$WITH_NEW,}$2"; shift 2 ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;   # exit-class: usage
     *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;   # exit-class: usage
@@ -642,6 +654,43 @@ fi
 # Checked before anything is written; the stamping leaves an existing file alone.
 if [ -f "$ROOT/ARCHIVE.md" ] && ! grep -q '^## Archived$' "$ROOT/ARCHIVE.md"; then
   pf "ARCHIVE.md exists but has no exact '## Archived' heading (archive.sh refuses to sweep without it) — add a line reading exactly '## Archived' to it, or move the file aside so kit-init writes the stub."
+fi
+
+# --- --with: every module named must be one this kit ships, and enable must be able to place it ---
+# Asked here, before anything is written, by the library enable itself uses: an enable that refused AFTER the
+# stamp would leave a half-initialized repository, and this script has no resume path. The paths this script
+# writes itself between here and the enable are named to it, because enable would find them occupied.
+WITH_NAMES=()
+if [ -n "$WITH_NEW" ]; then
+  _with_own="progress.md ARCHIVE.md ${KIT_HAT_FILE_REL:-}"
+  for _wd in ${BOARD_FOLDERS[@]+"${BOARD_FOLDERS[@]}"}; do _with_own="$_with_own progress/$_wd/.gitkeep"; done
+  [ "$ENABLE_HOOKS" != "true" ] || _with_own="$_with_own .claude/settings.json"
+  [ "$GATE_MODE" != "write" ] || _with_own="$_with_own scripts/verify.sh"
+  _with_tmp="$(mktemp -d "${TMPDIR:-/tmp}/kit-init-with.XXXXXX")" || { echo "Error: could not make a scratch directory." >&2; exit 1; }   # exit-class: internal
+  if [ ! -x "$SCRIPT_DIR/module.sh" ] || [ ! -f "$SCRIPT_DIR/lib/modules.sh" ] || [ ! -f "$SCRIPT_DIR/lib/marker-block.sh" ]; then
+    pf "--with: scripts/module.sh, scripts/lib/modules.sh or scripts/lib/marker-block.sh is missing, so no module can be enabled. Restore them:  git checkout -- scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh"
+  else
+    # `read -a` drops a trailing empty element, so the stray comma is looked for in the string itself.
+    case ",$WITH_NEW," in *,,*) pf "--with '$WITH_NEW' names an empty module (a stray comma)." ;; esac
+    IFS=',' read -r -a _with_list <<< "$WITH_NEW"
+    for _wn in ${_with_list[@]+"${_with_list[@]}"}; do
+      [ -n "$_wn" ] || continue
+      case " ${WITH_NAMES[*]:-} " in *" $_wn "*) continue ;; esac
+      WITH_NAMES+=("$_wn")
+      # A subshell: a manifest that does not read refuses and exits, and the refusal's words are the answer.
+      if _wo="$( ( set +e; KIT_MOD_ROOT="$ROOT"; KIT_MOD_SRC="$ROOT"; KIT_MOD_TMP="$_with_tmp"; KIT_PROGRESS_DIR="$_with_tmp/records"
+                   . "$SCRIPT_DIR/lib/modules.sh" || exit 1   # exit-class: internal
+                   _wp="$(kit_mod_would_place "$_wn" $_with_own)" || exit 1   # exit-class: internal
+                   [ -z "$_wp" ] || { printf '%s\n' "$_wp"; exit 3; }   # exit-class: internal
+                 ) 2>&1 )"; then
+        :
+      else
+        pf "--with $_wn: the module cannot be enabled in this tree (scripts/module.sh enable would refuse it the same way). Fix each, or leave the module off:
+$(printf '%s\n' "$_wo" | sed 's/^/        /')"
+      fi
+    done
+  fi
+  rm -rf "$_with_tmp"
 fi
 
 if [ ${#PF[@]} -gt 0 ]; then
@@ -1106,6 +1155,22 @@ if [ "$ENABLE_HOOKS" = "true" ]; then
   fi
 fi
 
+# The modules named by --with, enabled through the one program that enables them. The seams are stamped by now,
+# so a module's files arrive carrying this project's prefix, trunk and name.
+if [ ${#WITH_NAMES[@]} -gt 0 ]; then
+  step "Enabling modules (--with)"
+  for _wn in "${WITH_NAMES[@]}"; do
+    _wrc=0; _wo="$("$ROOT/scripts/module.sh" enable "$_wn" 2>&1)" || _wrc=$?
+    # module.sh ends by telling the caller to commit; this script commits next.
+    # ...and its "NOTHING WAS CHANGED" speaks for the module alone, which is no longer the whole tree's state.
+    printf '%s\n' "$_wo" | awk '/^Nothing is committed\./ { exit } /NOTHING WAS CHANGED/ { next } { l[++n] = $0 } END { while (n && l[n] == "") n--; for (i = 1; i <= n; i++) print "  " l[i] }'
+    [ "$_wrc" -eq 0 ] || kit_refuse 1 module-enable-after-stamp \
+      "Error: module $_wn did not enable (exit $_wrc; scripts/module.sh said why above, and placed nothing of it); the tree is stamped and not committed." \
+      "Next: fix what is named above, then finish by hand: ./scripts/module.sh enable $_wn (and each --with module after it), then git add -A and commit the initialization. kit-init does not run twice, so do not re-run it."
+  done
+  say "  modules enabled: ${WITH_NAMES[*]} (recorded in process/MODULES; committed with the rest below)"
+fi
+
 # The closing words about the Claude Code hooks, printed on every successful exit.
 hooks_note() {
   [ ! -e "$ROOT/.claude/settings.json" ] || return 0
@@ -1128,6 +1193,16 @@ ADD_PATHS=()
 for p in "${KIT_COMMIT_PATHS[@]}"; do
   [ -e "$ROOT/$p" ] && ADD_PATHS+=("$p")
 done
+# The paths an enabled module placed (the record's rows) join the commit, wherever they are.
+if [ ${#WITH_NAMES[@]} -gt 0 ]; then
+  for _wn in "${WITH_NAMES[@]}"; do
+    while read -r _mk _ms _mp _mx; do
+      case "$_mk" in file|block) if [ -e "$ROOT/$_mp" ]; then ADD_PATHS+=("$_mp"); fi ;; esac
+    done <<WITH_ROWS_EOF
+$( ( set +e; KIT_MOD_ROOT="$ROOT"; KIT_MOD_SRC="$ROOT"; KIT_MOD_TMP="${TMPDIR:-/tmp}"; . "$SCRIPT_DIR/lib/modules.sh" && kit_mod_rows "$_wn" ) )
+WITH_ROWS_EOF
+  done
+fi
 git -C "$ROOT" add -A -- "${ADD_PATHS[@]}"
 if git -C "$ROOT" diff --cached --quiet; then
   say "  nothing to commit (tree already matches)"

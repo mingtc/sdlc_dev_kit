@@ -18,6 +18,7 @@ loads until it does.
 ./scripts/module.sh enable <name>        # place it, register it, record it
 ./scripts/module.sh status [<name>]      # each placed thing: intact, edited or missing
 ./scripts/module.sh disable <name>       # take back what enable wrote
+./scripts/kit-init.sh --prefix <P> --trunk <T> --with <name>   # on day one: enabled inside the initialization commit
 ```
 
 **Enable** copies the module's files into place (re-arming names: `_claude/` becomes `.claude/`), puts in the
@@ -31,6 +32,12 @@ naming every path and writing nothing, when:
 - **the project's copy of the kit does not read a point the module uses** (a project that took an older kit
   and then enabled a module would get a check that is placed and never run). The refusal names the file to
   merge from the release; merge it, then enable again.
+
+**On day one,** `kit-init.sh --with <name>[,<name>]` enables the module after it has stamped the project and before
+it commits, so the module's files and `process/MODULES` are in the initialization commit. Its preflight asks every
+question enable asks, plus whether git would add what enable places, and refuses with nothing written when any
+fails: `kit-init.sh` has no resume path, so an enable that refused after the stamp would leave a half-initialized
+repository.
 
 **After a kill.** Enable records the module as `pending`, one row ahead of each path it writes, and writes each
 file beside its target and moves it in. Run `enable` again to finish it, or `disable` to take it back; both
@@ -49,8 +56,12 @@ re-enable names. Both commands are idempotent. Neither commits: each prints the 
 move checks, the cell checks and the evidence-kind list read the trunk. `process/MODULES` is the record, not a
 setting: edit nothing in it by hand.
 
-`kit-upgrade.sh` refreshes the disarmed `modules/` like any shipped file and does not touch a file a module
-placed; to take a module's new version, disable it and enable it again.
+**Upgrading.** `kit-upgrade.sh` refreshes the disarmed `modules/` like any shipped file, and carries each **enabled**
+module's new version into the files it placed by the rules of [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md)
+§ 2: a file you edited is never overwritten, and the module's copy of it is staged under `.kit-upgrade/modules/<name>/`
+beside a merge item on the checklist. What else the checklist carries for a module is listed in
+[`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 2. A killed upgrade is finished by running it again. A disabled
+module has only its disarmed copy refreshed; take its new version by enabling it.
 
 ## The extension points
 
@@ -65,6 +76,7 @@ one list of them**; each point's contract is stated once, in the sheet it cites.
 | `qa-cell: <source> -> <kind>/NN-<name>.sh` | a check on each PASS row of that kind | `scripts/qa-cell.d/<kind>/NN-<name>.sh` | the QA gate, from the trunk; [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3 |
 | `move-check: <source> -> <status folder>/NN-<name>.sh` | a check before a card moves to that folder | `scripts/move-check.d/<status folder>/NN-<name>.sh` | the board mover, the landing script, `subtask.sh` and the archive sweep, from the trunk; [`contracts/board-mover.md`](contracts/board-mover.md) § 3 |
 | `fragment: <PRD\|ISSUE> <mode> <source>` | text minted into every new PRD or card; `<mode>` is `frontmatter`, `body-end` or `slot-<slot>` | `process/fragments.d/<template>/<name>.<mode>` | `new-prd.sh` and `new-issue.sh`; [`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 |
+| `release-notes: <source>` | the module's own release notes, in the kit's notes shape (`## [X.Y.Z]` sections, entries under `### Action required`) | stays in `modules/<name>/` | `kit-upgrade.sh`, only while the module is enabled; [`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) |
 | `block: <file> <slot> <source>` | the module's own table, in a shared file | between `KIT-MODULE:<name>:<slot>` markers, before the file's `KIT-MODULES:<slot>` line | `scripts/lib/marker-block.sh` |
 | `gitignore: <source>` | ignore lines | a block at the end of `.gitignore` (the file is created when absent, and deleted again by the disable that leaves it empty) | `scripts/lib/marker-block.sh` |
 | `file: <source> -> <target>` | any file | anywhere that is not a core file, `process/MODULES`, `modules/` or `.git/` | placeholders as above |
@@ -80,6 +92,7 @@ Layout, in the kit source (`kit/modules/<name>/`; the zip carries it unchanged):
 
 ```
 modules/<name>/module.manifest
+modules/<name>/RELEASE-NOTES.md      # optional: the `release-notes` key; read by kit-upgrade.sh while enabled
 modules/<name>/_claude/…             # anything that lands under .claude/, disarmed
 modules/<name>/test/cases/*.sh       # the module's own self-test cases
 modules/<name>/test/CASE-LIST        # the case functions that file defines, one per line
@@ -125,5 +138,6 @@ is the template; `modules/example/` is the module to copy.
 - A manifest key a newer kit adds is refused by an older kit's `module.sh`.
 - Placed files are tracked in `process/MODULES`, not in `process/KIT-MANIFEST`: tools that ask which scripts the
   kit ships do not see a script a module placed.
+- A `Verify:` line in a module's release notes is not run at `--finish`; its item is declared by whoever marks it.
 - An evidence kind a module adds is pointer-only.
 - The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file.

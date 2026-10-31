@@ -26,6 +26,16 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   never touched is replaced; a file new upstream is added, unless the project removed its directory.
   *Why:* only the three-way comparison tells "the kit moved" from "the project moved"; comparing two
   sides reads every local edit as drift.
+- **An enabled module's placed files are carried by the record, never past an edit.** A module's placed files are
+  not in the shipped manifest, so the three-way comparison above cannot see them; `process/MODULES` is their merge
+  base, and [`module-lifecycle.md`](module-lifecycle.md) ยง 2 states the rules for a file. This upgrade's own duties,
+  stated here once: stage the module's copy of a file it keeps under `.kit-upgrade/modules/<name>/`; put on the
+  checklist the module's own release-notes entries newer than its recorded version, a module whose enable never finished,
+  one the new kit no longer ships, and a point whose reader the project's copy of the kit lacks; refuse, before
+  writing, when enabled modules are recorded and the machine has no sha256 tool; and write the checklist last, after
+  the work order for each module's record, so that a run killed anywhere is finished by running it again.
+  *Why:* left alone, a placed file goes stale beside a module whose disarmed copy was refreshed, and no tool but this
+  one is placed to say so.
 - **Nothing staged carries a live name.** A staged copy sits inside the project's repository, so it
   is disarmed: no path component a harness loads configuration from, and no file name a harness or
   git reads as configuration or instructions.
@@ -42,8 +52,9 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   sentinel, not the filename, is what marks scaffolding.
 - **Everything left to do is written down before the run ends**: one checklist item per Action
   required entry newer than the tree's version, one per merge, removal or kept scaffolding path, one
-  per open card the new kit's checks would refuse or whose branch lacks the trunk, and one to stamp
-  what arrived, each naming where its instruction lives.
+  per open card the new kit's checks would refuse or whose branch lacks the trunk, one per thing an
+  enabled module's new version leaves to a person, and one to stamp what arrived, each naming where its
+  instruction lives.
   *Why:* a deferred upgrade carried in a session's working memory is lost at the next handover.
 - **The tree's version is stamped only when every item is marked done**, never by the first run.
   *Why:* a version that moves before the work does tells the next reader the work is done.
@@ -102,7 +113,8 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) ย
 | `upgrade-target-older` | the new kit is older than the tree |
 | `upgrade-checklist-other-version` | an upgrade to another version is already in progress |
 | `upgrade-target-dirty` | a path it would write holds uncommitted changes |
-| `upgrade-write-failed` | a write failed part-way; the message says how to undo it |
+| `upgrade-write-failed` | a write failed part-way (a kit file, a module file, the record, the checklist); the message says how many kit files were written and how to finish or undo |
+| `upgrade-modules-no-sha` | the tree has enabled modules and the machine has no sha256 tool, so their files cannot be told from the project's edits; nothing is written |
 | `upgrade-nothing-to-finish` | finishing was asked for and no upgrade is in progress |
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest do not |
 | `upgrade-checklist-unmarked` | finishing was asked for with an item still unmarked |
@@ -112,7 +124,11 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) ย
 | `upgrade-checklist-uncommitted` | finishing was asked for while the marked checklist is uncommitted: finishing removes it, and the marks are the record |
 | `unknown-option`, `unexpected-argument` | a mis-invocation |
 
-**Not a refusal:** no sha256 tool, or no manifest in the tree. Every file the kit changed that differs
+**Refused by the modules library:** an enabled module's record, or the new kit's manifest for it, that does not read is refused
+with that library's own rule id ([`module-lifecycle.md`](module-lifecycle.md) ยง 3), while the run is still reading and before it writes.
+A write that fails after the first file is written is always `upgrade-write-failed`.
+
+**Not a refusal:** no sha256 tool (with a module enabled it is `upgrade-modules-no-sha`), or no manifest in the tree. Every file the kit changed that differs
 there becomes a merge item, and the run says why. Never a guess.
 
 ## 4. WHAT GREEN MEANS
@@ -125,6 +141,9 @@ there becomes a merge item, and the run says why. Never a guess.
    marked checklist is at `process/upgrades/<from>-to-<to>.md`, ending in a section that lists each
    Action required item as verified or as declared and unverified.
 4. Against a tree made from the same kit: nothing is written at all.
+5. With a module enabled: the files it placed are the new version's where the project had not edited them,
+   `process/MODULES` is true of them, and each file the project edited that the module changed is a checklist
+   item with the module's copy staged.
 
 ## 5. MINIMAL INTERFACE
 

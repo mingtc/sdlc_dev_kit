@@ -3,6 +3,7 @@
 name: example
 version: 0.1.0
 purpose: A toy module to read and copy; enable it to see what a module does, then disable it.
+release-notes: RELEASE-NOTES.md
 role: Example   a toy seat the example module adds to the role set
 file: _claude/roles/example.md -> .claude/roles/example.md
 file: _claude/skills/example-skill/SKILL.md -> .claude/skills/example-skill/SKILL.md

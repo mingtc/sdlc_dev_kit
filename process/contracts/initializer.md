@@ -35,6 +35,11 @@ precondition the process depends on and then demonstrating each one working.
   cross-checked against the publication remote's own answer; a disagreement refuses.
   *Why:* silently defaulting the trunk is how the first board change goes to a branch nobody
   meant.
+- **A module named for day one is enabled inside the initialization commit, or the run refuses before it
+  writes.** The preflight asks every question [`module-lifecycle.md`](module-lifecycle.md) § 2 has enable ask; the
+  enable follows the stamp, so the module's files carry the project's values, and the files and the record are
+  committed with the rest.
+  *Why:* a refusal after the stamp is a half-initialized repository, and there is no resume path.
 - **It GUIDES toward topology decisions; it does not make them.** Creating a publication remote is
   refused with a complete recipe — including the offline, local-bare-repository path — rather than
   performed.

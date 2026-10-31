@@ -38,7 +38,7 @@ _md_sandbox() {
 # _md_have_example / _md_gone_reason — the shipped template module is a DELETE-IF-UNUSED member; a case
 # whose subject it is has none on a tree that deleted it (the reason names the file, as skp_lived requires).
 _md_have_example() { [ -f "$REAL_REPO_ROOT/modules/example/module.manifest" ]; }
-_md_gone_reason() { printf '%s' "modules/example/module.manifest is absent from this tree"; }
+_md_gone_reason() { printf '%s' "modules/example/RELEASE-NOTES.md is absent from this tree"; }
 # _md_missing_program — the file a lifecycle case needs and this tree lacks, or nothing. The program is
 # shipped with the kit, so its absence is a failure of the case, never an N/A.
 _md_missing_program() {
@@ -55,18 +55,22 @@ _md_mod() { rm -rf "$SB_TMP/records"; _md_rc=0; _md_out="$( cd "$SB_WORK" && env
 _md_recs() { cat "$SB_TMP"/records/*.tsv 2>/dev/null | grep -c "refusal=$1" || true; }
 
 # _md_make_kill_shim — a stand-in for mv, first on PATH when _md_kill_enable runs: when the destination of a
-# move ends with $KILL_ON it SIGKILLs every ancestor process running module.sh, then itself, so nothing after
-# that move runs (no trap, no cleanup): a hard kill, not a refusal.
+# move ends with $KILL_ON it SIGKILLs every ancestor process running module.sh or kit-upgrade.sh, then itself,
+# so nothing after that move runs (no trap, no cleanup): a hard kill, not a refusal. With KILL_SKIP naming a file
+# that holds a count, that many matching moves go through first (the file is counted down).
 _md_make_kill_shim() {
   mkdir -p "$SB_TMP/shim"
   cat > "$SB_TMP/shim/mv" <<'MV_EOF'
 #!/bin/bash
 dest="${@: -1}"
 case "$dest" in
-  *"$KILL_ON")
+  *"${KILL_ON:-@@never@@}")
+    if [ -n "${KILL_SKIP:-}" ] && [ -f "$KILL_SKIP" ] && [ "$(cat "$KILL_SKIP")" -gt 0 ]; then
+      echo $(( $(cat "$KILL_SKIP") - 1 )) > "$KILL_SKIP"; exec /bin/mv "$@"
+    fi
     pids=""; pid=$PPID
     while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
-      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*) pids="$pids $pid" ;; esac
+      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
       pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
     done
     # shellcheck disable=SC2086
@@ -76,6 +80,23 @@ esac
 exec /bin/mv "$@"
 MV_EOF
   chmod +x "$SB_TMP/shim/mv"
+  # ...and the same for mkdir, when the last argument ends with $KILL_MKDIR: a kill at a point no move marks.
+  cat > "$SB_TMP/shim/mkdir" <<'MKDIR_EOF'
+#!/bin/bash
+case "${@: -1}" in
+  *"${KILL_MKDIR:-@@never@@}")
+    pids=""; pid=$PPID
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
+      pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    done
+    # shellcheck disable=SC2086
+    [ -z "$pids" ] || kill -9 $pids
+    kill -9 $$ ;;
+esac
+exec /bin/mkdir "$@"
+MKDIR_EOF
+  chmod +x "$SB_TMP/shim/mkdir"
 }
 # _md_kill_enable <destination suffix> [<module>] — enable under that stand-in; the status is left in _md_rc.
 _md_kill_enable() {
@@ -85,3 +106,45 @@ _md_kill_enable() {
 }
 # _md_strays <root> — every temporary file a killed run could leave behind, one per line.
 _md_strays() { find "$1" -path "$1/.git" -prune -o \( -name '*.kit-mod-new' -o -name '*.kit-mb.*' \) -print 2>/dev/null; }
+
+# _md_make_count_shim — stand-ins for the commands that write (cp mv mkdir rm mktemp chmod), first on PATH when a program
+# runs under them: every call that names a path under $KILL_ROOT is counted in the file $KILL_COUNT, and the call whose
+# number is $KILL_NTH SIGKILLs every ancestor running module.sh or kit-upgrade.sh, then itself, before it writes. Run with
+# KILL_NTH = 1, 2, 3 … to stop a program before each write in turn; a run that is not killed made fewer writes than that.
+_md_make_count_shim() {
+  local c real
+  mkdir -p "$SB_TMP/cshim"
+  for c in cp mv mkdir rm mktemp chmod; do
+    real="$(command -v "$c")"
+    cat > "$SB_TMP/cshim/$c" <<'CSHIM_EOF'
+#!/bin/bash
+hit=0
+me="${0##*/}"
+for a in "$@"; do
+  case "$a" in
+    "${KILL_ROOT:-@@none@@}"/*)
+      # a call that cannot change anything is no write: rm of a path that is not there, mkdir of a directory that is
+      if [ "$me" = rm ] && [ ! -e "$a" ] && [ ! -L "$a" ]; then continue; fi
+      if [ "$me" = mkdir ] && [ -d "$a" ]; then continue; fi
+      hit=1 ;;
+  esac
+done
+if [ "$hit" = 1 ] && [ -n "${KILL_NTH:-}" ]; then
+  n=$(( $(cat "$KILL_COUNT" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$KILL_COUNT"
+  if [ "$n" -eq "$KILL_NTH" ]; then
+    pids=""; pid=$PPID
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
+      pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    done
+    # shellcheck disable=SC2086
+    [ -z "$pids" ] || kill -9 $pids
+    kill -9 $$
+  fi
+fi
+exec @REAL@ "$@"
+CSHIM_EOF
+    sed -i.bak "s|@REAL@|$real|" "$SB_TMP/cshim/$c"; rm -f "$SB_TMP/cshim/$c.bak"
+    chmod +x "$SB_TMP/cshim/$c"
+  done
+}

@@ -51,6 +51,31 @@ what "enabled" and "disabled" must mean.
 - **Enable fills the module's blanks, so it needs a stamped project.** A file carrying the prefix, trunk or
   name blanks is refused before kit-init has filled them in the project.
   *Why:* kit-init's later stamp would otherwise read as an edit of the module's file, and disable would keep it.
+- **Day one enables inside the initialization commit, or not at all.** The initializer asks, before it writes
+  anything, every question enable asks (and whether git would add what enable places), and refuses on any of
+  them; it then stamps, enables through the one program that enables, and commits, so the module's files and
+  the record are in that commit.
+  *Why:* an enable that refused after the stamp would leave a half-initialized repository, and the initializer
+  has no resume path.
+- **An upgrade carries an enabled module by the record, never past an edit.** For each placed file or block it
+  compares the record's sha256, the tree's and the new copy's: one as enable wrote it is replaced; one the
+  project edited that the module changed is kept and the module's copy staged for a merge; one the project
+  edited that the module did not change, or deleted that the module did not change, is left; one the module no
+  longer places is listed and stays recorded; a path the record does not name is never taken, whatever it holds;
+  a block whose host cannot take it, or a path under a symbolic link, is a merge item and nothing is written
+  through the link; a role layer that would drop a role history carries is kept. A file the module changed that
+  the upgrade does not write is never left stale unseen: it is an item on the checklist.
+  *Why:* the record is the only witness of whose a placed file is; the same rule the upgrade applies to every
+  shipped file, extended to the files a module placed.
+- **An upgrade that is killed is finished by running it again, and the record always names every sha256 a path
+  may hold.** Before any file is written the record gains a `pending` section beside the module's own, naming
+  each path about to be written at the sha256 it will hold; status and disable take a path as the module's when
+  it holds either. The module's rows and version move once, after the checklist is on disk, from a work order
+  staged with it, which a rerun carries out whether or not the checklist already exists.
+  *Why:* a file written before any row names it is an orphan no disable will take; a row that names only the old
+  sha256 of a replaced file makes disable keep it as "edited"; a version moved before the checklist would drop the
+  module's release-notes items on the rerun; and a record write that is the last thing the run does has no rerun
+  to finish it unless the work order outlives the run.
 - **Disable then leaves the tree as it was before enable, apart from files the project edited and a role
   layer that history uses.** What it
   keeps stays recorded under `kept <name>` in `process/MODULES`, so `status` and a re-enable can say whose
@@ -73,7 +98,10 @@ what "enabled" and "disabled" must mean.
 - A disable that cannot rewrite a shared file ⇒ refuse before removing anything.
 - An extension point whose reader is missing from the project's copy of the kit ⇒ refuse, naming each file.
 - A record row whose path leaves the project ⇒ refuse: nothing may act on it.
-- No sha256 tool on the machine ⇒ refuse: without one the record cannot be written or checked.
+- No sha256 tool on the machine ⇒ refuse: without one the record cannot be written or checked. An upgrade
+  over enabled modules refuses the same way, before it writes.
+- A day-one `--with` naming a module that does not exist, an empty name, or one enable would refuse for ⇒
+  refuse in the preflight, writing nothing, naming the module and each cause.
 - Every refusal carries a `Next:` line, and leaves a progress record.
 
 ## 4. WHAT GREEN MEANS
@@ -92,7 +120,13 @@ what "enabled" and "disabled" must mean.
 5. An enable killed at any write is finished by running it again to the tree a clean enable leaves, or
    taken back by disable to the tree from before.
 6. The builder refuses a module that stores an armed name, so the zip ships every module disarmed.
-7. Not covered: a manifest key a future kit adds; a module's own correctness.
+7. A day-one `--with` leaves the module's files, its blocks and the record in the initialization commit, stamped
+   with the project's values, and the initializer's self-check passes with the module live.
+8. After an upgrade, a file the project never touched is the new version's, every other changed file is the
+   project's with the module's copy staged, a file the project deleted is still deleted, and `process/MODULES`
+   records the module at the new version with every row true; running the upgrade again after a kill reaches the
+   same tree and record as an uninterrupted run.
+9. Not covered: a manifest key a future kit adds; a module's own correctness.
 
 ## 5. MINIMAL INTERFACE
 
@@ -109,6 +143,8 @@ record dropped; every refusal as above. Nothing is committed: the caller is told
 - `scripts/lib/modules.sh` — KIT-CLASS: KIT. The manifest reader, the plan, the reader check, the record
   `process/MODULES` and the resume.
 - `scripts/lib/marker-block.sh` — the block a module puts in a shared table.
+- `scripts/kit-init.sh` — KIT-CLASS: KIT. `--with`: the preflight, the enable after the stamp, the commit.
+- `scripts/kit-upgrade.sh` with `lib/modules.sh`'s `kit_mod_upgrade_*` — the upgrade over enabled modules.
 - `process/MODULES.md` — what a module is, each extension point, and how to write one.
-- `scripts/test/cases/modules.sh` — the self-test cases for each of § 4's lines; the module's own cases ride
-  with it under `modules/<name>/test/`.
+- `scripts/test/cases/modules.sh` and `modules-adoption.sh` — the self-test cases for each of § 4's lines (the second
+  for day one and the upgrade); the module's own cases ride with them under `modules/<name>/test/`.

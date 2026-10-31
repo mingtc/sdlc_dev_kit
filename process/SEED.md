@@ -67,7 +67,7 @@ along with the rest of the sheet, or `scripts/ask.sh` still has nothing to read 
 **A. Your stack can run the shipped shell scripts → run the initializer.** The mechanical path:
 
 ```bash
-./scripts/kit-init.sh --prefix XYZ --trunk main      # + --roles / --gate-command as needed
+./scripts/kit-init.sh --prefix XYZ --trunk main      # + --roles / --gate-command / --with <module> as needed
 ./scripts/kit-init.sh --help                         # every option and the remote precondition
                                                       # (GIT-HOSTING.md § 3's recipe prints on
                                                       # refusal, not from --help)

@@ -375,7 +375,7 @@ names the guard whose job is to keep it honest.
 | `.claude/templates/` | **COPY — and every file in it is marked `KIT-CLASS: KIT`, which is the authority.** The item templates travel whole; `kit-init.sh` stamps values INTO them, and § 4.6 states exactly how far that stamp reaches. |
 | **The kanban script set** — § 1.1 | The executable half of the kit. |
 | `setup.sh` | **MIXED**: the frame is the kit's, the language runtime is yours. See § 1.1. |
-| `modules/` | **Optional overlays, shipped DISARMED and off.** One directory per module (`module.manifest`, its files, its own self-test cases under `test/`); a harness-facing name is stored as the core stores it (`_claude/`), so nothing here is read by a harness. A file that is copied into a shared file or minted into a card carries no `KIT-CLASS:` marker, since it would be copied with it; its class is the module's. `scripts/module.sh enable <name>` places a module and records it, with the sha256 of each file, in `process/MODULES` — **a state file `module.sh` writes and the zip never ships, `MIXED`**, so an upgrade has no copy of it to replace. Delete a module's directory, or `modules/`, to decline it; [`MODULES.md`](MODULES.md) is the guide and [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) the contract. |
+| `modules/` | **Optional overlays, shipped DISARMED and off.** One directory per module (`module.manifest`, its files, an optional `RELEASE-NOTES.md`, its own self-test cases under `test/`); a harness-facing name is stored as the core stores it (`_claude/`), so nothing here is read by a harness. A file that is copied into a shared file or minted into a card carries no `KIT-CLASS:` marker, since it would be copied with it; its class is the module's. `scripts/module.sh enable <name>` places a module and records it, with the sha256 of each file, in `process/MODULES` — **a state file `module.sh` writes and the zip never ships, `MIXED`**, so an upgrade has no copy of it to replace. Delete a module's directory, or `modules/`, to decline it; [`MODULES.md`](MODULES.md) is the guide and [`contracts/module-lifecycle.md`](contracts/module-lifecycle.md) the contract. |
 | `consumers/` | **OPTIONAL, and delete it if it does not apply.** The thin machinery for the case where something else vendors your project, governed by [`doctrine/distribution.md`](doctrine/distribution.md). **If your project ships to nobody, remove the directory** — an unused distribution surface reads as a promise. |
 
 **THE MODEL PINS ARE PRODUCT NAMES, AND THIS TABLE IS WHERE THEY ARE DECLARED.** Every leaf-worker
@@ -417,10 +417,12 @@ written around it.
 
 **Upgrade (KIT):** `kit-upgrade.sh` — run from a NEWER kit's unzipped copy against an adopted tree:
 it takes what the project never changed, stages the rest behind a checklist, and stamps
-`process/KIT-VERSION` only when the checklist is done.
+`process/KIT-VERSION` only when the checklist is done. For an enabled module it does the same to the files the
+module placed, by the sha256 `process/MODULES` records ([`MODULES.md`](MODULES.md)).
 
 **Modules (KIT):** `module.sh` — lists, enables and disables the optional modules under `modules/`; `lib/modules.sh` is its
-manifest reader, planner and record (`process/MODULES`). See [`MODULES.md`](MODULES.md).
+manifest reader, planner and record (`process/MODULES`), and what `kit-upgrade.sh` calls for an enabled module; `kit-init.sh --with`
+enables one on day one. See [`MODULES.md`](MODULES.md).
 
 **Provisioning (KIT):** `set-models.sh` — writes a work class's `(model, effort)` pair to its
 leaf-worker pin(s), the ladder row and, for the runner default, the workflow runners together, so
@@ -532,7 +534,7 @@ reimplements `kit-init.sh`.
 ### 1.3 Day one — RUN THE INITIALIZER
 
 ```bash
-./scripts/kit-init.sh --prefix XYZ --trunk main            # add --roles / --gate-command as needed
+./scripts/kit-init.sh --prefix XYZ --trunk main            # add --roles / --gate-command / --with <module> as needed
 ./scripts/kit-init.sh --help                               # every option and the remote precondition
                                                            # (the recipes print on refusal)
 ```

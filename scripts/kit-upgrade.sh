@@ -44,6 +44,11 @@
 # process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (the
 # record of what was done, which survives any merge strategy), and removes .kit-upgrade/.
 #
+# THE ENABLED MODULES (process/MODULES): the files a module placed are judged by the sha256 enable recorded, which the
+# manifest above cannot see; process/contracts/module-lifecycle.md § 2 has the rules for a file and
+# process/contracts/kit-upgrade.md § 2 what the checklist carries. The checklist is written LAST, after a work order for each
+# module's record (.kit-upgrade/module-records/), so a run killed anywhere is finished by running this again.
+#
 # THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
 # read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
 # project's own, are run over every *.md file in progress/in_progress, dev_complete and blocked
@@ -156,6 +161,58 @@ read_version() {  # <file> — its one line, or nothing
   [ -f "$1" ] && sed -n '1{s/[[:space:]]*$//;p;}' "$1"
 }
 
+
+# mod_lib_load — source the modules library when the project records enabled modules (process/MODULES) and point it at the
+# project. Status 1 when the project has none. The library comes from the copy of the kit this script sits in; a copy that
+# lacks it is refused by the caller that needs it, before it writes.
+MODTMP=""; FINISHED_N=0
+mod_lib_load() {
+  [ -f "$TGT/process/MODULES" ] || return 1   # return-class: predicate
+  if [ -z "$MODTMP" ]; then
+    [ -f "$SCRIPT_DIR/lib/modules.sh" ] && [ -f "$SCRIPT_DIR/lib/exit-trap.sh" ] || return 2   # return-class: predicate
+    # shellcheck source=lib/exit-trap.sh
+    . "$SCRIPT_DIR/lib/exit-trap.sh"
+    # shellcheck source=lib/modules.sh
+    . "$SCRIPT_DIR/lib/modules.sh"
+    MODTMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-modules.XXXXXX")" || { MODTMP=""; return 3; }   # return-class: predicate
+    kit_on_exit 'rm -rf "$MODTMP"'
+    KIT_MOD_ROOT="$TGT"; KIT_MOD_SRC="${SRC:-$TGT}"; KIT_MOD_TMP="$MODTMP"; KIT_MOD_FAIL_RETURNS=1
+  fi
+  return 0
+}
+# mod_lib_need — mod_lib_load, refusing (before anything is written) when the library cannot be had. Status 1: no modules.
+mod_lib_need() {
+  local rc=0
+  mod_lib_load || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) return 1 ;;   # return-class: predicate
+    2) kit_refuse 1 upgrade-source-not-a-kit \
+         "Error: $TGT records enabled modules (process/MODULES) and this kit has no scripts/lib/modules.sh to read them with." \
+         "Next: unzip the release again from the original zip and run its copy; if the fresh copy refuses the same way, stop and hand off." ;;
+    *) kit_refuse 1 upgrade-write-failed "Error: could not make a scratch directory." "Next: check the temp directory (TMPDIR), then run this again." ;;
+  esac
+}
+# finish_module_records — carry out the module work orders a run left in the staging directory (module-records/), for a run
+# killed after its checklist was written and before the records were. Prints what it did (nothing, with `quiet`).
+finish_module_records() {
+  local mn n=0
+  FINISHED_N=0
+  [ -d "$ST/module-records" ] || return 0
+  mod_lib_need || return 0
+  for f in "$ST"/module-records/*.rows; do
+    [ -f "$f" ] || continue
+    mn="$(basename "$f" .rows)"
+    kit_mod_upgrade_finish_record "$mn" "$ST/module-records" || kit_refuse 1 upgrade-write-failed \
+      "Error: could not write process/MODULES to finish the record of module $mn; the checklist and the kit files are already written." \
+      "Next: fix the write failure (permissions, free space under process/), then run this again: it carries the record out and changes nothing else."
+    n=$((n + 1))
+  done
+  rmdir "$ST/module-records" 2>/dev/null || true
+  FINISHED_N="$n"
+  [ "$n" -eq 0 ] || [ "${1:-}" = quiet ] || echo "kit-upgrade: finished the record of $n module(s) an earlier run was killed before it wrote."
+  return 0
+}
 
 # ── THE NEW KIT'S LANDING CHECKS over the project's open cards ─────────────────
 # lc_run fills LC_REFUSED ("<id>|<column>|<rule ids>|<first message line>"), LC_UNCHECKED
@@ -367,6 +424,7 @@ if [ "$FINISH" = true ]; then
       "${VF_FAILED[@]}" \
       "Next: do the action each names (the command ran in $TGT), then run --finish again."
   fi
+  finish_module_records
   new_v="$(read_version "$ST/KIT-VERSION")"
   old_v="$(read_version "$TGT/process/KIT-VERSION")"
   ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
@@ -408,6 +466,12 @@ ver_ok "$CUR_V" || kit_refuse 1 upgrade-version-unreadable \
   "Next: write the version this project runs there, as its release shipped it, commit it, then run this again."
 
 # ── AN UPGRADE ALREADY IN PROGRESS ────────────────────────────────────────────
+# A staging directory with no checklist beside it, none of it committed, is what a run killed before its checklist left:
+# the checklist is the last thing written, so there is nothing to resume from and the run starts over.
+if [ ! -f "$CL" ] && [ -e "$ST" ] && [ -z "$(cd "$TGT" && git ls-files -- "$STAGE_DIR" 2>/dev/null | sed -n '1p')" ]; then
+  rm -rf "$ST"
+  echo "kit-upgrade: an earlier run was killed before it wrote its checklist; starting that upgrade over."
+fi
 if [ -f "$CL" ] || [ -e "$ST" ]; then
   prog_v="$(read_version "$ST/KIT-VERSION")"
   [ -n "$prog_v" ] || prog_v="$(sed -n 's/^target:[[:space:]]*//p' "$CL" 2>/dev/null | sed -n '1p')"
@@ -416,7 +480,9 @@ if [ -f "$CL" ] || [ -e "$ST" ]; then
       "Error: an upgrade to ${prog_v:-<unknown>} is in progress in $TGT ($UPGRADE_CHECKLIST, $STAGE_DIR/), and this kit is $NEW_V." \
       "Next: finish it (--finish), or delete both and commit that, then run this again."
   fi
-  echo "kit-upgrade: the upgrade to $NEW_V is already staged in $TGT; nothing was changed."
+  finish_module_records
+  if [ "$FINISHED_N" -gt 0 ]; then echo "kit-upgrade: the upgrade to $NEW_V is already staged in $TGT; the record above was the only change."
+  else echo "kit-upgrade: the upgrade to $NEW_V is already staged in $TGT; nothing was changed."; fi
   open_n="$(grep -c '^- \[ \]' "$CL" 2>/dev/null)"
   echo "  ${open_n:-0} item(s) unmarked in $UPGRADE_CHECKLIST. When none is: $TGT/scripts/kit-upgrade.sh --finish --into $TGT"
   exit 0
@@ -544,14 +610,64 @@ $ITEMS
 ITEMS_EOF
 fi
 
-total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} ))
-if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ]; then
+# ── THE ENABLED MODULES: what the new kit changes in the files they placed. ───
+# Scanned now, and written with the other files below. MOD_NAMES is every module process/MODULES records as
+# enabled; each leaves its findings in $MODTMP/up-<name>/ (lib/modules.sh says what they are).
+MOD_NAMES=""; MOD_LIVE=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
+if mod_lib_need; then
+  MOD_NAMES="$(kit_mod_enabled_names)"
+  if [ -n "$MOD_NAMES" ] && ! kit_mod_have_sha; then
+    kit_refuse 1 upgrade-modules-no-sha \
+      "Error: $TGT has enabled modules ($(printf '%s' "$MOD_NAMES" | tr '\n' ' ' | sed 's/ *$//')) and this machine has no sha256 tool (shasum or sha256sum), so the files they placed cannot be told from the project's edits. Nothing was changed." \
+      "Next: install one (shasum ships with perl and macOS, sha256sum with coreutils), then run this again."
+  fi
+  while IFS= read -r pn; do
+    [ -n "$pn" ] || continue
+    MOD_ACTION+=("module $pn has an enable that did not finish (process/MODULES records it as pending): ./scripts/module.sh enable $pn finishes it, ./scripts/module.sh disable $pn takes it back")
+  done <<MODPEND_EOF
+$(kit_mod_pending_names)
+MODPEND_EOF
+  while IFS= read -r mn; do
+    [ -n "$mn" ] || continue
+    kit_mod_upgrade_scan "$mn"
+    if [ -n "$KMU_GONE" ]; then
+      MOD_ACTION+=("module $mn is enabled here and the new kit no longer ships it; nothing was changed for it: disable it (./scripts/module.sh disable $mn), or keep its files as this project's own")
+      continue
+    fi
+    MOD_LIVE="$MOD_LIVE$mn
+"
+    while IFS="$(printf '\t')" read -r a k t s _ _ _; do
+      case "$a" in
+        write)   MOD_N_WRITE=$((MOD_N_WRITE + 1)); MOD_WRITE_PATHS+=("$t") ;;
+        merge)   MOD_N_MERGE=$((MOD_N_MERGE + 1)) ;;
+        removed) MOD_N_REMOVED=$((MOD_N_REMOVED + 1)) ;;
+      esac
+    done < "$KMU_DIR/act"
+    # The module's own Action required entries between the version recorded here and the one the kit holds.
+    if [ -n "$KMU_NOTES" ] && ver_ok "$KMU_OLD_VERSION" && ver_ok "$KMU_VERSION"; then
+      while IFS="$(printf '\t')" read -r sec n t _ _; do
+        [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
+        [ "$(ver_cmp "$sec" "$KMU_OLD_VERSION")" = 1 ] && [ "$(ver_cmp "$sec" "$KMU_VERSION")" != 1 ] || continue
+        MOD_ACTION+=("module $mn, Action required, [$sec] item $n: $t — modules/$mn/$KMU_NOTES § [$sec]")
+      done <<MODITEMS_EOF
+$(notes_items "$SRC/modules/$mn/$KMU_NOTES")
+MODITEMS_EOF
+    fi
+  done <<MODNAMES_EOF
+$MOD_NAMES
+MODNAMES_EOF
+fi
+
+total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} + ${#MOD_ACTION[@]} + MOD_N_MERGE + MOD_N_REMOVED ))
+if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ]; then
   echo "kit-upgrade: $TGT already runs kit $NEW_V, and every file is current. Nothing to do."
   exit 0
 fi
 
 # ── NOTHING UNCOMMITTED WHERE IT WRITES ───────────────────────────────────────
-dirty="$(cd "$TGT" && git status --porcelain --untracked-files=all -- ${WRITE[@]+"${WRITE[@]}"} "$UPGRADE_CHECKLIST" "$STAGE_DIR" 2>/dev/null)"
+# process/MODULES is left out: only scripts/module.sh and this script write it, and a copy a killed run left
+# changed is finished by running this again.
+dirty="$(cd "$TGT" && git status --porcelain --untracked-files=all -- ${WRITE[@]+"${WRITE[@]}"} ${MOD_WRITE_PATHS[@]+"${MOD_WRITE_PATHS[@]}"} "$UPGRADE_CHECKLIST" "$STAGE_DIR" 2>/dev/null)"
 if [ -n "$dirty" ]; then
   kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths this upgrade would write:" \
@@ -568,20 +684,50 @@ merge_keep() {
     scripts/verify.sh) printf '%s' "; this file holds the project's own gates, so merge the new copy into it and keep the project's GATES table" ;;
   esac
 }
+disarm_path() {
+  printf '%s' "$1" | sed 's#^\.claude/#_claude/#; s#/\.claude/#/_claude/#g'
+}
 staged_rel() {
-  printf '%s/files/%s.kit-new' "$STAGE_DIR" "$(printf '%s' "$1" | sed 's#^\.claude/#_claude/#; s#/\.claude/#/_claude/#g')"
+  printf '%s/files/%s.kit-new' "$STAGE_DIR" "$(disarm_path "$1")"
+}
+# staged_mod_rel <module> <path> <slot|-> — where a module's merge item's new copy goes: beside the core's, in a
+# directory of the module's own, so the two never share a name.
+staged_mod_rel() {
+  printf '%s/modules/%s/%s%s.kit-new' "$STAGE_DIR" "$1" "$(disarm_path "$2")" "$([ "$3" = - ] || printf '.%s-block' "$3")"
 }
 put() {  # <src> <dst> — copy, carrying the executable bit
   mkdir -p "$(dirname "$2")" && cp "$1" "$2" || return 1
   if [ -x "$1" ]; then chmod +x "$2"; else chmod a-x "$2"; fi
 }
+N_WROTE=0
 fail_write() {
-  kit_refuse 1 upgrade-write-failed "Error: could not write $1." \
-    "Next: the tree is part-written — 'git -C $TGT status' shows what changed, and 'git -C $TGT checkout -- .' plus removing $STAGE_DIR/ and $UPGRADE_CHECKLIST undoes it; fix the write failure, then run this again."
+  kit_refuse 1 upgrade-write-failed \
+    "Error: could not write $1. This run had written $N_WROTE of ${#WRITE[@]} kit file(s) before it stopped, and may have written module files, staged copies and the record; the tree is part-written ('git -C $TGT status' lists it)." \
+    "Next: fix the write failure, then run this again: it takes a file already written as done and finishes the rest. To undo instead: 'git -C $TGT checkout -- .', then remove $STAGE_DIR/ and $UPGRADE_CHECKLIST."
 }
-for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p"; done
+for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p"; N_WROTE=$((N_WROTE + 1)); done
+# The enabled modules' files, and their record.
+while IFS= read -r mn; do
+  [ -n "$mn" ] || continue
+  kit_mod_upgrade_apply "$mn" || fail_write "a file of module $mn"
+done <<MODNAMES_EOF
+$MOD_LIVE
+MODNAMES_EOF
 mkdir -p "$ST/files" || fail_write "$STAGE_DIR/"
 for p in ${MERGE[@]+"${MERGE[@]}"}; do put "$SRC/$p" "$TGT/$(staged_rel "$p")" || fail_write "$(staged_rel "$p")"; done
+MOD_STAGED=()
+while IFS= read -r mn; do
+  [ -n "$mn" ] || continue
+  while IFS="$(printf '\t')" read -r a k t s r _ w; do
+    [ "$a" = merge ] || continue
+    mst="$(staged_mod_rel "$mn" "$t" "$s")"
+    put "$r" "$TGT/$mst" || fail_write "$mst"
+    MOD_STAGED+=("$mn|$t|$s|$w|$mst")
+  done < "$MODTMP/up-$mn/act"
+  kit_mod_upgrade_stage_record "$mn" "$ST/module-records" || fail_write "$STAGE_DIR/module-records/"
+done <<MODNAMES_EOF
+$MOD_LIVE
+MODNAMES_EOF
 cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
 # The new kit's notes and history, staged: --finish reads each Verify: command from these copies.
 cp "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE_DIR/$STAGED_NOTES"
@@ -594,6 +740,15 @@ for p in "$SRC/scripts/lib/"*.sh; do
   put "$p" "$ST/lib/$(basename "$p").kit-new" || fail_write "$STAGE_DIR/lib/$(basename "$p").kit-new"
 done
 lc_run
+
+# A point of a module whose reader this project's copy of the kit lacks, asked once every file is in place.
+while IFS= read -r mn; do
+  [ -n "$mn" ] || continue
+  blockers="$(kit_mod_upgrade_readers "$mn" | sed 's/^ *//' | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+  [ -z "$blockers" ] || MOD_ACTION+=("module $mn adds to extension points whose readers this project's copy of the kit lacks, so its checks are placed and never run: $blockers; merge each file named (a merge item above, or the release's copy), then mark this")
+done <<MODNAMES_EOF
+$MOD_LIVE
+MODNAMES_EOF
 
 {
   echo "<!-- Written by scripts/kit-upgrade.sh; it and check-board.sh read this file. One item per line. -->"
@@ -611,9 +766,10 @@ lc_run
     echo
     echo "Every file the kit changed that differs here is a merge item, because $DEGRADED."
   fi
-  if [ "${#ACTION[@]}" -gt 0 ]; then
+  if [ "$(( ${#ACTION[@]} + ${#MOD_ACTION[@]} ))" -gt 0 ]; then
     echo; echo "## Action required"; echo
-    for l in "${ACTION[@]}"; do echo "- [ ] $l"; done
+    for l in ${ACTION[@]+"${ACTION[@]}"}; do echo "- [ ] $l"; done
+    for l in ${MOD_ACTION[@]+"${MOD_ACTION[@]}"}; do echo "- [ ] $l"; done
   fi
   # AGENTS.md blocked beside a CLAUDE.md adapter: one move item, which absorbs CLAUDE.md's removal.
   migrate_claude=""
@@ -639,13 +795,26 @@ lc_run
     done
   fi
 
-  if [ "$(( ${#MERGE[@]} + ${#REMOVED[@]} + ${#ADDED[@]} + ${#REPLACED[@]} + ${#BLOCKED[@]} ))" -gt 0 ]; then
+  if [ "$(( ${#MERGE[@]} + ${#REMOVED[@]} + ${#ADDED[@]} + ${#REPLACED[@]} + ${#BLOCKED[@]} + MOD_N_MERGE + MOD_N_REMOVED ))" -gt 0 ]; then
     echo; echo "## Files"; echo
     i=0
     while [ "$i" -lt "${#MERGE[@]}" ]; do
       echo "- [ ] merge ${MERGE[$i]} — ${MERGE_WHY[$i]}$(merge_keep "${MERGE[$i]}"); the new copy is $(staged_rel "${MERGE[$i]}")"
       i=$((i + 1))
     done
+    for l in ${MOD_STAGED[@]+"${MOD_STAGED[@]}"}; do
+      IFS='|' read -r mn t s w mst <<< "$l"
+      echo "- [ ] merge $t$([ "$s" = - ] || echo " (block, slot $s)") — module $mn: $w; the module's new copy is $mst"
+    done
+    while IFS= read -r mn; do
+      [ -n "$mn" ] || continue
+          while IFS="$(printf '\t')" read -r a k t s _ _ w; do
+        [ "$a" = removed ] || continue
+        echo "- [ ] removed upstream: $t$([ "$s" = - ] || echo " (block, slot $s)") — module $mn: $w"
+      done < "$MODTMP/up-$mn/act"
+    done <<MODNAMES_EOF
+$MOD_LIVE
+MODNAMES_EOF
     for p in ${REMOVED[@]+"${REMOVED[@]}"}; do
       if [ "$p" = CLAUDE.md ] && [ -n "$migrate_claude" ]; then
         continue   # folded into the AGENTS.md migration item below
@@ -669,12 +838,15 @@ lc_run
       echo "- [ ] stamp what arrived: the ${#ADDED[@]} added and ${#REPLACED[@]} replaced file(s) are unstamped — run the checks in process/KIT-RELEASE-NOTES.md § How to upgrade (\"A line the kit ADDS arrives unstamped\")"
     fi
   fi
-} > "$CL" || fail_write "$UPGRADE_CHECKLIST"
+} > "$CL.new" && mv "$CL.new" "$CL" || fail_write "$UPGRADE_CHECKLIST"
+# The checklist is on disk: the merge items are written down, so the modules' rows and versions may move.
+finish_module_records quiet
 
 echo "kit-upgrade: $TGT, kit $CUR_V → $NEW_V (staged; process/KIT-VERSION is unchanged)."
 echo "  replaced ${#REPLACED[@]}, added ${#ADDED[@]}, already current $n_current, unchanged upstream (kept as you have them) $n_kept"
 echo "  to merge ${#MERGE[@]} (new copies in $STAGE_DIR/files/), removed upstream ${#REMOVED[@]}, Action required ${#ACTION[@]}"
 [ "${#BLOCKED[@]}" -eq 0 ] || echo "  kept, not replaced (this project is past the kit's day-one scaffolding there) ${#BLOCKED[@]}"
+[ -z "$MOD_NAMES" ] || echo "  enabled modules ($(printf '%s' "$MOD_NAMES" | tr '\n' ' ' | sed 's/ *$//')): written $MOD_N_WRITE, to merge $MOD_N_MERGE, no longer placed $MOD_N_REMOVED, checklist items ${#MOD_ACTION[@]}"
 [ -z "$DEGRADED" ] || echo "  every file the kit changed that differs here is a merge item, because $DEGRADED."
 if [ "$LC_CARDS" -gt 0 ]; then
   echo "  open cards: $LC_CARDS read, ${#LC_REFUSED[@]} the new kit's landing checks would refuse, ${#LC_UNCHECKED[@]} not checkable"

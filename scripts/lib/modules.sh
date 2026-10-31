@@ -7,6 +7,8 @@
 # wrote. process/MODULES (the record) is the one statement of what is enabled and of the sha256 of every
 # file and block enable placed, so disable can tell a file the module wrote from one the project then
 # edited. The contract is process/contracts/module-lifecycle.md; the program is scripts/module.sh.
+# kit-init.sh (--with) asks kit_mod_would_place before it writes and then runs module.sh; kit-upgrade.sh
+# carries an enabled module's new version through kit_mod_upgrade_scan, _apply, _stage_record and _finish_record.
 #
 # THE CALLER SETS, before any call:
 #   KIT_MOD_ROOT   the project's top level (where process/MODULES lives, where files are placed)
@@ -17,7 +19,9 @@
 #
 # THE RECORD, process/MODULES (created by the first enable, deleted by the last disable):
 #   module  <name> <version>        enabled
-#   pending <name> <version>        an enable that was started and has not finished
+#   pending <name> <version>        an enable that was started and has not finished (beside a `module` line of the
+#                                   same name: the rows an upgrade is about to write; a path may then hold the sha256 of
+#                                   either section, and status and disable read both)
 #   kept    <name> <version>        what a disable left because the project had edited it
 #   file  <sha256> <path>           rows belong to the nearest header line above them
 #   block <sha256> <path> <slot>
@@ -104,6 +108,12 @@ kit_mod_enabled_names() {
   [ -f "$(_kit_mod_state)" ] || return 0
   awk '$1 == "module" { print $2 }' "$(_kit_mod_state)"
 }
+# kit_mod_pending_names — one name per line: the modules whose enable was started and has not finished (a name
+# that is also enabled has an upgrade that did not finish, and is not listed).
+kit_mod_pending_names() {
+  [ -f "$(_kit_mod_state)" ] || return 0
+  awk '$1 == "module" { en[$2] = 1 } $1 == "pending" { pe[$2] = 1 } END { for (n in pe) if (!(n in en)) print n }' "$(_kit_mod_state)" | LC_ALL=C sort
+}
 # kit_mod_is_enabled <name> — status 0 when recorded as enabled.
 kit_mod_is_enabled() { local n; n="$(kit_mod_enabled_names)"; grep -qxF -- "$1" <<< "$n"; }
 # kit_mod_is_pending <name> — status 0 when an enable of it was started and has not finished.
@@ -137,6 +147,21 @@ ROWS_EOF
 kit_mod_rows() { _kit_mod_rows_of "$1" module pending; }
 # kit_mod_pending_rows <name> — the rows an interrupted enable of <name> recorded ahead of its writes.
 kit_mod_pending_rows() { _kit_mod_rows_of "$1" pending; }
+# kit_mod_rows_merged <name> — `<kind> <sha>|<sha>… <path> [<slot>]`, one row per thing: the shas a path may hold when an upgrade
+# was started and not finished (its module rows and its `pending` rows name different ones). disable and status read these.
+kit_mod_rows_merged() {
+  # read through a file: a refusal (a row that leaves the project) must end the caller, which a pipe's left side cannot
+  kit_mod_rows "$1" > "$KIT_MOD_TMP/rows-union"
+  awk '{ k = $1 SUBSEP $3 SUBSEP $4; if (!(k in sha)) { order[++n] = k; first[k] = $0; sha[k] = $2 } else sha[k] = sha[k] "|" $2 }
+    END { for (i = 1; i <= n; i++) { k = order[i]; split(first[k], f, " "); printf "%s %s %s", f[1], sha[k], f[3]; if (f[4] != "") printf " %s", f[4]; printf "\n" } }' "$KIT_MOD_TMP/rows-union"
+}
+# _kit_mod_sha_in <sha> <sha>|<sha>… — status 0 when the first is one of the alternatives.
+_kit_mod_sha_in() {
+  case "|$2|" in *"|$1|"*) return 0 ;; esac
+  return 1   # return-class: predicate
+}
+# _kit_mod_sha_pick <current sha> <alternatives> — the alternative the tree holds, else the first one.
+_kit_mod_sha_pick() { if _kit_mod_sha_in "$1" "$2"; then printf '%s' "$1"; else printf '%s' "${2%%|*}"; fi; }
 # kit_mod_kept_rows <name> — the rows a disable of <name> left in the tree, as recorded then.
 kit_mod_kept_rows() { _kit_mod_rows_of "$1" kept; }
 # kit_mod_kept_version <name> — the version <name> had when it was disabled with files kept, or nothing.
@@ -166,13 +191,35 @@ _kit_mod_state_put() {
       printf '%s %s %s\n' "$kw" "$name" "$ver"
       cat "$rows"
     fi
-  } > "$tmp" || kit_refuse 1 module-write-failed "Error: could not write $KIT_MOD_STATE_REL." "Next: check the permissions of process/ and the temp directory, then re-run."
+  } > "$tmp" || { _kit_mod_state_fail; return 1; }   # return-class: internal
   if ! awk '$1 == "module" || $1 == "kept" || $1 == "pending" { f = 1 } END { exit !f }' "$tmp"; then
     rm -f "$f"
   else
     mkdir -p "$(dirname "$f")" && cp "$tmp" "$f.kit-mod-new" && mv "$f.kit-mod-new" "$f" \
-      || kit_refuse 1 module-write-failed "Error: could not write $KIT_MOD_STATE_REL." "Next: check the permissions of process/, then re-run."
+      || { _kit_mod_state_fail; return 1; }   # return-class: internal
   fi
+}
+
+# _kit_mod_state_ahead <name> <version> <rows-file> — add (or replace) a `pending` section for a module that is
+# already enabled: the rows an upgrade is about to write, recorded BEFORE the files, so a kill between a file and
+# the record that names it leaves the proof that the file is the module's. The module's own section is untouched.
+# The next _kit_mod_state_put of the module drops it.
+_kit_mod_state_ahead() {
+  local name="$1" ver="$2" rows="$3" f tmp
+  f="$(_kit_mod_state)"; tmp="$KIT_MOD_TMP/state.new"
+  {
+    awk -v n="$name" '$1 == "module" || $1 == "kept" || $1 == "pending" { skip = ($1 == "pending" && $2 == n) } skip { next } { print }' "$f"
+    printf 'pending %s %s\n' "$name" "$ver"
+    cat "$rows"
+  } > "$tmp" || { _kit_mod_state_fail; return 1; }   # return-class: internal
+  cp "$tmp" "$f.kit-mod-new" && mv "$f.kit-mod-new" "$f" \
+    || { _kit_mod_state_fail; return 1; }   # return-class: internal
+}
+# _kit_mod_state_fail — the record could not be written: a refusal, or, for a caller that sets KIT_MOD_FAIL_RETURNS because
+# it has already written other files and words the failure itself, nothing (the caller sees the status).
+_kit_mod_state_fail() {
+  [ -z "${KIT_MOD_FAIL_RETURNS:-}" ] || return 0
+  kit_refuse 1 module-write-failed "Error: could not write $KIT_MOD_STATE_REL." "Next: check the permissions of process/ and the temp directory, then re-run."
 }
 
 # ── the manifest and the plan ─────────────────────────────────────────────────
@@ -215,7 +262,8 @@ _kit_mod_status_folders() {
 #   file<TAB><target><TAB><rendered copy><TAB>x|-            (a copied file)
 #   block<TAB><target><TAB><rendered copy><TAB><slot>        (a marker block; the `gitignore` slot is the end of .gitignore)
 # the rendered copies living under $KIT_MOD_TMP, and <needs-file> beside it (one line per extension point
-# the module uses, for the reader check). Sets KIT_MOD_VERSION and KIT_MOD_PURPOSE. Refuses a manifest that is wrong.
+# the module uses, for the reader check). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the
+# module's release-notes file, or nothing). Refuses a manifest that is wrong.
 kit_mod_plan() {
   local name="$1" plan="$2" dir man line key val src tgt slot extra n=0 gen mode seen tpl fmode folders
   _kit_mod_need_name "$name"
@@ -225,7 +273,7 @@ kit_mod_plan() {
     "Next: ./scripts/module.sh list names the modules this kit ships."
   _kit_mod_stamp
   : > "$plan"
-  KIT_MOD_VERSION=""; KIT_MOD_PURPOSE=""
+  KIT_MOD_VERSION=""; KIT_MOD_PURPOSE=""; KIT_MOD_NOTES=""
   # The rendered copies live in a directory of this module's own, so two plans never share a name.
   local wd="$KIT_MOD_TMP/render-of-$name" mname="" roles_f kinds_f needs
   rm -rf "$wd"; mkdir -p "$wd" || _kit_mod_bad "$name" "could not make a scratch directory under $KIT_MOD_TMP."
@@ -243,6 +291,10 @@ kit_mod_plan() {
       version)  grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' <<< "$val" || _kit_mod_bad "$name" "version '$val' is not X.Y.Z."
                 KIT_MOD_VERSION="$val" ;;
       purpose)  KIT_MOD_PURPOSE="$val" ;;
+      release-notes)
+                _kit_mod_safe_rel "$val" && [ -f "$dir/$val" ] || _kit_mod_bad "$name" "release-notes '$val' is not a file of the module (plain characters, no '..')."
+                ! _kit_mod_armed_component "$val" || _kit_mod_bad "$name" "release-notes '$val' carries a name a harness reads; store it disarmed."
+                KIT_MOD_NOTES="$val" ;;
       role)     tgt="${val%%[[:space:]]*}"
                 grep -qE '^[A-Za-z][A-Za-z0-9_-]*$' <<< "$tgt" || _kit_mod_bad "$name" "role '$tgt' is not a role tag (letters, digits, '_' and '-', opening with a letter)."
                 printf '%s\n' "$val" >> "$roles_f"
@@ -515,6 +567,14 @@ _kit_mod_put_block() {
   fi
 }
 
+# _kit_mod_place_file <rendered copy> <destination> <x|-> — write the file beside its path and move it in, so
+# a kill never leaves a half-written file at the path; <x> sets the executable bit. Status 1 when a step fails.
+_kit_mod_place_file() {
+  local rend="$1" dst="$2" mode="$3"
+  mkdir -p "$(dirname "$dst")" && cp "$rend" "$dst.kit-mod-new" && { [ "$mode" != x ] || chmod +x "$dst.kit-mod-new"; } && mv "$dst.kit-mod-new" "$dst" \
+    || return 1   # return-class: internal
+}
+
 # _kit_mod_unplace <placed-list> — take back what a failed enable placed (lines `file <path>` and
 # `block <path> <id>`), newest first, so the failure leaves the tree as it found it.
 _kit_mod_unplace() {
@@ -536,6 +596,30 @@ _kit_mod_rows_put() {
   awk -v k="$kind" -v p="$tgt" -v s="$slot" '!($1 == k && $3 == p && (k == "file" || $4 == s))' "$f" > "$t"
   if [ "$kind" = file ]; then printf 'file %s %s\n' "$sha" "$tgt" >> "$t"; else printf 'block %s %s %s\n' "$sha" "$tgt" "$slot" >> "$t"; fi
   mv "$t" "$f"
+}
+
+# kit_mod_would_place <name> — what stops enable placing <name> in this tree as it stands, one line each, or
+# nothing: the question kit-init asks before it writes anything. It reads the manifest as enable does (one that
+# does not read refuses and exits, so call it in a subshell), leaves out the blanks check (kit-init fills the
+# blanks in before it enables), and adds one question enable does not ask, whether git would add what enable
+# places: a file an ignore rule matches would be left out of the initialization commit. The paths after the name are ones
+# the caller itself writes before it enables the module; a module target among them is reported.
+kit_mod_would_place() {
+  local name="$1" plan="$KIT_MOD_TMP/would-$1" kind tgt rend extra own
+  shift
+  kit_mod_plan "$name" "$plan"
+  kit_mod_have_sha || echo "  no sha256 tool (shasum or sha256sum) is on this machine, and enable records one per file"
+  _kit_mod_reader_blockers "$plan.needs"
+  _kit_mod_conflicts "$plan" "$name"
+  while IFS="$(printf '\t')" read -r kind tgt rend extra; do
+    if git -C "$KIT_MOD_ROOT" check-ignore -q --no-index -- "$tgt" 2>/dev/null; then
+      echo "  $tgt is ignored by git, so the initialization commit would leave it out"
+    fi
+    for own in "$@"; do
+      if [ "$tgt" = "$own" ]; then echo "  $tgt: kit-init writes it itself before it enables the module, which would then find it occupied"; fi
+    done
+  done < "$plan"
+  return 0
 }
 
 # ── enable ────────────────────────────────────────────────────────────────────
@@ -608,8 +692,7 @@ kit_mod_enable() {
     if [ "$kind" = file ]; then
       if [ -f "$dst" ] && cmp -s "$rend" "$dst"; then :
       else
-        # Written beside the target and moved in, so a kill never leaves a half-written file at the path.
-        if ! { mkdir -p "$(dirname "$dst")" && cp "$rend" "$dst.kit-mod-new" && { [ "$extra" != x ] || chmod +x "$dst.kit-mod-new"; } && mv "$dst.kit-mod-new" "$dst"; }; then
+        if ! _kit_mod_place_file "$rend" "$dst" "$extra"; then
           _kit_mod_clean_strays "$tgt"
           _kit_mod_unplace "$placed_f"
           [ "$resuming" = 1 ] || _kit_mod_state_put "$name" "" /dev/null
@@ -694,7 +777,7 @@ _kit_mod_disable_blockers() {
     [ -f "$dst" ] || continue
     if [ -L "$dst" ]; then echo "  $tgt is a symbolic link"; continue; fi
     kit_mb_has "$dst" "$bid" || continue
-    [ "$(_kit_mod_block_sha "$dst" "$bid")" = "$sha" ] || continue
+    _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha" || continue
     if [ -s "$dst" ] && [ -n "$(tail -c1 "$dst" | tr -d '\n')" ]; then echo "  $tgt does not end with a newline"; fi
   done < "$1"
   return 0
@@ -715,9 +798,9 @@ kit_mod_disable() {
   kit_mod_have_sha || kit_refuse 1 module-no-sha-tool \
     "Error: no sha256 tool (shasum or sha256sum) is on this machine, so disable cannot tell the module's files from your edits, and it will not guess." \
     "Next: install one, then re-run ./scripts/module.sh disable $name."
-  if kit_mod_is_pending "$name"; then was=pending; ver="$(awk -v n="$name" '$1 == "pending" && $2 == n { print $3; exit }' "$(_kit_mod_state)")"
+  if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then was=pending; ver="$(awk -v n="$name" '$1 == "pending" && $2 == n { print $3; exit }' "$(_kit_mod_state)")"
   else ver="$(kit_mod_enabled_version "$name")"; fi
-  kit_mod_rows "$name" > "$rows"; : > "$keptf"
+  kit_mod_rows_merged "$name" > "$rows"; : > "$keptf"
   blockers="$(_kit_mod_disable_blockers "$rows" "$name")"
   [ -z "$blockers" ] || kit_refuse 1 module-disable-blocked \
     "Error: module $name cannot be disabled yet; a block it placed sits in a file that cannot be rewritten as it is:" \
@@ -730,7 +813,8 @@ kit_mod_disable() {
     _kit_mod_clean_strays "$tgt"
     if [ "$kind" = file ]; then
       if [ ! -e "$dst" ]; then gone=$((gone + 1)); continue; fi
-      if [ "$(_kit_mod_sha "$dst")" = "$sha" ]; then
+      if _kit_mod_sha_in "$(_kit_mod_sha "$dst")" "$sha"; then
+        sha="$(_kit_mod_sha "$dst")"
         # A role layer that history uses stays: [e] would flag every commit under the role without it.
         if [ "$tgt" = "process/roles.d/$name" ]; then
           tag=""
@@ -753,19 +837,19 @@ ROLE_TAGS_EOF
       else
         KIT_MOD_KEPT="${KIT_MOD_KEPT}${tgt}
 "
-        printf 'file %s %s\n' "$sha" "$tgt" >> "$keptf"
+        printf 'file %s %s\n' "${sha%%|*}" "$tgt" >> "$keptf"
       fi
     else
       bid="$(_kit_mod_bid "$name" "$slot")"
       if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); continue; fi
-      if [ "$(_kit_mod_block_sha "$dst" "$bid")" = "$sha" ]; then
+      if _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha"; then
         kit_mb_remove "$dst" "$bid"
         removed=$((removed + 1)); KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${tgt}
 "
       else
         KIT_MOD_KEPT="${KIT_MOD_KEPT}${tgt} (block $name, slot $slot)
 "
-        printf 'block %s %s %s\n' "$sha" "$tgt" "$slot" >> "$keptf"
+        printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$keptf"
       fi
     fi
   done < "$rows"
@@ -802,12 +886,12 @@ kit_mod_available() {
 # _kit_mod_file_state <path> <sha> — intact | edited | missing, by the recorded sha.
 _kit_mod_file_state() {
   if [ ! -e "$KIT_MOD_ROOT/$1" ]; then echo missing
-  elif [ "$(_kit_mod_sha "$KIT_MOD_ROOT/$1")" = "$2" ]; then echo intact
+  elif _kit_mod_sha_in "$(_kit_mod_sha "$KIT_MOD_ROOT/$1")" "$2"; then echo intact
   else echo edited; fi
 }
 _kit_mod_block_state() {  # <path> <block id> <sha>
   if [ ! -f "$KIT_MOD_ROOT/$1" ] || ! kit_mb_has "$KIT_MOD_ROOT/$1" "$2"; then echo missing
-  elif [ "$(_kit_mod_block_sha "$KIT_MOD_ROOT/$1" "$2")" = "$3" ]; then echo intact
+  elif _kit_mod_sha_in "$(_kit_mod_block_sha "$KIT_MOD_ROOT/$1" "$2")" "$3"; then echo intact
   else echo edited; fi
 }
 
@@ -825,7 +909,7 @@ _kit_mod_status_rows() {
 kit_mod_status() {
   local name="$1" kv
   _kit_mod_need_name "$name"
-  if kit_mod_is_pending "$name"; then
+  if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then
     echo "module: $name is NOT enabled: an enable of it did not finish. Each recorded thing and its state:"
     kit_mod_pending_rows "$name" > "$KIT_MOD_TMP/status-rows"
     _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
@@ -845,7 +929,242 @@ kit_mod_status() {
     return 0
   fi
   echo "module: $name $(kit_mod_enabled_version "$name") — enabled"
-  kit_mod_rows "$name" > "$KIT_MOD_TMP/status-rows"
+  if kit_mod_is_pending "$name"; then
+    echo "  An upgrade of it did not finish: run the kit upgrade again (kit-upgrade.sh --into <this project>); it finishes what it started."
+  fi
+  kit_mod_rows_merged "$name" > "$KIT_MOD_TMP/status-rows"
   _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
   return 0
+}
+
+# ── upgrade: what the new kit changes for an enabled module ───────────────────
+#
+# kit-upgrade.sh sets KIT_MOD_ROOT to the project, KIT_MOD_SRC to the NEW kit and KIT_MOD_FAIL_RETURNS (so a failed
+# write of the record comes back as a status, for the caller to word, instead of a refusal made after files were
+# written), then for each enabled module:
+#   kit_mod_upgrade_scan <name>                 compare what the new kit would place with the tree and the record
+#   kit_mod_upgrade_apply <name>                record, then write, what the scan said may be written
+#   kit_mod_upgrade_stage_record <name> <dir>   leave the module's final record in <dir>, a work order
+#   kit_mod_upgrade_finish_record <name> <dir>  carry the work order out and remove it (run again after a kill)
+# The scan writes nothing in the project. It leaves its findings in $KMU_DIR (= $KIT_MOD_TMP/up-<name>):
+#   act    <action> TAB <kind> TAB <target> TAB <slot|-> TAB <rendered copy|-> TAB <x|-> TAB <why>
+#          write    the file or block is as enable wrote it (or is new in the module) and can be placed
+#          merge    the project's copy cannot be replaced: the new copy is staged for a person to merge
+#          removed  recorded, present, and not placed by the new version: listed, never deleted
+#   ahead  every row the upgrade is about to write, at the sha256 it will hold
+#   rows   the module's rows once the upgrade is done (a merge item's row moves to the new copy then, so the next
+#          upgrade raises an item only if the module changes the file again)
+#   meta   old=<recorded version> new=<version in the new kit> notes=<release-notes file>
+# and sets KMU_GONE (the new kit holds no such module), KMU_OLD_VERSION, KMU_VERSION and KMU_NOTES for the module just
+# scanned; apply and finish read meta, so scanning another module in between changes nothing.
+# A row is judged as process/contracts/module-lifecycle.md § 2 says, by three shas: REC (the record's), CUR (the
+# tree's) and NEW (the new kit's copy as it would be placed here). A path the record does not name is never taken.
+# THE ORDER MAKES A KILL SAFE. Before any file is written the record gains a `pending` section naming each path about
+# to be written at the sha256 it will hold; the module's own rows are not touched, so a path may hold the sha256 of
+# either (status and disable read both). The module's rows and version move once, after the checklist is on disk,
+# from the work order staged beside it. A run killed anywhere is finished by running the upgrade again: a file already
+# written reads CUR = NEW, the pending section is kept whole until then, and the work order is carried out whether or
+# not the checklist existed.
+KMU_GONE=""; KMU_DIR=""; KMU_OLD_VERSION=""; KMU_VERSION=""; KMU_NOTES=""; KMU_LOST=""
+kit_mod_upgrade_scan() {
+  local name="$1" d="$KIT_MOD_TMP/up-$1" kind tgt rend extra dst rec arec cur new bid why canwrite nr slot oldtxt aheadtxt tab twin renamed=""
+  tab="$(printf '\t')"
+  KMU_GONE=""; KMU_DIR="$d"; KMU_VERSION=""; KMU_NOTES=""
+  rm -rf "$d"; mkdir -p "$d" || kit_refuse 1 module-write-failed "Error: could not make a scratch directory under $KIT_MOD_TMP." "Next: check the temp directory (TMPDIR), then run this again."
+  : > "$d/act"; : > "$d/rows"
+  KMU_OLD_VERSION="$(kit_mod_enabled_version "$name")"
+  _kit_mod_rows_of "$name" module > "$d/old"; oldtxt="$(cat "$d/old")"
+  # rows an earlier, killed run recorded ahead stay in the section until the upgrade is done
+  aheadtxt="$(kit_mod_pending_rows "$name")"; printf '%s\n' "$aheadtxt" | awk 'NF' > "$d/ahead"
+  if [ ! -f "$(_kit_mod_src)/modules/$name/module.manifest" ]; then KMU_GONE=1; return 0; fi
+  kit_mod_plan "$name" "$d/plan"
+  KMU_VERSION="$KIT_MOD_VERSION"; KMU_NOTES="$KIT_MOD_NOTES"
+  printf 'old=%s\nnew=%s\nnotes=%s\n' "$KMU_OLD_VERSION" "$KMU_VERSION" "$KMU_NOTES" > "$d/meta"
+  while IFS="$tab" read -r kind tgt rend extra; do
+    dst="$KIT_MOD_ROOT/$tgt"; nr=""
+    why="$(_kit_mod_ancestor_problem "$tgt")"
+    if [ "$kind" = file ]; then
+      slot="-"; rec="$(_kit_mod_rec_sha "$oldtxt" file "$tgt")"; new="$(_kit_mod_sha "$rend")"
+      if [ -L "$dst" ] || [ -d "$dst" ]; then cur="@not-a-file"; [ -n "$why" ] || why="$tgt is a directory or a symbolic link"
+      elif [ -f "$dst" ]; then cur="$(_kit_mod_sha "$dst")"; else cur=""; fi
+      # A target spelt in another case than the record's, on a filesystem that reads the two as one file, is the
+      # module's own file under a new spelling, not a new file and not a removed one.
+      if [ -z "$rec" ]; then
+        twin="$(_kit_mod_case_twin "$oldtxt" "$tgt")"
+        if [ -n "$twin" ]; then rec="${twin%% *}"; renamed="$renamed${twin#* }
+"; fi
+      fi
+    else
+      slot="$extra"; bid="$(_kit_mod_bid "$name" "$slot")"
+      rec="$(_kit_mod_rec_sha "$oldtxt" block "$tgt" "$slot")"; new="$(_kit_mod_text_sha "$rend")"
+      if [ -f "$dst" ] && kit_mb_has "$dst" "$bid"; then cur="$(_kit_mod_block_sha "$dst" "$bid")"; else cur=""; fi
+      [ -n "$why" ] || why="$(_kit_mod_block_blocker "$dst" "$bid" "$slot")"
+    fi
+    canwrite=1; [ -z "$why" ] || canwrite=0
+    # A path an earlier, killed run recorded ahead of writing it is the module's own if the tree holds what that run
+    # would have written, or (for one the record never named) what this run writes; one it never reached is written
+    # like any other.
+    arec="$(_kit_mod_rec_sha "$aheadtxt" "$kind" "$tgt" "$slot")"
+    if [ -n "$arec" ] && [ -n "$cur" ] && _kit_mod_rec_has "$aheadtxt" "$kind" "$tgt" "$slot" "$cur"; then rec="$cur"
+    elif [ -z "$rec" ] && [ -n "$arec" ] && [ "$cur" = "$new" ]; then rec="$arec"; fi
+    if [ -n "$cur" ] && [ "$cur" = "$new" ]; then
+      [ -z "$rec" ] || nr="$new"                                      # already the new copy; a copy the project had of its own stays its own
+    elif [ -z "$cur" ]; then
+      if [ -z "$rec" ]; then
+        if [ "$canwrite" = 1 ]; then _kit_mod_up_act "$d/act" write "$kind" "$tgt" "$slot" "$rend" "$extra" ""; nr="$new"   # new in the module
+          _kit_mod_up_row "$d/ahead" "$kind" "$new" "$tgt" "$slot"
+        else _kit_mod_up_act "$d/act" merge "$kind" "$tgt" "$slot" "$rend" "$extra" "the module places it here and it cannot be placed: $why"; fi
+      elif [ "$rec" != "$new" ]; then
+        _kit_mod_up_act "$d/act" merge "$kind" "$tgt" "$slot" "$rend" "$extra" "this project removed it, and the module changed it"; nr="$new"
+      else nr="$rec"                                                  # removed here, unchanged upstream: stays removed
+      fi
+    elif [ -n "$rec" ] && [ "$cur" = "$rec" ]; then
+      if [ "$canwrite" = 0 ]; then
+        _kit_mod_up_act "$d/act" merge "$kind" "$tgt" "$slot" "$rend" "$extra" "the module changed it and it cannot be replaced: $why"; nr="$rec"
+      elif _kit_mod_up_role_loss "$name" "$tgt" "$dst" "$rend"; then
+        _kit_mod_up_act "$d/act" merge "$kind" "$tgt" "$slot" "$rend" "$extra" "the new version no longer adds the role $KMU_LOST, which commits on this branch or the trunk carry; the layer is kept as it is, because check-board's [e] would report those commits without it, and the way to keep the role is a line for it in process/ROLES"
+        nr="$rec"
+      else
+        _kit_mod_up_act "$d/act" write "$kind" "$tgt" "$slot" "$rend" "$extra" ""; nr="$new"   # as enable wrote it
+        _kit_mod_up_row "$d/ahead" "$kind" "$new" "$tgt" "$slot"
+      fi
+    elif [ -n "$rec" ] && [ "$rec" = "$new" ]; then
+      nr="$rec"                                                       # the module did not change it; the project's edit stays
+    else
+      _kit_mod_up_act "$d/act" merge "$kind" "$tgt" "$slot" "$rend" "$extra" "this project changed it, and so did the module"
+      [ -z "$rec" ] || nr="$new"
+    fi
+    _kit_mod_up_row "$d/rows" "$kind" "$nr" "$tgt" "$slot"
+  done < "$d/plan"
+  # Recorded, and no longer placed by the new version: the row stays so disable still takes the file, and the
+  # file is listed (on the upgrade that changes the module's version), never deleted.
+  while read -r kind rec tgt slot; do
+    [ -n "$kind" ] || continue
+    if awk -F'\t' -v k="$kind" -v p="$tgt" -v s="$slot" '$1 == k && $2 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$d/plan"; then continue; fi
+    case "
+$renamed" in *"
+$tgt
+"*) continue ;; esac
+    _kit_mod_up_row "$d/rows" "$kind" "$rec" "$tgt" "$slot"
+    [ "$KMU_OLD_VERSION" != "$KMU_VERSION" ] || continue
+    if [ "$kind" = file ] && { [ -e "$KIT_MOD_ROOT/$tgt" ] || [ -L "$KIT_MOD_ROOT/$tgt" ]; }; then
+      why="the new version does not place it; its record is kept, so disable still takes it: delete it, or keep it as this project's own"
+      if [ "$tgt" = "process/roles.d/$name" ] && [ -n "$(_kit_mod_layer_in_use "$KIT_MOD_ROOT/$tgt")" ]; then
+        why="the new version drops this role layer, and commits on this branch or the trunk carry the role $(_kit_mod_layer_in_use "$KIT_MOD_ROOT/$tgt"): it stays in force and disable keeps it too; to retire the role on purpose, move its line into process/ROLES, then delete this file"
+      fi
+      _kit_mod_up_act "$d/act" removed file "$tgt" - - - "$why"
+    elif [ "$kind" = block ] && [ -f "$KIT_MOD_ROOT/$tgt" ] && kit_mb_has "$KIT_MOD_ROOT/$tgt" "$(_kit_mod_bid "$name" "$slot")"; then
+      _kit_mod_up_act "$d/act" removed block "$tgt" "$slot" - - "the new version does not place it; its record is kept, so disable still takes it: delete it, or keep it as this project's own"
+    fi
+  done < "$d/old"
+  return 0
+}
+# _kit_mod_up_meta <name> <old|new|notes> — a value the scan of that module left.
+_kit_mod_up_meta() { sed -n "s/^$2=//p" "$KIT_MOD_TMP/up-$1/meta" | sed -n '1p'; }
+# _kit_mod_rec_has <rows-text> <kind> <path> <slot> <sha> — status 0 when some row names that sha for the path.
+_kit_mod_rec_has() {
+  printf '%s\n' "$1" | awk -v k="$2" -v p="$3" -v s="${4:-}" -v h="$5" '$1 == k && $3 == p && (k == "file" || $4 == s) && $2 == h { f = 1 } END { exit !f }'
+}
+# _kit_mod_case_twin <rows-text> <path> — "<sha> <old path>" of a recorded file row whose path differs from <path> only in
+# case and names the same file on disk (`-ef`), or nothing.
+_kit_mod_case_twin() {
+  local k sha p lc="$(_kit_mod_lc "$2")"
+  while read -r k sha p _; do
+    [ "$k" = file ] && [ "$p" != "$2" ] && [ "$(_kit_mod_lc "$p")" = "$lc" ] || continue
+    if [ "$KIT_MOD_ROOT/$p" -ef "$KIT_MOD_ROOT/$2" ]; then printf '%s %s' "$sha" "$p"; return 0; fi
+  done <<TWIN_EOF
+$1
+TWIN_EOF
+  return 0
+}
+# _kit_mod_layer_in_use <role layer file> — the tags the layer declares that a commit on this branch or the trunk carries,
+# comma-separated, or nothing.
+_kit_mod_layer_in_use() {
+  local t out=""
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    if _kit_mod_history_uses_role "$t"; then out="${out:+$out, }$t"; fi
+  done <<LAYER_EOF
+$(_kit_mod_role_tags "$1")
+LAYER_EOF
+  printf '%s' "$out"
+}
+# _kit_mod_up_act <act file> <action> <kind> <target> <slot|-> <rendered copy|-> <x|-> <why> — one finding; the
+# mode column is a file's executable flag, and a block has none.
+_kit_mod_up_act() {
+  local mode="$7"; [ "$3" = file ] || mode="-"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$2" "$3" "$4" "$5" "$6" "$mode" "$8" >> "$1"
+}
+# _kit_mod_up_row <rows-file> <kind> <sha> <target> <slot> — one row of the record, when there is a sha.
+_kit_mod_up_row() {
+  [ -n "$3" ] || return 0
+  if [ "$2" = file ]; then printf 'file %s %s\n' "$3" "$4" >> "$1"; else printf 'block %s %s %s\n' "$3" "$4" "$5" >> "$1"; fi
+}
+# _kit_mod_up_role_loss <name> <target> <current file> <new copy> — status 0, and KMU_LOST naming the tags, when the
+# target is the module's role layer, the new copy drops a role the layer has, and history already uses that role.
+_kit_mod_up_role_loss() {
+  local t gone=""
+  KMU_LOST=""
+  [ "$2" = "process/roles.d/$1" ] || return 1   # return-class: predicate
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    if grep -qxF -- "$t" <<< "$(_kit_mod_role_tags "$4")"; then continue; fi
+    if _kit_mod_history_uses_role "$t"; then gone="${gone:+$gone, }$t"; fi
+  done <<UP_TAGS_EOF
+$(_kit_mod_role_tags "$3")
+UP_TAGS_EOF
+  KMU_LOST="$gone"
+  [ -n "$gone" ] || return 1   # return-class: predicate
+}
+
+# kit_mod_upgrade_apply <name> — record the paths about to be written (the `pending` section), then write each file and
+# block the scan listed as `write`. Status 1 when a write fails; the caller says what was written and how to finish.
+kit_mod_upgrade_apply() {
+  local name="$1" d="$KIT_MOD_TMP/up-$1" action kind tgt slot rend mode why tab
+  tab="$(printf '\t')"
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"
+  while IFS="$tab" read -r kind tgt rend slot; do _kit_mod_clean_strays "$tgt"; done < "$d/plan"
+  if grep -q '^write' "$d/act"; then
+    _kit_mod_state_ahead "$name" "$(_kit_mod_up_meta "$name" new)" "$d/ahead" || return 1   # return-class: relay
+  fi
+  while IFS="$tab" read -r action kind tgt slot rend mode why; do
+    [ "$action" = write ] || continue
+    if [ "$kind" = file ]; then
+      _kit_mod_place_file "$rend" "$KIT_MOD_ROOT/$tgt" "$mode" || return 1   # return-class: internal
+    else
+      ( _kit_mod_put_block "$KIT_MOD_ROOT/$tgt" "$(_kit_mod_bid "$name" "$slot")" "$slot" "$rend" ) >/dev/null 2>&1 || return 1   # return-class: internal
+    fi
+  done < "$d/act"
+  return 0
+}
+# kit_mod_upgrade_stage_record <name> <dir> — leave the module's final record (its version in the new kit and its rows) in
+# <dir> as a work order, before the checklist is written.
+kit_mod_upgrade_stage_record() {
+  local d="$KIT_MOD_TMP/up-$1"
+  mkdir -p "$2" && cp "$d/rows" "$2/$1.rows" && printf '%s %s\n' "$(_kit_mod_up_meta "$1" old)" "$(_kit_mod_up_meta "$1" new)" > "$2/$1.version" \
+    || return 1   # return-class: internal
+}
+# kit_mod_upgrade_finish_record <name> <dir> — carry out the work order in <dir> for an enabled module and remove it:
+# rewrite its record at the new version with the staged rows, which drops the `pending` section. A work order for a
+# module that is no longer enabled is removed, not carried out. Status 1 when the record cannot be written.
+kit_mod_upgrade_finish_record() {
+  local name="$1" dir="$2" have="$KIT_MOD_TMP/finish-$1" ver
+  [ -f "$dir/$name.rows" ] && [ -f "$dir/$name.version" ] || return 0
+  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"
+  if kit_mod_is_enabled "$name"; then
+    ver="$(cut -d' ' -f2 "$dir/$name.version")"
+    _kit_mod_rows_of "$name" module | LC_ALL=C sort > "$have"
+    LC_ALL=C sort "$dir/$name.rows" > "$have.new"
+    if ! { [ "$(kit_mod_enabled_version "$name")" = "$ver" ] && cmp -s "$have.new" "$have" && ! kit_mod_is_pending "$name"; }; then
+      _kit_mod_state_put "$name" "$ver" "$dir/$name.rows" module || return 1   # return-class: relay
+    fi
+  fi
+  rm -f "$dir/$name.rows" "$dir/$name.version"
+  return 0
+}
+# kit_mod_upgrade_readers <name> — the readers this project's copy of the kit lacks for the points the new
+# version of the module uses, one line each (the lines enable's reader check prints), or nothing. Ask it once the
+# upgrade has written its files: a reader the upgrade brings is then in place.
+kit_mod_upgrade_readers() {
+  _kit_mod_reader_blockers "$KIT_MOD_TMP/up-$1/plan.needs"
 }

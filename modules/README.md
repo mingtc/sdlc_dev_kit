@@ -4,8 +4,9 @@
 # modules/ — optional modules, shipped off
 
 Nothing here is read by a harness: a module is stored disarmed and does nothing until
-`./scripts/module.sh enable <name>`. What a module is, how to enable and disable one, and how to write
-one: [`process/MODULES.md`](../process/MODULES.md). `./scripts/module.sh list` shows what is enabled.
+`./scripts/module.sh enable <name>` (on day one, `kit-init.sh --with <name>`). What a module is, how to enable
+and disable one, and how to write one: [`process/MODULES.md`](../process/MODULES.md). `./scripts/module.sh list`
+shows what is enabled.
 
 A new module joins this table in the same change that adds its directory; the self-test checks that each module has a row. A row may outlive a module whose directory the project deleted.
 
