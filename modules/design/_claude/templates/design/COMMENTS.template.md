@@ -5,7 +5,7 @@ Read at <canvas version id, or "by hand"> (<date>): <N threads, or none>. Thread
 human makes in conversation is logged here too, with who and where.
 
 `status`: `open`, `acknowledged` (an auto-reply only: the change is not made), `resolved` (done and answered),
-`rejected: the next publish overwrites it`.
+`rejected` (declined: say why in `resolution`).
 
 | id | status | who | date | element (file#id) | request | resolution |
 |---|---|---|---|---|---|---|

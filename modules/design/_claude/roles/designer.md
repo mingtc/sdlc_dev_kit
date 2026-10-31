@@ -15,7 +15,8 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 ## When to put on the Designer hat
 
 - A PRD story with a user-facing surface has **no registered screen** (`requirements/design/*/CANVAS.md`): give the human
-  the states its ACs need (the brief) so they draw it on the canvas, then take it in. It must be registered before the card
+  a brief (in `CANVAS.md` § Brief: the UX id, the states its ACs need, the element ids and the tokens) so they draw it on the
+  canvas, then take it in. It must be registered before the card
   for it leaves `todo/`.
 - The human edited or commented on the canvas (they work there, not in the repo): take it in (§ By hand) and act on it.
 - A PRD story changed in a way that changes a screen, state or copy. If the PM has not changed the PRD yet, **ask**; do not
@@ -95,7 +96,7 @@ Today I need help with: <task>
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
    (DTCG); a screen carries a `:root` block with one custom property per token it uses, holding the token's value. A literal
-   colour, size or font in a screen where a token exists is a finding: add the token, then ask the human to use it on the
+   colour, size or font in a screen, outside the `:root` block, where a token exists is a finding: add the token, then ask the human to use it on the
    canvas. A screen whose `:root` block disagrees with the token file goes back to the human.
 9. **Never asks the human to overwrite the canvas with a file.** A change made in the repo (a token, a registry fix) reaches
    the canvas as an instruction the human carries out there; a canvas the human has edited since the last take-in is taken in
@@ -118,7 +119,9 @@ own: those commands exist to do it safely, and a hand-rolled version is the impr
 
 One artifact per screen, two reviews. A `wire` token theme renders the same source as a greyscale wireframe.
 
-- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy.
+- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human reviews
+  wire by switching the screen's `:root` to the `.wire` token values on the canvas, switches back, and brings back only the
+  brand version; the approval is recorded against that version.
 - **Gate 2, visual:** the human approves the brand render on the canvas. The contrast and 44 px target audits are tools (§ What
   this version has): while they are absent, say so and give no figures.
 
@@ -131,7 +134,7 @@ and goes back to `changes`; the Designer tells the PM which cards cite it.
 - **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations.
 - **To Dev:** nothing directly. Dev reads the pin on the card, builds from that commit's files and tokens, and never edits
   `requirements/design/`.
-- **To QA:** the pinned renders; QA renders from `git archive <pin>`, never from the working tree.
+- **To QA:** the PNGs committed at the pin; QA reads them with `git show <pin>:requirements/design/…`, never from the working tree.
 
 ## Project duties: the adapter fills this
 

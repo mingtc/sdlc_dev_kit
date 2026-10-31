@@ -11,6 +11,9 @@ The pointer is one cell per pinned state:
 
 - `identical` or `diffs: <element ids>`, one per state the AC cites; it names only elements outside the card's
   `design-scope:`.
-- Render the pinned side from `git archive <pin> requirements/design`, never from the working tree; render the build at the
-  same width and with the same theme; commit both images under `dev/evidence/<PREFIX>-NNN/` and name them in the pointer.
+- The pinned side is the PNG committed at the pin, read with
+  `git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`, never from the working tree. A screen file is
+  never rendered by hand. The build side is a screenshot of the build at the same width, from the project's own tools.
+- A design row names both images, committed under `dev/evidence/<PREFIX>-NNN/`. A row with no image is not a PASS: if the
+  committed PNG is missing or unusable, say so on the row and do not pass it.
 - Write the pointer so no `word:number` appears other than a real `path:line`: the gate reads every one as a path.

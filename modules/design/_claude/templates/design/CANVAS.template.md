@@ -22,6 +22,13 @@ same header each time.
 | UX-001 | <Screen>.dc.html | <title (phone)> | phone | UX-002 | default, <state> | <PRD-NNN-F1-S1> | open | open |
 | UX-002 | <ScreenDesktop>.dc.html | <title (desktop)> | web-desktop | UX-001 | default, <state> | <PRD-NNN-F1-S1> | open | open |
 
+## Brief
+
+For the human who draws on the canvas, one entry per screen: the UX id (`data-ux`), the states its ACs need, the element ids
+(`ux-NNN-name`) and the tokens to use.
+
+- <UX-001: states default, <state>; elements ux-001-<name>, …; tokens <names>>
+
 ## Proposed PRD citations
 
 The Designer does not edit the PRD. For the PM to add (unpinned), one marker per UI state a story's ACs need.

@@ -6,7 +6,8 @@ store. A design tool's canvas is the *working surface* a human edits; this direc
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
-version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit.
+version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit. This binds
+every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
 ## 1. Layout
 
@@ -92,16 +93,19 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 - A card may carry `design-scope:`: element ids it does not build. Everything else in the pinned render must match.
 - Each (UI) QA row gets a design cell with evidence kind `design`:
-  `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). QA renders
-  the pinned side from `git archive <pin>`, never from the working tree.
+  `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). QA reads
+  the pinned side from the PNG committed at the pin (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`),
+  never from the working tree, and compares the build's screenshot with it. A row with no image is not a PASS.
 
 ## 6. Fidelity: one artifact, two gates
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
-screen is not allowed**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
+screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
 carries a `:root` block with one custom property per token it uses, holding the token's value.
 
-- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy.
+- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human reviews
+  wire by switching the screen's `:root` to the `.wire` token values on the canvas, switches back, and brings back only the
+  brand version; the approval is recorded against that version.
 - **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit. The human approves the render on the
   canvas; the audits are tools, and while they are not installed no figure is given for them.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
@@ -117,7 +121,7 @@ Every navigation is an `<a href>`, so the graph can be derived from the screens 
 | Role | Owns / does |
 |---|---|
 | **PM** | PRDs and ACs; answers the Designer's questions; mints cards and writes the pin. |
-| **Designer** | Canvases, tokens, registry, `COMMENTS.md`, renders. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
-| **Dev** | Builds from the pinned design and generated tokens; never edits this directory. |
+| **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
+| **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
 | **QA** | Verifies each (UI) AC; the design cell compares the build with the pinned render. |
 | **The human** | Comments and edits on the canvas; approves the gates. |

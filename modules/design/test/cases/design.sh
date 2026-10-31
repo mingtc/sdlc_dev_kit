@@ -300,3 +300,33 @@ DM_ACS_EOF
   done
   finish "$L"
 }
+
+# =============================================================================
+# CASE — NO SHIPPED DESIGN TEXT TELLS A ROLE TO RENDER THE PINNED SIDE WHILE THE RENDERER IS NOT PLACED.
+#   While module.manifest places no scripts/design/render.py, no file of the module (its own test cases excepted)
+#   says `git archive`, "render the pinned", "renders the pinned", "QA renders" or "render the build", and the QA
+#   guide tells QA to read the pinned PNG with `git show <pin>:requirements/design/…/renders/…` and not to pass a
+#   row that has no image. Once the renderer is placed the lane that places it rewrites the text, and this case
+#   no longer holds it.
+# =============================================================================
+case_no_design_text_tells_a_role_to_render_the_pinned_side_while_the_renderer_is_absent() {
+  cf_reset
+  local L="while module.manifest places no render.py, no shipped design text tells a role to render the pinned side, and the QA guide names the committed PNG read with git show and forbids a PASS without an image"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  local m="$REAL_REPO_ROOT/modules/design" f hits qa
+  if _dm_manifest_places "$m/module.manifest" file '^scripts/design/render[.]py$'; then
+    skp "$L" "modules/design/module.manifest places render.py, so the text is the renderer's lane's own"; return
+  fi
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    hits="$(grep -niE 'git archive|render(s)? the pinned|QA renders|render the build' "$f" || true)"
+    [ -z "$hits" ] || cf "(a) ${f#$REAL_REPO_ROOT/} tells a role to render while render.py is absent: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-160)"
+  done <<DM_FILES_EOF
+$(find "$m" -type f -not -path '*/test/*')
+DM_FILES_EOF
+  qa="$m/_claude/templates/design/QA-verdict-design.fragment.md"
+  [ -f "$qa" ] || { cf "(prereq) the QA guide is absent"; finish "$L"; return; }
+  grep -F 'git show <pin>:requirements/design/' "$qa" >/dev/null || cf "(b) the QA guide does not name the committed PNG read with git show <pin>:requirements/design/…"
+  grep -iE 'not (a )?PASS|does not pass|never (a )?PASS' "$qa" >/dev/null || cf "(b) the QA guide does not say a row with no image is not a PASS"
+  finish "$L"
+}
