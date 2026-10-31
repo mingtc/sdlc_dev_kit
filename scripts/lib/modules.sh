@@ -1133,11 +1133,19 @@ _kit_mod_status_rows() {
   done < "$2"
 }
 
+# kit_mod_stray_note — status changes no byte, so the record's side file that a killed run left is named, not removed.
+kit_mod_stray_note() {
+  if [ -e "${KIT_MOD_ROOT:?}/$KIT_MOD_STATE_REL.kit-mod-new" ]; then
+    echo "note: $KIT_MOD_STATE_REL.kit-mod-new is the leftover of a killed run; ./scripts/module.sh enable <name> (to finish) or disable <name> (to take it back) removes it."
+  fi
+  return 0
+}
+
 # kit_mod_status <name> — one module's record and the state of each thing it placed.
 kit_mod_status() {
   local name="$1" kv
   _kit_mod_need_name "$name"
-  _kit_mod_clean_strays "$KIT_MOD_STATE_REL"
+  kit_mod_stray_note
   if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then
     echo "module: $name is NOT enabled: an enable of it did not finish. Each recorded thing and its state:"
     kit_mod_pending_rows "$name" > "$KIT_MOD_TMP/status-rows"

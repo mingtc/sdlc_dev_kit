@@ -573,7 +573,7 @@ case_module_disable_checks_before_it_removes_and_keeps_a_role_layer_that_history
 # =============================================================================
 case_a_kill_leaves_no_stray_file_and_a_resume_records_the_bytes_it_writes() {
   cf_reset
-  local L="a hard kill at a block host's move leaves no marker-block side file after the resume or the disable, a kill while a missing .gitignore is created leaves no empty .gitignore, and a resume after the module's source changed places the new bytes and records their sha, so status reports nothing edited and disable keeps nothing, and a record side file left with nothing enabled is removed by status and by disable, which also remove the directories of a placed file the project had removed"
+  local L="a hard kill at a block host's move leaves no marker-block side file after the resume or the disable, a kill while a missing .gitignore is created leaves no empty .gitignore, and a resume after the module's source changed places the new bytes and records their sha, so status reports nothing edited and disable keeps nothing, and a record side file left with nothing enabled is named by status, which leaves it, and removed by disable, which also remove the directories of a placed file the project had removed"
   if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   command -v ps >/dev/null 2>&1 || { skp "$L" "no ps: the stand-in cannot find the process tree to kill"; return; }
@@ -624,11 +624,15 @@ case_a_kill_leaves_no_stray_file_and_a_resume_records_the_bytes_it_writes() {
   _md_snap "$SB_WORK" > "$s1"
   diff "$s0" "$s1" | grep -v 'modules/example' | grep '^[<>]' >/dev/null && cf "(c) disable did not return the tree: $(diff "$s0" "$s1" | grep -v 'modules/example' | tr '\n' '|' | cut -c1-240)"
 
-  # (d) a side file of the record left by a kill, with no module enabled: status and disable take it, planted
-  # here rather than killed for, so this adds no kill.
+  # (d) a side file of the record left by a kill, with no module enabled: status leaves it and names it, disable
+  # takes it; planted here rather than killed for, so this adds no kill.
   printf 'half a record\n' > "$SB_WORK/process/MODULES.kit-mod-new"
   _md_mod status example
-  [ ! -e "$SB_WORK/process/MODULES.kit-mod-new" ] || cf "(d) status left the record's side file"
+  [ -e "$SB_WORK/process/MODULES.kit-mod-new" ] || cf "(d) status removed the record's side file; it changes no byte"
+  printf '%s\n' "$_md_out" | grep -F 'MODULES.kit-mod-new' | grep -F 'disable' >/dev/null || cf "(d) status does not name the leftover and what removes it: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  _md_mod status
+  [ -e "$SB_WORK/process/MODULES.kit-mod-new" ] || cf "(d) status with no name removed the record's side file"
+  printf '%s\n' "$_md_out" | grep -F 'MODULES.kit-mod-new' >/dev/null || cf "(d) status with no name does not name the leftover"
   printf 'half a record\n' > "$SB_WORK/process/MODULES.kit-mod-new"
   _md_mod disable example
   [ "$_md_rc" -eq 0 ] || cf "(d) disable of a module that is not enabled exited $_md_rc"
