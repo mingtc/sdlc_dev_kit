@@ -264,7 +264,7 @@ case_kit_init_with_refuses_a_module_whose_required_command_is_missing() {
   local s0 s1 out rc mark
   kit_init_sandbox
   s0="$SB_TMP/snap0"; s1="$SB_TMP/snap1"; mark="$SB_TMP/setup-ran"
-  cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"
+  if [ -d "$REAL_REPO_ROOT/modules" ]; then cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"; else mkdir -p "$SB_WORK/modules"; fi   # DELETE-IF-UNUSED
   _mq_mod dayone "requires: toolx | $_mq_missing | install toolx from its vendor | required"
   printf '#!/bin/sh\ntouch "$KIT_TEST_MARK"\n' > "$SB_WORK/modules/dayone/setup.sh"; chmod +x "$SB_WORK/modules/dayone/setup.sh"
   publish_sandbox

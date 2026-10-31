@@ -267,7 +267,7 @@ _mu_ki_sandbox() {
   kit_init_sandbox
   # a tree with the module enabled carries its role doc in the roles kit_init_sandbox copies: day one has none
   rm -f "$SB_WORK/.claude/roles/example.md"
-  cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"
+  if [ -d "$REAL_REPO_ROOT/modules" ]; then cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"; else mkdir -p "$SB_WORK/modules"; fi   # DELETE-IF-UNUSED
   [ -z "${1:-}" ] || printf '%s\n' "$1" >> "$SB_WORK/modules/example/module.manifest"
   # fixture modules that place a path kit-init itself writes: the Claude Code settings it copies under --enable-hooks, and progress.md
   mkdir -p "$SB_WORK/modules/hooky" "$SB_WORK/modules/notey" "$SB_WORK/.claude"
