@@ -786,9 +786,43 @@ kit_mod_would_place() {
       echo "  $tgt is ignored by git, so the initialization commit would leave it out"
     fi
     for own in "$@"; do
-      if [ "$tgt" = "$own" ]; then echo "  $tgt: kit-init writes it itself before it enables the module, which would then find it occupied"; fi
+      if _kit_mod_same_path "$tgt" "$own"; then echo "  $tgt: kit-init writes it itself before it enables the module, which would then find it occupied"; fi
     done
   done < "$plan"
+  return 0
+}
+
+# _kit_mod_same_path <a> <b> — status 0 when two relative paths name one file here: the same spelling, or, on a
+# filesystem that reads upper and lower case as one (the project's `.git` is found under `.GIT`), the same in lower case.
+_kit_mod_same_path() {
+  [ "$1" = "$2" ] && return 0
+  [ -e "$KIT_MOD_ROOT/.GIT" ] && [ "$(_kit_mod_lc "$1")" = "$(_kit_mod_lc "$2")" ]
+}
+
+# kit_mod_plans_collide <name>… — one line per pair of modules that place a file on one path, nothing when none does:
+# the question kit_mod_would_place cannot ask of one module alone. Reads the plans kit_mod_would_place left in
+# $KIT_MOD_TMP; a name with no plan (a module it refused) is left out.
+kit_mod_plans_collide() {
+  local n kind tgt tab i j nm=() tg=()
+  tab="$(printf '\t')"
+  for n in "$@"; do
+    [ -f "$KIT_MOD_TMP/would-$n" ] || continue
+    while IFS="$tab" read -r kind tgt _ _; do
+      [ "$kind" = file ] || continue
+      nm+=("$n"); tg+=("$tgt")
+    done < "$KIT_MOD_TMP/would-$n"
+  done
+  i=0
+  while [ "$i" -lt "${#nm[@]}" ]; do
+    j=$((i + 1))
+    while [ "$j" -lt "${#nm[@]}" ]; do
+      if [ "${nm[$i]}" != "${nm[$j]}" ] && _kit_mod_same_path "${tg[$i]}" "${tg[$j]}"; then
+        echo "  module ${nm[$i]} places ${tg[$i]} and module ${nm[$j]} places ${tg[$j]}: one path here, so the second would find it occupied"
+      fi
+      j=$((j + 1))
+    done
+    i=$((i + 1))
+  done
   return 0
 }
 
@@ -1142,10 +1176,11 @@ kit_mod_status() {
 # kit-upgrade.sh sets KIT_MOD_ROOT to the project, KIT_MOD_SRC to the NEW kit and KIT_MOD_FAIL_RETURNS (so a failed
 # write of the record comes back as a status, for the caller to word, instead of a refusal made after files were
 # written), then for each enabled module:
-#   kit_mod_upgrade_scan <name>                 compare what the new kit would place with the tree and the record
+#   kit_mod_upgrade_scan <name>                 compare what the new kit would place with the tree and the record (status 1: no scratch directory)
 #   kit_mod_upgrade_apply <name>                record, then write, what the scan said may be written
 #   kit_mod_upgrade_stage_record <name> <dir>   leave the module's final record in <dir>, a work order
 #   kit_mod_upgrade_finish_record <name> <dir>  carry the work order out and remove it (run again after a kill)
+#   kit_mod_upgrade_own_work <path>             whether a file with uncommitted changes holds only blocks a killed run wrote
 # The scan writes nothing in the project. It leaves its findings in $KMU_DIR (= $KIT_MOD_TMP/up-<name>):
 #   act    <action> TAB <kind> TAB <target> TAB <slot|-> TAB <rendered copy|-> TAB <x|-> TAB <why>
 #          write    the file or block is as enable wrote it (or is new in the module) and can be placed
@@ -1170,7 +1205,7 @@ kit_mod_upgrade_scan() {
   local name="$1" d="$KIT_MOD_TMP/up-$1" kind tgt rend extra dst rec arec cur new bid why canwrite nr slot oldtxt aheadtxt tab twin renamed=""
   tab="$(printf '\t')"
   KMU_GONE=""; KMU_DIR="$d"; KMU_VERSION=""; KMU_NOTES=""
-  rm -rf "$d"; mkdir -p "$d" || kit_refuse 1 module-write-failed "Error: could not make a scratch directory under $KIT_MOD_TMP." "Next: check the temp directory (TMPDIR), then run this again."
+  rm -rf "$d"; mkdir -p "$d" || return 1   # return-class: relay
   : > "$d/act"; : > "$d/rows"
   KMU_OLD_VERSION="$(kit_mod_enabled_version "$name")"
   _kit_mod_rows_of "$name" module > "$d/old"; oldtxt="$(cat "$d/old")"
@@ -1315,6 +1350,36 @@ $(_kit_mod_role_tags "$3")
 UP_TAGS_EOF
   KMU_LOST="$gone"
   [ -n "$gone" ] || return 1   # return-class: predicate
+}
+
+# kit_mod_upgrade_own_work <path> — status 0 when the file at <path> differs from the committed one only in blocks that
+# an enabled module's `pending` section names and whose bytes are the ones it names: the unfinished work of an upgrade
+# that was killed, which running the upgrade again finishes, and not an edit of the project's. Anything outside such a
+# block, or a block holding other bytes, is the project's; so is a file this cannot judge.
+kit_mod_upgrade_own_work() {
+  local path="$1" w="$KIT_MOD_TMP/own-w" h="$KIT_MOD_TMP/own-h" n kind sha p slot bid ids=""
+  [ -f "$KIT_MOD_ROOT/$path" ] && [ ! -L "$KIT_MOD_ROOT/$path" ] || return 1   # return-class: predicate
+  cp "$KIT_MOD_ROOT/$path" "$w" || return 1   # return-class: predicate
+  if git -C "$KIT_MOD_ROOT" cat-file -e "HEAD:$path" 2>/dev/null; then git -C "$KIT_MOD_ROOT" show "HEAD:$path" > "$h" 2>/dev/null || return 1   # return-class: predicate
+  else rm -f "$h"; fi
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    while read -r kind sha p slot; do
+      [ "$kind" = block ] && [ "$p" = "$path" ] || continue
+      bid="$(_kit_mod_bid "$n" "$slot")"
+      [ -f "$w" ] && kit_mb_has "$w" "$bid" && [ "$(_kit_mod_block_sha "$w" "$bid")" = "$sha" ] || continue
+      ( kit_mb_remove "$w" "$bid" ) >/dev/null 2>&1 || return 1   # return-class: predicate
+      if [ -f "$h" ] && kit_mb_has "$h" "$bid"; then ( kit_mb_remove "$h" "$bid" ) >/dev/null 2>&1 || return 1; fi   # return-class: predicate
+      ids="$ids $bid"
+    done <<OWN_ROWS_EOF
+$(kit_mod_pending_rows "$n")
+OWN_ROWS_EOF
+  done <<OWN_NAMES_EOF
+$(kit_mod_enabled_names)
+OWN_NAMES_EOF
+  [ -n "$ids" ] || return 1   # return-class: predicate
+  [ -f "$w" ] || : > "$w"; [ -f "$h" ] || : > "$h"
+  cmp -s "$w" "$h"
 }
 
 # kit_mod_upgrade_apply <name> — record the paths about to be written (the `pending` section), then write each file and

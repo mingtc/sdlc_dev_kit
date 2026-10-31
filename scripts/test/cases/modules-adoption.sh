@@ -59,13 +59,27 @@ _mu_pair() {
   done
   _mu_land "enable the module(s)"
 }
-# _mu_second_module <dir> <version> — a small module of its own, `second`, in <dir>/modules: one file, release notes.
+# _mu_second_module <dir> <version> [blocks] — a small module of its own, `second`, in <dir>/modules: one file, release notes.
+# With a third argument it also puts two blocks in PROJECT.md (slots `gates` and `extra`, a host the example module uses
+# too) and a block in .gitignore, each carrying the version, so a new version rewrites all three.
 _mu_second_module() {
   local m="$1/modules/second" v="$2"
   mkdir -p "$m"
   printf '# KIT-CLASS: KIT — a fixture module.\nname: second\nversion: %s\npurpose: A second fixture module.\nrelease-notes: RELEASE-NOTES.md\nfile: note.txt -> docs/second-note.txt\n' "$v" > "$m/module.manifest"
   printf 'the second module note, version %s\n' "$v" > "$m/note.txt"
   printf '# second — release notes\n\n## [%s]\n\n### Action required\n\n- **Do the second thing at %s.** A fixture entry.\n' "$v" "$v" > "$m/RELEASE-NOTES.md"
+  [ -z "${3:-}" ] || {
+    printf 'block: PROJECT.md gates gates.md\nblock: PROJECT.md extra extra.md\ngitignore: gitignore.txt\n' >> "$m/module.manifest"
+    printf '| Gate | Your command | The contract it implements |\n|---|---|---|\n| The second gate %s | `N/A: a toy` | y |\n' "$v" > "$m/gates.md"
+    printf '| Gate | Your command | The contract it implements |\n|---|---|---|\n| The second extra gate %s | `N/A: a toy` | y |\n' "$v" > "$m/extra.md"
+    printf '# the second module ignores\n.second-%s/\n' "$v" > "$m/gitignore.txt"
+  }
+}
+# _mu_shared_hosts_pre — the _mu_pair hook that gives the project `second` with blocks, and PROJECT.md the slot for the
+# second of them.
+_mu_shared_hosts_pre() {
+  _mu_second_module "$SB_WORK" 0.5.0 blocks
+  printf '<!-- KIT-MODULES:extra the second slot -->\n' >> "$SB_WORK/PROJECT.md"
 }
 # _mu_two_modules_pre — the _mu_pair hook that gives the project the second module before the pair is built.
 _mu_two_modules_pre() { _mu_second_module "$SB_WORK" 0.5.0; }
@@ -261,6 +275,14 @@ _mu_ki_sandbox() {
   printf '{"hooks": {}}\n' > "$SB_WORK/modules/hooky/h.json"
   printf 'name: notey\nversion: 0.1.0\npurpose: A fixture module that places the progress log.\nfile: n.md -> progress.md\n' > "$SB_WORK/modules/notey/module.manifest"
   printf '# a progress log a module placed\n' > "$SB_WORK/modules/notey/n.md"
+  # fixture modules that place one path between them (ca and cb), or two spellings of it (ca and cc), and one that spells
+  # the settings file kit-init copies in another case
+  local c
+  for c in "ca docs/same.txt" "cb docs/same.txt" "cc docs/SAME.txt" "hookycase .claude/Settings.json"; do
+    mkdir -p "$SB_WORK/modules/${c%% *}"
+    printf 'name: %s\nversion: 0.1.0\npurpose: A fixture module that places %s.\nfile: f.txt -> %s\n' "${c%% *}" "${c#* }" "${c#* }" > "$SB_WORK/modules/${c%% *}/module.manifest"
+    printf 'from %s\n' "${c%% *}" > "$SB_WORK/modules/${c%% *}/f.txt"
+  done
   printf '{}\n' > "$SB_WORK/.claude/settings.json.example"
   printf '# <project name> — PROJECT.md (sandbox)\n\nIssue ids are <PREFIX>-NNN on <trunk>.\n\n| Gate | Your command | The contract it implements |\n|---|---|---|\n| g | `x` | y |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$SB_WORK/PROJECT.md"
   publish_sandbox
@@ -282,7 +304,8 @@ case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _mu_subject_ok || { finish "$L"; return; }
   _mu_ki_sandbox
-  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" out rc
+  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" out rc ci=""
+  [ ! -e "$SB_WORK/.GIT" ] || ci=1
 
   _row() {  # <label> <must name…> -- <kit-init args…>: refused, nothing written, every word named
     local label="$1" want; shift
@@ -344,8 +367,23 @@ case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
   # a path kit-init itself writes between the preflight and the enable
   _row "a path kit-init copies (--enable-hooks)" "--with hooky" ".claude/settings.json" "kit-init writes it" -- --enable-hooks --with hooky
   _row "a path kit-init creates (progress.md)" "--with notey" "progress.md" "kit-init writes it" -- --with notey
+  _row "two modules that place one path" "--with ca,cb" "module ca places docs/same.txt" "module cb places docs/same.txt" -- --with ca,cb
+  # whether docs/SAME.txt is docs/same.txt is the filesystem's to say: the top level's `.git` is found under `.GIT` where it reads case as one
+  if [ -n "$ci" ]; then
+    _row "two modules that place one path in two cases" "--with ca,cc" "module ca places docs/same.txt" "module cc places docs/SAME.txt" -- --with ca,cc
+    _row "a path kit-init copies, spelt in another case" "--with hookycase" ".claude/Settings.json" "kit-init writes it" -- --enable-hooks --with hookycase
+  fi
   unset -f _row
   teardown
+
+  # (control) where case tells paths apart, those spellings are different files and day one places both
+  if [ -z "$ci" ]; then
+    _mu_ki_sandbox
+    rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --enable-hooks --with ca,cc,hookycase 2>&1)" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(control, case-sensitive) modules whose paths differ only in case exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    [ -f "$SB_WORK/docs/same.txt" ] && [ -f "$SB_WORK/docs/SAME.txt" ] || cf "(control, case-sensitive) the two spellings were not both placed"
+    teardown
+  fi
 
   # (control) the same module without the flag that makes kit-init write its path is enabled
   _mu_ki_sandbox
@@ -701,6 +739,98 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
 
   finish "$L"
   teardown
+}
+
+# _mu_snap_body <project> — _md_snap without the checklist, whose lines for the core's own files a rerun lists from what
+# it replaces itself and so are not the operand of the cases that use this.
+_mu_snap_body() { _md_snap "$1" | grep -v '  \./process/UPGRADE-CHECKLIST\.md$'; }
+# _mu_module_items <project> — the checklist's lines about the modules, sorted: what a rerun owes the project whole.
+_mu_module_items() { grep -E 'module (example|second)' "$1/process/UPGRADE-CHECKLIST.md" 2>/dev/null | LC_ALL=C sort; }
+
+# =============================================================================
+# CASE — A KILLED kit-upgrade OVER MODULES THAT SHARE A BLOCK HOST IS FINISHED BY RUNNING IT AGAIN; THE PROJECT'S OWN EDIT STILL IS NOT.
+#   Two modules put blocks in the same PROJECT.md and .gitignore, and one of them puts two blocks in PROJECT.md. The
+#   upgrade is killed before each of its writes in turn, in both orders of enabling and with the second module alone.
+#   After EACH kill the host holds a block the killed run wrote and is not committed, and running the upgrade again must
+#   reach the tree an uninterrupted run leaves, not refuse it as the project's uncommitted change. Where PROJECT.md is
+#   changed by the kill, the same state with a line of the project's own added outside any block, and with a block edited
+#   by hand, must still be refused as upgrade-target-dirty, and the refusal's own route (stash only the path it names)
+#   must lead to the tree an uninterrupted run leaves.
+# =============================================================================
+case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_running_it_again() {
+  cf_reset
+  local L="a kit-upgrade killed before each of its writes in turn, over two modules that put blocks in the same PROJECT.md and .gitignore (one of them two blocks in PROJECT.md), is finished by running it again to the tree an uninterrupted run leaves, in both orders of enabling; a line of the project's own in that PROJECT.md, or a block edited by hand, at the same kill points is still refused as upgrade-target-dirty, and stashing only the path the refusal names lets the rerun finish"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local order clean run run3 n total rootp dirtied edited G
+  G=(git -c user.email=s@k.invalid -c user.name=s -c commit.gpgsign=false -c core.hooksPath=/dev/null)
+  for order in "example second" "second example" "second"; do
+    MU_ENABLE="$order" _mu_pair _mu_shared_hosts_pre
+    clean="$SB_TMP/clean"; run="$SB_TMP/run"; run3="$SB_TMP/run3"
+    _mu_new_version
+    _mu_second_module "$MU_NEW" 0.6.0 blocks; _mu_manifest "$MU_NEW"
+    _md_make_count_shim
+    rm -rf "$clean"; cp -R "$SB_WORK" "$clean"
+    _mu_up "$clean"
+    [ "$_mu_rc" -eq 0 ] || { cf "($order, control) the uninterrupted upgrade exited $_mu_rc: $(_mu_flat)"; teardown; continue; }
+    grep -F 'revised toy' "$clean/PROJECT.md" >/dev/null || [ "$order" = second ] || cf "($order, control) the uninterrupted upgrade did not rewrite the example module's block"
+    grep -F 'second gate 0.6.0' "$clean/PROJECT.md" >/dev/null || cf "($order, control) the uninterrupted upgrade did not rewrite the second module's block"
+    _mu_snap_body "$clean" > "$SB_TMP/clean.snap"; _mu_module_items "$clean" > "$SB_TMP/clean.items"
+    n=1; total=0; dirtied=0; edited=0
+    while [ "$n" -le 400 ]; do
+      rm -rf "$run"; cp -R "$SB_WORK" "$run"
+      rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
+      _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
+      if [ "$_mu_rc" -eq 0 ]; then total=$((n - 1)); break; fi
+      [ "$_mu_rc" -eq 137 ] || { cf "($order, write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; n=$((n + 1)); continue; }
+      # the project's own edit, in a state the kill left PROJECT.md short of what a finished upgrade leaves (a rerun still
+      # writes a block there, so an edit of the project's is in its way): refused, whatever the kill had written
+      if ! cmp -s "$run/PROJECT.md" "$clean/PROJECT.md"; then
+        dirtied=$((dirtied + 1))
+        rm -rf "$run3"; cp -R "$run" "$run3"
+        printf 'the project own line\n' >> "$run3/PROJECT.md"
+        _mu_up "$run3"
+        if [ "$_mu_rc" -ne 1 ] || [ "$(_mu_recs upgrade-target-dirty)" -lt 1 ] || ! printf '%s\n' "$_mu_out" | grep -F "git stash push -u -- PROJECT.md" >/dev/null; then
+          cf "($order, write $n) a line of the project's own in PROJECT.md was not refused as upgrade-target-dirty with a stash of that path alone: exit $_mu_rc: $(_mu_flat)"
+        fi
+        # ...and a block the killed run already wrote, edited by hand (a block the run had not reached would be left to the
+        # merge it becomes, and not be written over)
+        rm -rf "$run3"; cp -R "$run" "$run3"
+        sed -i.bak -e 's/a revised toy/by hand/' -e 's/second gate 0\.6\.0/second gate by hand/' "$run3/PROJECT.md"; rm -f "$run3/PROJECT.md.bak"
+        if ! cmp -s "$run/PROJECT.md" "$run3/PROJECT.md"; then
+          edited=$((edited + 1))
+          _mu_up "$run3"
+          if [ "$_mu_rc" -ne 1 ] || [ "$(_mu_recs upgrade-target-dirty)" -lt 1 ]; then
+            cf "($order, write $n) a block the killed run wrote, edited by hand in PROJECT.md, was not refused as upgrade-target-dirty: exit $_mu_rc: $(_mu_flat)"
+          fi
+        fi
+        # the route the refusal names: stash that path alone, run again
+        rm -rf "$run3"; cp -R "$run" "$run3"
+        printf 'the project own line\n' >> "$run3/PROJECT.md"
+        "${G[@]}" -C "$run3" stash push -q -u -- PROJECT.md >/dev/null 2>&1 || cf "($order, write $n) the stash the refusal names did not run"
+        _mu_up "$run3"
+        if [ "$_mu_rc" -ne 0 ]; then cf "($order, write $n) running the upgrade again after the stash exited $_mu_rc: $(_mu_flat)"
+        else
+          _mu_snap_body "$run3" > "$SB_TMP/run.snap"; _mu_module_items "$run3" > "$SB_TMP/run.items"
+          { cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" && cmp -s "$SB_TMP/clean.items" "$SB_TMP/run.items"; } || cf "($order, write $n) after the stash the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
+        fi
+      fi
+      # the rerun with nothing of the project's in it
+      _mu_up "$run"
+      if [ "$_mu_rc" -ne 0 ]; then cf "($order, write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; n=$((n + 1)); continue; fi
+      _mu_snap_body "$run" > "$SB_TMP/run.snap"; _mu_module_items "$run" > "$SB_TMP/run.items"
+      { cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" && cmp -s "$SB_TMP/clean.items" "$SB_TMP/run.items"; } || cf "($order, write $n) the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
+      grep -E '^pending ' "$run/process/MODULES" >/dev/null && cf "($order, write $n) a pending section is left in the record"
+      n=$((n + 1))
+    done
+    [ "$total" -ge 10 ] || cf "($order, control) the kill stand-ins counted only $total write(s) in the upgrade"
+    [ "$dirtied" -ge 3 ] || cf "($order, control) only $dirtied kill point(s) left PROJECT.md changed, so the project's-edit rows were barely exercised"
+    [ "$edited" -ge 3 ] || cf "($order, control) only $edited kill point(s) held a written block to edit, so the edited-block row was barely exercised"
+    echo "      ($order: $total write(s), each a kill point; PROJECT.md changed at $dirtied of them)"
+    teardown
+  done
+  finish "$L"
 }
 
 # =============================================================================

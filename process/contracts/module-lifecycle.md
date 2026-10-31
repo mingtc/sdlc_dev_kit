@@ -69,8 +69,9 @@ what "enabled" and "disabled" must mean.
   *Why:* kit-init's later stamp would otherwise read as an edit of the module's file, and disable would keep it.
 - **Day one enables inside the initialization commit, or not at all.** The initializer asks, before it writes
   anything, every question enable asks (and whether git would add what enable places), and refuses on any of
-  them; it then stamps, enables through the one program that enables, and commits, so the module's files and
-  the record are in that commit.
+  them, and whether two modules named together place one path; it then stamps, enables through the one program that
+  enables, and commits, so the module's files and the record are in that commit. A path is the same path in another
+  case where the filesystem reads case as one.
   *Why:* an enable that refused after the stamp would leave a half-initialized repository, and the initializer
   has no resume path.
 - **An upgrade carries an enabled module by the record, never past an edit.** For each placed file or block it
@@ -87,7 +88,8 @@ what "enabled" and "disabled" must mean.
   may hold.** Before any file is written the record gains a `pending` section beside the module's own, naming
   each path about to be written at the sha256 it will hold; status and disable take a path as the module's when
   it holds either. The module's rows and version move once, after the checklist is on disk, from a work order
-  staged with it, which a rerun carries out whether or not the checklist already exists.
+  staged with it, which a rerun carries out whether or not the checklist already exists. A block of a shared file
+  that the killed run wrote and the `pending` section names is the run's, not the project's uncommitted edit.
   *Why:* a file written before any row names it is an orphan no disable will take; a row that names only the old
   sha256 of a replaced file makes disable keep it as "edited"; a version moved before the checklist would drop the
   module's release-notes items on the rerun; and a record write that is the last thing the run does has no rerun
@@ -118,8 +120,8 @@ what "enabled" and "disabled" must mean.
 - A record row whose path leaves the project ⇒ refuse: nothing may act on it.
 - No sha256 tool on the machine ⇒ refuse: without one the record cannot be written or checked. An upgrade
   over enabled modules refuses the same way, before it writes.
-- A day-one `--with` naming a module that does not exist, an empty name, or one enable would refuse for ⇒
-  refuse in the preflight, writing nothing, naming the module and each cause.
+- A day-one `--with` naming a module that does not exist, an empty name, one enable would refuse for, or two that
+  place one path ⇒ refuse in the preflight, writing nothing, naming the module and each cause.
 - Every refusal carries a `Next:` line, and leaves a progress record.
 
 ## 4. WHAT GREEN MEANS

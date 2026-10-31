@@ -661,7 +661,7 @@ $(kit_mod_pending_names)
 MODPEND_EOF
   while IFS= read -r mn; do
     [ -n "$mn" ] || continue
-    kit_mod_upgrade_scan "$mn"
+    kit_mod_upgrade_scan "$mn" || kit_refuse 1 upgrade-write-failed "Error: could not make a scratch directory." "Next: check the temp directory (TMPDIR), then run this again."
     if [ -n "$KMU_GONE" ]; then
       MOD_ACTION+=("module $mn is enabled here and the new kit no longer ships it; nothing was changed for it: disable it (./scripts/module.sh disable $mn), or keep its files as this project's own")
       continue
@@ -704,10 +704,22 @@ fi
 # changed is finished by running this again.
 dirty="$(cd "$TGT" && git status --porcelain --untracked-files=all -- ${WRITE[@]+"${WRITE[@]}"} ${MOD_WRITE_PATHS[@]+"${MOD_WRITE_PATHS[@]}"} "$UPGRADE_CHECKLIST" "$STAGE_DIR" ":(exclude)$STAGE_DIR/$STAGED_ARRIVED" 2>/dev/null)"
 if [ -n "$dirty" ]; then
-  kit_refuse 1 upgrade-target-dirty \
+  # A file whose only changes are blocks of enabled modules that a killed run of this upgrade wrote is that run's work.
+  if [ -n "$MOD_LIVE" ]; then
+    yours=""
+    while IFS= read -r dl; do
+      [ -n "$dl" ] || continue
+      kit_mod_upgrade_own_work "${dl#???}" || yours="$yours$dl
+"
+    done <<DIRTY_EOF
+$dirty
+DIRTY_EOF
+    dirty="${yours%?}"
+  fi
+  [ -z "$dirty" ] || kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths this upgrade would write:" \
     "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
-    "Next: commit or stash them first, so that undoing the upgrade can never discard work of yours, then run this again."
+    "Next: commit them, or stash only them ('git stash push -u -- $(printf '%s\n' "$dirty" | cut -c4- | tr '\n' ' ' | sed 's/ $//')'; a bare 'git stash' also takes what an earlier, killed run of this upgrade wrote), so that undoing the upgrade can never discard work of yours, then run this again."
 fi
 
 # ── WRITE ─────────────────────────────────────────────────────────────────────

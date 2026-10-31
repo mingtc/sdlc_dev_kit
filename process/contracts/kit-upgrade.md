@@ -96,9 +96,15 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   explicitly; the code that runs is the new release's.
   *Why:* a tree older than the upgrade tool has none of its own, and the copy inside a tree is the
   release being left.
-- **It never commits, and never runs when the paths it writes hold uncommitted work.**
+- **It never commits, and never runs when the paths it writes hold uncommitted work.** A change that is only a block of
+  an enabled module, written by an earlier run of this upgrade that was killed (the record's `pending` section names the
+  block and the sha256 it holds), is that run's work and not the project's: running the upgrade again finishes it.
+  The refusal names the paths that are the project's, so that committing or stashing those alone leaves the killed
+  run's work for the rerun.
   *Why:* the upgrade is ordinary work that goes through the project's own board and gates; and
-  backing it out must never discard work of the project's.
+  backing it out must never discard work of the project's. A rerun that refused the killed run's own blocks in a file
+  two modules share would leave the upgrade unfinishable short of committing half of it, and a stash of the whole tree
+  would take the killed run's tracked changes and leave the files it wrote, so the scan would read those as the project's.
 - **A version is read in both forms** — a release, and a build between releases
   (`KIT-RELEASE-NOTES.md` § How versions work) — so entries a build may already hold are flagged,
   not re-applied blind.
@@ -117,8 +123,8 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) �
 | `upgrade-version-unreadable` | either version is not `X.Y.Z` or `X.Y.Z+<tree>` |
 | `upgrade-target-older` | the new kit is older than the tree |
 | `upgrade-checklist-other-version` | an upgrade to another version is already in progress |
-| `upgrade-target-dirty` | a path it would write holds uncommitted changes |
-| `upgrade-write-failed` | a write failed part-way (a kit file, a module file, the record, the checklist); the message says how many kit files were written and how to finish or undo |
+| `upgrade-target-dirty` | a path it would write holds uncommitted changes of the project's; the message names those paths |
+| `upgrade-write-failed` | a write failed (a kit file, a module file, the record, the checklist, a scratch directory); the message says how many kit files were written and how to finish or undo |
 | `upgrade-modules-no-sha` | the tree has enabled modules and the machine has no sha256 tool, so their files cannot be told from the project's edits; nothing is written |
 | `upgrade-nothing-to-finish` | finishing was asked for and no upgrade is in progress |
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest do not |

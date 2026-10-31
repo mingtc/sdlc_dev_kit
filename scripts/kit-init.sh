@@ -693,6 +693,14 @@ if [ -n "$WITH_NEW" ]; then
 $(printf '%s\n' "$_wo" | sed 's/^/        /')"
       fi
     done
+    # Each module was asked alone; two that place one path are asked here.
+    if _wo="$( ( set +e; KIT_MOD_ROOT="$ROOT"; KIT_MOD_SRC="$ROOT"; KIT_MOD_TMP="$_with_tmp"; KIT_PROGRESS_DIR="$_with_tmp/records"
+                 . "$SCRIPT_DIR/lib/modules.sh" || exit 1   # exit-class: internal
+                 kit_mod_plans_collide ${WITH_NAMES[@]+"${WITH_NAMES[@]}"}
+               ) 2>&1 )" && [ -n "$_wo" ]; then
+      pf "--with ${WITH_NEW}: two modules place one path, so enable would find the second one's occupied. Leave one of them off:
+$(printf '%s\n' "$_wo" | sed 's/^/        /')"
+    fi
   fi
   rm -rf "$_with_tmp"
 fi
