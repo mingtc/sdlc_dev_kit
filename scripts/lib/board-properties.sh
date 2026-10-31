@@ -107,7 +107,7 @@ kit_bp_card_files() {
   local -a cols
   KIT_BP_CARD_FILES=(); KIT_BP_CARD_EMPTY=""; KIT_BP_COLS_READ=0
   IFS='|' read -r -a cols <<< "$STATUS_FOLDERS"
-  for folder in "${cols[@]}"; do
+  for folder in ${cols[@]+"${cols[@]}"}; do
     d_dir="$tree/progress/$folder"
     [ -d "$d_dir" ] || continue
     KIT_BP_COLS_READ=$((KIT_BP_COLS_READ+1))

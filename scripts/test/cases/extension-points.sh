@@ -514,6 +514,7 @@ case_session_start_keeps_a_check_board_d_arm_heading_past_the_budget() {
   out="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
   case "$out" in *"[+zebra-arm] arm"*) : ;; *) cf "an oversized report lost a [+name] arm heading: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-240)" ;; esac
   case "$out" in *ARM-FINDING-SENTINEL*) : ;; *) cf "an oversized report lost a [+name] arm's finding line" ;; esac
+  case "${out##*$'\n'}" in "── board-drift:"*) : ;; *) cf "an oversized report does not end on the verdict line: ${out##*$'\n'}" ;; esac
   finish "an oversized report keeps a [+name] arm's heading and its finding line, with the verdict last"
   teardown
 }

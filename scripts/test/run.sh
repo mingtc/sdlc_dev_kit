@@ -574,6 +574,7 @@ CASES=(
   case_verify_unrunnable_vs_fail
   case_verify_exit_status_separates_the_reds
   case_check_board_id_clean
+  case_check_board_without_its_status_folder_library_names_the_control
   case_check_board_id_duplicate
   case_check_board_id_mismatch
   case_check_board_frontmatter_offset

@@ -23,7 +23,8 @@ _md_snap() {
 # role checks can move.
 _md_sandbox() {
   make_sandbox
-  cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"
+  # modules/ is DELETE-IF-UNUSED: a tree without it gets an empty one, which the cases that fabricate their own modules fill.
+  if [ -d "$REAL_REPO_ROOT/modules" ]; then cp -R "$REAL_REPO_ROOT/modules" "$SB_WORK/modules"; else mkdir -p "$SB_WORK/modules"; fi
   if [ -d "$REAL_REPO_ROOT/.claude/templates" ]; then
     mkdir -p "$SB_WORK/.claude"
     cp -R "$REAL_REPO_ROOT/.claude/templates" "$SB_WORK/.claude/templates"

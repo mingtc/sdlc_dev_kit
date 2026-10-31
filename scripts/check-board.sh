@@ -365,7 +365,7 @@ a_hits=0
 a_cols=0
 IFS='|' read -r -a a_all_cols <<< "$STATUS_FOLDERS"
 a_cols_list=()
-for folder in "${a_all_cols[@]}"; do
+for folder in ${a_all_cols[@]+"${a_all_cols[@]}"}; do
   case "|$A_SKIP_COLS|" in *"|$folder|"*) continue ;; esac
   a_cols_list+=("$folder")
 done
@@ -374,7 +374,7 @@ if [ "${#a_cols_list[@]}" -eq 0 ]; then
   echo "    ⚠ (control) no column survived the STATUS_FOLDERS derivation — this arm checked NOTHING; STATUS_FOLDERS is '$STATUS_FOLDERS' and the skip list is '$A_SKIP_COLS'${CB_STATUS_LIB_ERR:+; $CB_STATUS_LIB_ERR}"
   drift=1
 fi
-for folder in "${a_cols_list[@]}"; do
+for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
   dir="$CB_TREE/progress/$folder"
   # A missing column is a SKIP, never a pass (contracts/drift-report.md § 2-3).
   if [ ! -d "$dir" ]; then
@@ -909,7 +909,7 @@ echo "      a repository one minute after kit-init has not graduated, and its bo
 g_lived=""
 if [ -z "$CB_LIVED_LIB_ERR" ]; then
   IFS='|' read -r -a g_cols <<< "$STATUS_FOLDERS"
-  g_all="$(kit_lived_signals "$CB_TREE" "$g_stamp" "${g_cols[@]}" 2>/dev/null || true)"
+  g_all="$(kit_lived_signals "$CB_TREE" "$g_stamp" ${g_cols[@]+"${g_cols[@]}"} 2>/dev/null || true)"
   g_rec="${g_all%%$'\n'*}"
   case "$g_rec" in
     stamp\|*)   g_lived="the initializer's stamp receipt in scripts/config.sh" ;;
@@ -1873,7 +1873,7 @@ echo "[u] Card titles that are not valid plain YAML (reports only; never changes
 # BEGIN unquoted-title arm
 u_found=0; u_read=0
 IFS='|' read -r -a u_cols <<< "$STATUS_FOLDERS"
-for folder in "${u_cols[@]}"; do
+for folder in ${u_cols[@]+"${u_cols[@]}"}; do
   [ -d "$CB_TREE/progress/$folder" ] || continue
   for f in "$CB_TREE/progress/$folder"/*.md; do
     [ -e "$f" ] || continue

@@ -422,6 +422,31 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — check-board.sh WITH ITS STATUS FOLDER LIBRARY GONE REACHES THE NAMED CONTROL, NOT AN UNBOUND VARIABLE.
+#   Arm (a) says "(control) ... checked NOTHING" when no column survives the derivation, and sets the
+#   verdict to drift. On bash 3.2 an empty array under `set -u` is an unbound variable, so the line was
+#   unreachable and the report died at the loop before it.
+# =============================================================================
+case_check_board_without_its_status_folder_library_names_the_control() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-100" alpha chore "Healthy alpha"
+  publish_sandbox
+  [ -f "$SB_WORK/scripts/lib/status-folders.sh" ] || _fixture_die "${FUNCNAME[0]}: the sandbox has no scripts/lib/status-folders.sh to remove"
+  rm -f "$SB_WORK/scripts/lib/status-folders.sh"
+  local out rc
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc without its status folder library (exit 0 ALWAYS): $(printf '%s' "$out" | tail -3 | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F 'unbound variable' >/dev/null && cf "check-board.sh died on an unbound variable without its status folder library: $(printf '%s' "$out" | grep -F 'unbound variable' | head -1)"
+  printf '%s\n' "$out" | grep -F '(control) no column survived the STATUS_FOLDERS derivation' | grep -F 'checked NOTHING' >/dev/null \
+    || cf "arm (a) did not say it checked NOTHING: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'scripts/lib/status-folders.sh is missing' >/dev/null || cf "the control line does not name the missing library"
+  printf '%s\n' "$out" | grep -F 'board-drift: findings above' >/dev/null || cf "the report does not end on a findings verdict: $(printf '%s' "$out" | tail -2 | tr '\n' '|' | cut -c1-240)"
+  finish "check-board.sh without scripts/lib/status-folders.sh exits 0, says arm (a) checked NOTHING and names the missing library, and reaches its verdict line instead of dying on an unbound array on bash 3.2"
+  teardown
+}
+
 case_check_board_id_duplicate() {
   cf_reset
   make_sandbox
