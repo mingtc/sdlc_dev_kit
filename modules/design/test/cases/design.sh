@@ -226,7 +226,7 @@ case_the_designer_role_names_each_capability_this_version_lacks_and_drops_the_li
   cf_reset
   local L="the shipped Designer role carries a 'needs the next version of the kit' line for each capability that module.manifest does not place yet (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, render, the audits, the link check, the PRD view, the flow graph) and none for one it places, the module README and the rules README carry their line while any is missing, and the gate row is N/A only while the link check is not placed"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
-  local m="$REAL_REPO_ROOT/modules/design" role readme rules tok key re missing=0 lines f
+  local m="$REAL_REPO_ROOT/modules/design" role readme rules tok key re missing=0 lines f hits
   role="$m/_claude/roles/designer.md"; readme="$m/README.md"; rules="$m/requirements/design/README.md"
   for f in "$role" "$readme" "$rules" "$m/gates.md"; do
     [ -f "$f" ] || { cf "(prereq) ${f#$REAL_REPO_ROOT/} is absent"; finish "$L"; return; }
@@ -265,6 +265,13 @@ DM_CAPS_EOF
     grep -F 'N/A' "$m/gates.md" >/dev/null && cf "(d) the link check is placed and the gate row still says N/A"
   else
     grep -F 'N/A' "$m/gates.md" >/dev/null || cf "(d) the link check is not placed and the gate row carries no N/A with its reason"
+  fi
+  # (e) the human never draws, edits or switches a screen: the design tool's agent does, and the human looks, decides and carries.
+  hits="$(find "$m" -type f -not -path '*/test/*' -exec grep -niE 'human[^.]{0,60}(draw|edit|switch)|you draw|who draws|drawn (on|by)|(switching|switches) (the|a) screen' {} + || true)"
+  [ -z "$hits" ] || cf "(e) design text attributes drawing, editing or switching a screen to a human: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-200)"
+  # (f) while the adapter is not placed, the role names create and update as the intended workflow that needs the next version.
+  if ! _dm_manifest_places "$m/module.manifest" file '^[.]claude/skills/design-pull/SKILL[.]md$'; then
+    printf '%s\n' "$lines" | grep -F 'Creating and updating' >/dev/null || cf "(f) the adapter is not placed and the Designer role has no 'Creating and updating … needs the next version of the kit' line"
   fi
   finish "$L"
 }

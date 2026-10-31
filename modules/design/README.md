@@ -27,8 +27,9 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 
 ## What this version has
 
-Available now: the layout, the Designer role, the rules, token files written by hand, and Claude Design used by hand (the
-human draws on the canvas and carries files, PNG exports and comments to the repo). While a capability the Designer role
+Available now: the layout, the Designer role, the rules, token files written by hand, and Claude Design used through the human
+(the human carries the Designer's brief to Claude Design's agent, and its files, PNG exports and comments back). Creating and
+updating the artifact from the kit's own agent is the intended workflow and part of what follows. While a capability the Designer role
 lists (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, the
 renderer and audits, the checkers) is absent from your project, asking for it gets the answer that
 it needs the next version of the kit.

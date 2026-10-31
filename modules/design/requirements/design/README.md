@@ -2,7 +2,9 @@
 # `requirements/design/` — screens, flows and tokens, beside the PRDs
 
 Design is **evergreen corpus**, like the PRDs: it describes what the product looks like *now*, and git is its version
-store. A design tool's canvas is the *working surface* a human edits; this directory is the *record* and the authority.
+store. A design tool's canvas is the *working surface*, where the tool's own agent makes and revises the screens; this directory is
+the *record* and the authority. The Designer briefs that agent and takes the result in; creating and updating the artifact
+directly needs the next version of the kit, and until then the human carries the brief and the result between them.
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
@@ -101,11 +103,12 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
 screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
-carries a `:root` block with one custom property per token it uses, holding the token's value.
+carries a `:root` block with one custom property per token it uses, holding the token's value. A token change on a screen is a
+request the human carries to the design tool's agent.
 
-- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human reviews
-  wire by switching the screen's `:root` to the `.wire` token values on the canvas, switches back, and brings back only the
-  brand version; the approval is recorded against that version.
+- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks
+  the design tool's agent to switch the screen's `:root` to the `.wire` token values, reviews, and has it switch back; only
+  the brand version is carried back, and the approval is recorded against that version.
 - **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit. The human approves the render on the
   canvas; the audits are tools, and while they are not installed no figure is given for them.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
@@ -124,4 +127,4 @@ Every navigation is an `<a href>`, so the graph can be derived from the screens 
 | **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
 | **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
 | **QA** | Verifies each (UI) AC; the design cell compares the build with the pinned render. |
-| **The human** | Comments and edits on the canvas; approves the gates. |
+| **The human** | Carries the brief and change requests to the design tool's agent, and its files, PNGs and comments back; looks at the result and approves the gates. |

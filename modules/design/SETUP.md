@@ -13,9 +13,11 @@ What you do, once, before the Designer is useful. Nothing here needs more than t
 4. **Fill the Designer's project duties** in `.claude/roles/designer.md`: the canvas and its owner, the design system you start
    from, the breakpoint. Write *"this project declares none"* where it is so.
 5. **If you use Claude Design:** sign in to claude.ai, create the project there, and put its URL in `CANVAS.md`. Comments reach
-   a session only for a canvas private to you or shared within your organisation. **You draw the screens on the canvas** from the brief the
-   Designer writes in `CANVAS.md` § Brief (the UX id, states, element ids and tokens): the Designer does not author a screen file. Until `.claude/skills/design-pull/SKILL.md` is in your project, you carry the
-   canvas's files, a PNG export of each state, and its comments to the Designer, and tell it when the canvas changed.
+   a session only for a canvas private to you or shared within your organisation. **Claude Design's agent makes the screens**, not you and not the
+   Designer: the Designer writes the brief in `CANVAS.md` § Brief (the UX id, states, element ids and tokens), you give it to that
+   agent, and you carry its files, a PNG export of each state, and its comments back to the Designer, with any change request
+   going the other way. You look and approve; you do not draw. Until `.claude/skills/design-pull/SKILL.md` is in your project
+   you are that conduit; creating and updating the artifact directly is the adapter's.
 
 The pull and publish commands, the drift check, the card gate, the token generator and the other tools state their own
 requirements here once they are installed. While one is absent from your project, asking the Designer for it gets the answer
