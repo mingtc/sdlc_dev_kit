@@ -314,10 +314,10 @@ READERS_EOF
 
 # =============================================================================
 # CASE — THE KILL STAND-INS KILL THE PROCESS UNDER TEST, NOT EVERY ANCESTOR WHOSE COMMAND TEXT NAMES A SCRIPT.
-#   A harness started as `selftest-zip.sh --with scripts/kit-upgrade.sh=<file>` has that text in its own command
-#   line, and a stand-in that matched on text killed it too. The stand-in kills the process the case MARKED
-#   (the pid it recorded) and the processes between it and the stand-in, and nothing above. The decoy here is a
-#   script whose file name carries the text, run as the marked program's parent.
+#   An ancestor whose command line only names a script is not the program under test, and a stand-in that matched
+#   on command text killed it too. The stand-in kills the process the case MARKED (the pid it recorded) and the
+#   processes between it and the stand-in, and nothing above. The decoy here is a script whose file name carries
+#   the text, run as the marked program's parent.
 # =============================================================================
 case_the_kill_stand_ins_kill_only_the_marked_process_and_its_branch() {
   cf_reset

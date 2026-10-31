@@ -591,8 +591,6 @@ case_the_upgrades_module_duties_are_listed_once() {
 #       would keep it as "edited");
 #     - running the upgrade again reaches the tree an uninterrupted run leaves, byte for byte, with no stray file, and
 #       "nothing was changed" is printed only by a rerun that changed nothing.
-#   Left out of the comparison: the checklist's "stamp what arrived" line, which the core's own file pass does not
-#   write again for files a killed run had already replaced.
 #   A write that FAILS (not a kill) is refused as upgrade-write-failed, saying what was written and how to finish.
 # =============================================================================
 case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
@@ -609,7 +607,6 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
   cp -R "$SB_WORK" "$clean"
   _mu_up "$clean"
   [ "$_mu_rc" -eq 0 ] || { cf "(control) the uninterrupted upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
-  _mu_unstamp "$clean"
   _md_snap "$clean" > "$SB_TMP/clean.snap"
   [ -s "$SB_TMP/clean.snap" ] || _fixture_die "${FUNCNAME[0]}: the snapshot of the uninterrupted run is empty."
 
@@ -635,7 +632,6 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
       _md_snap "$run" > "$SB_TMP/post.snap"
       cmp -s "$SB_TMP/pre.snap" "$SB_TMP/post.snap" || cf "(write $n) the rerun printed 'nothing was changed' and changed the tree"
     fi
-    _mu_unstamp "$run"
     _md_snap "$run" > "$SB_TMP/run.snap"
     cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" || cf "(write $n) the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
     strays="$(_md_strays "$run"; find "$run/process" -name 'MODULES.*' -o -name 'UPGRADE-CHECKLIST.md.*' 2>/dev/null)"
@@ -678,7 +674,7 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
       [ "$_mu_rc" -ne 0 ] || break
       _mu_up "$run"
       if [ "$_mu_rc" -ne 0 ]; then cf "(second kill $n1/$n2) the third run exited $_mu_rc: $(_mu_flat)"; n2=$((n2 + 1)); continue; fi
-      _mu_unstamp "$run"; _md_snap "$run" > "$SB_TMP/run.snap"
+      _md_snap "$run" > "$SB_TMP/run.snap"
       cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" || cf "(second kill $n1/$n2) the third run did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
       n2=$((n2 + 1))
     done
@@ -698,17 +694,13 @@ case_a_killed_kit_upgrade_is_finished_by_running_it_again() {
       printf '%s\n' "$_mu_out" | grep -F 'run this again' >/dev/null || cf "(write failure in $f) the refusal does not say how to finish: $(_mu_flat)"
       _mu_up "$run"
       [ "$_mu_rc" -eq 0 ] || cf "(write failure in $f) running the upgrade again exited $_mu_rc: $(_mu_flat)"
-      _mu_unstamp "$run"; _md_snap "$run" > "$SB_TMP/run.snap"
+      _md_snap "$run" > "$SB_TMP/run.snap"
       cmp -s "$SB_TMP/clean.snap" "$SB_TMP/run.snap" || cf "(write failure in $f) the rerun did not reach the tree an uninterrupted run leaves: $(diff "$SB_TMP/clean.snap" "$SB_TMP/run.snap" | tr '\n' '|' | cut -c1-300)"
     done
   fi
 
   finish "$L"
   teardown
-}
-# _mu_unstamp <project> — drop the checklist's "stamp what arrived" line (see the case above for why).
-_mu_unstamp() {
-  sed -i.bak '/^- \[ \] stamp what arrived/d' "$1/process/UPGRADE-CHECKLIST.md" 2>/dev/null; rm -f "$1/process/UPGRADE-CHECKLIST.md.bak"
 }
 
 # =============================================================================
@@ -785,21 +777,9 @@ case_kit_upgrade_refuses_before_it_writes_when_an_enabled_module_cannot_be_judge
   teardown
 }
 
-# =============================================================================
-# CASE — --finish RUNS THE Verify: LINES OF AN ENABLED MODULE'S OWN RELEASE NOTES, AND REFUSES ON A FAILING ONE.
-#   The module's notes are read by the same reader as the kit's (notes_items), from a copy staged at the first run.
-#   A module that is shipped and not enabled has no item on the checklist and contributes none.
-#   Known answers: one passing and one failing line refuse by name and change nothing; once the failing line's
-#   action is done, --finish stamps and the archive says the passing line was verified.
-# =============================================================================
-case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
-  cf_reset
-  local L="kit-upgrade.sh --finish runs the Verify: line of each Action required item from an enabled module's own release notes: a failing one is refused as upgrade-verify-failed naming the module and the item and stamps nothing, a passing one is recorded as verified, and a shipped module that is not enabled adds no line"
-  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
-  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
-  _mu_subject_ok || { finish "$L"; return; }
-  local cl rc out arch
+# _mu_vf_setup — a project with the example module enabled, upgraded to a kit whose module notes carry a passing and a failing
+# Verify: line (and a second module, shipped and not enabled, whose notes would fail if read); the checklist marked and landed.
+_mu_vf_setup() {
   _mu_pair
   _mu_new_version
   cat > "$MU_NEW/modules/example/RELEASE-NOTES.md" <<MU_VF_EOF
@@ -826,11 +806,32 @@ MU_VF_EOF
   printf '# second — release notes\n\n## [0.5.0]\n\n### Action required\n\n- **Unread item.**\n  Verify: false\n' > "$MU_NEW/modules/second/RELEASE-NOTES.md"
   _mu_manifest "$MU_NEW"
   _mu_up "$SB_WORK"
-  [ "$_mu_rc" -eq 0 ] || { cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
-  cl="$SB_WORK/process/UPGRADE-CHECKLIST.md"
-  [ "$(grep -c 'Action required, \[' "$cl")" = 2 ] || cf "(a) the checklist should carry the module's two Action required items and no more: $(grep -F 'Action required' "$cl" | cut -c1-100 | tr '\n' '|')"
-  sed -i.bak 's/^- \[ \] /- [x] /' "$cl"; rm -f "$cl.bak"
+  [ "$_mu_rc" -eq 0 ] || { cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"; return 1; }
+  [ "$(grep -c 'Action required, \[' "$SB_WORK/process/UPGRADE-CHECKLIST.md")" = 2 ] || cf "(a) the checklist should carry the module's two Action required items and no more: $(grep -F 'Action required' "$SB_WORK/process/UPGRADE-CHECKLIST.md" | cut -c1-100 | tr '\n' '|')"
+  sed -i.bak 's/^- \[ \] /- [x] /' "$SB_WORK/process/UPGRADE-CHECKLIST.md"; rm -f "$SB_WORK/process/UPGRADE-CHECKLIST.md.bak"
   _mu_land "the upgrade, marked"
+}
+
+# =============================================================================
+# CASE — --finish RUNS THE Verify: LINES OF AN ENABLED MODULE'S OWN RELEASE NOTES, AND REFUSES ON A FAILING ONE.
+#   The module's notes are read by the same reader as the kit's (notes_items), from a copy staged at the first run.
+#   A module that is shipped and not enabled has no item on the checklist and contributes none.
+#   Known answers: one passing and one failing line refuse by name and change nothing; once the failing line's
+#   action is done, --finish stamps and the archive says the passing line was verified.
+# =============================================================================
+case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
+  cf_reset
+  local L="kit-upgrade.sh --finish runs the Verify: line of each Action required item from an enabled module's own release notes: a failing one is refused as upgrade-verify-failed naming the module and the item and stamps nothing, a passing one is recorded as verified, and a shipped module that is not enabled adds no line"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local cl rc out arch
+  _mu_vf_setup || { finish "$L"; teardown; return; }
+  cl="$SB_WORK/process/UPGRADE-CHECKLIST.md"
+  # the checklist line shows the command --finish will run, as the kit's own lines do
+  grep -F 'Failing item' "$cl" | grep -F 'Verify: [ -f module-verify-marker ]' >/dev/null || cf "(a) the failing module item's checklist line does not show its Verify: command: $(grep -F 'Failing item' "$cl" | cut -c1-200)"
+  grep -F 'Passing item' "$cl" | grep -F 'Verify: true' >/dev/null || cf "(a) the passing module item's checklist line does not show its Verify: command: $(grep -F 'Passing item' "$cl" | cut -c1-200)"
 
   # (b) the failing line refuses, by module and item, and stamps nothing.
   rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
@@ -849,6 +850,37 @@ MU_VF_EOF
   arch="$(ls "$SB_WORK"/process/upgrades/*-to-0.2.0.md 2>/dev/null | head -1)"
   { [ -n "$arch" ] && grep -F 'verified, exit 0:' "$arch" | grep -F 'module example' | grep -F 'Passing item' >/dev/null; } \
     || cf "(c) the archive does not record the module's passing line as verified"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A MODULE DISABLED AFTER THE UPGRADE WAS STAGED HAS ITS Verify: LINES SKIPPED AT --finish, AND SAID SO.
+#   The checklist line was written while the module was enabled. A module that is not enabled at --finish contributes
+#   nothing, so a failing line of its notes does not refuse; the archive records the item as declared and not run.
+# =============================================================================
+case_finish_skips_the_verify_lines_of_a_module_disabled_since_the_upgrade() {
+  cf_reset
+  local L="kit-upgrade.sh --finish does not run, and does not refuse on, the Verify: line of a module that was disabled after the upgrade was staged: it stamps, and the archive lists the item as declared and not run"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local rc out arch
+  _mu_vf_setup || { finish "$L"; teardown; return; }
+  # (control) with the module enabled, the failing line refuses: the premise of what follows.
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-skip0" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 1 ] || _fixture_die "${FUNCNAME[0]}: --finish with the module enabled exited $rc, so nothing below measures a disabled module: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || _fixture_die "${FUNCNAME[0]}: disabling the module exited $_md_rc: $_md_out"
+  _mu_land "disable the module"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-skip1" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) --finish refused on a module that is no longer enabled (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(cat "$SB_WORK/process/KIT-VERSION")" = 0.2.0 ] || cf "(a) --finish did not stamp process/KIT-VERSION: $(cat "$SB_WORK/process/KIT-VERSION")"
+  arch="$(ls "$SB_WORK"/process/upgrades/*-to-0.2.0.md 2>/dev/null | head -1)"
+  { [ -n "$arch" ] && grep -F 'declared, not run' "$arch" | grep -F 'module example' | grep -F 'Failing item' >/dev/null; } \
+    || cf "(b) the archive does not list the disabled module's failing item as declared and not run"
+  [ -n "$arch" ] && grep -F 'verified, exit 0:' "$arch" | grep -F 'Passing item' >/dev/null && cf "(b) the archive says a disabled module's line was verified"
   finish "$L"
   teardown
 }

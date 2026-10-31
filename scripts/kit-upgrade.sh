@@ -346,12 +346,15 @@ notes_items() {
 }
 
 # vf_run — runs the Verify: command of every Action required item in the checklist, read from the
-# staged copy of the new kit's notes. Fills VF_FAILED (three printable lines per failure; VF_NFAIL counts them), VF_PASSED and VF_NONE
-# ("[<section>] item <n>: <title>"), and VF_ABSENT when the staged notes are missing.
-VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
+# staged copy of the new kit's notes. Fills VF_FAILED (three printable lines per failure; VF_NFAIL counts them), VF_PASSED, VF_NONE and VF_SKIPPED
+# ("[<section>] item <n>: <title>"; a module's item is led by "module <name> "), and VF_ABSENT when the staged notes are missing.
+# A module item whose module is not enabled now is skipped: it was written while the module was.
+VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_SKIPPED=(); VF_ABSENT=""
+# mod_enabled_now <name> — status 0 when process/MODULES records the module as enabled now.
+mod_enabled_now() { mod_lib_need && kit_mod_is_enabled "$1"; }
 vf_run() {
   local rows="" mrows line mn sec n row title cmd out rc lbl
-  VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
+  VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_SKIPPED=(); VF_ABSENT=""
   if [ -f "$ST/$STAGED_NOTES" ]; then
     if [ -f "$ST/$STAGED_HISTORY" ]; then rows="$(notes_items "$ST/$STAGED_NOTES" "$ST/$STAGED_HISTORY")"
     else rows="$(notes_items "$ST/$STAGED_NOTES")"; fi
@@ -371,6 +374,8 @@ vf_run() {
     row="$(printf '%s\n' "$mrows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { print; exit }')"
     title="$(printf '%s' "$row" | cut -f3)"; cmd="$(printf '%s' "$row" | cut -f5)"
     if [ -z "$cmd" ]; then VF_NONE+=("$lbl[$sec] item $n: ${title:-<not in the staged notes>}"); continue; fi
+    # The item was written while the module was enabled; one disabled since contributes nothing.
+    if [ -n "$mn" ] && ! mod_enabled_now "$mn"; then VF_SKIPPED+=("$lbl[$sec] item $n: $title — module $mn is not enabled now"); continue; fi
     out="$(cd "$TGT" && bash -c "$cmd" </dev/null 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then VF_PASSED+=("$lbl[$sec] item $n: $title — Verify: $cmd"); continue; fi
     VF_NFAIL=$((VF_NFAIL + 1))
@@ -388,6 +393,7 @@ vf_record() {
   fi
   for l in ${VF_PASSED[@]+"${VF_PASSED[@]}"}; do printf -- '- verified, exit 0: %s\n' "$l"; done
   for l in ${VF_NONE[@]+"${VF_NONE[@]}"}; do printf -- '- declared, unverified (no Verify: line): %s\n' "$l"; done
+  for l in ${VF_SKIPPED[@]+"${VF_SKIPPED[@]}"}; do printf -- '- declared, not run: %s\n' "$l"; done
   printf '\nEvery other item, merge, removal and kept file included, is declared by whoever marked it; --finish verified none of them.\n'
 }
 
@@ -672,10 +678,12 @@ MODPEND_EOF
     # The module's own Action required entries between the version recorded here and the one the kit holds.
     [ -z "$KMU_NOTES" ] || MOD_NOTES+=("$mn|$KMU_NOTES")
     if [ -n "$KMU_NOTES" ] && ver_ok "$KMU_OLD_VERSION" && ver_ok "$KMU_VERSION"; then
-      while IFS="$(printf '\t')" read -r sec n t _ _; do
+      while IFS="$(printf '\t')" read -r sec n t _ vcmd; do
         [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
         [ "$(ver_cmp "$sec" "$KMU_OLD_VERSION")" = 1 ] && [ "$(ver_cmp "$sec" "$KMU_VERSION")" != 1 ] || continue
-        MOD_ACTION+=("module $mn, Action required, [$sec] item $n: $t — modules/$mn/$KMU_NOTES § [$sec]")
+        mline="module $mn, Action required, [$sec] item $n: $t — modules/$mn/$KMU_NOTES § [$sec]"
+        [ -z "$vcmd" ] || mline="$mline — Verify: $vcmd"
+        MOD_ACTION+=("$mline")
       done <<MODITEMS_EOF
 $(notes_items "$SRC/modules/$mn/$KMU_NOTES")
 MODITEMS_EOF

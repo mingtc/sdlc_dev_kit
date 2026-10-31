@@ -404,6 +404,15 @@ kwt_sync
 if command -v kit_role_set >/dev/null 2>&1; then
   _mv_trunk_set="$(kit_role_set "$KWT" 2>/dev/null || true)"
   if [ -n "$_mv_trunk_set" ] && ! kit_role_member "$_mv_trunk_set" "$ROLE"; then
+    # Offline, the worktree is a stale copy: it cannot say the role is missing from the trunk, only that it was not read.
+    if [ "${KWT_SYNCED:-false}" != true ]; then
+      kit_refuse 1 role-trunk-unread \
+        "Error: --role $ROLE is not in the role set of the kanban worktree, and $KWT_REMOTE/$DEFAULT_BRANCH could not be read (the fetch above failed)." \
+        "       The commit hook that judges the board commit reads the role set from that copy of the trunk:" \
+        "       $_mv_trunk_set" \
+        "Next: restore the connection to $KWT_REMOTE, then run this again; if $ROLE is declared only in this checkout, push it to $KWT_REMOTE/$DEFAULT_BRANCH first." \
+        "       NOTHING WAS CHANGED."
+    fi
     kit_refuse 1 role-not-on-trunk \
       "Error: --role $ROLE is declared in this checkout but not on $KWT_REMOTE/$DEFAULT_BRANCH." \
       "       The commit hook that judges the board commit reads the role set from the trunk's copy:" \

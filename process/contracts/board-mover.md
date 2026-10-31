@@ -124,7 +124,7 @@ to change and making every change self-recording.
 - No actor was given, or the actor is not a declared role ⇒ refuse, listing the legal roles. The
   actor is checked a second time, before anything is moved, against the set the trunk's copy of the
   commit-msg hook will read; a role declared only in the operator's unpushed checkout refuses
-  (`role-not-on-trunk`) with the push as the next act.
+  (`role-not-on-trunk`) with the push as the next act, or, when the sync was offline and the trunk could not be read, with `role-trunk-unread` and reconnecting as the next act.
 - The target container does not exist ⇒ refuse **before** moving anything.
 - A move into the hand-off state (`dev_complete`) of a card whose `forks:` field the landing's own check
   would refuse ⇒ refuse with that check's refusal, from the same reader, before moving anything. The

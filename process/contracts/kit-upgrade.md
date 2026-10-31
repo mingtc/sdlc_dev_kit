@@ -189,7 +189,7 @@ is `notes_items` in `scripts/kit-upgrade.sh`.
 - **An enabled module's notes:** an Action required entry of a module's own release notes (`module <name>, Action
   required, …` on the checklist) is read by the same reader, from a copy of those notes staged beside the kit's
   (`.kit-upgrade/module-notes/<name>.kit-new`), and its `Verify:` command is run and refused on in the same way. A module
-  that is shipped and not enabled has no item, so contributes none.
+  that is shipped and not enabled has no item, so contributes none. An item of a module disabled after the upgrade was staged is skipped at `--finish` and archived as declared, not run. The item's checklist line ends with its `Verify:` command, as the kit's own lines do.
 - **No `Verify:` line:** the item is whatever its marker says. The archived checklist's last section
   lists it as declared and unverified; every item that is not an Action required entry is declared the
   same way.

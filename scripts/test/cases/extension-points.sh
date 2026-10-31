@@ -197,6 +197,44 @@ case_the_movers_role_check_reads_the_trunks_layers_not_the_checkouts() {
 }
 
 # =============================================================================
+# CASE — THE MOVER'S ROLE REFUSAL DOES NOT CLAIM THE ROLE IS MISSING FROM THE TRUNK WHEN THE TRUNK COULD NOT BE READ.
+#   Offline, the kanban worktree is a stale copy. Refusing is still right (the hook in it would refuse), but "not on the
+#   trunk" is then a guess, and a Next: that says to push cannot be done. The text says the trunk was not read and names a
+#   Next that can be: restore the connection and run again.
+# =============================================================================
+case_the_movers_role_refusal_says_the_trunk_was_not_read_when_the_sync_was_offline() {
+  cf_reset
+  local L="when the remote cannot be reached, the mover's refusal of a role the stale kanban worktree lacks says the trunk could not be read and names reconnecting as the next act, under its own rule id, while an online refusal still says the role is not on the trunk"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local role="Yak" a="$SB_PREFIX-714" b="$SB_PREFIX-715" url
+  seed_issue todo "$a" offlinea chore "The card that creates the kanban worktree"
+  seed_issue todo "$b" offlineb chore "The card moved while the remote is unreachable"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  _rt_move "$a" Dev            # the kanban worktree now exists, without the role
+  [ "$_rt_rc" -eq 0 ] || _fixture_die "case_the_movers_role_refusal_says_the_trunk_was_not_read_when_the_sync_was_offline: the first move exited $_rt_rc: $_rt_out"
+  mkdir -p "$SB_WORK/process"
+  printf '%s   a seat declared on the trunk\n' "$role" > "$SB_WORK/process/ROLES"
+  _rl_land "add the $role role"
+  origin_has_path "process/ROLES" || _fixture_die "case_the_movers_role_refusal_says_the_trunk_was_not_read_when_the_sync_was_offline: the role did not reach the trunk."
+  url="$(git -C "$SB_WORK" remote get-url origin)"
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git"
+  _rt_move "$b" "$role"
+  [ "$_rt_rc" -ne 0 ] || cf "(a) the mover accepted --role $role from a stale worktree while offline: $_rt_out"
+  grep -q 'refusal=role-trunk-unread' "$SB_TMP/rt-rec-$_rt_n"/*.tsv 2>/dev/null || cf "(a) the refusal is not under role-trunk-unread (exit $_rt_rc): $(printf '%s' "$_rt_out" | tail -4 | tr '\n' '|')"
+  [[ "$_rt_out" == *"could not be read"* ]] || cf "(a) the refusal does not say the trunk could not be read: $_rt_out"
+  [[ "$_rt_out" == *"is declared in this checkout but not on"* ]] && cf "(a) the refusal still claims the role is not on the trunk: $_rt_out"
+  [[ "$_rt_out" == *"Next:"*"run this again"* || "$_rt_out" == *"Next:"*"re-run"* ]] || cf "(a) the Next: names no act that can be done offline: $_rt_out"
+  [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>/dev/null)" ] || cf "(a) the refusal left the kanban worktree dirty"
+  git -C "$SB_WORK" remote set-url origin "$url"
+  _rt_move "$b" "$role"
+  [ "$_rt_rc" -eq 0 ] || cf "(b) with the remote back the same call was refused (exit $_rt_rc): $_rt_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A LAYER FILE WITH CRLF LINE ENDINGS IS READ.
 #   A checkout with core.autocrlf writes them. A `\r` kept inside the tag makes the role silently
 #   unreadable, with nothing to name the cause.
