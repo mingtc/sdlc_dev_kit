@@ -313,6 +313,55 @@ READERS_EOF
 }
 
 # =============================================================================
+# CASE — THE KILL STAND-INS KILL THE PROCESS UNDER TEST, NOT EVERY ANCESTOR WHOSE COMMAND TEXT NAMES A SCRIPT.
+#   A harness started as `selftest-zip.sh --with scripts/kit-upgrade.sh=<file>` has that text in its own command
+#   line, and a stand-in that matched on text killed it too. The stand-in kills the process the case MARKED
+#   (the pid it recorded) and the processes between it and the stand-in, and nothing above. The decoy here is a
+#   script whose file name carries the text, run as the marked program's parent.
+# =============================================================================
+case_the_kill_stand_ins_kill_only_the_marked_process_and_its_branch() {
+  cf_reset
+  local L="a kill stand-in SIGKILLs the process the case marked and the processes between it and the stand-in, not an ancestor above it whose command line only names kit-upgrade.sh, and does not kill when the marked process is not an ancestor"
+  command -v ps >/dev/null 2>&1 || { skp "$L" "no ps: the stand-in cannot walk the process tree"; return; }
+  make_sandbox
+  local kd="$SB_TMP/kd" st
+  mkdir -p "$kd"; : > "$kd/a.txt"
+  _md_make_kill_shim
+  # the program under test: one move the stand-in aims at, then a mark that must never be written
+  cat > "$kd/under-test.sh" <<'UT_EOF'
+#!/bin/bash
+mv "$KD/a.txt" "$KD/target"
+echo ran-on > "$KD/after"
+UT_EOF
+  # the decoy: its file name carries the text a text-matching stand-in looks for; it runs the marked program
+  cat > "$kd/decoy-kit-upgrade.sh" <<'DC_EOF'
+#!/bin/bash
+rc=0
+env KD="$KD" KILL_PID_FILE="$KD/pid" KILL_ON=target PATH="$KD/shim:$PATH" \
+  bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ bash "$KD/under-test.sh" || rc=$?
+echo "$rc" > "$KD/decoy-status"
+DC_EOF
+  ln -s "$SB_TMP/shim" "$kd/shim"
+  (cd "$kd" && KD="$kd" bash "$kd/decoy-kit-upgrade.sh" >/dev/null 2>&1) || true
+  [ -f "$kd/decoy-status" ] || cf "(a) the ancestor whose command line names kit-upgrade.sh was killed with the program under test"
+  [ "$(cat "$kd/decoy-status" 2>/dev/null)" = 137 ] || cf "(a) the marked program did not die by SIGKILL (status '$(cat "$kd/decoy-status" 2>/dev/null)', want 137)"
+  [ -e "$kd/after" ] && cf "(a) the marked program kept running after the move the stand-in aims at"
+  [ -e "$kd/target" ] && cf "(a) the move the stand-in aims at was made, so nothing was killed before it"
+
+  # (b) a mark that is not an ancestor: nothing is killed, and the move goes through.
+  rm -f "$kd/after" "$kd/target" "$kd/decoy-status"; : > "$kd/a.txt"
+  echo 999999 > "$kd/pid2"
+  st=0
+  env KD="$kd" KILL_PID_FILE="$kd/pid2" KILL_ON=target PATH="$kd/shim:$PATH" bash "$kd/under-test.sh" >/dev/null 2>&1 || st=$?
+  [ "$st" -eq 0 ] || cf "(b) the program was killed or failed (status $st) though the marked pid is not one of its ancestors"
+  [ -e "$kd/after" ] || cf "(b) the program did not run to its end though the marked pid is not one of its ancestors"
+  [ -e "$kd/target" ] || cf "(b) the move was not made though the marked pid is not one of its ancestors"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A KILLED ENABLE IS FINISHED BY RUNNING IT AGAIN, OR TAKEN BACK BY DISABLE, AND LEAVES NOTHING TO DELETE BY HAND.
 #   The kill is real: a stand-in for mv, first on PATH, SIGKILLs the module.sh process tree at the move that
 #   would place a chosen file, so nothing runs after it (no trap, no cleanup). Enable writes its record

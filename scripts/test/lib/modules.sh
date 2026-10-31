@@ -58,10 +58,37 @@ _md_rc=0; _md_out=""
 _md_mod() { rm -rf "$SB_TMP/records"; _md_rc=0; _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/module.sh "$@" 2>&1 </dev/null )" || _md_rc=$?; }
 _md_recs() { cat "$SB_TMP"/records/*.tsv 2>/dev/null | grep -c "refusal=$1" || true; }
 
+# _md_make_kill_walk <dir> — kill-walk.sh in <dir>, sourced by the stand-ins written there. kill_marked SIGKILLs the
+# process the case MARKED (its pid is in the file $KILL_PID_FILE) and every process between it and the caller. It
+# never matches on command text: a process above the marked one that only names a script survives. Status 1, nothing
+# killed, when the marked pid is not an ancestor of the caller.
+_md_make_kill_walk() {
+  cat > "$1/kill-walk.sh" <<'WALK_EOF'
+kill_marked() {
+  local target pid pids=""
+  target="$(cat "${KILL_PID_FILE:-/dev/null}" 2>/dev/null)"
+  [ -n "$target" ] || return 1
+  pid=$PPID
+  while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+    pids="$pids $pid"
+    if [ "$pid" = "$target" ]; then
+      # shellcheck disable=SC2086
+      kill -9 $pids
+      return 0
+    fi
+    pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+  done
+  return 1
+}
+WALK_EOF
+}
+# A case marks the process under test by starting it as `bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ <command…>`:
+# the pid written is the command's own, because it is exec'd.
+
 # _md_make_kill_shim — a stand-in for mv, first on PATH when _md_kill_enable runs: when the destination of a
-# move ends with $KILL_ON it SIGKILLs every ancestor process running module.sh or kit-upgrade.sh, then itself,
-# so nothing after that move runs (no trap, no cleanup): a hard kill, not a refusal. With KILL_SKIP naming a file
-# that holds a count, that many matching moves go through first (the file is counted down).
+# move ends with $KILL_ON it SIGKILLs the marked process (see _md_make_kill_walk) and the processes below it that
+# lead to the move, then itself, so nothing after that move runs (no trap, no cleanup): a hard kill, not a refusal.
+# With KILL_SKIP naming a file that holds a count, that many matching moves go through first (the file is counted down).
 _md_make_kill_shim() {
   mkdir -p "$SB_TMP/shim"
   cat > "$SB_TMP/shim/mv" <<'MV_EOF'
@@ -72,30 +99,21 @@ case "$dest" in
     if [ -n "${KILL_SKIP:-}" ] && [ -f "$KILL_SKIP" ] && [ "$(cat "$KILL_SKIP")" -gt 0 ]; then
       echo $(( $(cat "$KILL_SKIP") - 1 )) > "$KILL_SKIP"; exec /bin/mv "$@"
     fi
-    pids=""; pid=$PPID
-    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
-      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
-      pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
-    done
-    # shellcheck disable=SC2086
-    [ -z "$pids" ] || kill -9 $pids
+    . "$(dirname "$0")/kill-walk.sh"
+    kill_marked || { echo "kill stand-in: the marked process is not an ancestor of this call, so nothing was killed" >&2; exec /bin/mv "$@"; }
     kill -9 $$ ;;
 esac
 exec /bin/mv "$@"
 MV_EOF
   chmod +x "$SB_TMP/shim/mv"
+  _md_make_kill_walk "$SB_TMP/shim"
   # ...and the same for mkdir, when the last argument ends with $KILL_MKDIR: a kill at a point no move marks.
   cat > "$SB_TMP/shim/mkdir" <<'MKDIR_EOF'
 #!/bin/bash
 case "${@: -1}" in
   *"${KILL_MKDIR:-@@never@@}")
-    pids=""; pid=$PPID
-    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
-      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
-      pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
-    done
-    # shellcheck disable=SC2086
-    [ -z "$pids" ] || kill -9 $pids
+    . "$(dirname "$0")/kill-walk.sh"
+    kill_marked || { echo "kill stand-in: the marked process is not an ancestor of this call, so nothing was killed" >&2; exec /bin/mkdir "$@"; }
     kill -9 $$ ;;
 esac
 exec /bin/mkdir "$@"
@@ -106,14 +124,15 @@ MKDIR_EOF
 _md_kill_enable() {
   rm -rf "$SB_TMP/records"
   _md_rc=0
-  _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" PATH="$SB_TMP/shim:$PATH" KILL_ON="$1" ./scripts/module.sh enable "${2:-example}" 2>&1 </dev/null )" || _md_rc=$?
+  _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" PATH="$SB_TMP/shim:$PATH" KILL_ON="$1" KILL_PID_FILE="$SB_TMP/kill-pid" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ ./scripts/module.sh enable "${2:-example}" 2>&1 </dev/null )" || _md_rc=$?
 }
 # _md_strays <root> — every temporary file a killed run could leave behind, one per line.
 _md_strays() { find "$1" -path "$1/.git" -prune -o \( -name '*.kit-mod-new' -o -name '*.kit-mb.*' \) -print 2>/dev/null; }
 
 # _md_make_count_shim — stand-ins for the commands that write (cp mv mkdir rm mktemp chmod), first on PATH when a program
 # runs under them: every call that names a path under $KILL_ROOT is counted in the file $KILL_COUNT, and the call whose
-# number is $KILL_NTH SIGKILLs every ancestor running module.sh or kit-upgrade.sh, then itself, before it writes. Run with
+# number is $KILL_NTH SIGKILLs the marked process and the processes between it and the call (see _md_make_kill_walk),
+# then itself, before it writes. Run with
 # KILL_NTH = 1, 2, 3 … to stop a program before each write in turn; a run that is not killed made fewer writes than that.
 _md_make_count_shim() {
   local c real
@@ -136,14 +155,9 @@ done
 if [ "$hit" = 1 ] && [ -n "${KILL_NTH:-}" ]; then
   n=$(( $(cat "$KILL_COUNT" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$KILL_COUNT"
   if [ "$n" -eq "$KILL_NTH" ]; then
-    pids=""; pid=$PPID
-    while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
-      case "$(ps -o command= -p "$pid" 2>/dev/null)" in *module.sh*|*kit-upgrade.sh*) pids="$pids $pid" ;; esac
-      pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
-    done
-    # shellcheck disable=SC2086
-    [ -z "$pids" ] || kill -9 $pids
-    kill -9 $$
+    . "$(dirname "$0")/kill-walk.sh"
+    if kill_marked; then kill -9 $$; fi
+    echo "kill stand-in: the marked process is not an ancestor of this call, so nothing was killed" >&2
   fi
 fi
 exec @REAL@ "$@"
@@ -151,4 +165,5 @@ CSHIM_EOF
     sed -i.bak "s|@REAL@|$real|" "$SB_TMP/cshim/$c"; rm -f "$SB_TMP/cshim/$c.bak"
     chmod +x "$SB_TMP/cshim/$c"
   done
+  _md_make_kill_walk "$SB_TMP/cshim"
 }

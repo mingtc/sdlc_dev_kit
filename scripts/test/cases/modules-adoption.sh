@@ -123,7 +123,7 @@ _mu_rc=0; _mu_out=""
 _mu_up() {
   local proj="$1"; shift
   rm -rf "$SB_TMP/up-records"; _mu_rc=0
-  _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/up-records" "$@" "$MU_NEW/scripts/kit-upgrade.sh" --into "$proj" 2>&1 </dev/null )" || _mu_rc=$?
+  _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/up-records" KILL_PID_FILE="$SB_TMP/kill-pid" "$@" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ "$MU_NEW/scripts/kit-upgrade.sh" --into "$proj" 2>&1 </dev/null )" || _mu_rc=$?
 }
 _mu_recs() { cat "$SB_TMP"/up-records/*.tsv 2>/dev/null | grep -c "refusal=$1" || true; }
 # _mu_flat — the last output on one line, for a failure message.
