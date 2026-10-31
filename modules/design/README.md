@@ -32,5 +32,5 @@ Available now: the layout, the Designer role, the rules, token files written by 
 updating the artifact from the kit's own agent is the intended workflow and part of what follows. While a capability the Designer role
 lists (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, the
 renderer and audits, the checkers) is absent from your project, asking for it gets the answer that
-it needs the next version of the kit.
+it needs the next version of the kit, which brings it.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.

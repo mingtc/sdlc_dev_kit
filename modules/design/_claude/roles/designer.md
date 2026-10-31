@@ -35,7 +35,7 @@ templates; the PRD and card lines a new PRD and card are minted with; the `desig
 **Working with a canvas through the human:** the human is the conduit between the Designer and Claude Design's agent (§ By hand).
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
-of these, say that it needs the next version of the kit; do not improvise it, hand-roll what it would do, or report it as
+of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it, hand-roll what it would do, or report it as
 done. Give no estimate of what it would have found. A line whose file is present is stale: the capability is installed, so
 delete the line.
 
@@ -129,7 +129,7 @@ One artifact per screen, two reviews. A `wire` token theme renders the same sour
   this version has): while they are absent, say so and give no figures.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
-being the commit the approval was given at. A row whose artboard differs from its approval's blob reads as a stale approval
+being the commit that took in the approved version. A row whose artboard differs from its approval's blob reads as a stale approval
 and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Handoff
@@ -149,8 +149,8 @@ and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Session end checklist
 
-- [ ] The last action was taking the canvas in and committing it, so `project/` equals the canvas (or the divergence is named
-      in `COMMENTS.md`).
+- [ ] Anything carried back from the canvas is committed, so `project/` equals it (or the divergence is named in
+      `COMMENTS.md`); a session that only wrote a brief has the brief and its registry row committed.
 - [ ] Every screen touched has its registry row, its thread state and its render committed together.
 - [ ] The registry and the PRD's markers agree both ways (README § 3); each gap fixed or listed as a question.
 - [ ] Open questions are `ask.sh` files, committed, not left in the conversation.

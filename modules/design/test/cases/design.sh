@@ -7,7 +7,7 @@
 # =============================================================================
 
 # _dm_have — status 0 when the module is in this tree.
-_dm_have() { [ -f "$REAL_REPO_ROOT/modules/design/module.manifest" ]; }
+_dm_have() { [ -f "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" ]; }
 _dm_gone_reason() { printf '%s' "modules/design/RELEASE-NOTES.md is absent from this tree"; }
 
 # _dm_manifest_places <manifest> <key> <target regex> — status 0 when a line of that key places something at a target of that shape.
@@ -267,7 +267,7 @@ DM_CAPS_EOF
     grep -F 'N/A' "$m/gates.md" >/dev/null || cf "(d) the link check is not placed and the gate row carries no N/A with its reason"
   fi
   # (e) the human never draws, edits or switches a screen: the design tool's agent does, and the human looks, decides and carries.
-  hits="$(find "$m" -type f -not -path '*/test/*' -exec grep -niE 'human[^.]{0,60}(draw|edit|switch)|you draw|who draws|drawn (on|by)|(switching|switches) (the|a) screen' {} + || true)"
+  hits="$(find "$m" -type f -not -path "$m/test/*" -exec grep -niE 'human[^.]{0,60}[[:space:]](draws|edits|switches)|human (should|must|will|can|may) (draw|edit|switch)|you (draw|edit)[[:space:]]|who draws|drawn (on|by)|(switching|switches) (the|a) screen' {} + || true)"
   [ -z "$hits" ] || cf "(e) design text attributes drawing, editing or switching a screen to a human: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-200)"
   # (f) while the adapter is not placed, the role names create and update as the intended workflow that needs the next version.
   if ! _dm_manifest_places "$m/module.manifest" file '^[.]claude/skills/design-pull/SKILL[.]md$'; then
@@ -329,7 +329,7 @@ case_no_design_text_tells_a_role_to_render_the_pinned_side_while_the_renderer_is
     hits="$(grep -niE 'git archive|render(s)? the pinned|QA renders|render the build' "$f" || true)"
     [ -z "$hits" ] || cf "(a) ${f#$REAL_REPO_ROOT/} tells a role to render while render.py is absent: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-160)"
   done <<DM_FILES_EOF
-$(find "$m" -type f -not -path '*/test/*')
+$(find "$m" -type f -not -path "$m/test/*")
 DM_FILES_EOF
   qa="$m/_claude/templates/design/QA-verdict-design.fragment.md"
   [ -f "$qa" ] || { cf "(prereq) the QA guide is absent"; finish "$L"; return; }

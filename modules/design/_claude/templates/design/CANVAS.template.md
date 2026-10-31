@@ -12,7 +12,7 @@
 ## Screen registry
 
 `platform`: `phone` or `web-desktop`. `pair` names the other width of the same screen (symmetric). `gate1` and `gate2` are
-`open`, `changes` or `approved@<sha>`, `<sha>` being the commit the approval was given at. One table per product area, the
+`open`, `changes` or `approved@<sha>`, `<sha>` being the commit that took in the approved version. One table per product area, the
 same header each time.
 
 ### <product area>
@@ -24,10 +24,28 @@ same header each time.
 
 ## Brief
 
-Words ready for the human to give the design tool's agent, one entry per screen: the UX id (`data-ux`), the states its ACs need, the element ids
-(`ux-NNN-name`) and the tokens to use.
+One entry per screen and one per change request, for the human to give the design tool's agent. Only what is inside a fence
+is pasted; anything outside a fence is a note for the human or the Designer. Add the screen's registry row with its brief
+(`gate1` and `gate2` `open`), so its UX id is taken before the screen exists.
 
-- <UX-001: states default, <state>; elements ux-001-<name>, …; tokens <names>>
+A screen:
+
+```
+Make screen UX-001, "<title>", as <Screen>.dc.html, at <width> px.
+States: default, <state>. Each state's branch root carries data-state="<state>".
+Root: data-ux="UX-001" and data-stories="<PRD-NNN-F1-S1>".
+Elements, by id: ux-001-<name> (<what it is>), …
+Tokens: use only these, as one custom property each in a :root block: <name>: <value>, …
+Copy, per state: <the exact text of each element>
+Navigation: <element id> goes to <UX id>, as an <a href>.
+Export one PNG per state, named <Screen>-<state>.png.
+```
+
+A change request:
+
+```
+On UX-001, state <state>: <the change, naming the element id>. Keep every other element and id as it is.
+```
 
 ## Proposed PRD citations
 

@@ -1,7 +1,7 @@
 <!-- KIT-CLASS: KIT — guide for a PRD that has screens: the `UI:` line, the `(UI)` tag, the `[design: ...]` marker, `Design: pending`, delta stories. Copy what you need into the PRD; the core PRD template does not carry them. See process/EXTRACTION.md. -->
 # PRD lines for a PRD with screens
 
-Under a feature while no screen exists (the Designer's brief: the states the ACs need):
+Under a feature while no screen exists (the Designer's input: the states the ACs need):
 
 ```
 **Design:** pending — UX states needed: <state>, <state>

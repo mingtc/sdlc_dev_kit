@@ -21,4 +21,4 @@ What you do, once, before the Designer is useful. Nothing here needs more than t
 
 The pull and publish commands, the drift check, the card gate, the token generator and the other tools state their own
 requirements here once they are installed. While one is absent from your project, asking the Designer for it gets the answer
-that it needs the next version of the kit.
+that it needs the next version of the kit, which brings it.

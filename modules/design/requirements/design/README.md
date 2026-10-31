@@ -8,7 +8,7 @@ directly needs the next version of the kit, and until then the human carries the
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
-version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit. This binds
+version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
 every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
 ## 1. Layout
@@ -63,7 +63,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - The marker is `[design: UX-NNN#state]`, **on the AC line**, one per state, and one per width where a screen has a pair. A
   range is not a citation. A marker in a code span or fenced block is prose. Cite by UX-id and state, never by path.
 - A feature with UI and no screens yet carries `**Design:** pending — UX states needed: <state>, <state>`: the Designer's
-  brief. Replace it in the commit that lands the first marker.
+  input. Replace it in the commit that lands the first marker.
 - The Designer proposes markers in `CANVAS.md` and never edits PRD text; the PM adds them.
 - **PRDs stay evergreen.** An enhancement to a screen another PRD owns edits the sentences it makes untrue and appends
   **delta stories** (new ids after the last, marked *(delta, PRD-NNN)*) under a `## Deltas` section of the owning PRD.
@@ -79,7 +79,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   `Pin-ready: <sha>`. That sha is the last commit that touched the screen files and tokens the card cites, **excluding
   `CANVAS.md` bookkeeping** (recording a pin touches that file, so counting it would never settle).
 - Only a row whose `gate1` is `approved@<sha>` can be pinned, or the pin carries a named waiver in a `D-NN`. The sha in an
-  approval is the commit it was given at; an approval whose artboard has since changed is **stale** and the row goes back to
+  approval is the commit that took in the approved version; an approval whose artboard has since changed is **stale** and the row goes back to
   `changes`.
 - Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
   waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's.
