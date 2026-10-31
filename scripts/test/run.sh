@@ -778,6 +778,7 @@ CASES=(
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
   case_status_folder_set_is_declared_in_one_shipped_script
+  case_the_design_pass_directory_is_design_passes_and_indexed
   case_manifest_disposition_column_matches_the_headers
   case_restated_rules_are_registered
   case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes

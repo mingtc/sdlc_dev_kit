@@ -3908,3 +3908,24 @@ EOF_MAN
   rm -f "$ctl"
   finish "the status folder set literal is in exactly one of $n shipped script files: $expected"
 }
+
+# =============================================================================
+# THE DESIGN-PASS DIRECTORY IS dev/design-passes/, AND dev/README.md INDEXES IT
+# =============================================================================
+# The name `dev/design/` is kept for a design module's canvas files, so the dated passes live
+# beside it under another name. Hard-coded expectations: the answer is not derived from the tree.
+case_the_design_pass_directory_is_design_passes_and_indexed() {
+  cf_reset
+  local L="the shipped tree has dev/design-passes/ and no dev/design/, and dev/README.md indexes design-passes/ and no design/"
+  local root="$REAL_REPO_ROOT" readme
+  [ -d "$root/dev" ] || { skp "$L" "no dev/ in this tree"; return; }
+  [ -d "$root/dev/design-passes" ] || cf "dev/design-passes/ is not in the shipped tree"
+  [ ! -e "$root/dev/design" ] || cf "dev/design/ is still in the shipped tree"
+  readme="$root/dev/README.md"
+  if [ ! -f "$readme" ]; then cf "dev/README.md is absent"; else
+    grep -F '[`design-passes/`](design-passes/)' "$readme" >/dev/null || cf "dev/README.md has no row for design-passes/"
+    grep -F '[`design/`](design/)' "$readme" >/dev/null && cf "dev/README.md still indexes design/"
+    grep -F '`refactor/`, `design-passes/`)' "$readme" >/dev/null || cf "dev/README.md's role-outputs heading does not list design-passes/"
+  fi
+  finish "$L"
+}

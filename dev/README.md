@@ -82,7 +82,7 @@ date will be read as current no matter what its first paragraph says.
   (a screenshot, a render), one `evidence/<card-id>/` directory per card, committed by QA on the
   trunk before the row is written. The convention is in [`evidence/README.md`](evidence/README.md).
 
-## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)
+## The role outputs (`specs/`, `plans/`, `refactor/`, `design-passes/`)
 
 The directories the process writes into **by name**, so that a role doc saying *"output goes to
 `dev/plans/…`"* names somewhere that exists. They ship empty; their members are dated snapshots under
@@ -97,7 +97,7 @@ this file's rules — written once, not maintained, read to learn how something 
 | [`specs/`](specs/) | Dev, from the brainstorming skill | `YYYY-MM-DD-<topic>-design.md` — the engineering design spec for one piece of work |
 | [`plans/`](plans/) | Dev, from the writing-plans skill | `YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` — the TDD-shaped task list a work item was executed from |
 | [`refactor/`](refactor/) | Refactorer | `YYYY-MM-DD-<scope>-pass.md` — a refactor pass and its targets, cited by the cards it mints |
-| [`design/`](design/) | whoever holds the design hat | `YYYY-MM-DD-<slug>-pass.md` — a design pass |
+| [`design-passes/`](design-passes/) | whoever holds the design hat | `YYYY-MM-DD-<slug>-pass.md` — a design pass |
 
 **Why they are here and not under `docs/`:** these are *this project's own working records*, and
 [`../docs/README.md`](../docs/README.md) is for material the project did not write — a vendor's API
