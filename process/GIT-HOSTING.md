@@ -258,7 +258,7 @@ not a work problem.**
 - **No stacking unless you say so.** Independent branches each cut from the trunk are far cheaper
   to land later than a stack. If a run must stack, the **binding landing order** is written down
   in the report, because it will not be re-derivable later. Who rebases a stacked branch once its base
-  lands, and whether the QA verdict survives it, is written in `.claude/roles/dev.md` (Handoff to QA) and
+  lands, and whether the QA verdict survives it, is written in `.claude/roles/dev.md` (Handoff to QA: procedure and template) and
   `.claude/roles/qa.md` (step 2).
 - **Nothing is "temporarily" committed to the trunk to work around the blocker.** That trades a
   deferred merge for a corrupted history.

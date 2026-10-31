@@ -543,7 +543,7 @@ else
         echo "Warning: ${ISSUE_ID} is blocked_by ${_mv_b}, which is not in qa_complete/ or done/ on ${KWT_REMOTE}/${DEFAULT_BRANCH} (${_mv_where})." >&2
         _mv_warned=1
       done <<< "$_mv_bl"
-      [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the rebase rule is in .claude/roles/dev.md § Handoff to QA). Not a refusal." >&2
+      [ "$_mv_warned" -eq 0 ] || echo "  Work started on an unlanded base becomes a stacked branch (process/GIT-HOSTING.md: No stacking unless you say so; the rebase rule is in .claude/roles/dev.md § Handoff to QA: procedure and template). Not a refusal." >&2
     fi
   fi
 

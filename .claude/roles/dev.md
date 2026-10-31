@@ -111,7 +111,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 > frontmatter); QA checks it out with `git switch <branch>` and lands it with the pure-git
 > `finish-pr.sh` (squash-merge → `<trunk>`). **There is nothing to "open", "approve", or
 > "comment on"**, and no forge object or URL to record. **The issue file's Activity log IS the
-> handoff record** (see "Handoff to QA" below + qa.md). Throughout this doc, "the work branch
+> handoff record** (see "Handoff to QA: procedure and template" below + qa.md). Throughout this doc, "the work branch
 > under review" is meant wherever an old habit might say "the PR". (Docs/process/metadata
 > issues skip the branch entirely — see the adapter's direct-to-trunk lite variant.)
 
@@ -275,7 +275,7 @@ Two rules govern how you fill this in, and they are **not** optional:
    live gate, write *"this project declares none"* under the bullet. A blank bullet reads as an
    unfinished adapter, and the next worker will guess.
 
-## Handoff to QA
+## Handoff to QA: procedure and template
 
 There is **no PR/MR object** — QA reviews the pushed **work branch** and the issue file. Append
 a `## Handoff to QA` section to the **issue file body** (above `## Activity`) with the content
