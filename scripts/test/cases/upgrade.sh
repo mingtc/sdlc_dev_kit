@@ -1284,6 +1284,50 @@ KU_PTR_EOF
 }
 
 # =============================================================================
+# CASE — AN UPGRADE KILLED AT ANY CORE WRITE, RUN AGAIN, LEAVES THE CHECKLIST AN UNINTERRUPTED RUN LEAVES.
+#
+# The "stamp what arrived" item counts the files the upgrade ADDED and REPLACED. A file a killed run had
+# already written reads as current on the re-run, so a count taken from the files' state loses it, and the
+# item shrinks or goes. The kill is a real SIGKILL at the Nth write into the project (the counting stand-ins
+# of lib/modules.sh), for every N, and the checklists are compared byte for byte, nothing stripped from either.
+# =============================================================================
+case_a_killed_core_upgrade_rerun_keeps_the_stamp_item_whole() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh killed with SIGKILL before each of its writes in turn, then run again, writes a checklist byte-identical to an uninterrupted run's, so the 'stamp what arrived' item counts every file the killed run had already replaced or added"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  command -v ps >/dev/null 2>&1 || { skp "$L" "no ps: the kill stand-ins cannot walk the process tree"; teardown; return; }
+  _ku_pair 0.1.0 0.3.0
+  _md_make_count_shim
+  local run="$SB_TMP/run" clean="$SB_TMP/clean" n=1 total=0 rootp rc cl_rel="process/UPGRADE-CHECKLIST.md"
+  cp -R "$KU_T" "$clean"
+  _ku_run clean --into "$clean"
+  [ "$(_ku_rc clean)" = 0 ] || { cf "(control) the uninterrupted upgrade exited $(_ku_rc clean): $(_ku_out clean)"; finish "$L"; teardown; return; }
+  grep -F 'stamp what arrived' "$clean/$cl_rel" >/dev/null \
+    || _fixture_die "${FUNCNAME[0]}: the uninterrupted checklist has no 'stamp what arrived' item, so nothing below measures it."
+  while [ "$n" -le 200 ]; do
+    rm -rf "$run"; cp -R "$KU_T" "$run"
+    rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
+    rc=0
+    ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR -u KIT_PROGRESS_DIR PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" \
+        KILL_COUNT="$SB_TMP/count" KILL_PID_FILE="$SB_TMP/kill-pid" \
+        bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ "$KU_NEW/scripts/kit-upgrade.sh" --into "$run" ) >"$SB_TMP/killed.out" 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then total=$((n - 1)); break; fi
+    if [ "$rc" -ne 137 ]; then cf "(write $n) exit $rc, want the kill's 137: $(tr '\n' '|' < "$SB_TMP/killed.out" | cut -c1-300)"; n=$((n + 1)); continue; fi
+    _ku_run again --into "$run"
+    if [ "$(_ku_rc again)" != 0 ]; then cf "(write $n) running the killed upgrade again exited $(_ku_rc again): $(_ku_out again)"; n=$((n + 1)); continue; fi
+    cmp -s "$clean/$cl_rel" "$run/$cl_rel" \
+      || cf "(write $n) the checklist after the rerun differs from an uninterrupted run's: $(diff "$clean/$cl_rel" "$run/$cl_rel" 2>&1 | tr '\n' '|' | cut -c1-300)"
+    n=$((n + 1))
+  done
+  [ "$total" -ge 5 ] || cf "(control) the kill stand-ins counted only $total write(s) in the upgrade, so the enumeration did not reach the core writes"
+  echo "      (the upgrade makes $total write(s) into the project; each was a kill point)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE UPGRADE SEAT'S STEPS RUN, LAND AND FINISH IN A TREE THAT DECLARES CODE_GLOBS.
 #
 # process/UPGRADE-SEAT.md stages in a linked worktree on a branch of its own and lands each batch on

@@ -356,6 +356,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **An upgrade killed part-way and run again now lists every file it replaced or added in the "stamp what arrived" item.** `kit-upgrade.sh` writes `.kit-upgrade/arrived` before it writes the first file (committed with the rest of `.kit-upgrade/`, removed by `--finish`); a re-run used to count only the files the killed run had not reached, so the item undercounted or went missing.
 - **`kit-init.sh --help` now says a role can also be added after init**, by a line in `process/ROLES` or a file under `process/roles.d/`. Help text only; nothing to do.
 - **A merge item for `scripts/githooks/commit-msg` now says what to keep.** Like `scripts/config.sh` and `scripts/verify.sh`, a stamped hook holds your own values: merge the new copy into it, keep your `ROLE_PREFIXES` line, and take the role-set block.
 - **`move-issue.sh --role` now refuses a role that only your checkout declares.** The commit hook that judges a board move runs in the kanban worktree, a copy of the trunk, so a role added to `process/ROLES` or `process/roles.d/` and not yet pushed used to pass the check and then be refused mid-move, leaving the worktree dirty. The mover now checks the trunk's set before it changes anything and refuses `role-not-on-trunk`, naming the push as the next act.

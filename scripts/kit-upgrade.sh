@@ -48,6 +48,8 @@
 # manifest above cannot see; process/contracts/module-lifecycle.md § 2 has the rules for a file and
 # process/contracts/kit-upgrade.md § 2 what the checklist carries. The checklist is written LAST, after a work order for each
 # module's record (.kit-upgrade/module-records/), so a run killed anywhere is finished by running this again.
+# The files the run adds or replaces are written down first (.kit-upgrade/arrived), so a run killed part-way through
+# them still counts every one in the "stamp what arrived" item when it is run again, though they now read as current.
 #
 # THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
 # read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
@@ -107,6 +109,7 @@ UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
 STAGED_NOTES='KIT-RELEASE-NOTES.md.kit-new'
 STAGED_HISTORY='KIT-RELEASE-HISTORY.md.kit-new'
+STAGED_ARRIVED='arrived'   # in the stage: one "A<TAB>path" or "R<TAB>path" row per file this run adds or replaces
 
 # THE SCAFFOLDING SENTINEL — the exact whole line scripts/check-board.sh arm (g1) matches with
 # `grep -qxF` (process/EXTRACTION.md § The marker and graduation). Declared here rather than read
@@ -469,10 +472,12 @@ ver_ok "$CUR_V" || kit_refuse 1 upgrade-version-unreadable \
 # A staging directory with no checklist beside it, none of it committed, is what a run killed before its checklist left:
 # the checklist is the last thing written, so there is nothing to resume from and the run starts over.
 if [ ! -f "$CL" ] && [ -e "$ST" ] && [ -z "$(cd "$TGT" && git ls-files -- "$STAGE_DIR" 2>/dev/null | sed -n '1p')" ]; then
-  rm -rf "$ST"
+  # Everything but the record of what that run was writing: the new run needs it, and it must outlive a second kill.
+  find "$ST" -mindepth 1 -maxdepth 1 ! -name "$STAGED_ARRIVED" -exec rm -rf {} + 2>/dev/null
+  rmdir "$ST" 2>/dev/null
   echo "kit-upgrade: an earlier run was killed before it wrote its checklist; starting that upgrade over."
 fi
-if [ -f "$CL" ] || [ -e "$ST" ]; then
+if [ -f "$CL" ] || [ -n "$(find "$ST" -mindepth 1 -maxdepth 1 ! -name "$STAGED_ARRIVED" 2>/dev/null | sed -n '1p')" ]; then
   prog_v="$(read_version "$ST/KIT-VERSION")"
   [ -n "$prog_v" ] || prog_v="$(sed -n 's/^target:[[:space:]]*//p' "$CL" 2>/dev/null | sed -n '1p')"
   if [ "$prog_v" != "$NEW_V" ]; then
@@ -518,6 +523,10 @@ JOINED="$(awk -F'  ' '
 
 WRITE=(); ADDED=(); REPLACED=(); MERGE=(); MERGE_WHY=(); REMOVED=(); REMOVED_CHANGED=(); BLOCKED=()
 n_current=0; n_kept=0
+NL='
+'; TAB="$(printf '\t')"
+PRIOR=""   # the rows a run killed before its checklist wrote down (STAGED_ARRIVED), each ended by a newline
+[ ! -f "$ST/$STAGED_ARRIVED" ] || PRIOR="$(cat "$ST/$STAGED_ARRIVED" 2>/dev/null)$NL"
 while IFS="$(printf '\t')" read -r p nh oh; do
   [ -n "$p" ] || continue
   case "$p" in /*|../*|*/../*|*/..) kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names an unsafe path: $p" "Next: unzip the release again from the original zip and run its copy; if the fresh copy refuses the same way, stop and hand off." ;; esac
@@ -540,7 +549,13 @@ while IFS="$(printf '\t')" read -r p nh oh; do
     n_kept=$((n_kept + 1)); continue            # the kit did not change it: whatever is here stays
   fi
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
-    n_current=$((n_current + 1)); continue
+    # Current because a run killed part-way through its writes had already placed it: it still arrived.
+    case "$NL$PRIOR" in
+      *"$NL""A$TAB$p$NL"*) ADDED+=("$p") ;;
+      *"$NL""R$TAB$p$NL"*) REPLACED+=("$p") ;;
+      *) n_current=$((n_current + 1)) ;;
+    esac
+    continue
   fi
   # The scaffolding guard (header).
   if is_scaffold "$src" && [ -e "$dst" ] && ! is_scaffold "$dst"; then
@@ -667,7 +682,7 @@ fi
 # ── NOTHING UNCOMMITTED WHERE IT WRITES ───────────────────────────────────────
 # process/MODULES is left out: only scripts/module.sh and this script write it, and a copy a killed run left
 # changed is finished by running this again.
-dirty="$(cd "$TGT" && git status --porcelain --untracked-files=all -- ${WRITE[@]+"${WRITE[@]}"} ${MOD_WRITE_PATHS[@]+"${MOD_WRITE_PATHS[@]}"} "$UPGRADE_CHECKLIST" "$STAGE_DIR" 2>/dev/null)"
+dirty="$(cd "$TGT" && git status --porcelain --untracked-files=all -- ${WRITE[@]+"${WRITE[@]}"} ${MOD_WRITE_PATHS[@]+"${MOD_WRITE_PATHS[@]}"} "$UPGRADE_CHECKLIST" "$STAGE_DIR" ":(exclude)$STAGE_DIR/$STAGED_ARRIVED" 2>/dev/null)"
 if [ -n "$dirty" ]; then
   kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths this upgrade would write:" \
@@ -706,6 +721,15 @@ fail_write() {
     "Error: could not write $1. This run had written $N_WROTE of ${#WRITE[@]} kit file(s) before it stopped, and may have written module files, staged copies and the record; the tree is part-written ('git -C $TGT status' lists it)." \
     "Next: fix the write failure, then run this again: it takes a file already written as done and finishes the rest. To undo instead: 'git -C $TGT checkout -- .', then remove $STAGE_DIR/ and $UPGRADE_CHECKLIST."
 }
+# What arrives is written down BEFORE the first file is: a file this loop has placed reads as current on a re-run, and
+# the "stamp what arrived" item must still count it. The rows replace a killed run's by a rename.
+if [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
+  mkdir -p "$ST" || fail_write "$STAGE_DIR/"
+  {
+    for p in ${ADDED[@]+"${ADDED[@]}"}; do printf 'A\t%s\n' "$p"; done
+    for p in ${REPLACED[@]+"${REPLACED[@]}"}; do printf 'R\t%s\n' "$p"; done
+  } > "$ST/$STAGED_ARRIVED.new" && mv "$ST/$STAGED_ARRIVED.new" "$ST/$STAGED_ARRIVED" || fail_write "$STAGE_DIR/$STAGED_ARRIVED"
+fi
 for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p"; N_WROTE=$((N_WROTE + 1)); done
 # The enabled modules' files, and their record.
 while IFS= read -r mn; do

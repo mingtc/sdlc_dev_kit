@@ -36,6 +36,11 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   the work order for each module's record, so that a run killed anywhere is finished by running it again.
   *Why:* left alone, a placed file goes stale beside a module whose disarmed copy was refreshed, and no tool but this
   one is placed to say so.
+- **What the upgrade adds or replaces is written down before the first file is.** A file a killed run had already
+  placed reads as current on the run that finishes it, so the "stamp what arrived" item is counted from the record in
+  `.kit-upgrade/arrived`, not from the files' state; `--finish` removes it with the rest of `.kit-upgrade/`.
+  *Why:* the item exists to make the adopter check exactly the files that arrived unstamped, and a count taken
+  from the tree loses them in proportion to how far the first run got.
 - **Nothing staged carries a live name.** A staged copy sits inside the project's repository, so it
   is disarmed: no path component a harness loads configuration from, and no file name a harness or
   git reads as configuration or instructions.
