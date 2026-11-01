@@ -155,5 +155,36 @@ kit_require_role() {
     "       AFTER the board move had already been made — leaving uncommitted state in the" \
     "       shared kanban worktree that blocks every later board operation. Refusing first." \
     "Next: set the seat this script acts as, one of the declared tags above:  $knob=<tag> $0 ..." \
+    "       If '$tag' is declared on the trunk and this checkout has not pulled it, pull the trunk and re-run." \
+    "       NOTHING WAS CHANGED."
+}
+
+# kit_require_role_on_trunk <kwt-dir> <tag> <synced> <remote/trunk> <what> — the check that judges what the
+# commit hook will judge: the role set the KANBAN WORKTREE holds, a copy of the trunk, because that is the
+# tree the hook runs in. Call it after the sync and before any write. A tag the checkout declares and the
+# trunk does not refuses `role-not-on-trunk`, naming the push; when the sync was offline (<synced> is not
+# `true`) the worktree is a stale copy and cannot say the tag is missing from the trunk, so it refuses
+# `role-trunk-unread`, naming the reconnect. <what> names the tag as the operator gave it ("--role X").
+# An unreadable set is not judged here: the hook refuses a wrong tag on its own.
+kit_require_role_on_trunk() {
+  local kwt="$1" tag="$2" synced="$3" ref="$4" what="$5" set_
+  set_="$(kit_role_set "$kwt" 2>/dev/null || true)"
+  [ -n "$set_" ] || return 0
+  if kit_role_member "$set_" "$tag"; then
+    return 0
+  fi
+  if [ "$synced" != true ]; then
+    kit_refuse 1 role-trunk-unread \
+      "Error: $what is not in the role set of the kanban worktree, and $ref could not be read (the fetch failed)." \
+      "       The commit hook that judges the board commit reads the role set from that copy of the trunk:" \
+      "       $set_" \
+      "Next: restore the connection to ${ref%%/*}, then run this again; if $tag is declared only in this checkout, push it to $ref first." \
+      "       NOTHING WAS CHANGED."
+  fi
+  kit_refuse 1 role-not-on-trunk \
+    "Error: $what is declared in this checkout but not on $ref." \
+    "       The commit hook that judges the board commit reads the role set from the trunk's copy:" \
+    "       $set_" \
+    "Next: push the process/ROLES line or process/roles.d/ file that declares $tag to $ref, then re-run." \
     "       NOTHING WAS CHANGED."
 }

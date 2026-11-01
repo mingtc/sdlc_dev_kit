@@ -116,6 +116,8 @@ indexed store — **without ever losing the record it is retiring**.
   answered its own question correctly, and the reader heard an answer to a different one.
 - The sweep commits as one seat (`ARCHIVE_ROLE`, default `Orchestrator`) and the declared role set
   does not hold that tag ⇒ refuse **before anything moves**, naming `ARCHIVE_ROLE` as the knob to set.
+  The set is the one the trunk's copy of the hook reads, so a tag declared only in the operator's
+  unpushed checkout is refused too, with the push as the next act ([`board-mover.md`](board-mover.md) § 3).
   *Why:* a tag the commit hook rejects would leave the moved files uncommitted.
 - A card to be retired is refused by an add-on's move check for `done/` ⇒ refuse **before anything moves**
   ([`board-mover.md`](board-mover.md) § 3 states those checks once).

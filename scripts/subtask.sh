@@ -235,6 +235,8 @@ case "$CMD" in
     kwt_lock
     kwt_bootstrap
     kwt_sync
+    # THE COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
+    kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
 
     TEMPLATE="$KWT/.claude/templates/SUBTASK.template.md"
     [ -f "$TEMPLATE" ] || kit_refuse 1 template-missing \
@@ -428,6 +430,10 @@ case "$CMD" in
     kwt_lock
     kwt_bootstrap
     kwt_sync
+    # THE COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
+    if command -v kit_require_role_on_trunk >/dev/null 2>&1; then
+      kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "--role $ROLE"
+    fi
 
     BASE="$KWT/progress/subtasks/${PARENT}"
     [ -d "$BASE" ] || kit_refuse 1 subtask-tree-not-found \

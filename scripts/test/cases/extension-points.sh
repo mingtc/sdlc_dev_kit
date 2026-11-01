@@ -235,6 +235,158 @@ case_the_movers_role_refusal_says_the_trunk_was_not_read_when_the_sync_was_offli
 }
 
 # =============================================================================
+# CASES — EVERY SCRIPT THAT COMMITS UNDER A ROLE TAG ASKS THE TREE THE COMMIT HOOK READS, BEFORE IT WRITES.
+#   archive.sh, finish-pr.sh and subtask.sh (new and move) check the tag against the operator's
+#   checkout, so a role declared only there passed, the hook in the kanban worktree (a copy of the
+#   trunk) then refused the commit, and the worktree was left holding the half-made move that blocks
+#   every later board operation. Each now refuses after the sync and before any write, as the mover's
+#   second check does: naming the push while the trunk was read, and saying the trunk could not be
+#   read, under its own rule, when the sync was offline. One driver runs the three phases per script:
+#   (a) online, (b) offline, (c) once the role is on the trunk the same call is accepted.
+#   Each case sets the project's relative hooksPath, which is what makes the hook read the worktree.
+# =============================================================================
+_ru_n=0 _ru_rc=0 _ru_out="" _ru_id=""
+_ru_run() {  # <env/cmd...> -> _ru_rc, _ru_out; the refusal record is in $SB_TMP/ru-rec-N
+  _ru_n=$((_ru_n + 1)); _ru_rc=0
+  _ru_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/ru-rec-$_ru_n" "$@" 2>&1 )" || _ru_rc=$?
+}
+_ru_rule() { grep -q "refusal=$1" "$SB_TMP/ru-rec-$_ru_n"/*.tsv 2>/dev/null; }   # <rule-id>
+_ru_dirty() { git -C "$SB_WORK/.kanban-wt" status --porcelain 2>/dev/null; }
+
+# _ru_phases <who> <untouched-fn> <done-fn> <cmd…> — the three phases against one command. <untouched-fn>
+# succeeds while the trunk is as seeded; <done-fn> succeeds once the command has done its work.
+_ru_phases() {
+  local who="$1" untouched="$2" done_="$3" url; shift 3
+  mkdir -p "$SB_WORK/process"
+  printf 'Zebra   a seat only this checkout declares\n' > "$SB_WORK/process/ROLES"
+  # (a) the role is in the checkout only, and the remote is reachable.
+  _ru_run "$@"
+  [ "$_ru_rc" -ne 0 ] || cf "(a $who) accepted a role only the checkout declares: $_ru_out"
+  _ru_rule role-not-on-trunk || cf "(a $who) the refusal is not the pre-mutation role-not-on-trunk one (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  [[ "$_ru_out" == *"Next:"*"push"* ]] || cf "(a $who) the refusal does not name the push as the next act: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  [[ "$_ru_out" == *"NOTHING WAS CHANGED"* ]] || cf "(a $who) the refusal does not say nothing was changed"
+  [ -d "$SB_WORK/.kanban-wt" ] || cf "(a $who) (control) the sync never made a kanban worktree, so a dirty one cannot be told from none"
+  [ -z "$(_ru_dirty)" ] || cf "(a $who) the refusal left the kanban worktree dirty: $(_ru_dirty | tr '\n' '|')"
+  "$untouched" || cf "(a $who) the trunk's board changed under a refused call"
+  # (b) the remote cannot be reached: the worktree is a stale copy, so the text says the trunk was not read.
+  url="$(git -C "$SB_WORK" remote get-url origin)"
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git"
+  _ru_run "$@"
+  [ "$_ru_rc" -ne 0 ] || cf "(b $who) accepted the role from a stale worktree while offline: $_ru_out"
+  _ru_rule role-trunk-unread || cf "(b $who) the refusal is not under role-trunk-unread (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  [[ "$_ru_out" == *"could not be read"* ]] || cf "(b $who) the refusal does not say the trunk could not be read: $_ru_out"
+  [ -z "$(_ru_dirty)" ] || cf "(b $who) the offline refusal left the kanban worktree dirty: $(_ru_dirty | tr '\n' '|')"
+  git -C "$SB_WORK" remote set-url origin "$url"
+  # (c) on the trunk: the same call goes through.
+  _rl_land "add the Zebra role"
+  _ru_run "$@"
+  [ "$_ru_rc" -eq 0 ] || cf "(c $who) refused once the trunk declares the role (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -6 | tr '\n' '|')"
+  "$done_" || cf "(c $who) the accepted call did not do its work on the trunk"
+}
+
+_ru_archive_untouched() { origin_has_path "progress/qa_complete/$_ru_id-arch.md" && ! origin_has_path "progress/done/$_ru_id-arch.md"; }
+_ru_archive_done() { origin_has_path "progress/done/$_ru_id-arch.md"; }
+case_archive_refuses_a_role_only_the_checkout_declares_before_it_writes() {
+  cf_reset
+  local L="archive.sh refuses a role tag only this checkout declares before it moves anything, naming the push while the trunk was read and the trunk-unread rule offline, leaves the kanban worktree clean, and sweeps once the trunk declares the role"
+  make_sandbox
+  _ru_id="$SB_PREFIX-731"
+  seed_issue qa_complete "$_ru_id" arch chore "A card the sweep retires"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  _ru_phases archive.sh _ru_archive_untouched _ru_archive_done ARCHIVE_ROLE=Zebra ./scripts/archive.sh --apply
+  finish "$L"
+  teardown
+}
+
+_ru_subnew_untouched() { ! origin_has_path "progress/subtasks/$_ru_id/todo/$_ru_id-s1-slice.md"; }
+_ru_subnew_done() { origin_has_path "progress/subtasks/$_ru_id/todo/$_ru_id-s1-slice.md"; }
+case_subtask_new_refuses_a_role_only_the_checkout_declares_before_it_writes() {
+  cf_reset
+  local L="subtask.sh new refuses a role tag only this checkout declares before it writes the slice, naming the push while the trunk was read and the trunk-unread rule offline, leaves the kanban worktree clean, and mints once the trunk declares the role"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _ru_id="$SB_PREFIX-732"
+  seed_issue todo "$_ru_id" parent feature "A parent to decompose"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  _ru_phases subtask.sh-new _ru_subnew_untouched _ru_subnew_done SUBTASK_ROLE=Zebra ./scripts/subtask.sh new "$_ru_id" s1 slice --title "A slice"
+  finish "$L"
+  teardown
+}
+
+_ru_submove_untouched() { origin_has_path "progress/subtasks/$_ru_id/todo/$_ru_id-s1-slice.md"; }
+_ru_submove_done() { origin_has_path "progress/subtasks/$_ru_id/in_progress/$_ru_id-s1-slice.md"; }
+case_subtask_move_refuses_a_role_only_the_checkout_declares_before_it_writes() {
+  cf_reset
+  local L="subtask.sh move refuses a --role only this checkout declares before it moves the slice, naming the push while the trunk was read and the trunk-unread rule offline, leaves the kanban worktree clean, and moves once the trunk declares the role"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _ru_id="$SB_PREFIX-733"
+  seed_issue todo "$_ru_id" parent feature "A parent to decompose"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  _ru_run ./scripts/subtask.sh new "$_ru_id" s1 slice --title "A slice"
+  [ "$_ru_rc" -eq 0 ] || _fixture_die "case_subtask_move_refuses_a_role_only_the_checkout_declares_before_it_writes: minting the slice exited $_ru_rc: $_ru_out"
+  _ru_phases subtask.sh-move _ru_submove_untouched _ru_submove_done ./scripts/subtask.sh move "$_ru_id-s1" in_progress --role Zebra --note x
+  finish "$L"
+  teardown
+}
+
+_ru_fpr_untouched() { origin_has_path "progress/dev_complete/$_ru_id-land.md" && ! origin_has_path "CHANGE.txt"; }
+_ru_fpr_done() { origin_has_path "progress/qa_complete/$_ru_id-land.md" && origin_has_path "CHANGE.txt"; }
+case_finish_pr_refuses_a_role_only_the_checkout_declares_before_it_merges() {
+  cf_reset
+  local L="finish-pr.sh refuses a FINISH_PR_ROLE only this checkout declares before it squash-merges anything, naming the push while the trunk was read and the trunk-unread rule offline, leaves the kanban worktree clean, and lands once the trunk declares the role"
+  make_sandbox
+  _ru_id="$SB_PREFIX-734"
+  seed_issue dev_complete "$_ru_id" land chore "A card to land" "feature/$_ru_id-work"
+  publish_sandbox
+  seed_branch "$_ru_id" work CHANGE.txt
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  _ru_phases finish-pr.sh _ru_fpr_untouched _ru_fpr_done "${FPR_STUB[@]}" FINISH_PR_ROLE=Zebra ./scripts/finish-pr.sh "$_ru_id"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A ROLE DECLARED ON THE TRUNK AND NOT YET PULLED IS REFUSED WITH A NEXT THAT SAYS TO PULL.
+#   The operator's checkout is behind, so the cheap pre-sync check cannot see the role. The remedy is
+#   to pull, not to pick another role from a list of the checkout's set.
+# =============================================================================
+case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_pull() {
+  cf_reset
+  local L="move-issue.sh and archive.sh refuse a role declared only on the trunk with a Next: that says to pull it, not only to pick from the checkout's set, and accept it once pulled"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local role="Zebra" id="$SB_PREFIX-735"
+  seed_issue todo "$id" pulled chore "A card for the pull case"
+  seed_issue qa_complete "$SB_PREFIX-736" pullarch chore "A card the sweep retires"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  mkdir -p "$SB_WORK/process"
+  printf '%s   a seat declared on the trunk\n' "$role" > "$SB_WORK/process/ROLES"
+  _rl_land "add the $role role"
+  git -C "$SB_WORK" reset -q --hard HEAD~1 >/dev/null 2>&1
+  [ ! -e "$SB_WORK/process/ROLES" ] || _fixture_die "case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_pull: the checkout still declares the role."
+  _ru_run ./scripts/move-issue.sh "$id" in_progress --role "$role" --note x
+  [ "$_ru_rc" -ne 0 ] || cf "(a) the mover accepted --role $role from a checkout that has not pulled it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"pull"* ]] || cf "(a) the mover's Next: does not say to pull: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  _ru_run ARCHIVE_ROLE="$role" ./scripts/archive.sh --apply
+  [ "$_ru_rc" -ne 0 ] || cf "(b) archive.sh accepted ARCHIVE_ROLE=$role from a checkout that has not pulled it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"pull"* ]] || cf "(b) archive.sh's Next: does not say to pull: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  git -C "$SB_WORK" pull -q origin "$SB_TRUNK" >/dev/null 2>&1
+  _ru_run ./scripts/move-issue.sh "$id" in_progress --role "$role" --note x
+  [ "$_ru_rc" -eq 0 ] || cf "(c) the mover refused --role $role once pulled (exit $_ru_rc): $_ru_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A LAYER FILE WITH CRLF LINE ENDINGS IS READ.
 #   A checkout with core.autocrlf writes them. A `\r` kept inside the tag makes the role silently
 #   unreadable, with nothing to name the cause.

@@ -326,7 +326,7 @@ if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
   kit_refuse 1 role-not-declared \
     "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
     "       That set is $KIT_ROLE_SRC." \
-    "Next: re-run with --role set to one of: $KIT_ROLE_SET."
+    "Next: re-run with --role set to one of: $KIT_ROLE_SET; or, if $ROLE is declared on the trunk and this checkout has not pulled it, pull the trunk and re-run."
 fi
 
 # ONE not-found refusal TEXT, TWO reads that can reach it (the probe below and the lookup
@@ -401,25 +401,8 @@ kwt_sync
 # THE COMMIT BELOW IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk, which reads the role layers
 # from there; the --role check above read this checkout's. Ask the tree the hook will read, before
 # anything is moved, so a role declared here and not yet pushed is refused while nothing has changed.
-if command -v kit_role_set >/dev/null 2>&1; then
-  _mv_trunk_set="$(kit_role_set "$KWT" 2>/dev/null || true)"
-  if [ -n "$_mv_trunk_set" ] && ! kit_role_member "$_mv_trunk_set" "$ROLE"; then
-    # Offline, the worktree is a stale copy: it cannot say the role is missing from the trunk, only that it was not read.
-    if [ "${KWT_SYNCED:-false}" != true ]; then
-      kit_refuse 1 role-trunk-unread \
-        "Error: --role $ROLE is not in the role set of the kanban worktree, and $KWT_REMOTE/$DEFAULT_BRANCH could not be read (the fetch above failed)." \
-        "       The commit hook that judges the board commit reads the role set from that copy of the trunk:" \
-        "       $_mv_trunk_set" \
-        "Next: restore the connection to $KWT_REMOTE, then run this again; if $ROLE is declared only in this checkout, push it to $KWT_REMOTE/$DEFAULT_BRANCH first." \
-        "       NOTHING WAS CHANGED."
-    fi
-    kit_refuse 1 role-not-on-trunk \
-      "Error: --role $ROLE is declared in this checkout but not on $KWT_REMOTE/$DEFAULT_BRANCH." \
-      "       The commit hook that judges the board commit reads the role set from the trunk's copy:" \
-      "       $_mv_trunk_set" \
-      "Next: push the process/ROLES line or process/roles.d/ file that declares $ROLE to $KWT_REMOTE/$DEFAULT_BRANCH, then re-run." \
-      "       NOTHING WAS CHANGED."
-  fi
+if command -v kit_require_role_on_trunk >/dev/null 2>&1; then
+  kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "--role $ROLE"
 fi
 
 # Find file by ID inside the kanban worktree. Depth 2 is progress/<column>/<card>: a

@@ -223,6 +223,8 @@ fi
 kwt_lock
 kwt_bootstrap
 kwt_sync
+# THE SQUASH COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
+kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
 
 # THE LANDER IS THE TRUNK'S COMMITTED COPY. A branch, or a local edit, may not change the script
 # that lands it — the same rule that makes the trunk's verify.sh the judge. No override: a change to

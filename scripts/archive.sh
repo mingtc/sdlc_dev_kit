@@ -118,6 +118,8 @@ kwt_resolve
 kwt_lock
 kwt_bootstrap
 kwt_sync
+# THE COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
+kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
 
 ARCHIVE="$KWT/ARCHIVE.md"
 QA_DIR="$KWT/progress/qa_complete"
