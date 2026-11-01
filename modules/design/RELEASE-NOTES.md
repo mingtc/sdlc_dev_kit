@@ -20,6 +20,10 @@ any other heading are not read. Nothing here is read while the module is disable
 - **The design rows check.** A move check on `qa_complete/` (`scripts/move-check.d/qa_complete/50-design-rows.sh`, run by
   `finish-pr.sh` before its squash): a card whose AC is tagged `(UI)` or cites a screen needs a verdict row of kind `design` with an
   entry for each state it cites.
+- **The design rows check also requires a design row for every `design:` entry of the card** (a card pinned to a screen cannot land
+  without the proof, whatever its ACs say); a pin whose commit holds no render of its state is refused by `--leaving` (`NO-RENDER`),
+  so Pin-ready names a commit after the PNGs. A `design` row whose images passed the cell check counts as the observed row for the
+  landing gate, so a card or slice whose every AC is `(UI)` can land.
 - **The QA design-cell check.** A cell check for evidence kind `design` (`scripts/qa-cell.d/design/50-design-cell.sh`, with
   `scripts/design/check-design-cell.py`): the QA gate refuses a PASS row unless every entry reads `identical`, its pin is a commit
   the card carries, both PNGs are committed **on the trunk** (QA commits evidence there with `register-commit.sh`, as the QA role

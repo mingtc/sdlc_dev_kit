@@ -22,7 +22,8 @@ and is refused (exit 1, the reasons printed) unless, for every entry:
   * the pin image is, byte for byte, the render the pin commit holds for THAT screen and state
     (the row's canvas, renders/<Screen>-state.png): a row with no image is not a PASS.
 --rows: for every AC of the card tagged (UI) or citing [design: UX-NNN#state], the verdict table has a row of evidence kind `design`
-whose cell holds one `UX-NNN#state@<pin>` entry per state the AC cites (any entry when the AC cites none).
+whose cell holds one `UX-NNN#state@<pin>` entry per state the AC cites (any entry when the AC cites none); and every `design:` entry
+of the card has such an entry in some design row, whatever its ACs say (a card pinned to a screen cannot land without the proof).
 Exit 0 and a `design-cell: ok` or `design-rows: ok` line when the answer is yes; 1 when the record is wrong; 2 when it cannot answer
 (the card is not at TRUNK, a bad revision). A caller reads no line as no answer: a check that cannot run is a refusal, never a pass.
 Python 3 standard library only; reads git, writes nothing.
@@ -192,6 +193,10 @@ def judge_rows(text):
         for ux, state in refs:
             if (state is None and not any(g[0] == ux for g in got)) or (state is not None and (ux, state) not in got):
                 why.append(f'{ac}: its design row has no entry for {ux}{"#" + state if state else ""}, which the AC cites')
+    for ux, state, _ in cdl.design_value(text)['items']:
+        if state and not any(r[2].strip('`* ').lower() == 'design' and (ux, state) in {(m.group(1), m.group(2)) for m in ANCHOR.finditer(' '.join(r[3:]))}
+                             for r in rows if len(r) > 3):
+            why.append(f'the card pins {ux}#{state}, and no design row of the verdict table holds an entry for it')
     return why
 
 

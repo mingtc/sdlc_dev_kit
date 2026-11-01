@@ -24,8 +24,9 @@
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
-#     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only
-#     the other kinds (nothing the gate can re-read) is refused. Refuses through
+#     per AC id. At least one AC row must be a `test`/`file:line` row, or a PASS row of a kind whose cell
+#     check (scripts/qa-cell.d/<kind>/) ran and passed, so a table of only the other kinds (nothing the
+#     gate can re-read) is refused. Refuses through
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
@@ -407,24 +408,26 @@ kit_qa_verdict_begun() {
 
 # _qav_cell_verdict <repo> <rev> <trunk-rev> <kind> <card-id> <ac-id> <cell> — run the cell checks of
 # <kind> (scripts/qa-cell.d/<kind>/, lib/addon-check.sh) on one PASS row, stopping at the first that does
-# not pass. Prints nothing when all pass, else one line: `R<TAB><check>: <what it printed>` for a
-# refusal (status 3) or `B<TAB>…` for a check that did not run to an answer. The check's code is read
-# at <trunk-rev>; what it examines is <rev>, which it is given to read.
+# not pass. Prints `K` when at least one check ran and all passed (a check re-read the evidence, so the row
+# counts as observed), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>` for
+# a refusal (status 3) or `B<TAB>…` for a check that did not run to an answer. The check's code is read at
+# <trunk-rev>; what it examines is <rev>, which it is given to read.
 _qav_cell_verdict() {
-  local repo="$1" rev="$2" trunk="$3" kind="$4" id="$5" ac="$6" cell="$7" k path rc msg
+  local repo="$1" rev="$2" trunk="$3" kind="$4" id="$5" ac="$6" cell="$7" k path rc msg ran=0
   local listing
   listing="$(kit_addon_check_list "$repo" "$trunk" scripts/qa-cell.d "$kind")"
   while IFS=$'\t' read -r k path; do
     [ "$k" = run ] || continue
     rc=0
     kit_addon_check_run "$repo" "$trunk" "$path" "$id" "$ac" "$cell" "$repo" "$rev" "$trunk" || rc=$?
-    [ "$rc" -ne 0 ] || continue
+    [ "$rc" -ne 0 ] || { ran=1; continue; }
     msg="$(printf '%s' "$KIT_ADDON_CHECK_OUT" | tr '\r\n' '  ' | sed -E 's/  +/ /g; s/^ //; s/ $//' | cut -c1-240)"
     if [ "$rc" -eq 3 ]; then printf 'R\t%s: %s\n' "${path##*/}" "${msg:-no reason printed}"; else printf 'B\t%s (status %s): %s\n' "${path##*/}" "$rc" "$msg"; fi
     return 0   # return-class: predicate
   done <<CELL_EOF
 $listing
 CELL_EOF
+  [ "$ran" -eq 0 ] || printf 'K\n'
   return 0   # return-class: predicate
 }
 
@@ -597,6 +600,7 @@ kit_qa_verdict_check() {
             case "$_qav_cell_res" in
               R"$(printf '\t')"*) _qav_cell_bad="${_qav_cell_bad}${_qav_cell_bad:+, }${_qid} (${_qav_cell_res#R?})" ;;
               B"$(printf '\t')"*) _qav_cell_broken="${_qav_cell_broken}${_qav_cell_broken:+, }${_qid} (${_qav_cell_res#B?})" ;;
+              K) _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;   # a cell check re-read the evidence and passed: the row is an observed one
             esac ;;
         esac
       fi

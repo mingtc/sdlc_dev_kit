@@ -1877,3 +1877,43 @@ case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enable
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A PASS ROW WHOSE CELL CHECK RAN AND PASSED COUNTS AS THE OBSERVED ROW THE LANDING NEEDS.
+#   The landing needs one `test`/`file:line` row, a row the gate can re-read. A kind a module adds is pointer-only, so a card whose
+#   every AC is of that kind could never land. A cell check (scripts/qa-cell.d/<kind>/) re-reads the evidence: when one ran and
+#   passed on a PASS row, the row counts as the observed one. No check for the kind, or a refusing one, changes nothing.
+# =============================================================================
+case_a_pass_row_whose_cell_check_passed_counts_as_the_observed_row() {
+  cf_reset
+  local L="a QA table whose only rows are of an added kind is refused with qa-verdict-no-observed when no cell check exists for the kind, lands when a cell check of the kind ran and passed on a PASS row, and is refused by that check when it refuses; a FAIL_AC row of the kind counts as nothing"
+  make_sandbox
+  QC_ID="$SB_PREFIX-822"
+  local card="$SB_TMP/card.md" dir="scripts/qa-cell.d/observation"
+  seed_issue in_progress "$QC_ID" cell chore "Observed by a check"
+  printf 'x\n' > "$SB_WORK/probe.txt"   # _qc_land stages it with the check
+  mkdir -p "$SB_WORK/process/evidence-kinds.d"
+  printf 'observation\n' > "$SB_WORK/process/evidence-kinds.d/probe"
+  publish_sandbox
+  cp "$SB_WORK/progress/in_progress/$QC_ID-cell.md" "$card"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
+  grep -qF '| AC1 | PASS | observation | ARCHIVE.md:1 |' "$card" || _fixture_die "${FUNCNAME[0]}: the AC1 row was not rewritten"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(a) a table of one row of an added kind with no cell check for it is not refused as qa-verdict-no-observed (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+exit 0
+"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(b) a PASS row of an added kind whose cell check passed does not count as the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|/| AC1 | FAIL_AC |/m' "$card"
+  _qc_gate "$card"
+  [ "$_qc_rc" -ne 0 ] || cf "(c) a FAIL_AC row of the added kind lets the table land (exit $_qc_rc)"
+  perl -0pi -e 's/^\| AC1 \| FAIL_AC \|/| AC1 | PASS |/m' "$card"
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo 'PROBE-CELL no'; echo 'Next: fix it'; exit 3
+"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(d) a refusing cell check lets the row count (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}

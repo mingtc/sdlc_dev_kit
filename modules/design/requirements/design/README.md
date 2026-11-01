@@ -79,8 +79,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 - A card's `design:` key is `none` (no screen) or a list of `UX-NNN#state`. In `todo/` it is **unpinned**.
 - Leaving `todo/`, each entry gains `@<commit>`: written by the PM, who owns the card in `todo/`, at the Designer's
-  `Pin-ready: <sha>`. That sha is the last commit that touched the screen files and tokens the card cites, **excluding
-  `CANVAS.md` bookkeeping** (recording a pin touches that file, so counting it would never settle).
+  `Pin-ready: <sha>`. That sha is the last commit that touched the screen files, tokens and renders (each cited state's PNG) the card
+  cites, **excluding `CANVAS.md` bookkeeping** (recording a pin touches that file, so counting it would never settle).
 - Only a row whose `gate1` is `approved@<sha>` can be pinned, or the card's `design:` line carries a named waiver, a
   `[decision: D-NN]` in its trailing comment: it covers every screen on that line, and its D-NN must be an entry of
   `requirements/DECISIONS.md`. The sha in an

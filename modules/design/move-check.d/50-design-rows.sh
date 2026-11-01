@@ -4,6 +4,7 @@
 # Arguments: <id> <from> <to> <role> <card-file> <repo> <trunk-commit>. Status 0 allows, 3 refuses, any other status is a check that could not run.
 #
 # The card is read on the trunk (QA commits the verdict there), and the check is the trunk's: scripts/design/check-design-cell.py --rows.
+case "${1:-}" in -h|--help) printf '%s\n' "usage: 50-design-rows.sh <id> <from> <to> <role> <card-file> <repo> <trunk-commit>  (run by the board mover; status 0 allows, 3 refuses, other: did not run)"; exit 0 ;; esac
 id="$1" to="$3" repo="$6" trunk="$7"
 [ "$to" = qa_complete ] || exit 0
 broken() {  # <what> <next> — a check that cannot answer is a refusal

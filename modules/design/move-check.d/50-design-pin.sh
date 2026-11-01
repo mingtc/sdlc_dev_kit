@@ -8,6 +8,7 @@
 # pinned at all. The judgement is the trunk's: the trunk's design record is unpacked to a scratch directory, the card as it stands is put
 # in it, and scripts/design/check-design-links.py --leaving reads that tree, so a checkout that has not pushed the design record, or has
 # edited the tool, is not what judges the move.
+case "${1:-}" in -h|--help) printf '%s\n' "usage: 50-design-pin.sh <id> <from> <to> <role> <card-file> <repo> <trunk-commit>  (run by the board mover; status 0 allows, 3 refuses, other: did not run)"; exit 0 ;; esac
 id="$1" from="$2" to="$3" card="$5" repo="$6" trunk="$7"
 case "$to" in in_progress|dev_complete) ;; *) exit 0 ;; esac
 [ "$from" != in_progress ] || exit 0

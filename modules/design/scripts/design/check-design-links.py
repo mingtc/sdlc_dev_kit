@@ -44,6 +44,8 @@ Reports (each line starts with its class)
   DESIGN-KEY    a card's `design:` value that is not `none` or `[UX-NNN#state@<commit>, ...]`
   NOT-APPROVED  (only with --leaving) a pinned row whose gate1 is not `approved@<sha>`, and no waiver
   PIN-ORDER     (only with --leaving) a pin older than the approval of its row
+  NO-RENDER     (only with --leaving) a pin whose commit holds no render for its state (<canvas>/renders/<Screen>-<state>.png): QA's
+                pin image is that render, so a card pinned before the PNG was committed could not land
   DESIGN-NONE   a card past todo/ (or named by --leaving) whose design: is none or absent although one of its ACs is tagged (UI) or
                 carries a [design: ...] marker, or a story it lists has a UI: line that is not none
   DESIGN-MISSING a card's AC cites [design: UX-NNN#state] that the card's design: key does not list
@@ -1217,6 +1219,10 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             rel = artboard_rel(root, row)
             if pin_ok and rel and git(root, 'cat-file', '-e', f'{pin}:{rel}')[0] != 0:
                 out.append(line('UNRESOLVED', f'{where}: pin @{pin[:7]} of {tag} holds no {rel}'))
+            if pin_ok and st and rel:
+                render = f"{row['canvas'].relative_to(root).as_posix()}/renders/{Path(row['file']).name.replace('.dc.html', '')}-{st}.png"
+                if git(root, 'cat-file', '-e', f'{pin}:{render}')[0] != 0:
+                    out.append(line('NO-RENDER', f'{where}: pin @{pin[:7]} of {tag} holds no {render}; commit the PNG, then pin the commit that holds it'))
             g1 = row['gates'].get('gate1', '')
             sha = re.fullmatch(r'approved@([0-9a-f]{7,40})', g1)
             if not sha and not waived:

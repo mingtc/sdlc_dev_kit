@@ -5,6 +5,7 @@
 #
 # The judgement is scripts/design/check-design-cell.py, taken from the trunk with the link check it reads. It reads the card and the
 # evidence images on the TRUNK, where QA commits them (register-commit.sh): a file only the branch holds is refused.
+case "${1:-}" in -h|--help) printf '%s\n' "usage: 50-design-cell.sh <id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>  (run by the QA gate; status 0 passes, 3 refuses, other: did not run)"; exit 0 ;; esac
 id="$1" ac="$2" cell="$3" repo="$4" trunk="$6"
 broken() {  # <what> <next> — a check that cannot answer is a refusal
   echo "$ac: the design cell check could not run: $1"

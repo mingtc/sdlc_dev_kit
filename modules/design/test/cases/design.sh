@@ -704,6 +704,8 @@ _dm_links_fixture() {
   printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — See the list\n\n**UI:** default, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#default]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: the list is sorted.\n\n##### F1-S2 — Edit\n\n**UI:** default\n\n- [ ] AC1: (UI) the edit form shows. [design: UX-002#default]\n' > "$SB_WORK/requirements/PRD-001-app.md"
   printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n\n~~~\n```\ninside\n~~~\n\n```code```\n' > "$SB_WORK/requirements/PRD-002-api.md"
   printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n\n    ```\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
+  _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
   _dm_commit "the screens"; _DM_X="$_DM_SHA"
   _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$_DM_X|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   _dm_commit "approve UX-001"; _DM_Y="$_DM_SHA"
@@ -1379,8 +1381,8 @@ _dm_seed() {
 # _dm_png <path> <tag> — a PNG (the signature and a 1x1 IHDR) that differs from another by its tag; the checks read the header, not the pixels.
 _dm_png() { mkdir -p "$(dirname "$1")"; { printf '\211PNG\r\n\032\n\0\0\0\rIHDR\0\0\0\001\0\0\0\001\010\006\0\0\0\0\0\0\0'; printf '%s' "$2"; } > "$1"; }
 # _dm_refusal <rule id> — status 0 when the last mover or gate call left a refusal record of that rule.
-_dm_refusal() { cat "$SB_TMP"/records/*.tsv 2>/dev/null | /usr/bin/grep -c "refusal=$1" | /usr/bin/grep -v '^0$' >/dev/null; }
-_dm_qrefusal() { cat "$SB_TMP/qc-rec-$_dm_qn"/*.tsv 2>/dev/null | /usr/bin/grep -c "refusal=$1" | /usr/bin/grep -v '^0$' >/dev/null; }
+_dm_refusal() { cat "$SB_TMP"/records/*.tsv 2>/dev/null | grep -c "refusal=$1" | grep -v '^0$' >/dev/null; }
+_dm_qrefusal() { cat "$SB_TMP/qc-rec-$_dm_qn"/*.tsv 2>/dev/null | grep -c "refusal=$1" | grep -v '^0$' >/dev/null; }
 # _dm_gate_to <id> <target> — the board mover to any status folder, fresh refusal records.
 _dm_gate_to() {
   rm -rf "$SB_TMP/records"; _dm_rc=0
@@ -1408,7 +1410,7 @@ case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_
   _dm_seed 831 "design: [UX-001#default]"; id="$_DM_CARD"
   _dm_gate_move "$id" PM
   { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "UNPINNED"; } || cf "(a) a card leaving todo/ with an unpinned design: entry is not refused with the reason (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
-  printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null || cf "(a) the refusal has no Next: line"
+  printf '%s\n' "$_dm_out" | grep '^Next:' >/dev/null || cf "(a) the refusal has no Next: line"
   { [ -f "$SB_WORK/progress/todo/$id-gate.md" ] && ! origin_has_path "progress/in_progress/$id-gate.md"; } || cf "(a) the refused card moved"
   _dm_refusal move-check-refused || cf "(a) no refusal=move-check-refused record"
   _dm_seed 832 "design: [UX-001#default@$X]"; id="$_DM_CARD"
@@ -1439,13 +1441,14 @@ case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_
   id="$SB_PREFIX-832"
   _dm_gate_to "$id" blocked
   [ "$_dm_rc" -eq 0 ] || cf "(g) parking a card that is in progress is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  cp "$SB_WORK/requirements/design/app/CANVAS.md" "$SB_TMP/canvas.bak"
   _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/approved@[0-9a-f]*/changes/'
   _dm_land "the approval is withdrawn"
   _dm_gate_to "$id" in_progress
   { [ "$_dm_rc" -eq 0 ] && origin_has_path "progress/in_progress/$id-gate.md"; } || cf "(g) a pinned card that was in progress is judged again on its way back from blocked/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   _dm_gate_to "$id" dev_complete
   [ "$_dm_rc" -eq 0 ] || cf "(g2) a card in progress is judged on its way to dev_complete/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
-  git -C "$SB_WORK" checkout -q HEAD~1 -- requirements/design/app/CANVAS.md >/dev/null 2>&1; _dm_land "the approval is back"
+  cp "$SB_TMP/canvas.bak" "$SB_WORK/requirements/design/app/CANVAS.md"; _dm_land "the approval is back"
   # (h) design: none on a card whose AC is tagged (UI), or whose story has a UI: line, is the minted default left in place
   _dm_seed 838 "design: none"; id="$_DM_CARD"
   perl -0pi -e 's/(## Acceptance Criteria\n\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/' "$SB_WORK/progress/todo/$id-gate.md"
@@ -1460,6 +1463,15 @@ case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_
   _dm_land "an AC that cites a state the key lacks"
   _dm_gate_move "$id" PM
   { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "DESIGN-MISSING" && _dm_has "$_dm_out" "UX-001#empty"; } || cf "(h3) an AC that cites a state the design: key lacks is not refused as DESIGN-MISSING (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (k) a pin whose commit holds no render for its state: the card could not land, so it does not leave todo/ (the PNG comes first)
+  _dm_seed 844 "design: [UX-001#empty@$X]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "NO-RENDER" && _dm_has "$_dm_out" "A-empty.png" && origin_has_path "progress/todo/$id-gate.md"; } || cf "(k) a pin whose commit holds no render for its state leaves todo/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-empty.png" EMPTY
+  _dm_land "the PNG of the empty state"
+  _dm_seed 845 "design: [UX-001#empty@$(git -C "$SB_WORK" rev-parse HEAD)]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  [ "$_dm_rc" -eq 0 ] || cf "(k2) a pin on the commit that holds the render is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   # (i) a tool that cannot answer: missing, silent with status 0, or failing with status 1 and no summary line: refused as broken, never as a record fault
   cp "$SB_WORK/scripts/design/check-design-links.py" "$SB_TMP/real-links.py"
   printf 'import sys\nsys.exit(0)\n' > "$SB_WORK/scripts/design/check-design-links.py"
@@ -1477,7 +1489,7 @@ case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_
   _dm_land "the tool leaves"
   _dm_seed 843 "design: none"; id="$_DM_CARD"
   _dm_gate_move "$id" PM
-  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "could not run" && printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null; } || cf "(j) a gate whose tool is missing lets the move through or refuses without a reason and a Next: (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "could not run" && printf '%s\n' "$_dm_out" | grep '^Next:' >/dev/null; } || cf "(j) a gate whose tool is missing lets the move through or refuses without a reason and a Next: (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
   teardown
 }
@@ -1526,7 +1538,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
     _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
     { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "$3"; } || cf "($1) the row was not refused for '$3' (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
     _dm_qrefusal qa-verdict-cell-refused || cf "($1) no refusal=qa-verdict-cell-refused record"
-    printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null || cf "($1) the refusal has no Next: line"
+    printf '%s\n' "$_dm_out" | grep '^Next:' >/dev/null || cf "($1) the refusal has no Next: line"
     _dm_has "$_dm_out" "NOTHING WAS CHANGED" || cf "($1) the refusal does not say nothing was changed"
   }
   refused b "UX-001#default@$P: diffs: ux-001-title; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "names differences"
@@ -1583,7 +1595,8 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
 # =============================================================================
 case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_subtask() {
   cf_reset
-  local L="finish-pr.sh and subtask.sh move refuse a card or a slice whose (UI) AC has no design row, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
+  if ! has_issue_template; then skp "a card or slice with a (UI) AC lands only with its design row" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local L="finish-pr.sh and subtask.sh move land a card whose only AC is (UI) and a one-AC slice once their design row is backed, and refuse a card or a slice whose (UI) AC has no design row, or a slice pinned to a screen with no design row at all, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
@@ -1646,6 +1659,51 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_land "the slice's design row and images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-s2" ./scripts/subtask.sh move "$sid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-851/qa_complete/$sid-walk.md"; } || cf "(f) a slice with a design row backed on the trunk does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 700) [local: $(grep -c 'design |' "$sf")] [trunk: $(git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-851/dev_complete/$sid-walk.md" 2>&1 | grep 'AC2 |' | cut -c1-120)]"
+  # (g) a slice pinned to a screen whose ACs carry no (UI) tag and no marker: the pin alone asks for a design row
+  local gid="$SB_PREFIX-852-s1" gf gev
+  gev="dev/evidence/$gid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  _seed_parent "$SB_PREFIX-852" in_progress
+  gf="$(_seed_subtask "$SB_PREFIX-852" s1 dev_complete pinned "A slice pinned to a screen")"
+  perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — the list shows the brews.\n/; s/(\| shadow-check )/| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |\n$1/' "$gf"
+  _dm_land "a slice pinned to a screen, untagged ACs"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-g" ./scripts/subtask.sh move "$gid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "pins UX-001#default" && origin_has_path "progress/subtasks/$SB_PREFIX-852/dev_complete/$gid-pinned.md"; } || cf "(g) a slice pinned to a screen, with no design row and ACs that carry no tag, moves to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  _dm_png "$SB_WORK/$gev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$gev/UX-001-default-build.png" BUILD
+  ROW="| AC2 | PASS | design | UX-001#default@$P: identical; $gev/UX-001-default-pin.png, $gev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$gf"
+  _dm_land "the slice's design row and images"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-g2" ./scripts/subtask.sh move "$gid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-852/qa_complete/$gid-pinned.md"; } || cf "(h) a pinned slice with its design row and images does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
+  # (i) a card whose only AC is (UI), its only row a design row: the cell check that passed makes it the observed row the landing needs
+  local aid="$SB_PREFIX-853" aev of
+  aev="dev/evidence/$aid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  seed_issue dev_complete "$aid" allui chore "A card of one UI AC" "feature/$aid-work"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $aev/UX-001-default-pin.png, $aev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$SB_WORK/progress/dev_complete/$aid-allui.md"
+  _dm_land "a card of one UI AC"
+  git -C "$SB_WORK" checkout -q -b "feature/$aid-work" "$SB_TRUNK" >/dev/null 2>&1
+  echo "the second screen's code" > "$SB_WORK/app/list2.txt"
+  git -C "$SB_WORK" add app/list2.txt >/dev/null 2>&1; sbcommit -qm "[Dev] $aid: the screen" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q -u origin "feature/$aid-work" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _dm_png "$SB_WORK/$aev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$aev/UX-001-default-build.png" BUILD
+  ( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/reg-i" ./scripts/register-commit.sh --role QA --message "$aid: the evidence" "$aev/UX-001-default-pin.png" "$aev/UX-001-default-build.png" >/dev/null 2>&1 </dev/null )
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-i" ./scripts/finish-pr.sh "$aid" 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 0 ] && origin_has_path "app/list2.txt" && origin_has_path "progress/qa_complete/$aid-allui.md"; } || cf "(i) a card whose only AC is (UI), with a design row the cell check passed, does not land through finish-pr.sh (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  # (j) a slice with the one AC, (UI), its one row a design row, through subtask.sh
+  local oid="$SB_PREFIX-854-s1" of oev
+  oev="dev/evidence/$oid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  _seed_parent "$SB_PREFIX-854" in_progress
+  of="$(_seed_subtask "$SB_PREFIX-854" s1 dev_complete oneac "A slice of one UI AC")"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $oev/UX-001-default-pin.png, $oev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$of"
+  _dm_png "$SB_WORK/$oev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$oev/UX-001-default-build.png" BUILD
+  _dm_land "a slice of one UI AC, its row and images"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-j" ./scripts/subtask.sh move "$oid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-854/qa_complete/$oid-oneac.md"; } || cf "(j) a slice of one (UI) AC with its design row does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
   finish "$L"
   teardown
 }
