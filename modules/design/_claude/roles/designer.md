@@ -113,10 +113,10 @@ Today I need help with: <task>
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
    (DTCG); a screen carries a `:root` block with one custom property per token it uses, named for the token's path with hyphens for dots
-   (`color.primary` is `--color-primary`) and holding the token's value. A colour literal in a screen outside the `:root`
-   block is a finding of the link check and fails the gate; a size or font literal where a token exists is a finding too. Add the
-   token, then put a request in the brief for the human to give Claude Design's agent; never edit the screen. Only a
-   `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
+   (`color.primary` is `--color-primary`) and holding the token's value. A colour literal in a screen's CSS, other than as the value of
+   a custom property named for a token, is a finding of the link check and fails the gate. A size or font literal where a token exists
+   is for you to catch: no tool checks it. Add the token, then put a request in the brief for the human to give Claude Design's agent;
+   never edit the screen. Only a `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
 9. **Never asks the human to overwrite the canvas with a file.** A change made in the repo (a token, a registry fix) reaches
    the canvas as a request the human carries to Claude Design's agent; a canvas that agent has changed since the last take-in
    is taken in first.

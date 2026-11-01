@@ -84,7 +84,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - Only a row whose `gate1` is `approved@<sha>` can be pinned, or the card's `design:` line carries a named waiver, a
   `[decision: D-NN]` in its trailing comment: it covers every screen on that line, and its D-NN must be an entry of
   `requirements/DECISIONS.md`. The sha in an
-  approval is the commit that took in the approved version; an approval whose artboard has since changed is **stale** and the row goes back to
+  approval is the commit that took in the approved version; an approval whose artboard, a file it loads (a sheet, a script, an image, a screen it imports) or a token it uses has since changed is **stale** and the row goes back to
   `changes`; the link check reports it as `STALE-APPROVAL`.
 - Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
   waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's, and
@@ -93,7 +93,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
   `history/`, each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (`[+design-drift]`; the last means
   something could not be compared, and the line says what: it is never `clean`). A state is compared by
-  its artboard, the tokens it uses and the local files it loads (stylesheets, scripts, images, through `@import`), per state when the
+  its artboard, the tokens it uses and the local files it loads (stylesheets, scripts, images, screens it imports with `<dc-import>`, through `@import`), per state when the
   artboard marks its branches with `data-state`, else per file; the pinned state's branches and everything outside all branches must
   be identical, or the line says `drift`. A
   `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
@@ -120,9 +120,10 @@ screen is not allowed outside its `:root` block**. Tokens are written by hand in
 carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
 token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
 in a screen's style blocks, style attributes, presentation attributes or a local stylesheet it links, outside a `:root` rule, is a
-`LITERAL-COLOUR` finding of the link check and fails the gate; `:root` rules (also `:root[...]` and `:root, :host`) are exempt, and
-a custom property declared anywhere (`--name: value`, as a theme selector of a token sheet does) defines a token and is exempt too, so a
-sheet that only defines tokens passes. A colour name (`red`) is not caught. A colour in the component script is shown
+`LITERAL-COLOUR` finding of the link check and fails the gate, wherever it sits, `:root` rules included, except as the value of a custom
+property named for a token (`--color-primary` for `color.primary`): that is how a screen's `:root` rule, and a theme selector of a token
+sheet, hold a token's value, so a sheet that only defines tokens passes. A custom property that is no token's, or a colour in a
+non-custom property of `:root`, is a finding. A colour name (`red`) is not caught. A colour in the component script is shown
 as a `SCRIPT-COLOUR` line and never fails the gate: a script is code and copy and cannot be read as CSS. The way out is a change request through the brief, which the human carries to the design
 tool's agent; the screen is not edited by hand. The one exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
 row (its title cell), the same marker and the same register as a card's waiver on its `design:` line, the D-NN an entry of

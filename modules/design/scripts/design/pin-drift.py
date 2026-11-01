@@ -21,10 +21,14 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      values of the design tokens the artboard uses: every var(--name) in it names the token whose path, dots as hyphens,
      is `name` (`--color-primary` is `color.primary`), read from <design>/tokens/*.tokens.json at both revisions, aliases
      resolved across every token file. A var is used when the artboard reads it with var() (spaces and case do not matter) or
-     declares it in its :root block. A token value changed or removed is drift; a token added is not. A local stylesheet the
-     artboard loads (<link href>, <script src>, <img src>, @import and url() in a style or a sheet, through sheets that import sheets)
-     is compared by blob: changed is drift; a local one missing at both revisions is `uncompared`. A remote or data: reference is
-     not a gap (a changed one changes the artboard's own bytes). A var() read in a linked local sheet counts as used.
+     declares it in its :root block. A token value changed or removed is drift; a token added is not. A local file the
+     artboard loads (<link href>, <script src>, <img src>, <dc-import name="N"> as N.dc.html, @import and url() in a style or a
+     sheet, through sheets that import sheets and artboards that import artboards: check-design-links.py's `closure`, the one
+     list the gate and the approvals use too) is compared by bytes: changed is drift. A file neither revision holds cannot have
+     changed, so it is no gap (support.js is supplied by the host and is in no project; /_blob/ paths and {{template}} values
+     are not files); check-design-links.py's MISSING_IS_A_GAP, one line, makes each of them `uncompared` instead. A remote or
+     data: reference is not a gap either (a changed one changes the artboard's own bytes). A var() read in a file it loads
+     counts as used.
   3. VERDICT per card per state:
        clean   same artboard bytes at the same path, and the tokens it uses unchanged. A difference confined to the root's
                data-stories attribute (the registry row's story ids, rewritten whenever a PRD adds a story to the screen) is
@@ -48,8 +52,8 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
        unresolved   the pin is not a commit, or the registry at the pin has no such row or file
        uncompared   something it could not compare, said on the line: a var() with no token at either revision, an alias that does
                not resolve, a tokens file that is not JSON, a state the registry row does not list at the pin or at --head, a
-               data-state mark naming a state the row does not list (it cannot be set aside), a file the artboard loads that
-               is in neither revision, a `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
+               data-state mark naming a state the row does not list (it cannot be set aside), more files loaded than are
+               followed, a `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
                `uncompared` is never `clean`
      One more column is evidence, not verdict: `render` says whether the committed render of THIS state
      (renders/<Stem>-<state>.png) is byte-identical at the pin and at --head. All states of one screen share one
@@ -75,7 +79,6 @@ META = re.compile(r' data-stories="[^"]*"')   # the artboard's copy of its regis
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
 P_CLOSERS = {'address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
              'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'}   # a start tag that ends an open <p>
-UNRESOLVED = '\x00unresolved'
 
 
 def git(*args, check=False):
@@ -303,146 +306,13 @@ def has_marks(n):
     return any(not isinstance(c, str) and (c.get('data-state') or has_marks(c)) for c in n.kids)
 
 
-# ---- tokens: the DTCG files <design>/tokens/*.tokens.json, read at a revision
-ALIAS = re.compile(r'^\{([^{}]+)\}$')
-
-
-def _leaves(node, path=(), out=None):
-    """{dotted path: $value} for every token of a DTCG tree; members whose key starts with `$` or `_` are not tokens."""
-    out = {} if out is None else out
-    if isinstance(node, dict):
-        for k, v in node.items():
-            if k.startswith(('$', '_')):
-                continue
-            if isinstance(v, dict) and '$value' in v:
-                out['.'.join(path + (k,))] = v['$value']
-            else:
-                _leaves(v, path + (k,), out)
-    return out
-
-
-def _resolve(value, own, merged, seen=()):
-    """(value with every alias replaced, True when one did not resolve). An alias is looked up in its own file, then in any
-    token file; a cycle or a name nobody defines does not resolve. Composite values (objects, lists) are resolved member by member."""
-    if isinstance(value, str):
-        m = ALIAS.match(value)
-        if not m:
-            return value, False
-        name = m.group(1)
-        target = own.get(name, merged.get(name))
-        if name in seen or target is None:
-            return value, True
-        return _resolve(target, own, merged, seen + (name,))
-    if isinstance(value, dict):
-        res = {k: _resolve(v, own, merged, seen) for k, v in value.items()}
-        return {k: r[0] for k, r in res.items()}, any(r[1] for r in res.values())
-    if isinstance(value, list):
-        res = [_resolve(v, own, merged, seen) for v in value]
-        return [r[0] for r in res], any(r[1] for r in res)
-    return value, False
-
-
-_tok_cache = {}
-
-
-def token_map(r):
-    """-> ({(token file, css var name): resolved value, or UNRESOLVED}, [problem]) from every <design>/tokens/*.tokens.json at
-    revision r. A file that is not a JSON object is a problem, not silence."""
-    if r in _tok_cache:
-        return _tok_cache[r]
-    files, problems = {}, []
-    for p in sorted(tree_paths(r, f'{DESIGN}/tokens')):
-        if not p.endswith('.tokens.json') or Path(p).parent.as_posix() != f'{DESIGN}/tokens':
-            continue
-        try:
-            data = json.loads(show(r, p).decode('utf-8'))
-            if not isinstance(data, dict):
-                raise ValueError('not an object')
-            files[Path(p).name] = _leaves(data)
-        except (ValueError, UnicodeDecodeError) as e:
-            problems.append(f'{Path(p).name} is not a JSON object of tokens ({e})')
-    merged = {}
-    for name in sorted(files):
-        for k, v in files[name].items():
-            merged.setdefault(k, v)
-    found = {}
-    for name, leaves in files.items():
-        for dotted, v in leaves.items():
-            val, bad = _resolve(v, leaves, merged, (dotted,))
-            found[(name, dotted.replace('.', '-'))] = UNRESOLVED if bad else json.dumps(val, sort_keys=True)
-    _tok_cache[r] = (found, problems)
-    return _tok_cache[r]
-
-
-def used_vars(*htmls, sheets=()):
-    """The custom properties a screen uses: read by var() (any case, spaces allowed) or declared in a :root block; and those a local
-    sheet it loads reads by var()."""
-    names = set()
-    for t in sheets:
-        names |= set(re.findall(r'(?i:var)\(\s*--([A-Za-z0-9_-]+)', t))
-    for h in htmls:
-        names |= set(re.findall(r'(?i:var)\(\s*--([A-Za-z0-9_-]+)', h))
-        for blk in re.findall(r':root\s*\{([^}]*)\}', h):
-            names |= set(re.findall(r'(?:^|[;\s])--([A-Za-z0-9_-]+)\s*:', blk))
-    return sorted(names)
-
-
-def tokens_check(old_html, new_html, r_old, r_new, sheets=()):
-    """-> (the custom properties (--name) the artboard at the pin uses whose token value changed or vanished between the two
-    revisions, [what could not be compared]): a var with no token at either revision, an alias that does not resolve, a tokens file
-    that is not JSON."""
-    used = used_vars(old_html, new_html, sheets=sheets)
-    (a, pa), (b, pb) = token_map(r_old), token_map(r_new)
-    changed, why = [], []
-    if used and (pa or pb):
-        why.append('tokens: ' + '; '.join(sorted(set(pa + pb))))
-    for n in used:
-        ea, eb = {k: v for k, v in a.items() if k[1] == n}, {k: v for k, v in b.items() if k[1] == n}
-        if not ea and not eb:
-            why.append(f'--{n} names no token')
-        elif ea != eb:
-            changed.append('--' + n)
-        elif UNRESOLVED in ea.values():
-            why.append(f'--{n}: an alias does not resolve')
-    return changed, why
-
-
-def closure(rev_, markup, base):
-    """-> ({path relative to the artboard's directory: blob id or None}, {path: text of a local .css sheet}, [what could not be
-    compared]) for every local file the artboard loads, directly or through the sheets it loads (cdl.refs_in is the one list)."""
-    files, texts, why = {}, {}, []
-    queue = [('', h) for h in cdl.refs_in(markup)]
-    while queue and len(files) < 60:
-        parent, href = queue.pop(0)
-        path = cdl.ref_path(href)
-        if path is None:
-            continue
-        key = posixpath.normpath(posixpath.join(posixpath.dirname(parent), path))
-        full_ = posixpath.normpath(posixpath.join(base, key))
-        if path.startswith('/') or full_.startswith('..'):
-            why.append(f'{href} is outside the repository')
-            continue
-        if key in files:
-            continue
-        files[key] = blob_id(rev_, full_)
-        if files[key] and key.lower().endswith('.css'):
-            body = show(rev_, full_)
-            texts[key] = body.decode('utf-8', 'replace') if body is not None else ''
-            queue += [(key, h) for h in cdl.refs_in(texts[key], css=True)]
-    return files, texts, why
-
-
 def refs_check(old_html, new_html, full, head, path_p, path_h):
-    """-> ([files the artboard loads whose blob differs between the revisions], [what could not be compared], [sheet texts])."""
-    fp, tp, wp = closure(full, old_html, posixpath.dirname(path_p))
-    fh, th, wh = closure(head, new_html, posixpath.dirname(path_h))
-    changed, why = [], sorted(set(wp + wh))
-    for k in sorted(set(fp) | set(fh)):
-        a, b = fp.get(k, 'ABSENT'), fh.get(k, 'ABSENT')
-        if a is None and b is None:
-            why.append(f'{k} is in neither revision')
-        elif a != b:
-            changed.append(k)
+    """-> ([files the artboard loads whose bytes differ between the revisions], [what could not be compared], [texts of the sheets and
+    artboards it loads]). The closure is cdl.closure, the one list shared with the gate and the approvals."""
+    fp, tp, wp = cdl.closure(lambda p: show(full, p), posixpath.dirname(path_p), old_html)
+    fh, th, wh = cdl.closure(lambda p: show(head, p), posixpath.dirname(path_h), new_html)
+    changed, missing = cdl.closure_diff(fp, fh)
+    why = sorted(set(wp + wh)) + ([f'{k} is in neither revision' for k in missing] if cdl.MISSING_IS_A_GAP else [])
     return changed, why, list(tp.values()) + list(th.values())
 
 
@@ -488,7 +358,7 @@ def check(card_id, ux, state, pin, head):
         return {**base, 'verdict': 'gone', 'why': f'{path_h} is not in HEAD', 'path_pin': path_p}
     old_html, new_html = old.decode('utf-8', 'replace'), new.decode('utf-8', 'replace')
     refs, why, sheet_texts = refs_check(old_html, new_html, full, head, path_p, path_h)
-    toks, twhy = tokens_check(old_html, new_html, full, head, sheet_texts)
+    toks, twhy = cdl.tokens_check(ROOT, old_html, new_html, full, head, sheet_texts)
     why = why + twhy
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
     meta_only = False
@@ -563,6 +433,7 @@ def main(argv):
         else:
             paths.append(a)
         i += 1
+    cdl.DESIGN_REL = DESIGN
     head = rev(head_arg)
     if not head:
         sys.exit(f'pin-drift: {head_arg} is not a commit')

@@ -401,6 +401,9 @@ _dm_card() {  # a shelf name written beside its number reads as a citation to th
 #   UX-023 reads the changed token as `var( --color-primary )` with an empty :root; UX-024 only declares it in :root (drift on the token)
 #   UX-025 links a stylesheet that changed (drift); UX-026 one the repository lacks (uncompared), UX-027 a remote one (clean: no gap)
 #   UX-028 an unquoted link, 029 an @import in a style, 030 a script src, 031 an img src, 032 a sheet that @imports a sheet: the file changed (drift)
+#   UX-026 now reads clean: a file neither revision holds cannot have changed. UX-037 loads /_blob/<hash>, UX-038 {{item.image}}: clean
+#   UX-040 is shaped like a real export (support.js absent, helmet, fonts link, data-props, <dc-import>) and unchanged: clean
+#   UX-041 the same, the imported Header changed: drift. UX-042 loads vendor.js, which changed: drift
 #   UX-033 reads a token by var() only in a linked sheet (drift on the token); UX-036 a commented-out link (clean)
 #   UX-034 two ids swapped under the pinned branch and a text changed under the other (drift); UX-035 an id moved from state a into pinned b (drift)
 _dm_drift_fixture() {
@@ -440,6 +443,18 @@ _dm_drift_fixture() {
   _dm_art "$D/T26.dc.html" 026 "$S" '<link rel="stylesheet" href="missing.css"><h1 id="ux-026-t" style="color: var(--color-surface)">Sheet</h1>'
   _dm_art "$D/T27.dc.html" 027 "$S" '<link rel="stylesheet" href="https://example.invalid/x.css"><h1 id="ux-027-t" style="color: var(--color-surface)">Sheet</h1>'
   printf 'h1 { margin: 10px }\n' > "$D/app.css"
+  _dm_art "$D/T37.dc.html" 037 "$S" '<img src="/_blob/5f2a9c" alt=""><h1 id="ux-037-t" style="color: var(--color-surface)">Blob</h1>'
+  _dm_art "$D/T38.dc.html" 038 "$S" '<img src="{{item.image}}" alt=""><h1 id="ux-038-t" style="color: var(--color-surface)">Template</h1>'
+  printf '<x-dc><footer id="ftr" style="color: var(--color-surface)">Footer</footer></x-dc>\n' > "$D/Footer.dc.html"
+  printf '<x-dc><header id="hdr" style="color: var(--color-surface)">Header</header></x-dc>\n' > "$D/Header.dc.html"
+  printf 'var v = 1;\n' > "$D/vendor.js"
+  _dm_real() {  # <nnn> <imported screen> <script src> — an artboard shaped like a real export
+    local props="data-props='{\"accent\":{\"editor\":\"color\",\"default\":\"#2F6FEB\"},\"\$preview\":{\"width\":390,\"height\":844}}'"
+    printf '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>Real</title>\n<script src="%s"></script>\n</head>\n<body>\n<x-dc>\n<helmet>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&amp;display=swap" rel="stylesheet">\n<style>\nbody{margin:0}\n</style>\n</helmet>\n<div id="ux-%s-root" data-ux="UX-%s" data-stories="PRD-001-F1-S1" style="font-family: Inter, system-ui, sans-serif; color: var(--color-surface)">\n<dc-import name="%s" hint-size="390px,844px"></dc-import>\n<sc-if value="{{a}}"><p data-state="a" id="ux-%s-a">A</p></sc-if>\n</div>\n</x-dc>\n<script type="text/x-dc" data-dc-script %s>\nclass Component extends DCLogic { renderVals() { return {}; } }\n</script>\n</body>\n</html>\n' "$3" "$1" "$1" "$2" "$1" "$props" > "$D/R$1.dc.html"
+  }
+  _dm_real 040 Footer ./support.js
+  _dm_real 041 Header ./support.js
+  _dm_real 042 Footer ./vendor.js
   mkdir -p "$D/ds"
   printf 'h2 { margin: 1px }\n' > "$D/a4.css"; printf 'h2 { margin: 2px }\n' > "$D/a7.css"; printf 'var x = 1;\n' > "$D/a8.js"
   printf '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>\n' > "$D/ds/a9.svg"
@@ -470,7 +485,10 @@ _dm_drift_fixture() {
     'UX-029|T29.dc.html|default|PRD-001-F1-S1|open|open' 'UX-030|T30.dc.html|default|PRD-001-F1-S1|open|open' \
     'UX-031|T31.dc.html|default|PRD-001-F1-S1|open|open' 'UX-032|T32.dc.html|default|PRD-001-F1-S1|open|open' \
     'UX-033|T33.dc.html|default|PRD-001-F1-S1|open|open' 'UX-034|T34.dc.html|a, b|PRD-001-F1-S1|open|open' \
-    'UX-035|T35.dc.html|a, b|PRD-001-F1-S1|open|open' 'UX-036|T36.dc.html|default|PRD-001-F1-S1|open|open'
+    'UX-035|T35.dc.html|a, b|PRD-001-F1-S1|open|open' 'UX-036|T36.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-037|T37.dc.html|default|PRD-001-F1-S1|open|open' 'UX-038|T38.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-040|R040.dc.html|default, a|PRD-001-F1-S1|open|open' 'UX-041|R041.dc.html|default, a|PRD-001-F1-S1|open|open' \
+    'UX-042|R042.dc.html|default, a|PRD-001-F1-S1|open|open'
   _dm_registry "$SB_WORK/requirements/design/café" 'UX-014|K.dc.html|default|PRD-001-F1-S1|open|open'
   _dm_commit "the design at its pin"; _DM_P="$_DM_SHA"
   local p="@$_DM_P" id="$SB_PREFIX"
@@ -479,6 +497,7 @@ _dm_drift_fixture() {
   _dm_card 710 in_progress "design: [UX-020#empty$p, UX-021#empty$p, UX-022#empty$p, UX-023#default$p, UX-024#default$p, UX-025#default$p, UX-026#default$p, UX-027#default$p]"
   _dm_card 711 in_progress "design: [UX-027#default$p, UX-028#default$p, UX-029#default$p, UX-030#default$p, UX-031#default$p, UX-032#default$p, UX-033#default$p, UX-036#default$p]"
   _dm_card 712 in_progress "design: [UX-034#a$p, UX-035#b$p]"
+  _dm_card 713 in_progress "design: [UX-026#default$p, UX-037#default$p, UX-038#default$p, UX-040#default$p, UX-040#a$p, UX-041#default$p, UX-042#default$p]"
   _dm_card 707 in_progress "design: TBD"
   printf -- '---\nid: app2-709\ntype: chore\ntitle: t\nbranch: n/a\npr: null\ncreated_at: 2026-01-01\ncreated_by: PM\nforks: none\ndesign: [UX-004#default%s]\n---\n\n# card\n' "$p" > "$SB_WORK/progress/in_progress/app2-709-c.md"
   _dm_card 704 qa_complete "design: [UX-001#empty$p]"
@@ -505,6 +524,8 @@ _dm_drift_fixture() {
   _dm_edit "$D/S.dc.html" 's|<!-- one -->|<!-- two -->|'
   for n in 20 21 22; do _dm_edit "$D/T$n.dc.html" 's|>Hi<|>Hi two<|'; done
   printf 'h1 { margin: 90px }\n' > "$D/app.css"
+  printf '<x-dc><header id="hdr" style="color: var(--color-surface)">Header two</header></x-dc>\n' > "$D/Header.dc.html"
+  printf 'var v = 2;\n' > "$D/vendor.js"
   printf 'h2 { margin: 91px }\n' > "$D/a4.css"; printf 'h2 { margin: 92px }\n' > "$D/a7.css"; printf 'var x = 2;\n' > "$D/a8.js"
   printf '<svg xmlns="http://www.w3.org/2000/svg"><rect width="2" height="2"/></svg>\n' > "$D/ds/a9.svg"; printf 'h2 { margin: 93px }\n' > "$D/b2.css"
   _dm_art "$D/T34.dc.html" 034 "$S" '<p data-state="a"><i id="ux-034-z">2</i><i id="ux-034-y">1</i></p><p data-state="b">q2</p>'
@@ -632,8 +653,18 @@ case_pin_drift_judges_a_state_by_its_data_state_branch_and_the_tokens_it_uses() 
   r="$(_dm_row "$_dm_out" "$c" "UX-025#default@$p7")"
   { [ "$(_dm_verdict "$_dm_out" "$c" "UX-025#default@$p7")" = drift ] && _dm_has "$r" "files: app.css"; } || cf "(q) UX-025, whose linked stylesheet changed, does not read drift on it: $r"
   c="$SB_PREFIX-710"
-  r="$(_dm_row "$_dm_out" "$c" "UX-026#default@$p7")"
-  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-026#default@$p7")" = uncompared ] && _dm_has "$r" "missing.css"; } || cf "(q) UX-026, which links a stylesheet in neither revision, does not read uncompared: $r"
+  c="$SB_PREFIX-713"
+  for n in 26 37 38; do
+    [ "$(_dm_verdict "$_dm_out" "$c" "UX-0$n#default@$p7")" = clean ] || cf "(u) UX-0$n, which loads a file neither revision holds (missing.css, /_blob/, a template value), does not read clean: $(_dm_row "$_dm_out" "$c" "UX-0$n#default@$p7")"
+  done
+  for st in default a; do
+    [ "$(_dm_verdict "$_dm_out" "$c" "UX-040#$st@$p7")" = clean ] || cf "(v) UX-040#$st, shaped like a real export with support.js in no project, does not read clean: $(_dm_row "$_dm_out" "$c" "UX-040#$st@$p7")"
+  done
+  r="$(_dm_row "$_dm_out" "$c" "UX-041#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-041#default@$p7")" = drift ] && _dm_has "$r" "files: Header.dc.html"; } || cf "(w) UX-041, whose <dc-import>ed Header changed, does not read drift on it: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-042#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-042#default@$p7")" = drift ] && _dm_has "$r" "files: vendor.js"; } || cf "(w) UX-042, whose script changed, does not read drift on it: $r"
+  c="$SB_PREFIX-710"
   c="$SB_PREFIX-711"
   [ "$(_dm_verdict "$_dm_out" "$c" "UX-027#default@$p7")" = clean ] || cf "(q) UX-027, which links a remote stylesheet nothing changed, does not read clean (a remote reference is no gap): $(_dm_row "$_dm_out" "$SB_PREFIX-710" "UX-027#default@$p7")"
   for n in 28:a4.css 29:a7.css 30:a8.js 31:ds/a9.svg 32:b2.css; do
@@ -662,7 +693,7 @@ _dm_links_fixture() {
   [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; return 1; }
   _dm_land "enable the design module"
   local D="$SB_WORK/requirements/design/app/project"
-  _dm_tokens '{"color":{"primary":{"$value":"#485d92"}}}'
+  _dm_tokens '{"color":{"primary":{"$value":"#485d92"},"surface":{"$value":"#ffffff"}}}'
   _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
   _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
@@ -916,7 +947,7 @@ case_the_link_check_reads_a_colour_where_it_is_a_colour_and_fails_the_gate_unles
   _dm_links_fixture || { finish "$L"; teardown; return; }
   local D="$SB_WORK/requirements/design/app/project" dn="D-$((6 + 6))" body
   printf '| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$SB_WORK/requirements/design/app/CANVAS.md"
-  printf ':root { --color-primary: #485d92; }\n:root[data-theme="dark"] { --color-primary: #a0b4e8; }\n:ROOT, :host { --x: #fff; }\n[data-theme="dark"] { --color-surface: #121318; }\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-surface: #121318; } }\n' > "$D/tokens.css"
+  printf ':root { --color-primary: #485d92; }\n:root[data-theme="dark"] { --color-primary: #a0b4e8; }\n:ROOT, :host { --color-surface: #fff; }\n[data-theme="dark"] { --color-surface: #121318; }\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-surface: #121318; } }\n' > "$D/tokens.css"
   body='<link rel="stylesheet" href="tokens.css"><h1 id="ux-003-title" style="color: var(--color-primary)">Order #1042 <a href="#fab">x</a></h1><!-- #fff --><style>/* was #ff0000 */ #add { color: var(--color-primary) } .b { background: url( #fade ); content: "#1042"; color: rgb(var(--x-rgb) / .5) }</style><input data-target="#abc" data-style="#abc"><p>fill="#fff" &#35;ff0000 color: red</p><script type="text/x-dc">// issue #123
 const copy = { label: "Order #1042" }; document.querySelector("#add"); location.hash = "#feed"; function color(x) { return x; }</script>'
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$body"
@@ -924,6 +955,20 @@ const copy = { label: "Order #1042" }; document.querySelector("#add"); location.
   _dm_py scripts/design/check-design-links.py --strict
   [ "$_dm_rc" -eq 0 ] || cf "(a) copy, comments, a selector, a reference, :root in its forms, a token sheet or script text is read as a colour (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_has "$_dm_out" "LITERAL-COLOUR" && cf "(a) a LITERAL-COLOUR line for a screen whose only colours are in :root rules"
+  # a custom property that is no token's carries a colour nobody tokenised: a finding, in a rule, a :root rule and an attribute
+  for body in '<style>.chip { --chip-bg: #ffeedd; background: var(--chip-bg) }</style>' '<style>:root { --mine: #ff0000; color: #00ff00 }</style>' '<p style="--c:#ff0000;color:var(--c)">x</p>'; do
+    _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$body"
+    _dm_commit "a custom property that is no token"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LITERAL-COLOUR"; } || cf "(a2) a colour in a custom property no token has is not a finding (exit $_dm_rc): ${body:0:50}"
+  done
+  # an imported screen is read as markup: its colour is the importing screen's
+  printf '<x-dc><header id="hdr" style="color:#ff0000">Header</header></x-dc>\n' > "$D/Header.dc.html"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="Header" hint-size="390px,844px"></dc-import>'
+  _dm_commit "a screen that imports one with a colour"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "#ff0000 (in requirements/design/app/project/Header.dc.html)"; } || cf "(a3) a colour in a <dc-import>ed screen is not found (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  rm -f "$D/Header.dc.html"
   # colour only in the script: a report line, and the gate stays at 0
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title" style="color: var(--color-primary)">Script</h1><script type="text/x-dc">const bg = "#c0ffee"; const x = "RGB(1,2,3)";</script>'
   _dm_commit "a colour in the script"
@@ -1026,4 +1071,53 @@ case_the_design_module_cites_no_decision_id_the_project_cannot_hold() {
   hits="$(find "$REAL_REPO_ROOT/modules/design" -type f -exec grep -nE '(^|[^A-Za-z0-9])D-[0-9]+' {} + 2>/dev/null || true)"
   [ -z "$hits" ] || cf "a decision id is written out: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
+}
+
+# =============================================================================
+# CASE — AN APPROVAL COVERS WHAT THE APPROVED SCREEN LOADS AND THE TOKENS IT USES, NOT ONLY ITS OWN BYTES.
+#   Operand: scripts/design/check-design-links.py over a screen approved while it linked a sheet and imported another screen. A change to
+#   the sheet, the imported screen, a script it loads or a token it uses after the approval is a STALE-APPROVAL (the gate, and --leaving
+#   for a card pinned after the change); a change to a file that is no part of the screen, and a file support.js that no project holds, are not.
+# =============================================================================
+case_an_approval_covers_what_the_approved_screen_loads_and_the_tokens_it_uses() {
+  cf_reset
+  local L="a gate cell approved@<sha> goes stale when a linked sheet, an imported screen, a script it loads or a token it uses changes after the approval (--strict and --leaving both say STALE-APPROVAL naming it), and stays good for a change to a file the screen does not load and for support.js being in no project"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" Y what
+  printf 'h1 { margin: 16px }\n' > "$D/s.css"; printf 'var v = 1;\n' > "$D/vendor.js"; printf 'unused\n' > "$D/other.css"
+  printf '<x-dc><header id="hdr" style="color: var(--color-primary)">Header</header></x-dc>\n' > "$D/Header.dc.html"
+  _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<script src="./support.js"></script><link rel="stylesheet" href="s.css"><script src="vendor.js"></script><dc-import name="Header" hint-size="390px,844px"></dc-import><h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
+  _dm_commit "the screen loads a sheet, a script and a screen"; Y="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$Y|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_commit "approve it as it is"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a) the approval is not good straight after it is given, with support.js in no project (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf 'unused two\n' > "$D/other.css"; _dm_commit "a file the screen does not load"
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 0 ] || cf "(b) a change to a file the approved screen does not load stales the approval (exit $_dm_rc)"
+  for what in 's.css|h1 { margin: 90px }' 'Header.dc.html|<x-dc><header id="hdr">Header two</header></x-dc>' 'vendor.js|var v = 2;'; do
+    git -C "$SB_WORK" checkout -q "$Y" -- "requirements/design/app/project/${what%%|*}" >/dev/null 2>&1
+    printf '%s\n' "${what#*|}" > "$D/${what%%|*}"
+    _dm_commit "${what%%|*} changes"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "${what%%|*}"; } || cf "(c) a change to ${what%%|*} after the approval does not stale it, naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+    git -C "$SB_WORK" checkout -q "$Y" -- "requirements/design/app/project/${what%%|*}" >/dev/null 2>&1
+    _dm_commit "${what%%|*} is back"
+  done
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 0 ] || cf "(c0) the approval does not hold again once the files are back (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # a token the screen uses, changed after the approval
+  _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"}}}'
+  _dm_commit "a token changes"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "color-primary"; } || cf "(d) a token the approved screen uses changing after the approval does not stale it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # --leaving for a card pinned at the changed state
+  _dm_card 851 todo "design: [UX-001#default@$_DM_SHA]"
+  _dm_leaving 851
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) --leaving lets a card pinned after an unapproved token change through (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
 }
