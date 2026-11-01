@@ -331,6 +331,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.12.2] — 2026-11-01
+
 ### Action required
 
 - **`check-board.sh`'s graduation arm now reports `COMPLETE` only once a PRD exists and a card has passed QA (`qa_complete/` or `done/`), not on filled blanks alone.** A new `DAY-ONE WORK` line names whichever is missing, and `[p]` stops flagging the `forward-referenced (SEED step 6)` marker `CORPUS.md` tells you to write until day one has closed. `kit-init`'s closing `Next:` now names `PRD-001` (`./scripts/new-prd.sh <slug>`) before the first issue. SEED's done-list names the PRD and the role docs' `Model & effort contract` rows (`set-models.sh` does not write them), and says which lines are expected until the first card lands. If your project finished day one without a PRD (every card `prd: n/a`) or with no card in `qa_complete/` or `done/`, `/start` will walk SEED again until both exist: check those two.
@@ -394,67 +398,4 @@ columns and never the cards.*
 - **The front-door pages and the board `ls` line point at the set's home instead of listing it.** `README.md`, `.claude/skills/README.md`, `MANUAL.md`, `SEED.md`, `PROJECT.md` and `UPGRADE-SEAT.md` cite `kit_qa_evidence_kinds`, `scripts/lib/status-folders.sh`, `ls .claude/roles` and the contract sheets. `progress.md`, its skeleton, `pm.md`, `orchestrator.md`, `orchestrate/SKILL.md` and `MANUAL.md` § Session start list the board with `ls $(ls -d progress/*/ | grep -v -e /done/ -e /history/)` (the orchestrator's two also leave out `declined/`), which follows a folder you add. `MANUAL.md` § The Dev → QA handoff now says QA never rewrites a branch it reviewed. No rule changed; if you edited those files, expect merge items.
 - **`doctrine/staleness.md` § C now rules that a rule stated in prose is a list in prose.** One home states a rule; every other surface cites it or derives it, with a short allocation by surface and the exception that a role's own act stays inline. No action.
 - **A `deciding` `check-board.d` arm that exits with anything but 0 or 3 now makes the board verdict not `clean`.** It used to print "did not run to a verdict" and leave the verdict `clean ✓`, so a broken arm read as armed and `release.sh` gate (d) passed. The report now prints a `⚠` line naming the arm and its status, with a `Next:`; end the arm `0` (found nothing) or `3` (found something), or declare it `advisory`, which stays report-only. Only a `deciding` arm is affected.
-
-## [0.12.1] — 2026-10-25
-
-### Changed
-
-- **`subtask.sh new` checks `--prd` and `--stories` like `new-issue.sh`.** A malformed value is refused with exit 2, naming the option, before anything is written. No action.
-
-- **Smaller refusals and notes now say what runs.** The pre-commit refusal for a staged card names the trunk route alone, and for a card staged beside other metadata sends the card to the trunk and offers the amend route only for the rest; `register-commit.sh`'s note for a staged copy names `git restore --staged --worktree`; `new-refactor.sh` refuses a malformed `--prd` or `--stories` like `new-issue.sh`, and all three creation scripts refuse a value containing a newline; `setup.sh`'s `kit-init.sh` line carries `--prefix` and `--trunk`. No action.
-
-- **`staleness_greps.py` no longer prints donor base-rate figures**, and its `--json` output drops the `base_rate` key; the shipped `.gitignore` no longer lists `*.log`. A consumer of that JSON sees the key gone. No action.
-
-- **Consumer, template and role-doc text matches what ships.** `setup-consumer.sh`'s closing list points at the upstream checkout's `ci/` and README (the consumer's repo has neither); `consumers/README.md` says refreshes and `--check`
-  use the network; `LICENSE-CONTENT` no longer lists process doctrine as CC0 (it is MIT, as `LICENSE` says); `wave-runner.js` logs a Dev leg that returned nothing once; the run-report template covers an attended no-launch-pack run and
-  lists its own title and heading to delete; `architect.md` has an `Agreed on:` field; `dev.md` fills the card's own `## Behaviors Preserved`; `/start` says `PROJECT.md` may name more tools the project needs; `using-skills` ends with a note telling an
-  unwatched seat to decide through `scripts/ask.sh`, record and continue at gates that wait for a person. No action.
-
-- **Script messages say what runs.** The `kit-init.sh` line in `verify.sh`'s and `finish-pr.sh`'s refusals carries the `--prefix` and `--trunk` it requires; `finish-pr.sh --help` explains `--dry-run` (it exits before the
-  pre-merge gate, so it predicts nothing about it); `archive-progress.sh --apply` says "Writing to:"; `next-id.sh` outside a repository prints one error; the manual names the first card's `--id`. No action.
-
-- **`new-issue.sh` and `new-bug.sh` refuse a malformed `--prd`, `--stories` or `--discovered-in`** (exit 2, naming the option) instead of writing it into the card's frontmatter. The shapes are those the usage text states. No action.
-
-- **`register-commit.sh` restores a subtask card beside its parent.** A subtask card's id is its parent's id plus its suffix, so a restored slice is no longer refused as a second copy of the parent; a second copy of the slice itself is still refused. No action.
-
-- **The card templates, `MANUAL.md` and `qa.md` say where QA evidence and a corrected AC's citation go.** The verdict and per-AC evidence live in the card's `## QA Verdict` table; `[decision: D-NN]` goes on the amended bullet's own line
-  (elsewhere on the card does not count); a quoted phrase before a pointer cell's first `path:line` is refused. A reviewer in a blocked-push regime records `PASS` with the landing `deferred`. No action.
-
-- **`kit-init.sh` tells the truth about `--enable-hooks`.** When it refuses because `.claude/settings.json` differs from the example, its re-run line leaves the flag out, as the refusal says; the header lists the settings copy
-  under its hooks step; the `.gitignore` line reads "1 entry" or "N entries". No action.
-
-- **A correctly shaped register entry is no longer refused as having a two-paragraph Why.** An entry laid out as the register shows it, with a blank line between the `**Ruling.**`, `**Why.**` and `**Provenance.**`
-  fields, was read as having a Why that spans paragraphs, in `check-board.sh` arm `[q]` and at a landing. A blank line inside the Why is still refused. No action.
-
-- **`register-commit.sh` and the role docs say what to do with your checkout's copy.** After `Published:` the edited copy stays in your checkout and a later `git pull --ff-only` is refused for it; the output
-  now names `git checkout -- <path>` (or `rm` for an untracked file), as do `dev.md`, `orchestrator.md`, `qa.md`, `pm.md` and `MANUAL.md`. An unattended Dev commits its question file to the trunk with `register-commit.sh`
-  before citing it. No action.
-
-- **Texts that state what a Claude Code hook does now say it holds only with `.claude/settings.json`.** Without it nothing clears the hat file at a session start, the git commit guard still refuses a commit without a hat,
-  and the agent check reports UNRUNNABLE. `kit-init.sh --enable-hooks` is offered only before `kit-init.sh` has run and in an attended session; after that, the human's `cp` is the route. The steps that write the hat file
-  now create `.kit/` first. No action.
-
-- **The card is the trunk's, in every place that said metadata may ride a work branch.** The pre-commit refusal for a card-only commit no longer offers `git commit --amend`; `AGENTS.md`, the adapter template, the card
-  templates and `orchestrate` carry the exception; the landing's card-conflict note restores the card from `origin/<trunk>`. No action.
-
-- **`check-board.sh` arm `[s]` counts only the role-doc model rows you keep by hand, and ticks only over fields it compared.** The ladder rows in `orchestrator.md`, which `set-models.sh` writes, are left out of the
-  `<fill in>` line; a tree with nothing compared prints "nothing was compared" instead of a bare ✓. No action.
-
-- **The act that turns the Claude Code hooks on is named, and `kit-init.sh --enable-hooks` makes the copy.** The harness refuses an agent's write of `.claude/settings.json`, so an agent now hands you the act: in your own terminal, at the project root, `cp .claude/settings.json.example .claude/settings.json`, then restart the session. `kit-init.sh`'s closing output, `/start`, `SEED.md` and `MANUAL.md` say it the same way; an agent suggests `--enable-hooks` and passes it only on your yes. `check-board.sh` arm `[g]` prints `hooks: off` while `.claude/settings.json` is absent; it changes no verdict. No action.
-
-- **The card is the trunk's; never commit it on a work branch.** `MANUAL.md` § The code-vs-metadata rule and `dev.md`'s hand-off step say so, and the landing's squash-conflict refusal, when the
-  conflict includes the card, names the route: drop the card edit from the branch and re-run, and land it on the trunk with `register-commit.sh`. A non-overlapping card edit on a branch still lands. No action.
-
-- **`check-board.sh` arm `[s]` names the role docs whose own model table is still blank.** `set-models.sh` writes the ladder row and the leaf-worker pin; the per-role tables under each role doc's
-  `## Model & effort contract` are kept by hand, and a `<fill in>` left there now prints one line with the count and the files. It only reports. No action.
-
-- **A QA Verdict quote may contain a double quote, written `\"`.** A line of string literals (`{"a", 1}`) is quoted whole as `"{\"a\", 1}"`; the quote is also still any quote-free substring of the line, 8 characters or more,
-  and the too-short refusal names both. No action.
-
-- **The decision register states how a changed ruling is stamped, and the warning shows it.** A stamp is bold and dated, inside the Ruling (`**Amended <YYYY-MM-DD>.**`);
-  plain text and a stamp in a later commit are not read, so an unstamped change stays reported until its history is gone. `check-board.sh`'s warning now names that shape. No action.
-
-- **`check-board.sh` and the landing checks no longer read an id that IS in a long list as absent.** A run on an unchanged tree could report a correctly cited
-  decision id as "NOT an entry" (with `printf: write error: Broken pipe`), and the next run would not. The same early close could make `release.sh` refuse a clean
-  board, or `stop-ask.sh` miss a question. Every such test now reads its list without a pipe the reader can close. No action.
 
