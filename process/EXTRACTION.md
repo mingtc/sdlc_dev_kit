@@ -59,6 +59,7 @@ belongs in the body, where removing the classification cannot remove it.
 case below them is a third way a file can lack a `KIT-CLASS:` comment, which is why no count is
 written here: *the list is the list.*
 
+- **A vendored third-party directory inside a module is classified by its own `NOTICE`, not in-file.** `modules/design/scripts/design/vendor/` holds Apache-2.0 code and data (`material-color-utilities`, material-web's token values), the kit's only non-MIT shipped code, ruled in by Ming on 2026-10-28; `LICENSE` is the Apache text, `NOTICE` lists every change, and the files keep their upstream headers and carry no `KIT-CLASS:` marker (an upstream re-copy would erase one). It is deletable with the module.
 - **Vendored skill directories are classified by the `Class` column of
   `.claude/skills/README.md`'s provenance table, not in-file.** *Why:* updating a skill from upstream is a **re-fetch and copy the folder over**, which
   **erases an in-file marker** — so a marker there would be a classification that silently disappears

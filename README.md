@@ -107,6 +107,8 @@ mechanism — the scripts, the process doctrine, the skills; [`LICENSE-CONTENT`]
 replaces it — templates, the bootstrap files. **Your project's own license is
 yours to choose; nothing here reaches into it.**
 
+One optional module carries third-party code under Apache-2.0: `modules/design/scripts/design/vendor/` (its own `LICENSE` and `NOTICE` say what and what was changed). It is deletable with the module.
+
 ---
 
 # Reference

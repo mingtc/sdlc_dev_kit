@@ -31,7 +31,7 @@ AC (QA).
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
 procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
-`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check.
+`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check.
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
 of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it or report it as
@@ -40,9 +40,6 @@ delete the line. Until the packaged skills ship, follow § The canvas with the a
 
 - `/design-pull` (`.claude/skills/design-pull/SKILL.md`), the packaged pull: needs the next version of the kit.
 - `/design-publish` (`.claude/skills/design-publish/SKILL.md`), the packaged publish: needs the next version of the kit.
-- The token generator and the colour utility (`scripts/design/m3-tokens.mjs`, `scripts/design/vendor/material-color-utilities`): needs the next version of the kit.
-- Rendering a board to a PNG (`scripts/design/render.py`): needs the next version of the kit; until then a human copies a PNG from the canvas, or an agent that holds the design runtime renders locally (§ PNGs).
-- The contrast and 44 px target audits (`scripts/design/contrast-audit.py`): needs the next version of the kit; until then the human approves Gate 2 visually on the canvas.
 
 ## The canvas
 
@@ -129,14 +126,33 @@ a literal.
    `body{margin:0}`. Sheets stay under `project/`, by relative path, never uploaded.
 5. Themes switch by `data-theme` on `<html>`. The platform has no `.dark` selector, and `?theme=dark` changes no token.
 
+### Tokens
+
+`scripts/design/m3-tokens.mjs <seed hex> --name <ns> --out requirements/design/tokens` (Node 22 or later, no network) writes the
+Material 3 colour roles from one seed as `<ns>.tokens.json`, `<ns>.dark.tokens.json` and `<ns>.wire.tokens.json` (greyscale at the
+light tones), plus shape, spacing and elevation. The seed's hue and chroma are kept (`primary` is tone 40 of them, the seed hex is
+`primary-container`); `--pin-primary` makes the seed the `primary` and warns, since it can fail AA. Same seed, same bytes. The names
+are the role's path, no prefix (`color.primary` is `--color-primary`). `scripts/design/dtcg-convert.py --out <dir>` turns the token
+files into a design system's `tokens.json` and `tokens.css` in the shape the design type's compiler writes (`:root, [data-theme="light"]`,
+then `[data-theme="<id>"]`): the page does not generate the sheet, so the Designer writes it with this tool and puts it under `project/ds/<folder>/`
+(§ The canvas, design system). `scripts/design/contrast-audit.py` measures the pairs (`on-X` on `X`, text on the surfaces) in every
+theme and the touch targets of the boards (44 px); it is a report, and `--strict` makes a failure the exit status. Its figures are
+the Designer's to quote for Gate 2.
+
 ### PNGs and the wire review
 
-No tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x) or exports it; an agent that holds the design
-runtime renders locally with Chrome and has matched a real copy to 0.04% of pixels. **The gap:** the runtime is a type file over
-256 KiB, so on A it cannot be fetched; a local render needs a copy of the runtime that a human or surface B supplies. The page
-has no theme switch (the picker's **Theme | Custom** switch chooses a token for an element; a panel Theme tab sits behind a flag
-that is off by default), so a Gate 1 wire review is a local render with `data-theme="wire"` on `<html>`, or a separate board; with
-neither, say so and review the brand version.
+No tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x) or exports it. `scripts/design/render.py <project/>
+<out/> --runtime <dc-runtime.js> [--theme wire] [--scale 2]` renders the boards with Chrome on this machine, with the colour scheme
+forced (default light) so a sheet that follows `prefers-color-scheme` draws the same everywhere; a 2x render matched a real copy to
+0.04% of pixels. **The runtime route, honestly:** `render.py` needs the design runtime (`dc-runtime.js`), which the module does not
+ship (it is the design tool's code). On A (the claude-artifacts server) the file (about 188 KB) is readable, but only into the
+transcript; no tool there puts text on disk, and retyping 351 lines is not a route. A copy has to come from a person who saved one
+earlier from the design type's folder, or from surface B (its `read` with `paths` is documented to save the type's files; not tried
+here). Whether a downloaded or exported canvas carries the runtime is untested. Without a runtime `render.py` says `RUNTIME-ABSENT` and exits 3: the PNG is then a person's.
+Without Chrome it says `CHROME-ABSENT`. The page has no theme switch (the picker's **Theme | Custom** switch chooses a token for an
+element; a panel Theme tab sits behind a flag that is off by default), so a Gate 1 wire review is `render.py --theme wire` (a board whose own CSS and linked sheets hold no `[data-theme="wire"]` rule prints
+`NO-THEME-RULE` and draws as the brand version; an id no file answers is refused), or a
+separate board; with neither, say so and review the brand version.
 
 ### Comments
 
@@ -248,7 +264,7 @@ One artifact per screen, two reviews. A `wire` token theme renders the same sour
   theme switch, so the Designer shows the wire version by a local render with `data-theme="wire"` or by a separate board
   (§ PNGs and the wire review); the approval is recorded against the brand version that is taken in.
 - **Gate 2, visual:** the human looks at the brand render on the canvas and approves it. The contrast and 44 px target audits are tools (§ What
-  this version has): while they are absent, say so and give no figures.
+  this version has): run `contrast-audit.py` and quote what it prints.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
 being the commit that took in the approved version. A row whose artboard, a file it loads or a token it uses differs from its

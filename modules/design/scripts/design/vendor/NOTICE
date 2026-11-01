@@ -1,0 +1,13 @@
+Third-party code and data in this directory (Apache License 2.0, text in LICENSE). Elsewhere the kit is MIT (its mechanism) and CC0-1.0 (its content).
+
+1. material-color-utilities/ — @material/material-color-utilities 0.4.0, Copyright 2021 Google LLC.
+   https://github.com/material-foundation/material-color-utilities
+   The upstream package ships no NOTICE file. Changes made here (Apache-2.0 section 4(b)):
+   - only the compiled .js files are kept (no .d.ts, no source maps, no tests); the `//# sourceMappingURL` lines are removed;
+   - every relative import that lacked the `.js` extension has it added, so the files load as plain Node ES modules
+     (ten files: the upstream 0.4.0 files import extensionless paths);
+   - package.json is ours: {"type": "module"}.
+   Each file keeps its upstream licence header.
+
+2. m3-static.json — the non-colour values (type scale, shape corners, elevation levels, weights, state layers) read from the token files
+   of material-components/material-web, tokens/versions/v0_192, Copyright 2023 Google LLC. Changed: extracted into one JSON file.

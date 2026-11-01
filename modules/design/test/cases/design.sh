@@ -330,16 +330,15 @@ case_no_design_text_tells_a_role_to_render_the_pinned_side_while_the_renderer_is
   local L="while module.manifest places no render.py, no shipped design text tells a role to render the pinned side, and the QA guide names the committed PNG read with git show and forbids a PASS without an image"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   local m="$REAL_REPO_ROOT/modules/design" f hits qa
-  if _dm_manifest_places "$m/module.manifest" file '^scripts/design/render[.]py$'; then
-    skp "$L" "modules/design/module.manifest places render.py, so the text is the renderer's lane's own"; return
-  fi
-  while IFS= read -r f; do
-    [ -f "$f" ] || continue
-    hits="$(grep -niE 'git archive|render(s)? the pinned|QA renders|render the build' "$f" || true)"
-    [ -z "$hits" ] || cf "(a) ${f#$REAL_REPO_ROOT/} tells a role to render while render.py is absent: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-160)"
-  done <<DM_FILES_EOF
+  if ! _dm_manifest_places "$m/module.manifest" file '^scripts/design/render[.]py$'; then   # once render.py is placed the text is the renderer's own; the QA guide's rules below stay
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      hits="$(grep -niE 'git archive|render(s)? the pinned|QA renders|render the build' "$f" || true)"
+      [ -z "$hits" ] || cf "(a) ${f#$REAL_REPO_ROOT/} tells a role to render while render.py is absent: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-160)"
+    done <<DM_FILES_EOF
 $(find "$m" -type f -not -path "$m/test/*")
 DM_FILES_EOF
+  fi
   qa="$m/_claude/templates/design/QA-verdict-design.fragment.md"
   [ -f "$qa" ] || { cf "(prereq) the QA guide is absent"; finish "$L"; return; }
   grep -F 'git show <pin>:requirements/design/' "$qa" >/dev/null || cf "(b) the QA guide does not name the committed PNG read with git show <pin>:requirements/design/…"
@@ -1719,6 +1718,892 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_land "a slice of one UI AC, its row and images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-j" ./scripts/subtask.sh move "$oid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-854/qa_complete/$oid-oneac.md"; } || cf "(j) a slice of one (UI) AC with its design row does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE TOKEN TOOLS WRITE WHAT THE DESIGN TYPE READS, AND THE AUDIT MEASURES IT. FIXTURES ARE A REAL PULL.
+#   Operand: scripts/design/m3-tokens.mjs, dtcg-convert.py and contrast-audit.py, run from the module's source. The expected files are the
+#   design system and the board a live Claude Design canvas held (the pulled tokens.json, the first block of its tokens.css, a board
+#   with a 48 px button and a link), not what the tools would write.
+# =============================================================================
+_dm_node() { command -v node >/dev/null 2>&1 && node -e 'process.exit(parseInt(process.versions.node) >= 22 ? 0 : 1)' >/dev/null 2>&1; }
+case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it() {
+  cf_reset
+  local L="m3-tokens.mjs writes the same bytes for the same seed, role names with no prefix, a greyscale wire file and the seed as primary-container, and its output passes the contrast audit in every theme (with --pin-primary a light seed warns and fails it); dtcg-convert.py turns the pulled steep tokens into the pulled design system's tokens.json sections and the first block of its tokens.css, in the type's theme shape; contrast-audit.py reads a pulled board's buttons and a link and flags one set below 44 px"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_node || { skp "$L" "Node 22 or later is absent: m3-tokens.mjs needs it (the module's manifest says optional)"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/tk" i out
+  mkdir -p "$d"
+  node "$m/m3-tokens.mjs" '#2F6FEB' --name app --out "$d/a/requirements/design/tokens" >/dev/null 2>&1 || cf "(a) m3-tokens.mjs did not run on a seed"
+  node "$m/m3-tokens.mjs" '#2F6FEB' --name app --out "$d/b" >/dev/null 2>&1
+  for i in app.tokens.json app.dark.tokens.json app.wire.tokens.json; do
+    cmp -s "$d/a/requirements/design/tokens/$i" "$d/b/$i" || cf "(a) the same seed does not give the same bytes in $i"
+  done
+  cat > "$d/check-m3.py" <<'PYEOF'
+import json, sys
+t = sys.argv[1] + '/'
+base, wire = json.load(open(t + 'app.tokens.json')), json.load(open(t + 'app.wire.tokens.json'))
+c = base['color']
+assert c['primary-container']['$value'] == '#2f6feb', c['primary-container']
+assert 'primary' in c and not any(k.startswith(('m3', 'md')) for k in c), 'prefixed names'
+grey = [v['$value'] for k, v in wire['color'].items() if not k.startswith('$')]
+assert grey and all(h[1:3] == h[3:5] == h[5:7] for h in grey), 'wire is not greyscale'
+PYEOF
+  _dm_py "$d/check-m3.py" "$d/a/requirements/design/tokens"
+  [ "$_dm_rc" -eq 0 ] || cf "(b) the generated files are not role-named, seed-faithful and greyscale in wire: $(printf '%s' "$_dm_out" | tr '\n' '|' | tail -c 200)"
+  _dm_py "$m/contrast-audit.py" "$d/a" --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "pair(s) measured, 0 below"; } || cf "(c) the fidelity default does not pass the contrast audit (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  out="$(node "$m/m3-tokens.mjs" '#F59E0B' --name app --out "$d/p/requirements/design/tokens" --pin-primary 2>&1)"
+  _dm_has "$out" "warning" || cf "(d) --pin-primary does not warn"
+  _dm_py "$m/contrast-audit.py" "$d/p" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LOW light: color-on-primary"; } || cf "(d) a light seed pinned as primary does not fail the audit (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # the pulled design system: the steep tokens as the Designer would write them, and what the canvas's system held
+  mkdir -p "$d/s/tokens" "$d/s/out"
+  cat > "$d/s/tokens/steep.tokens.json" <<'EOF'
+{"color":{"surface":{"$value":"#FAF8F3","$description":"Screen background."},"surface-raised":{"$value":"#FFFFFF","$description":"Rows and cards on color-surface."},"on-surface":{"$value":"#1F2421","$description":"Text on color-surface and color-surface-raised."},"muted":{"$value":"#4A5553","$description":"Secondary text on color-surface and color-surface-raised."},"primary":{"$value":"#22577A","$description":"The primary action."},"on-primary":{"$value":"#FFFFFF","$description":"Text on color-primary."}},
+"space-2":{"$value":"8px","$description":"Tight gaps."},"space-4":{"$value":"16px","$description":"Screen side margin and row padding."},"space-6":{"$value":"24px","$description":"Screen top margin."},
+"radius-md":{"$value":"12px","$description":"Rows and cards."},"radius-full":{"$value":"24px","$description":"Buttons."}}
+EOF
+  printf '%s\n' '{"color":{"surface":{"$value":"#141816"},"surface-raised":{"$value":"#1F2421"},"on-surface":{"$value":"#F0EEE8"},"muted":{"$value":"#B8C2BF"},"primary":{"$value":"#8FC4E8"},"on-primary":{"$value":"#0B2433"}}}' > "$d/s/tokens/steep.dark.tokens.json"
+  printf '%s\n' '{"color":{"surface":{"$value":"#F9F9F9"},"surface-raised":{"$value":"#FFFFFF"},"on-surface":{"$value":"#1C1C1C"},"muted":{"$value":"#464646"},"primary":{"$value":"#555555"},"on-primary":{"$value":"#FFFFFF"}}}' > "$d/s/tokens/steep.wire.tokens.json"
+  cat > "$d/pulled-tokens.json" <<'EOF'
+{"name":"KIT-TEST — Steep tokens","version":1,
+"color":{"themes":[{"id":"light","name":"Light"},{"id":"dark","name":"Dark"},{"id":"wire","name":"Wire"}],
+"tokens":[
+{"name":"color-surface","value":{"light":"#FAF8F3","dark":"#141816","wire":"#F9F9F9"},"usage":"Screen background."},
+{"name":"color-surface-raised","value":{"light":"#FFFFFF","dark":"#1F2421","wire":"#FFFFFF"},"usage":"Rows and cards on color-surface."},
+{"name":"color-on-surface","value":{"light":"#1F2421","dark":"#F0EEE8","wire":"#1C1C1C"},"usage":"Text on color-surface and color-surface-raised."},
+{"name":"color-muted","value":{"light":"#4A5553","dark":"#B8C2BF","wire":"#464646"},"usage":"Secondary text on color-surface and color-surface-raised."},
+{"name":"color-primary","value":{"light":"#22577A","dark":"#8FC4E8","wire":"#555555"},"usage":"The primary action."},
+{"name":"color-on-primary","value":{"light":"#FFFFFF","dark":"#0B2433","wire":"#FFFFFF"},"usage":"Text on color-primary."}
+]},
+"type":{"fonts":[],"families":{"sans":"system-ui, sans-serif"},
+"groups":[{"name":"Text","family":"sans","styles":[
+{"name":"title","fontSize":"24px","lineHeight":"32px","fontWeight":600},
+{"name":"body","fontSize":"16px","lineHeight":"24px","fontWeight":400},
+{"name":"caption","fontSize":"14px","lineHeight":"20px","fontWeight":400}]}]},
+"spacing":{"tokens":[{"name":"space-2","value":"8px","usage":"Tight gaps."},{"name":"space-4","value":"16px","usage":"Screen side margin and row padding."},{"name":"space-6","value":"24px","usage":"Screen top margin."}]},
+"radius":{"tokens":[{"name":"radius-md","value":"12px","usage":"Rows and cards."},{"name":"radius-full","value":"24px","usage":"Buttons."}]}}
+EOF
+  _dm_py "$m/dtcg-convert.py" "$d/s/tokens" --out "$d/s/out" --title "KIT-TEST — Steep tokens"
+  [ "$_dm_rc" -eq 0 ] || cf "(e) dtcg-convert.py failed on the steep tokens: $(printf '%s' "$_dm_out" | tr '\n' '|' | tail -c 200)"
+  cat > "$d/cmp-ds.py" <<'PYEOF'
+import json, sys
+a, b = json.load(open(sys.argv[1])), json.load(open(sys.argv[2]))
+for k in ('color', 'spacing', 'radius'):
+    assert a[k] == b[k], k
+PYEOF
+  _dm_py "$d/cmp-ds.py" "$d/s/out/tokens.json" "$d/pulled-tokens.json"
+  [ "$_dm_rc" -eq 0 ] || cf "(e) the converted tokens.json differs from the one the canvas's design system held: $(printf '%s' "$_dm_out" | tr '\n' '|' | tail -c 200)"
+  cat > "$d/pulled-block.css" <<'EOF'
+:root, [data-theme="light"] {
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+EOF
+  [ "$(sed -n 3,10p "$d/s/out/tokens.css")" = "$(cat "$d/pulled-block.css")" ] || cf "(e) the first block of tokens.css is not the pulled one: $(sed -n 3,10p "$d/s/out/tokens.css" | tr '\n' '|')"
+  { grep -F '[data-theme="dark"] {' "$d/s/out/tokens.css" >/dev/null && grep -F '[data-theme="wire"] {' "$d/s/out/tokens.css" >/dev/null; } || cf "(e) the other themes are not [data-theme=\"<id>\"] blocks"
+  # the pulled board: a 48 px button and a link; the same board with the button at 32 px
+  mkdir -p "$d/s/requirements/design/steep/project"
+  cp -R "$d/s/tokens" "$d/s/requirements/design/tokens"
+  cat > "$d/s/requirements/design/steep/project/Timer.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="sheets/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" class="ux-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-002-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Sencha</h1>
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-idle" data-state="idle" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-remaining" style="margin: 0; font-size: 48px; line-height: 56px; font-weight: 300">2:00</p>
+<button id="ux-002-start" type="button" style="height: 48px; border: 0; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); font-size: 16px; font-weight: 500; font-family: inherit">Start</button>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-done" data-state="done" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-ready" style="margin: 0; font-size: 24px; line-height: 32px">Ready to pour</p>
+<a id="ux-002-back" href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 16px; font-weight: 500">Back to brews</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":["idle","done"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+return { isIdle: v === 'idle', isDone: v === 'done' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  _dm_py "$m/contrast-audit.py" "$d/s" --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "2 sized target(s) read, 0 below"; } || cf "(f) the pulled board and tokens do not audit clean with two targets read (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_edit "$d/s/requirements/design/steep/project/Timer.dc.html" 's/id="ux-002-start" type="button" style="height: 48px/id="ux-002-start" type="button" style="height: 32px/'
+  _dm_py "$m/contrast-audit.py" "$d/s" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "SMALL" && _dm_has "$_dm_out" "ux-002-start"; } || cf "(f) a button set to 32 px is not flagged SMALL, naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (h) every seed passes, the five that failed (Material red 600, teal 600, pink 500, two greys) and the extremes among them
+  for i in '#E53935' '#00897B' '#E91E63' '#808080' '#777777' '#FFFFFF' '#000000' '#FFEB3B'; do
+    rm -rf "$d/m"; node "$m/m3-tokens.mjs" "$i" --name app --out "$d/m/requirements/design/tokens" >/dev/null 2>&1
+    _dm_py "$m/contrast-audit.py" "$d/m" --strict
+    [ "$_dm_rc" -eq 0 ] || cf "(h) the fidelity default for seed $i does not pass the contrast audit (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  done
+  # (i) the audit reads what the converter reads (DTCG colour objects), and does not pass what it did not read
+  rm -rf "$d/o"; mkdir -p "$d/o/requirements/design/tokens"
+  printf '%s\n' '{"color":{"surface":{"$value":{"colorSpace":"srgb","components":[1,1,1],"hex":"#ffffff"}},"on-surface":{"$value":{"colorSpace":"srgb","components":[0.93,0.93,0.93],"hex":"#eeeeee"}}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LOW light: color-on-surface"; } || cf "(i) a 1.13:1 pair written as DTCG colour objects is not measured and failed (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#fff"},"on-surface":{"$value":"#eee"},"primary":{"$value":"#336699"},"on-primary":{"$value":"#ffffff20"}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LOW light: color-on-surface #eeeeee on color-surface #ffffff" && _dm_has "$_dm_out" "UNREAD light: color-on-primary"; } || cf "(i) #eee on #fff is not measured, or an alpha colour passes as read (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' '{"color":{"primary":{"$value":"#336699"}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NONE"; } || cf "(i) a run that measured no pair passes --strict (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  # (j) the generator's own spacing group reaches the converter's output
+  mkdir -p "$d/g/out"
+  _dm_py "$m/dtcg-convert.py" "$d/a/requirements/design/tokens" --out "$d/g/out"
+  { [ "$_dm_rc" -eq 0 ] && grep -F -- '--spacing-space-16: 16px;' "$d/g/out/tokens.css" >/dev/null && ! _dm_has "$_dm_out" "spacing.space-"; } || cf "(j) the generator's spacing tokens are not in the converted tokens.css: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  for i in LICENSE NOTICE m3-static.json material-color-utilities/index.js; do
+    [ -f "$m/vendor/$i" ] || cf "(g) vendor/$i is not in the module"
+  done
+  { grep -F 'material-color-utilities' "$m/vendor/NOTICE" >/dev/null && grep -F 'Apache' "$m/vendor/LICENSE" >/dev/null; } || cf "(g) the NOTICE does not name the vendored package, or the LICENSE is not the Apache text"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — RENDER.PY GIVES CHROME THE THEME, THE FORCED COLOUR SCHEME AND THE SCALE, SERVES THE RUNTIME AS support.js, AND SAYS WHAT IS MISSING.
+#   Operand: scripts/design/render.py over a board and a canvas.json that a live canvas held, with a stand-in for Chrome that records its
+#   arguments and fetches the page's support.js (this harness has no Chrome, and the design runtime is not ours to ship).
+# =============================================================================
+case_render_py_gives_chrome_the_theme_the_scheme_and_the_scale_and_says_what_is_missing() {
+  cf_reset
+  local L="render.py without a runtime says RUNTIME-ABSENT and exits 3, without Chrome CHROME-ABSENT and exits 3; with both it renders each board at the size canvas.json gives it, forces the colour scheme (light by default, dark on request), passes --scale and ?theme=wire, and serves the runtime followed by its postlude as support.js"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/rn" args="$SB_TMP/rn-args" sup="$SB_TMP/rn-support" want
+  mkdir -p "$d/project" "$d/out"
+  cat > "$d/project/canvas.json" <<'EOF'
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"KIT-TEST — brief round trip","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"KIT-TEST: agent-authored from a brief. Safe to delete."}},"designSystems":[{"title":"KIT-TEST — Steep tokens","namespace":"steep","artifact":"https://claude.ai/artifact/LDn89nYLVgbsns1mw8JBPp","version":"1793507341-36ed","copiedAt":"2026-11-01T04:30:00Z"}]}
+EOF
+  cat > "$d/project/Timer.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="sheets/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" class="ux-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-002-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Sencha</h1>
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-idle" data-state="idle" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-remaining" style="margin: 0; font-size: 48px; line-height: 56px; font-weight: 300">2:00</p>
+<button id="ux-002-start" type="button" style="height: 48px; border: 0; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); font-size: 16px; font-weight: 500; font-family: inherit">Start</button>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-done" data-state="done" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-ready" style="margin: 0; font-size: 24px; line-height: 32px">Ready to pour</p>
+<a id="ux-002-back" href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 16px; font-weight: 500">Back to brews</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":["idle","done"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+return { isIdle: v === 'idle', isDone: v === 'done' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  printf '/* stand-in design runtime */\nwindow.__stand_in = 1;\n' > "$d/rt.js"
+  cat > "$d/chrome" <<EOF
+#!/bin/bash
+printf '%s\n' "\$@" >> '$args'
+shot=""; url=""
+for a in "\$@"; do case "\$a" in --screenshot=*) shot="\${a#--screenshot=}" ;; http://*) url="\$a" ;; esac; done
+python3 -c "import sys,urllib.request,urllib.parse as u; p=u.urlparse(sys.argv[1]); open(sys.argv[2],'wb').write(urllib.request.urlopen(p.scheme+'://'+p.netloc+'/support.js').read())" "\$url" '$sup'
+printf '\211PNG\r\n\032\n' > "\$shot"
+EOF
+  chmod +x "$d/chrome"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --chrome "$d/chrome"
+  { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "RUNTIME-ABSENT"; } || cf "(a) no runtime: not RUNTIME-ABSENT with exit 3 (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome-not-there"
+  if [ ! -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] && ! command -v google-chrome >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then
+    { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "CHROME-ABSENT"; } || cf "(b) no Chrome: not CHROME-ABSENT with exit 3 (exit $_dm_rc): $_dm_out"
+  fi
+  cat > "$d/project/themed.css" <<'EOF'
+[data-theme="wire"] { --color-primary: #555555; }
+EOF
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --theme wire --scale 2
+  { [ "$_dm_rc" -eq 0 ] && [ -f "$d/out/Timer.png" ]; } || cf "(c) the stand-in render failed (exit $_dm_rc): $_dm_out"
+  for want in '--blink-settings=preferredColorScheme=1' '--force-device-scale-factor=2' '--window-size=390,844'; do
+    grep -Fx -- "$want" "$args" >/dev/null || cf "(c) Chrome was not given $want: $(tr '\n' ' ' < "$args" | cut -c1-300)"
+  done
+  grep -F 'Timer.dc.html?theme=wire' "$args" >/dev/null || cf "(c) the page URL does not carry ?theme=wire"
+  { grep -F 'window.__stand_in = 1;' "$sup" >/dev/null && grep -F "setAttribute('data-theme'" "$sup" >/dev/null; } || cf "(c) support.js is not the runtime followed by the postlude"
+  [ ! -e "$d/project/support.js" ] || cf "(c) support.js was written into the project"
+  : > "$args"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --scheme dark
+  grep -Fx -- '--blink-settings=preferredColorScheme=0' "$args" >/dev/null || cf "(d) --scheme dark does not force the dark scheme (Blink: 0 is dark, 1 is light)"
+  # (e) a re-render that fails must not leave the last PNG to pass for it
+  printf 'old\n' > "$d/out/Timer.png"
+  printf '#!/bin/bash\nexit 1\n' > "$d/chrome-fails"; chmod +x "$d/chrome-fails"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome-fails"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "FAIL" && [ ! -e "$d/out/Timer.png" ]; } || cf "(e) a Chrome that fails over an old PNG reads OK or leaves the old PNG (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  # (f) a theme no file answers is refused; a board named that is not there is said; a Chrome that is not there is not replaced
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --theme no-such
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "UNKNOWN-THEME"; } || cf "(f) an unknown theme id is not refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --theme wire
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "NO-THEME-RULE"; } || cf "(f) a board that no sheet answers --theme wire for is not said to draw as the brand version (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Nope.dc.html
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "NO-SUCH-BOARD"; } || cf "(f) --only a board that is not there renders nothing in silence (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/no-such-chrome"
+  { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "CHROME-ABSENT"; } || cf "(f) a --chrome that does not exist is replaced by another Chrome (exit $_dm_rc): $_dm_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — RENDER.PY DRAWS THE PULLED BOARDS IN REAL CHROME: THE SCHEME THE RIGHT WAY ROUND, A THEME WHERE A SHEET ANSWERS IT, AND A SAY WHERE NONE DOES.
+#   Operand: scripts/design/render.py with the Chrome on this machine and a saved copy of the design runtime (the module cannot ship one;
+#   $KIT_TEST_DC_RUNTIME, else the maintainer's .design-research copy), over a board and sheet that a live canvas held whose sheet follows
+#   prefers-color-scheme, and over the three boards of another, whose first sheet has [data-theme] blocks and whose others have none.
+#   Skipped by name where there is no Chrome or no runtime. The stand-in Chrome of the case above cannot see a flag the wrong way round.
+# =============================================================================
+case_render_py_draws_the_pulled_boards_in_real_chrome_with_the_scheme_and_the_theme_that_were_asked_for() {
+  cf_reset
+  local L="render.py in real Chrome draws the pulled plant board with its ground #f7fbf0 by default and #10150f with --scheme dark, draws the pulled settings board wire (#f9f9f9) under --theme wire, says NO-THEME-RULE for the boards no sheet answers (they stay #faf8f3), and refuses an unknown theme"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local c rt="${KIT_TEST_DC_RUNTIME:-$HOME/code_projects/product-dev_project_kit/.design-research/type-runtime/artifact-type/dc-runtime.js}" chrome=""
+  for c in google-chrome chromium chromium-browser chrome; do command -v "$c" >/dev/null 2>&1 && { chrome="$(command -v "$c")"; break; }; done
+  [ -n "$chrome" ] || { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] && chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; }
+  [ -n "$chrome" ] || { skp "$L" "no Chrome or Chromium on this machine"; return; }
+  [ -f "$rt" ] || { skp "$L" "no saved design runtime (set KIT_TEST_DC_RUNTIME to a dc-runtime.js)"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/rc" b
+  mkdir -p "$d/plant/ds/plant" "$d/steep/sheets" "$d/steep/ds/steep" "$d/o1" "$d/o2" "$d/o3" "$d/o4"
+  cat > "$d/pngpix.py" <<'PYEOF'
+import sys, zlib, struct
+
+
+def pix(path, x, y):
+    d = open(path, 'rb').read()
+    assert d[:8] == b'\x89PNG\r\n\x1a\n'
+    pos, idat, w = 8, b'', 0
+    bpp = 4
+    while pos < len(d):
+        n, t = struct.unpack('>I4s', d[pos:pos + 8])
+        body = d[pos + 8:pos + 8 + n]
+        if t == b'IHDR':
+            w, h, depth, ctype = struct.unpack('>IIBB', body[:10])
+            bpp = {2: 3, 6: 4}[ctype]
+        elif t == b'IDAT':
+            idat += body
+        pos += 12 + n
+    raw = zlib.decompress(idat)
+    stride = w * bpp
+    prev = bytearray(stride)
+    for row in range(y + 1):
+        f = raw[row * (stride + 1)]
+        cur = bytearray(raw[row * (stride + 1) + 1:(row + 1) * (stride + 1)])
+        for i in range(stride):
+            a = cur[i - bpp] if i >= bpp else 0
+            b = prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            if f == 1:
+                cur[i] = (cur[i] + a) & 255
+            elif f == 2:
+                cur[i] = (cur[i] + b) & 255
+            elif f == 3:
+                cur[i] = (cur[i] + (a + b) // 2) & 255
+            elif f == 4:
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                pr = a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+                cur[i] = (cur[i] + pr) & 255
+        prev = cur
+    return '#%02x%02x%02x' % tuple(prev[x * bpp:x * bpp + 3])
+
+
+if __name__ == '__main__':
+    print(pix(sys.argv[1], int(sys.argv[2]), int(sys.argv[3])))
+PYEOF
+  cat > "$d/plant/Plant.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plant watering</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/plant/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" style="width: 390px; height: 844px; box-sizing: border-box; padding: var(--plant-space-24) var(--plant-space-16); display: flex; flex-direction: column; gap: var(--plant-space-16); background: var(--plant-surface); color: var(--plant-on-surface); font-family: var(--plant-font-plain)">
+<h1 id="ux-002-name" style="margin: 0; font-size: var(--plant-type-headline-small-size); line-height: var(--plant-type-headline-small-line-height); font-weight: var(--plant-type-headline-small-weight)">Boston fern</h1>
+<sc-if value="{{isDue}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-due" data-state="due" style="display: flex; flex-direction: column; gap: var(--plant-space-16)">
+<p id="ux-002-status" style="margin: 0; font-size: var(--plant-type-body-large-size); color: var(--plant-on-surface-variant)">2 days overdue</p>
+<button id="ux-002-mark" type="button" style="height: var(--plant-space-48); border: 0; border-radius: var(--plant-corner-full); background: var(--plant-primary); color: var(--plant-on-primary); font-size: var(--plant-type-label-large-size); font-weight: var(--plant-type-label-large-weight); font-family: inherit">Mark watered</button>
+</div>
+</sc-if>
+<sc-if value="{{isWatered}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-watered" data-state="watered" style="display: flex; flex-direction: column; gap: var(--plant-space-16); opacity: 0.6">
+<p id="ux-002-done" style="margin: 0; padding: var(--plant-space-16); border-radius: var(--plant-corner-large); background: var(--plant-secondary-container); color: var(--plant-on-secondary-container); font-size: var(--plant-type-title-medium-size)">Watered</p>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"due","options":["due","watered"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'due';
+return { isDue: v === 'due', isWatered: v === 'watered' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/plant/ds/plant/tokens.css" <<'EOF'
+/* Plant — generated from tokens.json */
+
+:root {
+  color-scheme: light;
+  --plant-background: #f7fbf0;
+  --plant-on-background: #181d17;
+  --plant-surface: #f7fbf0;
+  --plant-surface-dim: #d7dbd2;
+  --plant-surface-bright: #f7fbf0;
+  --plant-surface-container-lowest: #ffffff;
+  --plant-surface-container-low: #f1f5eb;
+  --plant-surface-container: #ebefe5;
+  --plant-surface-container-high: #e5eadf;
+  --plant-surface-container-highest: #e0e4da;
+  --plant-on-surface: #181d17;
+  --plant-surface-variant: #dbe6d5;
+  --plant-on-surface-variant: #40493d;
+  --plant-outline: #707a6c;
+  --plant-outline-variant: #bfcaba;
+  --plant-inverse-surface: #2d322b;
+  --plant-inverse-on-surface: #eef2e8;
+  --plant-shadow: #000000;
+  --plant-scrim: #000000;
+  --plant-surface-tint: #1b6d24;
+  --plant-primary: #0d631b;
+  --plant-on-primary: #ffffff;
+  --plant-primary-container: #2e7d32;
+  --plant-on-primary-container: #cbffc2;
+  --plant-inverse-primary: #88d982;
+  --plant-primary-fixed: #a3f69c;
+  --plant-primary-fixed-dim: #88d982;
+  --plant-on-primary-fixed: #002204;
+  --plant-on-primary-fixed-variant: #005312;
+  --plant-secondary: #476644;
+  --plant-on-secondary: #ffffff;
+  --plant-secondary-container: #c6e9be;
+  --plant-on-secondary-container: #4c6a48;
+  --plant-secondary-fixed: #c9ecc1;
+  --plant-secondary-fixed-dim: #add0a6;
+  --plant-on-secondary-fixed: #052106;
+  --plant-on-secondary-fixed-variant: #304e2e;
+  --plant-tertiary: #923357;
+  --plant-on-tertiary: #ffffff;
+  --plant-tertiary-container: #b14b6f;
+  --plant-on-tertiary-container: #ffedf0;
+  --plant-tertiary-fixed: #ffd9e2;
+  --plant-tertiary-fixed-dim: #ffb1c7;
+  --plant-on-tertiary-fixed: #3f001c;
+  --plant-on-tertiary-fixed-variant: #7f2448;
+  --plant-error: #ba1a1a;
+  --plant-on-error: #ffffff;
+  --plant-error-container: #ffdad6;
+  --plant-on-error-container: #93000a;
+  --plant-space-0: 0px;
+  --plant-space-2: 2px;
+  --plant-space-4: 4px;
+  --plant-space-8: 8px;
+  --plant-space-12: 12px;
+  --plant-space-16: 16px;
+  --plant-space-20: 20px;
+  --plant-space-24: 24px;
+  --plant-space-32: 32px;
+  --plant-space-40: 40px;
+  --plant-space-48: 48px;
+  --plant-space-56: 56px;
+  --plant-space-64: 64px;
+  --plant-corner-extra-large: 28px;
+  --plant-corner-extra-small: 4px;
+  --plant-corner-full: 9999px;
+  --plant-corner-large: 16px;
+  --plant-corner-medium: 12px;
+  --plant-corner-none: 0px;
+  --plant-corner-small: 8px;
+  --plant-level0: 0px;
+  --plant-level1: 1px;
+  --plant-level2: 3px;
+  --plant-level3: 6px;
+  --plant-level4: 8px;
+  --plant-level5: 12px;
+  --plant-font-brand: Roboto, sans-serif;
+  --plant-font-plain: Roboto, sans-serif;
+  --plant-weight-regular: 400;
+  --plant-weight-medium: 500;
+  --plant-weight-bold: 700;
+  --plant-type-body-large-size: 16px;
+  --plant-type-body-large-line-height: 24px;
+  --plant-type-body-large-weight: 400;
+  --plant-type-body-large-letter-spacing: 0.5px;
+  --plant-type-body-medium-size: 14px;
+  --plant-type-body-medium-line-height: 20px;
+  --plant-type-body-medium-weight: 400;
+  --plant-type-body-medium-letter-spacing: 0.25px;
+  --plant-type-body-small-size: 12px;
+  --plant-type-body-small-line-height: 16px;
+  --plant-type-body-small-weight: 400;
+  --plant-type-body-small-letter-spacing: 0.4px;
+  --plant-type-display-large-size: 57px;
+  --plant-type-display-large-line-height: 64px;
+  --plant-type-display-large-weight: 400;
+  --plant-type-display-large-letter-spacing: -0.25px;
+  --plant-type-display-medium-size: 45px;
+  --plant-type-display-medium-line-height: 52px;
+  --plant-type-display-medium-weight: 400;
+  --plant-type-display-medium-letter-spacing: 0px;
+  --plant-type-display-small-size: 36px;
+  --plant-type-display-small-line-height: 44px;
+  --plant-type-display-small-weight: 400;
+  --plant-type-display-small-letter-spacing: 0px;
+  --plant-type-headline-large-size: 32px;
+  --plant-type-headline-large-line-height: 40px;
+  --plant-type-headline-large-weight: 400;
+  --plant-type-headline-large-letter-spacing: 0px;
+  --plant-type-headline-medium-size: 28px;
+  --plant-type-headline-medium-line-height: 36px;
+  --plant-type-headline-medium-weight: 400;
+  --plant-type-headline-medium-letter-spacing: 0px;
+  --plant-type-headline-small-size: 24px;
+  --plant-type-headline-small-line-height: 32px;
+  --plant-type-headline-small-weight: 400;
+  --plant-type-headline-small-letter-spacing: 0px;
+  --plant-type-label-large-size: 14px;
+  --plant-type-label-large-line-height: 20px;
+  --plant-type-label-large-weight: 500;
+  --plant-type-label-large-letter-spacing: 0.1px;
+  --plant-type-label-medium-size: 12px;
+  --plant-type-label-medium-line-height: 16px;
+  --plant-type-label-medium-weight: 500;
+  --plant-type-label-medium-letter-spacing: 0.5px;
+  --plant-type-label-small-size: 11px;
+  --plant-type-label-small-line-height: 16px;
+  --plant-type-label-small-weight: 500;
+  --plant-type-label-small-letter-spacing: 0.5px;
+  --plant-type-title-large-size: 22px;
+  --plant-type-title-large-line-height: 28px;
+  --plant-type-title-large-weight: 400;
+  --plant-type-title-large-letter-spacing: 0px;
+  --plant-type-title-medium-size: 16px;
+  --plant-type-title-medium-line-height: 24px;
+  --plant-type-title-medium-weight: 500;
+  --plant-type-title-medium-letter-spacing: 0.15px;
+  --plant-type-title-small-size: 14px;
+  --plant-type-title-small-line-height: 20px;
+  --plant-type-title-small-weight: 500;
+  --plant-type-title-small-letter-spacing: 0.1px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --plant-background: #10150f;
+  --plant-on-background: #e0e4da;
+  --plant-surface: #10150f;
+  --plant-surface-dim: #10150f;
+  --plant-surface-bright: #363b34;
+  --plant-surface-container-lowest: #0b0f0a;
+  --plant-surface-container-low: #181d17;
+  --plant-surface-container: #1c211b;
+  --plant-surface-container-high: #262b25;
+  --plant-surface-container-highest: #31362f;
+  --plant-on-surface: #e0e4da;
+  --plant-surface-variant: #40493d;
+  --plant-on-surface-variant: #bfcaba;
+  --plant-outline: #8a9485;
+  --plant-outline-variant: #40493d;
+  --plant-inverse-surface: #e0e4da;
+  --plant-inverse-on-surface: #2d322b;
+  --plant-surface-tint: #88d982;
+  --plant-primary: #88d982;
+  --plant-on-primary: #003909;
+  --plant-inverse-primary: #1b6d24;
+  --plant-secondary: #add0a6;
+  --plant-on-secondary: #1a3719;
+  --plant-secondary-container: #304e2e;
+  --plant-on-secondary-container: #9cbe95;
+  --plant-tertiary: #ffb1c7;
+  --plant-on-tertiary: #610931;
+  --plant-error: #ffb4ab;
+  --plant-on-error: #690005;
+  --plant-error-container: #93000a;
+  --plant-on-error-container: #ffdad6;
+}
+
+[data-theme="wire"] {
+  color-scheme: light;
+  --plant-background: #f9f9f9;
+  --plant-on-background: #1c1c1c;
+  --plant-surface: #f9f9f9;
+  --plant-surface-dim: #dadada;
+  --plant-surface-bright: #f9f9f9;
+  --plant-surface-container-low: #f3f3f3;
+  --plant-surface-container: #ededed;
+  --plant-surface-container-high: #e8e8e8;
+  --plant-surface-container-highest: #e2e2e2;
+  --plant-on-surface: #1c1c1c;
+  --plant-surface-variant: #e3e3e3;
+  --plant-on-surface-variant: #464646;
+  --plant-outline: #777777;
+  --plant-outline-variant: #c7c7c7;
+  --plant-inverse-surface: #313131;
+  --plant-inverse-on-surface: #f0f0f0;
+  --plant-surface-tint: #5e5e5e;
+  --plant-primary: #555555;
+  --plant-primary-container: #6e6e6e;
+  --plant-on-primary-container: #f1f1f1;
+  --plant-inverse-primary: #c6c6c6;
+  --plant-primary-fixed: #e2e2e2;
+  --plant-primary-fixed-dim: #c6c6c6;
+  --plant-on-primary-fixed: #1c1c1c;
+  --plant-on-primary-fixed-variant: #474747;
+  --plant-secondary: #5e5e5e;
+  --plant-secondary-container: #dfdfdf;
+  --plant-on-secondary-container: #626262;
+  --plant-secondary-fixed: #e2e2e2;
+  --plant-secondary-fixed-dim: #c6c6c6;
+  --plant-on-secondary-fixed: #1c1c1c;
+  --plant-on-secondary-fixed-variant: #474747;
+  --plant-tertiary: #555555;
+  --plant-tertiary-container: #6e6e6e;
+  --plant-on-tertiary-container: #f1f1f1;
+  --plant-tertiary-fixed: #e2e2e2;
+  --plant-tertiary-fixed-dim: #c7c7c7;
+  --plant-on-tertiary-fixed: #1c1c1c;
+  --plant-on-tertiary-fixed-variant: #474747;
+  --plant-error: #5e5e5e;
+  --plant-error-container: #e2e2e2;
+  --plant-on-error-container: #474747;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="wire"]) {
+    color-scheme: dark;
+    --plant-background: #10150f;
+    --plant-on-background: #e0e4da;
+    --plant-surface: #10150f;
+    --plant-surface-dim: #10150f;
+    --plant-surface-bright: #363b34;
+    --plant-surface-container-lowest: #0b0f0a;
+    --plant-surface-container-low: #181d17;
+    --plant-surface-container: #1c211b;
+    --plant-surface-container-high: #262b25;
+    --plant-surface-container-highest: #31362f;
+    --plant-on-surface: #e0e4da;
+    --plant-surface-variant: #40493d;
+    --plant-on-surface-variant: #bfcaba;
+    --plant-outline: #8a9485;
+    --plant-outline-variant: #40493d;
+    --plant-inverse-surface: #e0e4da;
+    --plant-inverse-on-surface: #2d322b;
+    --plant-surface-tint: #88d982;
+    --plant-primary: #88d982;
+    --plant-on-primary: #003909;
+    --plant-inverse-primary: #1b6d24;
+    --plant-secondary: #add0a6;
+    --plant-on-secondary: #1a3719;
+    --plant-secondary-container: #304e2e;
+    --plant-on-secondary-container: #9cbe95;
+    --plant-tertiary: #ffb1c7;
+    --plant-on-tertiary: #610931;
+    --plant-error: #ffb4ab;
+    --plant-on-error: #690005;
+    --plant-error-container: #93000a;
+    --plant-on-error-container: #ffdad6;
+  }
+}
+EOF
+  cat > "$d/plant/canvas.json" <<'EOF'
+{
+  "boards": {
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": false,
+      "title": "UX-001 Today (phone)",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Plant.dc.html": {
+      "h": 844,
+      "is_interactive": false,
+      "title": "UX-002 Plant (phone)",
+      "w": 390,
+      "x": 480,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-24T09:00:00Z",
+    "v": 1
+  },
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html",
+    "Plant.dc.html"
+  ],
+  "pages": [],
+  "title": "R2 — demo-2",
+  "v": 3
+}
+EOF
+  cat > "$d/steep/Main.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brews</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+:root{
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+</style>
+</helmet>
+<div id="ux-001-root" data-ux="UX-001" data-stories="PRD-001-F1-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-001-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Brews</h1>
+<sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+<div id="ux-001-list" data-state="list" style="display: flex; flex-direction: column; gap: 12px">
+<a id="ux-001-open-sencha" href="Timer.dc.html" style="display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 16px; border-radius: 12px; background: var(--color-surface-raised); color: var(--color-on-surface); text-decoration: none">
+<span id="ux-001-name-sencha" style="font-size: 16px; font-weight: 500">Sencha</span>
+<span id="ux-001-time-sencha" style="font-size: 14px; color: var(--color-muted)">2 min</span>
+</a>
+<div id="ux-001-preview" style="width: 156px; height: 338px; overflow: hidden; border-radius: 12px">
+<div style="width: 390px; height: 844px; transform: scale(0.4); transform-origin: top left">
+<dc-import name="Timer" view="idle" hint-size="390px,844px"></dc-import>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<div id="ux-001-empty" data-state="empty" style="padding: 24px; border-radius: 12px; background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">
+<p id="ux-001-empty-text" style="margin: 0">No brews yet</p>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"list","options":["list","empty"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'list';
+return { isList: v === 'list', isEmpty: v === 'empty' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/steep/Timer.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="sheets/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" class="ux-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-002-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Sencha</h1>
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-idle" data-state="idle" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-remaining" style="margin: 0; font-size: 48px; line-height: 56px; font-weight: 300">2:00</p>
+<button id="ux-002-start" type="button" style="height: 48px; border: 0; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); font-size: 16px; font-weight: 500; font-family: inherit">Start</button>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-done" data-state="done" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-ready" style="margin: 0; font-size: 24px; line-height: 32px">Ready to pour</p>
+<a id="ux-002-back" href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 16px; font-weight: 500">Back to brews</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":["idle","done"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+return { isIdle: v === 'idle', isDone: v === 'done' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/steep/Settings.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/steep/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F2-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: var(--space-6) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-surface); color: var(--color-on-surface); font-family: var(--font-sans)">
+<h1 id="ux-003-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Settings</h1>
+<div id="ux-003-sound" data-state="default" style="padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">Sound on finish</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/steep/sheets/tokens.css" <<'EOF'
+/* Steep tokens, for a screen that may be imported: a child's helmet takes no :root rule. */
+:root {
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+.ux-screen { letter-spacing: 0.1px; }
+EOF
+  cat > "$d/steep/ds/steep/tokens.css" <<'EOF'
+/* KIT-TEST — Steep tokens — generated from tokens.json */
+
+:root, [data-theme="light"] {
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+
+[data-theme="dark"] {
+  --color-surface: #141816;
+  --color-surface-raised: #1F2421;
+  --color-on-surface: #F0EEE8;
+  --color-muted: #B8C2BF;
+  --color-primary: #8FC4E8;
+  --color-on-primary: #0B2433;
+}
+
+[data-theme="wire"] {
+  --color-surface: #F9F9F9;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1C1C1C;
+  --color-muted: #464646;
+  --color-primary: #555555;
+  --color-on-primary: #FFFFFF;
+}
+
+:root {
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius-md: 12px;
+  --radius-full: 24px;
+  --font-sans: system-ui, sans-serif;
+}
+EOF
+  cat > "$d/steep/canvas.json" <<'EOF'
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"KIT-TEST — brief round trip","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"KIT-TEST: agent-authored from a brief. Safe to delete."}},"designSystems":[{"title":"KIT-TEST — Steep tokens","namespace":"steep","artifact":"https://claude.ai/artifact/LDn89nYLVgbsns1mw8JBPp","version":"1793507341-36ed","copiedAt":"2026-11-01T04:30:00Z"}]}
+EOF
+  pix() { python3 "$d/pngpix.py" "$1" 5 5; }
+  _dm_py "$m/render.py" "$d/plant" "$d/o1" --runtime "$rt" --only Plant.dc.html
+  { [ "$_dm_rc" -eq 0 ] && [ "$(pix "$d/o1/Plant.png")" = "#f7fbf0" ]; } || cf "(a) the default scheme does not draw the plant board's light ground #f7fbf0 (exit $_dm_rc, got $(pix "$d/o1/Plant.png" 2>/dev/null)): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/plant" "$d/o2" --runtime "$rt" --only Plant.dc.html --scheme dark
+  [ "$(pix "$d/o2/Plant.png" 2>/dev/null)" = "#10150f" ] || cf "(b) --scheme dark does not draw the plant board's dark ground #10150f (got $(pix "$d/o2/Plant.png" 2>/dev/null))"
+  _dm_py "$m/render.py" "$d/steep" "$d/o3" --runtime "$rt" --theme wire
+  [ "$_dm_rc" -eq 0 ] || cf "(c) --theme wire on the steep boards failed (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  [ "$(pix "$d/o3/Settings.png" 2>/dev/null)" = "#f9f9f9" ] || cf "(c) the settings board, which links the themed sheet, is not drawn wire (#f9f9f9): got $(pix "$d/o3/Settings.png" 2>/dev/null)"
+  for b in Main Timer; do
+    [ "$(pix "$d/o3/$b.png" 2>/dev/null)" = "#faf8f3" ] || cf "(c) the $b board, which no sheet answers wire for, is not the brand ground #faf8f3: got $(pix "$d/o3/$b.png" 2>/dev/null)"
+    printf '%s\n' "$_dm_out" | grep "$b.dc.html" | grep NO-THEME-RULE >/dev/null || cf "(c) $b.dc.html is not said to draw as the brand version"
+  done
+  _dm_py "$m/render.py" "$d/steep" "$d/o4" --runtime "$rt" --theme no-such
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "UNKNOWN-THEME"; } || cf "(d) an unknown theme id is not refused (exit $_dm_rc): $_dm_out"
   finish "$L"
   teardown
 }

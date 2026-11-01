@@ -7,7 +7,7 @@ directory is the *record* and the authority. The human looks, approves and may c
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this.** Each capability that section lists as needing the next
-version of the kit (the packaged pull and publish skills, the token generator, the renderer, the audits) is not
+version of the kit (the packaged pull and publish skills) is not
 installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
 every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
@@ -122,7 +122,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 ## 6. Fidelity: one artifact, two gates
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
-screen is not allowed outside a token's value**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
+screen is not allowed outside a token's value**. Tokens are written by hand in the DTCG files, or generated from a seed colour (`scripts/design/m3-tokens.mjs`), and a screen
 (or a stylesheet under `project/` that every screen links, which is how an imported screen reads them, since its own style is limited to font links,
 `@font-face` and `body{margin:0}`) declares one custom property per token it uses, holding the token's value. The property is named for the
 token's path with hyphens for dots, **with no prefix** (`color.primary` is `--color-primary`): that is how the design tool compiles a design system's
@@ -146,11 +146,11 @@ row (its title cell), the same marker and the same register as a card's waiver o
 
 - **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The canvas's page has
   no theme switch (its colour picker's Theme | Custom switch chooses a token for an element), so the wire version is a local
-  render with `data-theme="wire"` on `<html>`, which needs the design runtime (a gap the role states), or a separate board. The
+  render (`render.py --theme wire`), which needs the design runtime (a gap the role states), or a separate board. The
   platform has no `.dark` selector, and `?theme=dark` changes no token: themes are `data-theme` blocks. The approval is recorded
   against the brand version that is taken in.
-- **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit. The human approves the render on the
-  canvas; the audits are tools, and while they are not installed no figure is given for them.
+- **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit (`scripts/design/contrast-audit.py`). The human
+  approves the render on the canvas; the audits are tools, and their figures are quoted as printed.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
   the Designer's deliverable per state.
 

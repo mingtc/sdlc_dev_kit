@@ -5,6 +5,26 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.4.0]
+
+### Added
+
+- **The renderer.** `scripts/design/render.py <project/> <out/> --runtime <dc-runtime.js> [--theme wire] [--scheme light|dark] [--scale 2]`
+  draws a canvas's boards with Chrome on this machine, the colour scheme forced (light unless asked; Chrome's setting is applied the right way round) and `data-theme` set, so a wire
+  review is `--theme wire`. **It needs the design runtime, which the module does not ship**; a copy comes from a person or from a
+  session that has the built-in Artifact tool (the claude-artifacts server serves the file's text but writes nothing to disk; that a downloaded
+  canvas carries it is untested). Without one it says
+  `RUNTIME-ABSENT` and exits 3; without Chrome, `CHROME-ABSENT`.
+- **The audits.** `scripts/design/contrast-audit.py` measures every `on-X` on `X` pair and the text on the surfaces in each theme (WCAG
+  4.5:1) and flags a button, link or input styled below 44 px; a report, `--strict` makes a failure the exit status.
+- **The token tools.** `scripts/design/m3-tokens.mjs <seed> --name <ns> --out requirements/design/tokens` (Node 22 or later, optional)
+  writes Material 3 colour roles, shape, spacing and elevation from one seed as `<ns>.tokens.json`, `.dark` and `.wire` (greyscale);
+  the seed's hue and chroma are kept, the same seed gives the same bytes, and the output passes the contrast audit. It uses a vendored,
+  patched copy of `material-color-utilities` (Apache-2.0; `scripts/design/vendor/NOTICE`). `scripts/design/dtcg-convert.py` writes a
+  design system's `tokens.json` and `tokens.css` from the token files, unprefixed, in the shape the design type's compiler writes.
+- The Designer role drops its three needs-the-next-version lines for these; the packaged `/design-pull` and `/design-publish` skills stay
+  on it. No action: nothing runs until the Designer or a person runs it.
+
 ## [0.3.0]
 
 ### Action required
