@@ -152,8 +152,10 @@ downloaded or exported canvas carries the runtime is untested. A copy that is cu
 board is a `FAIL` (`RUNTIME-DID-NOT-RUN`) unless the page reports the runtime's hooks. Without a runtime `render.py` says `RUNTIME-ABSENT` and exits 3: the PNG is then a person's.
 Without Chrome it says `CHROME-ABSENT`. The page has no theme switch (the picker's **Theme | Custom** switch chooses a token for an
 element; a panel Theme tab sits behind a flag that is off by default), so a Gate 1 wire review is `render.py --theme wire` (a board whose own CSS and linked sheets hold no `[data-theme="wire"]` rule prints
-`NO-THEME-RULE` and draws as the brand version; a board's own `:root` of properties keeps its values over a sheet's, and the line says so; an id no file answers is refused). Read an `OK` line before citing the PNG: `NOTE-404` names a sheet or screen the project does not hold, and `NOTE-LOGIC` what the runtime logged when a board's logic failed (the board then draws the runtime's red label), or a
-separate board; with neither, say so and review the brand version.
+`NO-THEME-RULE` and draws as the brand version; a board's own `:root` of properties keeps its values over a sheet's, and the line says so; an id no file answers is refused), or a
+separate board; with neither, say so and review the brand version. Read an `OK` line before citing a PNG: `NOTE-404` names a sheet or
+screen the project does not hold, and `NOTE-LOGIC` says the page called `console.error`, which is how the runtime reports a board
+whose logic failed (the board then draws a red label).
 
 ### Comments
 

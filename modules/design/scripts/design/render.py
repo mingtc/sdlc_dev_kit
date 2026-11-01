@@ -36,7 +36,7 @@ The project is COPIED to a temp dir, support.js is written there (never into PRO
 board is screenshotted at its size, and the temp dir is removed. Network is needed only for web fonts; offline the text falls back to
 the system font (a font host that never answers holds Chrome until --timeout, and the board is a FAIL). Python 3 standard library only.
 An OK line can carry notes, each from what the page did: `NOTE-404` (a file the page asked for is not in the project: a sheet or a
-screen the board links, say), `NOTE-LOGIC` (the runtime logged an error: a board whose logic throws draws a red label and is still OK; the picture says it, so does this), `NO-THEME-RULE`, and a board's own `:root` that keeps its values over a theme sheet.
+screen the board links, say), `NOTE-LOGIC` (the page called console.error, which is how the runtime reports a board whose logic throws; that board draws a red label and is still OK, the picture says it and so does this; the runtime's warnings and info lines are not reported), `NO-THEME-RULE`, and a board's own `:root` that keeps its values over a theme sheet.
 """
 import argparse, functools, http.server, json, os, re, shutil, subprocess, sys, tempfile, threading, urllib.parse
 
@@ -48,6 +48,8 @@ POSTLUDE = r"""
   var q=new URLSearchParams(location.search), t=q.get('theme');
   if(t) document.documentElement.setAttribute('data-theme',t);
   (function chk(n){ if(typeof window.__dcSetProps==='function'&&typeof window.__dcRootName==='function'){ new Image().src='/__kit-runtime-ran?b='+encodeURIComponent(decodeURIComponent(location.pathname).replace(/^\//,'')); } else if(n<50){ setTimeout(function(){chk(n+1)},100); } })(0);
+  var oe=console.error;      // only what the page sends to console.error is a logic failure; warnings and info lines are the runtime talking
+  console.error=function(){ try{ new Image().src='/__kit-runtime-error?m='+encodeURIComponent(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0,300)); }catch(e){} return oe.apply(console,arguments); };
   var p=q.get('dcprops'); if(!p) return;
   var o=JSON.parse(p);
   function go(){ if(window.__dcSetProps&&window.__dcRootName){ window.__dcSetProps(window.__dcRootName(), o); } }
@@ -169,7 +171,7 @@ def main(argv):
             print('UNKNOWN-THEME: no file of %s holds a [data-theme="%s"] rule. Nothing was rendered.' % (a.project, a.theme), file=sys.stderr)
             return 2
 
-        ran, missing = set(), []
+        ran, missing, errs = set(), [], []
 
         class Q(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *x):
@@ -181,6 +183,11 @@ def main(argv):
                 super().send_error(code, *args, **kw)
 
             def do_GET(self):
+                if self.path.startswith('/__kit-runtime-error'):
+                    errs.append(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('m', [''])[0])
+                    self.send_response(204)
+                    self.end_headers()
+                    return
                 if self.path.startswith('/__kit-runtime-ran'):
                     ran.add(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('b', [''])[0])
                     self.send_response(204)
@@ -204,10 +211,10 @@ def main(argv):
             cmd = [chrome, '--headless=new', '--disable-gpu', '--hide-scrollbars', '--user-data-dir=' + os.path.join(tmp, 'profile'),
                    '--blink-settings=preferredColorScheme=%d' % (0 if a.scheme == 'dark' else 1),
                    '--force-device-scale-factor=%g' % a.scale, '--virtual-time-budget=%d' % a.wait,
-                   '--enable-logging=stderr', '--v=0', '--screenshot=' + out, '--window-size=%d,%d' % (w, h), url]
+                   '--screenshot=' + out, '--window-size=%d,%d' % (w, h), url]
             if os.path.exists(out):
                 os.remove(out)      # a failed run must not leave the last render to pass for this one
-            del missing[:]
+            del missing[:], errs[:]
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout)
                 ok = r.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0
@@ -219,10 +226,9 @@ def main(argv):
             note = ''
             if ok and missing:
                 note += ' NOTE-404: the page asked for %s, which the project does not hold' % ', '.join(sorted(set(missing))[:4])
-            logged = [m.group(1) for m in (re.search(r'CONSOLE:\d+\]\s*"(.*)", source: \S*/support\.js', ln) for ln in r.stderr.splitlines()) if m] if ok else []
-            logged = [m for m in logged if 'returned 404' not in m]       # a missing file is said by NOTE-404
+            logged = [m for m in errs if 'returned 404' not in m] if ok else []       # a missing file is said by NOTE-404
             if logged:
-                note += ' NOTE-LOGIC: the runtime logged: %s' % logged[0][:160]
+                note += ' NOTE-LOGIC: the page sent %d message(s) to console.error, the first: %s' % (len(logged), logged[0][:160])
             if ok and a.theme and not theme_rule(root, n, a.theme):
                 note += ' NO-THEME-RULE: this board and its linked sheets hold no [data-theme="%s"] rule, so it is drawn as the brand version' % a.theme
             elif ok and a.theme and re.search(r':root\s*\{[^}]*--[\w-]+\s*:', open(os.path.join(root, n), encoding='utf-8', errors='replace').read()):

@@ -2019,8 +2019,10 @@ if 'Gone' in p.path:                                                  # a page t
         urllib.request.urlopen(base + '/gone.css')
     except Exception:
         pass
-if 'Logs' in p.path:                                                  # the runtime's own console line when a board's logic throws
-    sys.stderr.write('[1:2:1101/000000.000000:INFO:CONSOLE:350] "Error: boom", source: %s/support.js (350)\n' % base)
+if 'Logs' in p.path:                                                  # a board whose logic throws: the runtime calls console.error, the postlude's wrapper sends it
+    urllib.request.urlopen(base + '/__kit-runtime-error?m=' + u.quote('Error: boom'))
+if 'Quiet' in p.path:                                                 # a healthy board: the runtime's warning is a console line that Chrome logs, never a console.error call
+    sys.stderr.write('[1:2:1101/000000.000000:INFO:CONSOLE:350] "[dc-runtime] Dashboard: {{ row.name }} never resolved \u2014 rendered as empty", source: %s/support.js (350)\n' % base)
 PYEOF
   cat > "$d/chrome" <<EOF
 #!/bin/bash
@@ -2110,11 +2112,13 @@ EOF
   CHROME="$d/no-such-chrome-env" _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js"
   { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "CHROME-ABSENT" && _dm_has "$_dm_out" '$CHROME'; } || cf "(l) a \$CHROME that is not there is replaced by another Chrome (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   # (m) an OK line carries what the page did: a file it asked for that the project lacks, and what the runtime logged
-  rm -rf "$d/p5"; cp -R "$d/project" "$d/p5"; cp "$d/p5/Timer.dc.html" "$d/p5/Gone.dc.html"; cp "$d/p5/Timer.dc.html" "$d/p5/Logs.dc.html"
+  rm -rf "$d/p5"; cp -R "$d/project" "$d/p5"; cp "$d/p5/Timer.dc.html" "$d/p5/Gone.dc.html"; cp "$d/p5/Timer.dc.html" "$d/p5/Logs.dc.html"; cp "$d/p5/Timer.dc.html" "$d/p5/Quiet.dc.html"
   _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Gone.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && _dm_has "$_dm_out" "NOTE-404" && _dm_has "$_dm_out" "/gone.css"; } || cf "(m) a file the page asked for and the project lacks is not a NOTE-404 on an OK line (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Logs.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && _dm_has "$_dm_out" "NOTE-LOGIC" && _dm_has "$_dm_out" "boom"; } || cf "(m) an error the runtime logged is not a NOTE-LOGIC on an OK line (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Quiet.dc.html
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(m) a board whose runtime only warned (a console line, no console.error) carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Timer.dc.html
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(m) a healthy board carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   finish "$L"
@@ -2733,6 +2737,81 @@ EOF
   sed 's|ds/plant/tokens.css|ds/plant/gone.css|' "$d/plant/Plant.dc.html" > "$d/p2/Missing.dc.html"
   _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Plant.dc.html
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(f) the healthy plant board carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
+  cat > "$d/p2/Dashboard.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weekly dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2F6FEB}a:hover{color:#1F4FB0}
+</style>
+</helmet>
+<div id="ux-003-root" style="min-height: 760px; box-sizing: border-box; display: flex; flex-wrap: wrap; background: #F7F7F5; color: #1C1C1E; font-family: Inter, system-ui, sans-serif">
+<nav id="ux-003-sidebar" aria-label="Main" style="flex: 1 1 220px; max-width: 100%; box-sizing: border-box; padding: 28px 20px; display: flex; flex-direction: column; gap: 6px; background: #FFFFFF; border-right: 1px solid #E4E4E8">
+<span style="font-size: 20px; font-weight: 700; padding: 0 12px 20px">Tracker</span>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; background: #EAF0FD; font-size: 15px; font-weight: 600; text-decoration: none; color: #1F4FB0">Weekly</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; font-size: 15px; font-weight: 500; text-decoration: none; color: #3A3A44">Habits</a>
+<a href="#" style="padding: 10px 12px; border-radius: 8px; font-size: 15px; font-weight: 500; text-decoration: none; color: #3A3A44">Settings</a>
+</nav>
+<main id="ux-003-main" style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 id="ux-003-title" style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em">This week</h1>
+<span style="font-size: 15px; color: #5B5B66">20 – 26 October</span>
+</div>
+<div id="ux-003-range" role="group" aria-label="Range" style="display: flex; gap: 4px; padding: 4px; background: #EDEDF0; border-radius: 10px">
+<button style="height: 36px; padding: 0 16px; border: none; border-radius: 8px; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600; color: #1C1C1E">Week</button>
+<button style="height: 36px; padding: 0 16px; border: none; border-radius: 8px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 500; color: #3A3A44">Month</button>
+<button style="height: 36px; padding: 0 16px; border: none; border-radius: 8px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 500; color: #3A3A44">Quarter</button>
+</div>
+</div>
+<div id="ux-003-stats" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div style="padding: 20px; background: #FFFFFF; border: 1px solid #E4E4E8; border-radius: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 14px; color: #5B5B66">Completed</span><span style="font-size: 30px; font-weight: 700">[N] / [M]</span></div>
+<div style="padding: 20px; background: #FFFFFF; border: 1px solid #E4E4E8; border-radius: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 14px; color: #5B5B66">Longest streak</span><span style="font-size: 30px; font-weight: 700">[N] days</span></div>
+<div style="padding: 20px; background: #FFFFFF; border: 1px solid #E4E4E8; border-radius: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 14px; color: #5B5B66">Best day</span><span style="font-size: 30px; font-weight: 700">[Day]</span></div>
+</div>
+<div id="ux-003-table-box" style="overflow-x: auto; background: #FFFFFF; border: 1px solid #E4E4E8; border-radius: 14px">
+<table id="ux-003-table" style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px">
+<thead><tr style="text-align: left; color: #5B5B66"><th style="padding: 14px 20px; font-weight: 500">Habit</th><th style="padding: 14px 8px; font-weight: 500">Mon</th><th style="padding: 14px 8px; font-weight: 500">Tue</th><th style="padding: 14px 8px; font-weight: 500">Wed</th><th style="padding: 14px 8px; font-weight: 500">Thu</th><th style="padding: 14px 8px; font-weight: 500">Fri</th><th style="padding: 14px 8px; font-weight: 500">Sat</th><th style="padding: 14px 8px; font-weight: 500">Sun</th></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="4">
+<tr style="border-top: 1px solid #EDEDF0"><td style="padding: 14px 20px; font-weight: 600">{{row.name}}</td>
+<sc-for list="{{row.days}}" as="d" hint-placeholder-count="7"><td style="padding: 14px 8px"><span aria-label="{{d.label}}" style="display: inline-block; width: 22px; height: 22px; border-radius: 6px; background: {{d.fill}}"></span></td></sc-for>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+const names = ['Read 10 pages', 'Walk 20 minutes', 'Drink 8 glasses', 'Journal'];
+const pattern = [[1,1,1,0,1,1,0],[1,0,1,1,0,1,1],[1,1,1,1,1,1,1],[0,1,0,1,1,0,0]];
+const rows = names.map((name, i) => ({
+name,
+days: pattern[i].map((v) => ({ fill: v ? '#2F6FEB' : '#E4E4E8', label: v ? 'done' : 'missed' }))
+}));
+return { rows };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Dashboard.dc.html
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(f) the pulled dashboard, whose runtime only warns while its rows resolve, carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
   _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Throws.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "NOTE-LOGIC" && _dm_has "$_dm_out" "boom"; } || cf "(f) a board whose logic throws is OK with no word of it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
   _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Missing.dc.html
