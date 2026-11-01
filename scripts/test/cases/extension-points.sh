@@ -264,6 +264,7 @@ _ru_phases() {
   [ "$_ru_rc" -ne 0 ] || cf "(a $who) accepted a role only the checkout declares: $_ru_out"
   _ru_rule role-not-on-trunk || cf "(a $who) the refusal is not the pre-mutation role-not-on-trunk one (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
   [[ "$_ru_out" == *"Next:"*"push"* ]] || cf "(a $who) the refusal does not name the push as the next act: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  [[ "$_ru_out" == *"already declares"* ]] || cf "(a $who) the refusal does not name acting as a role the trunk already declares: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
   [[ "$_ru_out" == *"NOTHING WAS CHANGED"* ]] || cf "(a $who) the refusal does not say nothing was changed"
   [ -d "$SB_WORK/.kanban-wt" ] || cf "(a $who) (control) the sync never made a kanban worktree, so a dirty one cannot be told from none"
   [ -z "$(_ru_dirty)" ] || cf "(a $who) the refusal left the kanban worktree dirty: $(_ru_dirty | tr '\n' '|')"
@@ -355,17 +356,19 @@ case_finish_pr_refuses_a_role_only_the_checkout_declares_before_it_merges() {
 }
 
 # =============================================================================
-# CASE — A ROLE DECLARED ON THE TRUNK AND NOT YET PULLED IS REFUSED WITH A NEXT THAT SAYS TO PULL.
-#   The operator's checkout is behind, so the cheap pre-sync check cannot see the role. The remedy is
-#   to pull, not to pick another role from a list of the checkout's set.
+# CASE — A ROLE DECLARED ON THE TRUNK AND NOT IN THIS CHECKOUT IS REFUSED WITH A NEXT THAT WORKS FROM A FEATURE BRANCH.
+#   The operator's checkout is behind, so the cheap pre-sync check cannot see the role. The remedy is to
+#   bring the trunk into this branch, not to pick another role from the checkout's set; `git pull` is no
+#   remedy on a feature branch (it reports up to date), so the Next: says to merge the trunk, and the case
+#   runs that route from a feature branch. Every script with a first check says the same thing.
 # =============================================================================
-case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_pull() {
+case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_merge_the_trunk() {
   cf_reset
-  local L="move-issue.sh and archive.sh refuse a role declared only on the trunk with a Next: that says to pull it, not only to pick from the checkout's set, and accept it once pulled"
+  local L="move-issue.sh, archive.sh, subtask.sh move and register-commit.sh refuse a role declared only on the trunk with a Next: that says to merge the trunk into this branch (run from a feature branch), and accept it once merged"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   local role="Zebra" id="$SB_PREFIX-735"
-  seed_issue todo "$id" pulled chore "A card for the pull case"
+  seed_issue todo "$id" pulled chore "A card for the merge case"
   seed_issue qa_complete "$SB_PREFIX-736" pullarch chore "A card the sweep retires"
   publish_sandbox
   git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
@@ -373,16 +376,65 @@ case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_pull() {
   printf '%s   a seat declared on the trunk\n' "$role" > "$SB_WORK/process/ROLES"
   _rl_land "add the $role role"
   git -C "$SB_WORK" reset -q --hard HEAD~1 >/dev/null 2>&1
-  [ ! -e "$SB_WORK/process/ROLES" ] || _fixture_die "case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_pull: the checkout still declares the role."
+  [ ! -e "$SB_WORK/process/ROLES" ] || _fixture_die "case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_merge_the_trunk: the checkout still declares the role."
+  git -C "$SB_WORK" checkout -q -b feature/dev-work >/dev/null 2>&1 || _fixture_die "case_a_role_only_the_trunk_declares_is_refused_with_a_next_that_says_to_merge_the_trunk: no feature branch."
   _ru_run ./scripts/move-issue.sh "$id" in_progress --role "$role" --note x
-  [ "$_ru_rc" -ne 0 ] || cf "(a) the mover accepted --role $role from a checkout that has not pulled it: $_ru_out"
-  [[ "$_ru_out" == *"Next:"*"pull"* ]] || cf "(a) the mover's Next: does not say to pull: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  [ "$_ru_rc" -ne 0 ] || cf "(a) the mover accepted --role $role from a checkout that lacks it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"merge"* ]] || cf "(a) the mover's Next: does not say to merge the trunk: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  [[ "$_ru_out" == *"pull"* ]] && cf "(a) the mover's Next: still says pull, which does nothing on a feature branch: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
   _ru_run ARCHIVE_ROLE="$role" ./scripts/archive.sh --apply
-  [ "$_ru_rc" -ne 0 ] || cf "(b) archive.sh accepted ARCHIVE_ROLE=$role from a checkout that has not pulled it: $_ru_out"
-  [[ "$_ru_out" == *"Next:"*"pull"* ]] || cf "(b) archive.sh's Next: does not say to pull: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
-  git -C "$SB_WORK" pull -q origin "$SB_TRUNK" >/dev/null 2>&1
+  [ "$_ru_rc" -ne 0 ] || cf "(b) archive.sh accepted ARCHIVE_ROLE=$role from a checkout that lacks it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"merge"* ]] || cf "(b) archive.sh's Next: does not say to merge the trunk: $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  _ru_run ./scripts/subtask.sh move "$id-s1" in_progress --role "$role" --note x
+  [ "$_ru_rc" -ne 0 ] || cf "(c) subtask.sh move accepted --role $role from a checkout that lacks it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"merge"* ]] || cf "(c) subtask.sh move's Next: does not say to merge the trunk: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  _ru_run ./scripts/register-commit.sh --role "$role" --message log docs/never-written.md
+  [ "$_ru_rc" -ne 0 ] || cf "(d) register-commit.sh accepted --role $role from a checkout that lacks it: $_ru_out"
+  [[ "$_ru_out" == *"Next:"*"merge"* ]] || cf "(d) register-commit.sh's Next: does not say to merge the trunk: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  # The route the Next: names, run from the feature branch.
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge -q --no-edit "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "(e) merging the trunk into the feature branch failed"
   _ru_run ./scripts/move-issue.sh "$id" in_progress --role "$role" --note x
-  [ "$_ru_rc" -eq 0 ] || cf "(c) the mover refused --role $role once pulled (exit $_ru_rc): $_ru_out"
+  [ "$_ru_rc" -eq 0 ] || cf "(e) the mover refused --role $role once the trunk was merged into the branch (exit $_ru_rc): $_ru_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASES — register-commit.sh ASKS THE TREE THE COMMIT HOOK READS, AFTER THE OVERLAY AND BEFORE THE COMMIT.
+#   It commits the caller's files onto the kanban worktree, so a role declared only in the caller's
+#   checkout passed the first check and the hook then refused, leaving the overlaid files staged there.
+#   The check runs after the overlay, so a call that carries the declaration itself (process/ROLES or a
+#   roles.d file among its paths) is judged by the tree it will commit, and still lands. A refusal puts the
+#   worktree back as it found it.
+# =============================================================================
+_ru_rc_untouched() { ! origin_has_path "docs/zebra-entry.md"; }
+_ru_rc_done() { origin_has_path "docs/zebra-entry.md"; }
+case_register_commit_refuses_a_role_only_the_checkout_declares_before_it_commits() {
+  cf_reset
+  local L="register-commit.sh refuses a role tag only this checkout declares before it commits, naming the push while the trunk was read and the trunk-unread rule offline, leaves the kanban worktree clean (the overlay undone), and lands once the trunk declares the role"
+  make_sandbox
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  mkdir -p "$SB_WORK/docs"
+  printf 'an entry\n' > "$SB_WORK/docs/zebra-entry.md"
+  _ru_phases register-commit.sh _ru_rc_untouched _ru_rc_done env -u MSG_OK ./scripts/register-commit.sh --role "$_ru_role" --message log docs/zebra-entry.md
+  finish "$L"
+  teardown
+}
+
+case_register_commit_that_carries_the_role_declaration_still_lands() {
+  cf_reset
+  local L="register-commit.sh --role <new> with process/ROLES among its paths lands, because the check reads the tree the call will commit, and the role is then on the trunk"
+  make_sandbox
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  mkdir -p "$SB_WORK/process"
+  printf '%s   a seat this call declares\n' "$_ru_role" > "$SB_WORK/process/ROLES"
+  _ru_run env -u MSG_OK ./scripts/register-commit.sh --role "$_ru_role" --message "declare the role" process/ROLES
+  [ "$_ru_rc" -eq 0 ] || cf "(a) the call that carries the declaration was refused (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -6 | tr '\n' '|')"
+  origin_has_path "process/ROLES" || cf "(a) process/ROLES did not reach the trunk"
+  [ -z "$(_ru_dirty)" ] || cf "(a) the kanban worktree is dirty after the landing: $(_ru_dirty | tr '\n' '|')"
   finish "$L"
   teardown
 }
@@ -678,6 +730,11 @@ case_a_deciding_check_board_d_arm_that_did_not_run_to_a_verdict_makes_the_verdic
       || cf "(a$st) no ⚠ line names the deciding arm and its status (release.sh's refusal prints only ⚠ and board-drift lines): $(printf '%s' "$out" | grep -F '50-crash' | head -2 | tr '\n' '|')"
     printf '%s\n' "$out" | grep -F 'Next:' | grep -F '50-crash.sh' >/dev/null \
       || cf "(a$st) no Next: line names the arm: $(printf '%s' "$out" | grep -F 'Next:' | head -2 | tr '\n' '|')"
+    # An arm is sourced with the report's operands, so "run it alone" is not a route that reproduces it.
+    printf '%s\n' "$out" | grep -F 'Next:' | grep -F 'check-board.sh' >/dev/null \
+      || cf "(a$st) the Next: line does not send the reader back through check-board.sh, where the arm runs with its operands"
+    printf '%s\n' "$out" | grep -F 'Next:' | grep -F 'alone' >/dev/null \
+      && cf "(a$st) the Next: line says to run the arm alone, which does not reproduce it (it is sourced with REPO_ROOT, CB_TREE and the rest)"
   done
   # (a0) a deciding arm that reaches a verdict is unchanged: 0 is clean, 3 is a finding, neither is a crash.
   printf '# check-board-arm: deciding\nexit 0\n' > "$dir/50-crash.sh"

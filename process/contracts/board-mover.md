@@ -124,7 +124,7 @@ to change and making every change self-recording.
 - No actor was given, or the actor is not a declared role ⇒ refuse, listing the legal roles. The
   actor is checked a second time, before anything is moved, against the set the trunk's copy of the
   commit-msg hook will read; a role declared only in the operator's unpushed checkout refuses
-  (`role-not-on-trunk`) with the push as the next act, or, when the sync was offline and the trunk could not be read, with `role-trunk-unread` and reconnecting as the next act. A role the operator's checkout lacks and the trunk declares is refused at the first check, whose `Next:` also says to pull. `archive.sh`, `finish-pr.sh` and `subtask.sh` ask the trunk's set the same way, after the sync and before any write.
+  (`role-not-on-trunk`) with the push as the next act, or, when the sync was offline and the trunk could not be read, with `role-trunk-unread` and reconnecting as the next act. A role the operator's checkout lacks and the trunk declares is refused at the first check, whose `Next:` also says to merge the trunk into the branch (or run from the trunk), because `git pull` does nothing on a feature branch; `archive.sh`, `finish-pr.sh`, `subtask.sh` and `register-commit.sh` refuse it the same way. Those four ask the trunk's set after the sync and before any write (`register-commit.sh` after laying its paths over the worktree, so a call that carries the declaration lands, and it puts the worktree back when it refuses).
 - The target container does not exist ⇒ refuse **before** moving anything.
 - A move into the hand-off state (`dev_complete`) of a card whose `forks:` field the landing's own check
   would refuse ⇒ refuse with that check's refusal, from the same reader, before moving anything. The

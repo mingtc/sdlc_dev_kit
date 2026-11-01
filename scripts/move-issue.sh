@@ -323,10 +323,7 @@ if [ -z "$ROLE" ]; then
   exit 2   # exit-class: usage
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
-  kit_refuse 1 role-not-declared \
-    "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
-    "       That set is $KIT_ROLE_SRC." \
-    "Next: re-run with --role set to one of: $KIT_ROLE_SET; or, if $ROLE is declared on the trunk and this checkout has not pulled it, pull the trunk and re-run."
+  kit_refuse_role_not_declared "$ROLE"
 fi
 
 # ONE not-found refusal TEXT, TWO reads that can reach it (the probe below and the lookup

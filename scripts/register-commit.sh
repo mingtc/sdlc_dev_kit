@@ -148,10 +148,7 @@ if [ -z "$ROLE" ]; then
   echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 2
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
-  kit_refuse 1 role-not-declared \
-    "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
-    "       That set is $KIT_ROLE_SRC." \
-    "Next: re-run with --role set to one of: $KIT_ROLE_SET."
+  kit_refuse_role_not_declared "$ROLE"
 fi
 
 # THE SUBJECT'S TAG: the script adds [<ROLE>]; a message that already begins with that tag keeps it
@@ -365,6 +362,21 @@ if [ ${#CHANGED[@]} -eq 0 ]; then
     "Nothing to commit: every named path already matches the trunk's tip." \
     "  Paths checked: ${PATHS[*]}" \
     "Next: edit the files first, or name the paths you actually changed; if the edit already landed, there is nothing to do."
+fi
+
+# THE COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk with this call's files laid over it, so a
+# call that carries the role's own declaration is judged by the tree it will commit. A refusal first puts
+# the worktree back as the sync left it. The subshell keeps kit_refuse's exit from skipping that.
+if command -v kit_require_role_on_trunk >/dev/null 2>&1; then
+  _rc_chk=0
+  ( kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "--role $ROLE" ) || _rc_chk=$?
+  if [ "$_rc_chk" -ne 0 ]; then
+    for rel in "${CHANGED[@]}"; do
+      git -C "$KWT" reset -q -- "$rel" >/dev/null 2>&1 || true
+      git -C "$KWT" checkout -q -- "$rel" >/dev/null 2>&1 || rm -f "$KWT/$rel"
+    done
+    exit "$_rc_chk"   # exit-class: internal
+  fi
 fi
 
 if [ -n "$TAGGED" ]; then MESSAGE="$MSG"; else MESSAGE="[${ROLE}] ${MSG}"; fi

@@ -6,7 +6,5 @@ a `[+<name>]` arm of the report. The directory ships with this file alone: add a
 file, remove it by removing the file. Only `[0-9][0-9]-*.sh` is run, so this file and any helper
 without that name are not. A missing or empty directory runs nothing.
 
-A `deciding` arm that ends with any status but `0` or `3` makes the verdict not `clean`; an `advisory`
-arm's is only reported.
 What an arm must declare, read, print and return is stated once, in
 [`process/contracts/drift-report.md`](../../process/contracts/drift-report.md) § 5.

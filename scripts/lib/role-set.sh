@@ -154,9 +154,24 @@ kit_require_role() {
     "       This script commits under that tag, and the commit-msg hook would reject it" \
     "       AFTER the board move had already been made — leaving uncommitted state in the" \
     "       shared kanban worktree that blocks every later board operation. Refusing first." \
-    "Next: set the seat this script acts as, one of the declared tags above:  $knob=<tag> $0 ..." \
-    "       If '$tag' is declared on the trunk and this checkout has not pulled it, pull the trunk and re-run." \
+    "Next: set the seat this script acts as, one of the declared tags above:  $knob=<tag> $0 ...;" \
+    "       or, $(kit_role_unpulled_hint "$tag")." \
     "       NOTHING WAS CHANGED."
+}
+
+# kit_role_unpulled_hint <tag> — the one sentence that says what to do when the trunk declares a role this
+# checkout lacks. `git pull` is no remedy on a feature branch (it reports up to date), so it says to merge.
+kit_role_unpulled_hint() {
+  printf 'if %s is declared on the trunk and this checkout lacks it, fetch the trunk and merge it into this branch (or run this from the trunk), then re-run' "$1"
+}
+
+# kit_refuse_role_not_declared <tag> — the refusal of an operator-supplied `--role` outside the set
+# kit_role_resolve returned (KIT_ROLE_SET, KIT_ROLE_SRC): one text for every caller.
+kit_refuse_role_not_declared() {
+  kit_refuse 1 role-not-declared \
+    "Error: --role must be $KIT_ROLE_SET (got '$1')." \
+    "       That set is $KIT_ROLE_SRC." \
+    "Next: re-run with --role set to one of: $KIT_ROLE_SET; or, $(kit_role_unpulled_hint "$1")."
 }
 
 # kit_require_role_on_trunk <kwt-dir> <tag> <synced> <remote/trunk> <what> — the check that judges what the
@@ -185,6 +200,6 @@ kit_require_role_on_trunk() {
     "Error: $what is declared in this checkout but not on $ref." \
     "       The commit hook that judges the board commit reads the role set from the trunk's copy:" \
     "       $set_" \
-    "Next: push the process/ROLES line or process/roles.d/ file that declares $tag to $ref, then re-run." \
+    "Next: push the process/ROLES line or process/roles.d/ file that declares $tag to $ref, then re-run; or re-run as a role the trunk already declares (listed above)." \
     "       NOTHING WAS CHANGED."
 }
