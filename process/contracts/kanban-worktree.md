@@ -88,7 +88,7 @@ guard can see a commit the operator makes by hand.
   checked.
 - **`scripts/register-commit.sh`'s refusals**, each through `kit_refuse` with a stable rule id, all
   before anything is written to the trunk: `role-not-declared` (`--role` is not in the declared
-  role set), `register-message-tag-mismatch` (`--message` begins with another seat's `[Role]` tag),
+  role set), `role-not-on-trunk` and `role-trunk-unread` (the role is in the caller's checkout but not in the kanban worktree's copy of the trunk, which the commit hook reads; the second when the sync was offline and the trunk could not be read; checked after the paths are laid over the worktree, which is put back on a refusal), `register-message-tag-mismatch` (`--message` begins with another seat's `[Role]` tag),
   `not-a-git-repository` (the caller's checkout is not a repository), `path-not-found` (a named path
   exists in neither the caller's checkout nor the trunk), `register-card-moved` (the path would
   create a second copy of a card the trunk holds elsewhere), `register-checkout-stale` (the caller's

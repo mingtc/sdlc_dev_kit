@@ -372,8 +372,9 @@ if command -v kit_require_role_on_trunk >/dev/null 2>&1; then
   ( kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "--role $ROLE" ) || _rc_chk=$?
   if [ "$_rc_chk" -ne 0 ]; then
     for rel in "${CHANGED[@]}"; do
-      git -C "$KWT" reset -q -- "$rel" >/dev/null 2>&1 || true
-      git -C "$KWT" checkout -q -- "$rel" >/dev/null 2>&1 || rm -f "$KWT/$rel"
+      # LITERAL pathspecs: a name like docs/[a].md is a glob to git, and would match a tracked sibling.
+      GIT_LITERAL_PATHSPECS=1 git -C "$KWT" reset -q -- "$rel" >/dev/null 2>&1 || true
+      GIT_LITERAL_PATHSPECS=1 git -C "$KWT" checkout -q -- "$rel" >/dev/null 2>&1 || rm -f "$KWT/$rel"
     done
     exit "$_rc_chk"   # exit-class: internal
   fi

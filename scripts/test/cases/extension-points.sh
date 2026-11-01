@@ -423,6 +423,37 @@ case_register_commit_refuses_a_role_only_the_checkout_declares_before_it_commits
   teardown
 }
 
+case_register_commit_refusal_puts_back_a_modified_a_deleted_and_a_glob_named_path() {
+  cf_reset
+  local L="a register-commit.sh refusal for a role only this checkout declares puts back a modified tracked path, a deleted tracked path and a new path whose name is a glob matching a tracked sibling (read literally), leaves the kanban worktree clean, and the retry lands all three once the trunk declares the role"
+  make_sandbox
+  mkdir -p "$SB_WORK/docs"
+  printf 'trunk a\n' > "$SB_WORK/docs/a.md"
+  printf 'trunk b\n' > "$SB_WORK/docs/b.md"
+  publish_sandbox
+  git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
+  printf 'edited a\n' > "$SB_WORK/docs/a.md"
+  rm -f "$SB_WORK/docs/b.md"
+  printf 'new glob-named\n' > "$SB_WORK/docs/[a].md"
+  mkdir -p "$SB_WORK/process"
+  printf 'Zebra   a seat only this checkout declares\n' > "$SB_WORK/process/ROLES"
+  _ru_run env -u MSG_OK ./scripts/register-commit.sh --role "$_ru_role" --message log docs/a.md docs/b.md 'docs/[a].md'
+  [ "$_ru_rc" -ne 0 ] || cf "(a) accepted a role only the checkout declares: $_ru_out"
+  _ru_rule role-not-on-trunk || cf "(a) the refusal is not role-not-on-trunk (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  [ -z "$(_ru_dirty)" ] || cf "(a) the refusal left the kanban worktree dirty: $(_ru_dirty | tr '\n' '|')"
+  [ "$(cat "$SB_WORK/.kanban-wt/docs/a.md" 2>/dev/null)" = "trunk a" ] || cf "(a) the modified path was not put back in the kanban worktree"
+  [ -f "$SB_WORK/.kanban-wt/docs/b.md" ] || cf "(a) the deleted path was not put back in the kanban worktree"
+  [ ! -e "$SB_WORK/.kanban-wt/docs/[a].md" ] || cf "(a) the new glob-named path was left in the kanban worktree"
+  _rl_land "add the Zebra role"
+  _ru_run env -u MSG_OK ./scripts/register-commit.sh --role "$_ru_role" --message log docs/a.md docs/b.md 'docs/[a].md'
+  [ "$_ru_rc" -eq 0 ] || cf "(b) the retry was refused once the trunk declares the role (exit $_ru_rc): $(printf '%s' "$_ru_out" | tail -4 | tr '\n' '|')"
+  origin_has_path 'docs/[a].md' || cf "(b) the glob-named path did not land"
+  origin_has_path 'docs/b.md' && cf "(b) the deleted path is still on the trunk"
+  origin_file_contains 'docs/a.md' 'edited a' || cf "(b) the modified path did not land"
+  finish "$L"
+  teardown
+}
+
 case_register_commit_that_carries_the_role_declaration_still_lands() {
   cf_reset
   local L="register-commit.sh --role <new> with process/ROLES among its paths lands, because the check reads the tree the call will commit, and the role is then on the trunk"
