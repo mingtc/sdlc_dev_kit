@@ -616,8 +616,8 @@ THEME_ATTR = re.compile(r'\[data-theme\s*=\s*["\']?([\w-]+)["\']?\s*\]', re.I)
 def rule_decls(css):
     """[(selector, name, value)] of the custom-property declarations of CSS text; the selector is the innermost rule's ('' for a bare
     declaration list), an at-rule such as @media being looked through."""
-    css = CSS_STRING.sub('""', CSS_URL.sub(' ', CSS_COMMENT.sub(' ', css)))
-    out, stack, cur = [], [], ''
+    css = CSS_URL.sub(' ', CSS_COMMENT.sub(' ', css))
+    out, stack, cur, quote = [], [], '', ''
 
     def decl(text):
         m = re.match(r'\s*--([\w-]+)\s*:\s*(.*)$', text, re.S)
@@ -625,7 +625,13 @@ def rule_decls(css):
             sel = next((x for x in reversed(stack) if not x.startswith('@')), '')
             out.append((sel, m.group(1), m.group(2)))
     for ch in css:
-        if ch == '{':
+        if quote:
+            cur += ch
+            quote = '' if ch == quote else quote
+        elif ch in '"\'':
+            cur += ch
+            quote = ch
+        elif ch == '{':
             stack.append(cur.strip())
             cur = ''
         elif ch == '}':
