@@ -1771,7 +1771,7 @@ EOF
   printf '%s\n' '{"color":{"surface":{"$value":"#141816"},"surface-raised":{"$value":"#1F2421"},"on-surface":{"$value":"#F0EEE8"},"muted":{"$value":"#B8C2BF"},"primary":{"$value":"#8FC4E8"},"on-primary":{"$value":"#0B2433"}}}' > "$d/s/tokens/steep.dark.tokens.json"
   printf '%s\n' '{"color":{"surface":{"$value":"#F9F9F9"},"surface-raised":{"$value":"#FFFFFF"},"on-surface":{"$value":"#1C1C1C"},"muted":{"$value":"#464646"},"primary":{"$value":"#555555"},"on-primary":{"$value":"#FFFFFF"}}}' > "$d/s/tokens/steep.wire.tokens.json"
   cat > "$d/pulled-tokens.json" <<'EOF'
-{"name":"KIT-TEST — Steep tokens","version":1,
+{"name":"Steep tokens","version":1,
 "color":{"themes":[{"id":"light","name":"Light"},{"id":"dark","name":"Dark"},{"id":"wire","name":"Wire"}],
 "tokens":[
 {"name":"color-surface","value":{"light":"#FAF8F3","dark":"#141816","wire":"#F9F9F9"},"usage":"Screen background."},
@@ -1789,7 +1789,7 @@ EOF
 "spacing":{"tokens":[{"name":"space-2","value":"8px","usage":"Tight gaps."},{"name":"space-4","value":"16px","usage":"Screen side margin and row padding."},{"name":"space-6","value":"24px","usage":"Screen top margin."}]},
 "radius":{"tokens":[{"name":"radius-md","value":"12px","usage":"Rows and cards."},{"name":"radius-full","value":"24px","usage":"Buttons."}]}}
 EOF
-  _dm_py "$m/dtcg-convert.py" "$d/s/tokens" --out "$d/s/out" --title "KIT-TEST — Steep tokens"
+  _dm_py "$m/dtcg-convert.py" "$d/s/tokens" --out "$d/s/out" --title "Steep tokens"
   [ "$_dm_rc" -eq 0 ] || cf "(e) dtcg-convert.py failed on the steep tokens: $(printf '%s' "$_dm_out" | tr '\n' '|' | tail -c 200)"
   cat > "$d/cmp-ds.py" <<'PYEOF'
 import json, sys
@@ -1905,7 +1905,7 @@ case_render_py_gives_chrome_the_theme_the_scheme_and_the_scale_and_says_what_is_
   local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/rn" args="$SB_TMP/rn-args" sup="$SB_TMP/rn-support" want
   mkdir -p "$d/project" "$d/out"
   cat > "$d/project/canvas.json" <<'EOF'
-{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"KIT-TEST — brief round trip","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"KIT-TEST: agent-authored from a brief. Safe to delete."}},"designSystems":[{"title":"KIT-TEST — Steep tokens","namespace":"steep","artifact":"https://claude.ai/artifact/LDn89nYLVgbsns1mw8JBPp","version":"1793507341-36ed","copiedAt":"2026-11-01T04:30:00Z"}]}
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"Brews","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"Authored from a brief."}},"designSystems":[]}
 EOF
   cat > "$d/project/Timer.dc.html" <<'EOF'
 <!doctype html>
@@ -2001,7 +2001,7 @@ EOF
 # =============================================================================
 # CASE — RENDER.PY DRAWS THE PULLED BOARDS IN REAL CHROME: THE SCHEME THE RIGHT WAY ROUND, A THEME WHERE A SHEET ANSWERS IT, AND A SAY WHERE NONE DOES.
 #   Operand: scripts/design/render.py with the Chrome on this machine and a saved copy of the design runtime (the module cannot ship one;
-#   $KIT_TEST_DC_RUNTIME, else the maintainer's .design-research copy), over a board and sheet that a live canvas held whose sheet follows
+#   $KIT_TEST_DC_RUNTIME, a path to a dc-runtime.js; without it the case skips by name), over a board and sheet that a live canvas held whose sheet follows
 #   prefers-color-scheme, and over the three boards of another, whose first sheet has [data-theme] blocks and whose others have none.
 #   Skipped by name where there is no Chrome or no runtime. The stand-in Chrome of the case above cannot see a flag the wrong way round.
 # =============================================================================
@@ -2010,11 +2010,11 @@ case_render_py_draws_the_pulled_boards_in_real_chrome_with_the_scheme_and_the_th
   local L="render.py in real Chrome draws the pulled plant board with its ground #f7fbf0 by default and #10150f with --scheme dark, draws the pulled settings board wire (#f9f9f9) under --theme wire, says NO-THEME-RULE for the boards no sheet answers (they stay #faf8f3), and refuses an unknown theme"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
-  local c rt="${KIT_TEST_DC_RUNTIME:-$HOME/code_projects/product-dev_project_kit/.design-research/type-runtime/artifact-type/dc-runtime.js}" chrome=""
+  local c rt="${KIT_TEST_DC_RUNTIME:-}" chrome=""
   for c in google-chrome chromium chromium-browser chrome; do command -v "$c" >/dev/null 2>&1 && { chrome="$(command -v "$c")"; break; }; done
   [ -n "$chrome" ] || { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] && chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; }
   [ -n "$chrome" ] || { skp "$L" "no Chrome or Chromium on this machine"; return; }
-  [ -f "$rt" ] || { skp "$L" "no saved design runtime (set KIT_TEST_DC_RUNTIME to a dc-runtime.js)"; return; }
+  [ -n "$rt" ] && [ -f "$rt" ] || { skp "$L" "no design runtime (set KIT_TEST_DC_RUNTIME to the path of a dc-runtime.js)"; return; }
   _md_sandbox
   local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/rc" b
   mkdir -p "$d/plant/ds/plant" "$d/steep/sheets" "$d/steep/ds/steep" "$d/o1" "$d/o2" "$d/o3" "$d/o4"
@@ -2404,7 +2404,7 @@ EOF
     "Plant.dc.html"
   ],
   "pages": [],
-  "title": "R2 — demo-2",
+  "title": "Plant",
   "v": 3
 }
 EOF
@@ -2549,7 +2549,7 @@ EOF
 .ux-screen { letter-spacing: 0.1px; }
 EOF
   cat > "$d/steep/ds/steep/tokens.css" <<'EOF'
-/* KIT-TEST — Steep tokens — generated from tokens.json */
+/* Steep tokens — generated from tokens.json */
 
 :root, [data-theme="light"] {
   --color-surface: #FAF8F3;
@@ -2588,7 +2588,7 @@ EOF
 }
 EOF
   cat > "$d/steep/canvas.json" <<'EOF'
-{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"KIT-TEST — brief round trip","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"KIT-TEST: agent-authored from a brief. Safe to delete."}},"designSystems":[{"title":"KIT-TEST — Steep tokens","namespace":"steep","artifact":"https://claude.ai/artifact/LDn89nYLVgbsns1mw8JBPp","version":"1793507341-36ed","copiedAt":"2026-11-01T04:30:00Z"}]}
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"Brews","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"Authored from a brief."}},"designSystems":[]}
 EOF
   pix() { python3 "$d/pngpix.py" "$1" 5 5; }
   _dm_py "$m/render.py" "$d/plant" "$d/o1" --runtime "$rt" --only Plant.dc.html
