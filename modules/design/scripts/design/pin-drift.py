@@ -291,7 +291,15 @@ def project(root, state, known):
                 out.append(c)
                 continue
             ds = c.get('data-state')
-            if ds:
+            kids = [k for k in c.kids if not (isinstance(k, str) and not k.strip())]
+            if not ds and kids and all(not isinstance(k, str) and k.get('data-state') and state not in _states(k.get('data-state')) for k in kids):
+                # a wrapper (an <sc-if>) holding only other states' branches is part of them: adding a state adds one
+                for k in kids:
+                    names_all.update(_states(k.get('data-state')))
+                bad = any(x not in known for k in kids for x in _states(k.get('data-state')))
+                (unknown if bad else others).append(ser(c))
+                _global_in(c, glob)
+            elif ds:
                 names = _states(ds)
                 names_all.update(names)
                 if state in names:

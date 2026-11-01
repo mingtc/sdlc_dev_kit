@@ -40,7 +40,7 @@ any other heading are not read. Nothing here is read while the module is disable
 - The gate row the module puts in `PROJECT.md` runs `python3 scripts/design/check-design-links.py --strict`; it said `N/A`.
   Upgrading replaces the block, or stages it for a merge if you edited it.
 - **The Designer authors the canvas itself.** It creates and updates the Claude Design canvas with the artifact tools, by the order in
-  its role (list, compare shas, pull first, edit, send with `base_version`, read back by sha); the human carries no file or brief.
+  its role (list, compare shas, pull first, edit, send with `base_version`, read back by sha); no file or brief passes through a person.
   A `warnings` entry on a publish is a stop. A plain comment on the canvas is invisible to the Designer: use Send to Claude. The
   packaged `/design-pull` and `/design-publish` skills are not in this version. A colour literal's next act is the Designer
   correcting the screen; the Gate 1 wire review is a local render with `data-theme="wire"` or a separate board, since the page has no

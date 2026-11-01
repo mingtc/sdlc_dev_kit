@@ -696,6 +696,7 @@ _dm_links_fixture() {
   _dm_land "enable the design module"
   local D="$SB_WORK/requirements/design/app/project"
   _dm_tokens '{"color":{"primary":{"$value":"#485d92"},"surface":{"$value":"#ffffff"}}}'
+  _dm_tokens '{"color":{"primary":{"$value":"#a0b4e8"},"surface":{"$value":"#121318"}}}' dark.tokens.json
   _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
   _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'

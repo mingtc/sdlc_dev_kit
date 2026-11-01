@@ -639,13 +639,13 @@ def tokens_check(root, old_html, new_html, r_old, r_new, sheets=()):
     used = used_vars(old_html, new_html, sheets=sheets)
     (a, pa), (b, pb) = token_map(root, r_old), token_map(root, r_new)
     changed, why = [], []
-    declared = {n for t in (old_html, new_html, *sheets) for n, _ in (decls_of(t) if '<' in t else custom_decls(t))}
+    declared = {n for t in sheets for n, _ in (decls_of(t) if '<' in t else custom_decls(t))}
     if used and (pa or pb):
         why.append('tokens: ' + '; '.join(sorted(set(pa + pb))))
     for n in used:
         ea, eb = {k: v for k, v in a.items() if k[1] == n}, {k: v for k, v in b.items() if k[1] == n}
         if not ea and not eb:
-            if n not in declared:        # a property the artboard or a sheet it loads declares is compared with that file's bytes
+            if n not in declared:        # a property a sheet or screen it loads declares is compared with that file's bytes
                 why.append(f'--{n} names no token')
         elif ea != eb:
             changed.append('--' + n)

@@ -31,7 +31,7 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 
 Available now: the layout, the Designer role, the rules, token files written by hand, and the Designer creating and updating the
 Claude Design canvas itself with the artifact tools, by the order in its role (list, compare shas, pull first, edit, send with
-`base_version`, read back); the human carries nothing. The checkers are installed: the
+`base_version`, read back); nothing passes through a person. The checkers are installed: the
 link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the
 pin-drift report that `check-board.sh` prints. While a capability the Designer role
 lists (the packaged pull and publish skills, the card gate, the token generator and the colour utility, the
