@@ -11,14 +11,15 @@ usage: dtcg-convert.py [TOKENS_DIR] --out DIR [--namespace NS] [--title TEXT] [-
 Order is the file's. Names are the token's path with hyphens, NO prefix (`color.primary` is `color-primary` is `--color-primary`): that is how the design
 tool compiles a system's tokens, and what check-design-links.py reads. tokens.css has the shape the design type's own compiler
 writes (`:root, [data-theme="<first>"]`, then `[data-theme="<id>"]` per other theme): the page does not generate it, so this tool does.
-Colours may be `#hex` strings or DTCG colour objects with a `hex`; dimensions `16px` strings or {value, unit} objects. Anything else
-(typography, shadows) is listed on stderr and left out. Python 3 standard library only. Exit 1 on input it cannot read.
+Colours may be `#rgb`, `#rrggbb[aa]` strings or DTCG colour objects with a `hex` (an `alpha` below 1 is written as the last two digits);
+dimensions `16px`, `0` or {value, unit}. A colour, spacing or radius token it cannot read is said (`NOT CONVERTED: name why`) and the exit
+status is 1, the rest being written; other families (typography, shadows) are listed on stderr and left out. Python 3 standard library only. Exit 1 on input it cannot read.
 """
 import argparse, json, re, sys
 from pathlib import Path
 
 ALIAS = re.compile(r'^\{([^{}]+)\}$')
-HEX = re.compile(r'^#[0-9a-fA-F]{6,8}$')
+HEX = re.compile(r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$')
 
 
 class Fail(Exception):
@@ -52,19 +53,38 @@ def resolve(value, own, base, seen=()):
 
 
 def colour(v):
-    if isinstance(v, str) and HEX.match(v):
-        return v
-    if isinstance(v, dict) and isinstance(v.get('hex'), str) and HEX.match(v['hex']):
-        return v['hex']
-    return None
+    """-> ('#rrggbb[aa]', None) or (None, why). #rgb is widened; a colour object's alpha below 1 is written as the last two digits, never dropped."""
+    alpha = 1
+    if isinstance(v, dict) and 'hex' in v:
+        alpha, v = v.get('alpha', 1), v['hex']
+    if not isinstance(v, str):
+        return None, 'is not a #hex string or a colour object with a hex'
+    m = HEX.match(v.strip())
+    if not m:
+        return None, 'is not a #hex (3, 6 or 8 digits)'
+    d = m.group(1)
+    if len(d) == 3:
+        d = ''.join(c * 2 for c in d)
+    if not isinstance(alpha, (int, float)) or isinstance(alpha, bool) or not 0 <= alpha <= 1:
+        return None, 'has an alpha that is not a number from 0 to 1'
+    if alpha < 1:
+        if len(d) == 8:
+            return None, 'gives its alpha twice (in the hex and as alpha)'
+        d += '%02x' % round(alpha * 255)
+    return '#' + d, None
 
 
 def dimension(v):
-    if isinstance(v, str) and re.match(r'^-?\d+(\.\d+)?(px|rem|em|%)$', v):
-        return v
+    """-> ('16px', None) or (None, why)."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0:
+        return '0px', None
+    if isinstance(v, str) and re.match(r'^-?\d+(\.\d+)?(px|rem|em|%)$', v.strip()):
+        return v.strip(), None
+    if isinstance(v, str) and v.strip() == '0':
+        return '0px', None
     if isinstance(v, dict) and 'value' in v and 'unit' in v:
-        return '%s%s' % (v['value'], v['unit'])
-    return None
+        return '%s%s' % (v['value'], v['unit']), None
+    return None, 'is not a number with a unit (16px, 1rem) or {value, unit}'
 
 
 def family(name):
@@ -104,14 +124,22 @@ def main(argv):
         if base is None:
             raise Fail('%s.tokens.json (the base file) is missing' % ns)
         themes = [a.first] + sorted(t for t in parsed if t and t != a.first)
-        skipped, colours, dims = [], {}, {'spacing': {}, 'radius': {}}
+        skipped, problems, colours, dims = [], [], {}, {'spacing': {}, 'radius': {}}
         for name, (v, t, desc) in base.items():
             fam = family(name)
             rv = resolve(v, base, base)
-            if fam == 'color' and colour(rv):
-                colours[name.replace('.', '-')] = {a.first: colour(rv), 'usage': desc}
-            elif fam in dims and dimension(rv):
-                dims[fam][name.replace('.', '-')] = {'value': dimension(rv), 'usage': desc}
+            if fam == 'color':
+                hx, why = colour(rv)
+                if hx:
+                    colours[name.replace('.', '-')] = {a.first: hx, 'usage': desc}
+                else:
+                    problems.append('%s %s' % (name, why))
+            elif fam in dims:
+                dv, why = dimension(rv)
+                if dv:
+                    dims[fam][name.replace('.', '-')] = {'value': dv, 'usage': desc}
+                else:
+                    problems.append('%s %s' % (name, why))
             else:
                 skipped.append(name)
         for th, toks in parsed.items():
@@ -119,13 +147,16 @@ def main(argv):
                 continue
             for name, (v, t, desc) in toks.items():
                 key = name.replace('.', '-')
-                rv = colour(resolve(v, toks, base))
-                if key in colours and rv:
-                    colours[key][th] = rv
-                elif key not in colours:
+                if family(name) != 'color':
                     skipped.append('%s (%s)' % (name, th))
+                    continue
+                hx, why = colour(resolve(v, toks, base))
+                if hx and key in colours:
+                    colours[key][th] = hx
+                elif not hx:
+                    problems.append('%s (%s) %s' % (name, th, why))
                 else:
-                    skipped.append('%s (%s, value not read)' % (name, th))
+                    problems.append('%s (%s) has no value in the base file that could be read, so the theme has nothing to override' % (name, th))
     except (Fail, ValueError) as e:
         print('dtcg-convert: %s' % e, file=sys.stderr)
         return 1
@@ -149,9 +180,11 @@ def main(argv):
     (out / 'tokens.json').write_text(json.dumps(ds, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     (out / 'tokens.css').write_text('\n'.join(css), encoding='utf-8')
     if skipped:
-        print('dtcg-convert: left out (no list form): %s' % ', '.join(skipped[:12]) + (' ...' if len(skipped) > 12 else ''), file=sys.stderr)
+        print('dtcg-convert: left out (not a colour, a spacing or a radius token, which are the families the design system lists): %s' % ', '.join(skipped[:12]) + (' ...' if len(skipped) > 12 else ''), file=sys.stderr)
     print('dtcg-convert: %d colour token(s) in %d theme(s), %d dimension(s) -> %s' % (len(colours), len(themes), sum(len(x) for x in dims.values()), out))
-    return 0
+    for pr in problems:
+        print('dtcg-convert: NOT CONVERTED: %s' % pr, file=sys.stderr)
+    return 1 if problems else 0
 
 
 if __name__ == '__main__':

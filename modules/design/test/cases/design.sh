@@ -1731,7 +1731,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
 _dm_node() { command -v node >/dev/null 2>&1 && node -e 'process.exit(parseInt(process.versions.node) >= 22 ? 0 : 1)' >/dev/null 2>&1; }
 case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it() {
   cf_reset
-  local L="m3-tokens.mjs writes the same bytes for the same seed, role names with no prefix, a greyscale wire file and the seed as primary-container, and its output passes the contrast audit in every theme (with --pin-primary a light seed warns and fails it); dtcg-convert.py turns the pulled steep tokens into the pulled design system's tokens.json sections and the first block of its tokens.css, in the type's theme shape; contrast-audit.py reads a pulled board's buttons and a link and flags one set below 44 px"
+  local L="m3-tokens.mjs writes the same bytes for the same seed, role names with no prefix, a greyscale wire file and the seed as primary-container, and its output passes the contrast audit in every theme (with --pin-primary a light seed warns and fails it); dtcg-convert.py turns the pulled steep tokens into the pulled design system's tokens.json sections and the first block of its tokens.css, in the type's theme shape; contrast-audit.py reads a pulled board's buttons and a link and flags one set below 44 px; the generated set passes the audit in every theme for the seeds that once failed in wire; a colour object's alpha is read as unread by the audit and written by the converter; the converter reads #rgb and exits 1, naming it, for a colour or dimension it cannot read"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
   _dm_node || { skp "$L" "Node 22 or later is absent: m3-tokens.mjs needs it (the module's manifest says optional)"; return; }
@@ -1863,7 +1863,7 @@ EOF
   _dm_py "$m/contrast-audit.py" "$d/s" --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "SMALL" && _dm_has "$_dm_out" "ux-002-start"; } || cf "(f) a button set to 32 px is not flagged SMALL, naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   # (h) every seed passes, the five that failed (Material red 600, teal 600, pink 500, two greys) and the extremes among them
-  for i in '#E53935' '#00897B' '#E91E63' '#808080' '#777777' '#FFFFFF' '#000000' '#FFEB3B'; do
+  for i in '#E53935' '#00897B' '#E91E63' '#808080' '#777777' '#FFFFFF' '#000000' '#FFEB3B' '#0080ff' '#009900' '#217068' '#2a68a4' '#5345fb' '#af20a7' '#cc0033' '#cc3399' '#d6316c' '#ff0080'; do
     rm -rf "$d/m"; node "$m/m3-tokens.mjs" "$i" --name app --out "$d/m/requirements/design/tokens" >/dev/null 2>&1
     _dm_py "$m/contrast-audit.py" "$d/m" --strict
     [ "$_dm_rc" -eq 0 ] || cf "(h) the fidelity default for seed $i does not pass the contrast audit (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
@@ -1876,6 +1876,15 @@ EOF
   printf '%s\n' '{"color":{"surface":{"$value":"#fff"},"on-surface":{"$value":"#eee"},"primary":{"$value":"#336699"},"on-primary":{"$value":"#ffffff20"}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
   _dm_py "$m/contrast-audit.py" "$d/o" --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LOW light: color-on-surface #eeeeee on color-surface #ffffff" && _dm_has "$_dm_out" "UNREAD light: color-on-primary"; } || cf "(i) #eee on #fff is not measured, or an alpha colour passes as read (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":{"colorSpace":"srgb","components":[0,0,0],"alpha":0.12,"hex":"#000000"}}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD light: color-on-surface" && _dm_has "$_dm_out" "alpha"; } || cf "(i) a colour object with alpha 0.12 passes as opaque black at 21:1 (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":{"colorSpace":"srgb","components":[0.93,0.93,0.93],"alpha":1,"hex":"#eeeeee"}}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LOW light: color-on-surface"; } || cf "(i) a colour object with alpha 1 is not measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#747475"},"on-surface":{"$value":"#000000"}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/o" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "= 4.49:1 < 4.5:1" && ! _dm_has "$_dm_out" "= 4.50:1"; } || cf "(i) a 4.4976:1 pair is not printed under the line it fails (4.49:1 < 4.5:1) (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   printf '%s\n' '{"color":{"primary":{"$value":"#336699"}}}' > "$d/o/requirements/design/tokens/o.tokens.json"
   _dm_py "$m/contrast-audit.py" "$d/o" --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NONE"; } || cf "(i) a run that measured no pair passes --strict (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
@@ -1883,6 +1892,16 @@ EOF
   mkdir -p "$d/g/out"
   _dm_py "$m/dtcg-convert.py" "$d/a/requirements/design/tokens" --out "$d/g/out"
   { [ "$_dm_rc" -eq 0 ] && grep -F -- '--spacing-space-16: 16px;' "$d/g/out/tokens.css" >/dev/null && ! _dm_has "$_dm_out" "spacing.space-"; } || cf "(j) the generator's spacing tokens are not in the converted tokens.css: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  # (k) the converter reads #rgb and a colour object's alpha, and a token it cannot read is said and fails the exit status
+  rm -rf "$d/k"; mkdir -p "$d/k/t" "$d/k/out"
+  printf '%s\n' '{"color":{"surface":{"$value":"#fff"},"on-surface":{"$value":"#111"},"soft":{"$value":{"colorSpace":"srgb","components":[0,0,0],"alpha":0.2,"hex":"#000000"}}},"space-0":{"$value":0},"space-4":{"$value":"4px"}}' > "$d/k/t/k.tokens.json"
+  printf '%s\n' '{"color":{"surface":{"$value":"#101417"},"on-surface":{"$value":"#eee"}}}' > "$d/k/t/k.dark.tokens.json"
+  _dm_py "$m/dtcg-convert.py" "$d/k/t" --out "$d/k/out"
+  { [ "$_dm_rc" -eq 0 ] && grep -F -- '--color-surface: #ffffff;' "$d/k/out/tokens.css" >/dev/null && grep -F -- '--color-on-surface: #111111;' "$d/k/out/tokens.css" >/dev/null && grep -F -- '--color-soft: #00000033;' "$d/k/out/tokens.css" >/dev/null && grep -F -- '--color-on-surface: #eeeeee;' "$d/k/out/tokens.css" >/dev/null && grep -F -- '--space-0: 0px;' "$d/k/out/tokens.css" >/dev/null; } || cf "(k) #fff, #111, #eee, a 20% black and a bare 0 are not all in the converted tokens.css (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#fff"},"badcol":{"$value":"red"}},"space-4":{"$value":"four"}}' > "$d/k/t/k.tokens.json"
+  rm -f "$d/k/t/k.dark.tokens.json"
+  _dm_py "$m/dtcg-convert.py" "$d/k/t" --out "$d/k/out"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NOT CONVERTED: color.badcol" && _dm_has "$_dm_out" "NOT CONVERTED: space-4" && grep -F -- '--color-surface: #ffffff;' "$d/k/out/tokens.css" >/dev/null; } || cf "(k) a colour and a spacing the converter cannot read are not named with exit 1, the rest written (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   for i in LICENSE NOTICE m3-static.json material-color-utilities/index.js; do
     [ -f "$m/vendor/$i" ] || cf "(g) vendor/$i is not in the module"
   done
@@ -1950,13 +1969,23 @@ return { isIdle: v === 'idle', isDone: v === 'done' };
 </body>
 </html>
 EOF
-  printf '/* stand-in design runtime */\nwindow.__stand_in = 1;\n' > "$d/rt.js"
+  printf '/* stand-in design runtime */\nwindow.__stand_in = 1;\nwindow.__dcSetProps = function(){};\nwindow.__dcRootName = function(){ return "r"; };\n' > "$d/rt.js"
+  cat > "$d/stub.py" <<'PYEOF'
+import re, sys, urllib.parse as u, urllib.request
+p = u.urlparse(sys.argv[1])
+base = p.scheme + '://' + p.netloc
+src = urllib.request.urlopen(base + '/support.js').read()
+open(sys.argv[2], 'wb').write(src)
+runtime = src.decode('utf-8', 'replace').split(';(function(){try{')[0]      # what the page runs before the postlude
+if re.search(r'__dcSetProps\s*=', runtime) and re.search(r'__dcRootName\s*=', runtime):
+    urllib.request.urlopen(base + '/__kit-runtime-ran?b=' + u.quote(u.unquote(p.path)[1:], safe=''))   # what the postlude's own check sends once the hooks exist
+PYEOF
   cat > "$d/chrome" <<EOF
 #!/bin/bash
 printf '%s\n' "\$@" >> '$args'
 shot=""; url=""
 for a in "\$@"; do case "\$a" in --screenshot=*) shot="\${a#--screenshot=}" ;; http://*) url="\$a" ;; esac; done
-python3 -c "import sys,urllib.request,urllib.parse as u; p=u.urlparse(sys.argv[1]); open(sys.argv[2],'wb').write(urllib.request.urlopen(p.scheme+'://'+p.netloc+'/support.js').read())" "\$url" '$sup'
+python3 '$d/stub.py' "\$url" '$sup'
 printf '\211PNG\r\n\032\n' > "\$shot"
 EOF
   chmod +x "$d/chrome"
@@ -1994,6 +2023,35 @@ EOF
   { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "NO-SUCH-BOARD"; } || cf "(f) --only a board that is not there renders nothing in silence (exit $_dm_rc): $_dm_out"
   _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/no-such-chrome"
   { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "CHROME-ABSENT"; } || cf "(f) a --chrome that does not exist is replaced by another Chrome (exit $_dm_rc): $_dm_out"
+  # (g) a runtime that does not run is a FAIL with no PNG, never an OK over a page drawn without it
+  printf '/* cut short */\nwindow.__stand_in = 1;\n' > "$d/rt-bad.js"; : > "$d/rt-empty.js"
+  for want in rt-bad.js rt-empty.js; do
+    rm -f "$d/out/Timer.png"
+    _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/$want" --chrome "$d/chrome" --only Timer.dc.html
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "FAIL" && _dm_has "$_dm_out" "RUNTIME-DID-NOT-RUN" && [ ! -e "$d/out/Timer.png" ]; } || cf "(g) $want, which defines no hook, is not a FAIL naming RUNTIME-DID-NOT-RUN with no PNG (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  done
+  # (h) what it refuses is said, with its own exit code: no board, no folder, props that are not JSON
+  mkdir -p "$d/empty-project"
+  _dm_py "$m/render.py" "$d/empty-project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome"
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "NO-BOARDS"; } || cf "(h) a folder with no board renders nothing in silence (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/render.py" "$d/no-such-folder" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome"
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "NO-SUCH-PROJECT"; } || cf "(h) a folder that is not there is not named (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/project" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --props 'not json'
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "BAD-PROPS"; } || cf "(h) --props that is not JSON renders OK with the props unapplied (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/render.py" --help
+  { _dm_has "$_dm_out" "NO-SUCH-BOARD" && _dm_has "$_dm_out" "RUNTIME-DID-NOT-RUN" && _dm_has "$_dm_out" "BAD-PROPS"; } || cf "(h) the help's exit codes omit a refusal the tool makes"
+  # (i) a sheet linked with an unquoted or a root-relative href answers the theme, so the board is not said to draw brand
+  for want in 'href=themed.css' 'href="/themed.css"'; do
+    rm -rf "$d/p2"; cp -R "$d/project" "$d/p2"
+    _dm_edit "$d/p2/Timer.dc.html" "s|href=\"sheets/tokens.css\"|$want|"
+    _dm_py "$m/render.py" "$d/p2" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --theme wire --only Timer.dc.html
+    { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "NO-THEME-RULE"; } || cf "(i) a sheet linked as $want is not followed: the board is said to draw as the brand version (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  done
+  # (j) a board with its own :root of properties that also links the themed sheet is told it keeps its own values
+  rm -rf "$d/p3"; cp -R "$d/project" "$d/p3"
+  _dm_edit "$d/p3/Timer.dc.html" 's|^body{margin:0}$|:root{--color-surface:#faf8f3}body{margin:0}|; s|href="sheets/tokens.css"|href="themed.css"|'
+  _dm_py "$m/render.py" "$d/p3" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --theme wire --only Timer.dc.html
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "own :root"; } || cf "(j) a board that keeps its own :root under a themed sheet is not told so (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   finish "$L"
   teardown
 }
@@ -2007,7 +2065,7 @@ EOF
 # =============================================================================
 case_render_py_draws_the_pulled_boards_in_real_chrome_with_the_scheme_and_the_theme_that_were_asked_for() {
   cf_reset
-  local L="render.py in real Chrome draws the pulled plant board with its ground #f7fbf0 by default and #10150f with --scheme dark, draws the pulled settings board wire (#f9f9f9) under --theme wire, says NO-THEME-RULE for the boards no sheet answers (they stay #faf8f3), and refuses an unknown theme"
+  local L="render.py in real Chrome draws the pulled plant board with its ground #f7fbf0 by default and #10150f with --scheme dark, draws the pulled settings board wire (#f9f9f9) under --theme wire, says NO-THEME-RULE for the boards no sheet answers (they stay #faf8f3), refuses an unknown theme, and fails a board drawn with a runtime that is cut short, empty or another file"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
   local c rt="${KIT_TEST_DC_RUNTIME:-}" chrome=""
@@ -2604,6 +2662,13 @@ EOF
   done
   _dm_py "$m/render.py" "$d/steep" "$d/o4" --runtime "$rt" --theme no-such
   { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "UNKNOWN-THEME"; } || cf "(d) an unknown theme id is not refused (exit $_dm_rc): $_dm_out"
+  # (e) a runtime that is cut short, empty or another file draws a plausible screen without running: it is a FAIL with no PNG
+  head -c 100000 "$rt" > "$d/rt-cut.js"; : > "$d/rt-empty.js"; printf 'window.somethingElse = 1;\n' > "$d/rt-other.js"
+  for b in rt-cut rt-empty rt-other; do
+    rm -rf "$d/o5"
+    _dm_py "$m/render.py" "$d/plant" "$d/o5" --runtime "$d/$b.js" --only Plant.dc.html
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "RUNTIME-DID-NOT-RUN" && [ ! -e "$d/o5/Plant.png" ]; } || cf "(e) the runtime $b reads OK or leaves a PNG (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  done
   finish "$L"
   teardown
 }

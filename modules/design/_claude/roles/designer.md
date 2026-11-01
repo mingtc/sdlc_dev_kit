@@ -146,12 +146,13 @@ No tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x
 forced (default light) so a sheet that follows `prefers-color-scheme` draws the same everywhere; a 2x render matched a real copy to
 0.04% of pixels. **The runtime route, honestly:** `render.py` needs the design runtime (`dc-runtime.js`), which the module does not
 ship (it is the design tool's code). On A (the claude-artifacts server) the file (about 188 KB) is readable, but only into the
-transcript; no tool there puts text on disk, and retyping 351 lines is not a route. A copy has to come from a person who saved one
-earlier from the design type's folder, or from surface B (its `read` with `paths` is documented to save the type's files; not tried
-here). Whether a downloaded or exported canvas carries the runtime is untested. Without a runtime `render.py` says `RUNTIME-ABSENT` and exits 3: the PNG is then a person's.
+transcript; no tool there puts text on disk, and retyping a file that size is not a route. A copy kept earlier from the design type's
+folder is the route seen to work; surface B's `read` with `paths` is documented to save the type's files (not tried here). Whether a
+downloaded or exported canvas carries the runtime is untested. A copy that is cut short, empty or another file is not accepted: the
+board is a `FAIL` (`RUNTIME-DID-NOT-RUN`) unless the page reports the runtime's hooks. Without a runtime `render.py` says `RUNTIME-ABSENT` and exits 3: the PNG is then a person's.
 Without Chrome it says `CHROME-ABSENT`. The page has no theme switch (the picker's **Theme | Custom** switch chooses a token for an
 element; a panel Theme tab sits behind a flag that is off by default), so a Gate 1 wire review is `render.py --theme wire` (a board whose own CSS and linked sheets hold no `[data-theme="wire"]` rule prints
-`NO-THEME-RULE` and draws as the brand version; an id no file answers is refused), or a
+`NO-THEME-RULE` and draws as the brand version; a board's own `:root` of properties keeps its values over a sheet's, and the line says so; an id no file answers is refused), or a
 separate board; with neither, say so and review the brand version.
 
 ### Comments

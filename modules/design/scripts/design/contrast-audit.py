@@ -20,7 +20,7 @@ style names a height, min-height, width or min-width in px below --target prints
 read here; the audit says what it read.
 Python 3 standard library only; reads files, writes nothing.
 """
-import argparse, importlib.util, json, re, sys
+import argparse, importlib.util, json, math, re, sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -48,6 +48,9 @@ def hexof(v):
     """-> ('#rrggbb', None) for a colour this tool can measure, else (None, why): a #hex string (3, 6 or 8 digits; an alpha below ff cannot be
     measured without knowing what is behind it), or a DTCG colour object with a `hex`."""
     if isinstance(v, dict) and 'hex' in v:
+        alpha = v.get('alpha', 1)
+        if not isinstance(alpha, (int, float)) or isinstance(alpha, bool) or alpha < 1:
+            return None, 'has an alpha (%s): its contrast depends on what is behind it' % (alpha,)
         v = v['hex']
     if not isinstance(v, str):
         return None, 'not a hex string or a colour object with a hex'
@@ -139,7 +142,7 @@ def main(argv):
             r = ratio(merged[fg], merged[bg])
             measured += 1
             if r < a.min:
-                low.append(f"LOW {th if th != 'base' else 'light'}: {fg} {merged[fg]} on {bg} {merged[bg]} = {r:.2f}:1 < {a.min:g}:1")
+                low.append(f"LOW {th if th != 'base' else 'light'}: {fg} {merged[fg]} on {bg} {merged[bg]} = {math.floor(r * 100) / 100:.2f}:1 < {a.min:g}:1")   # never rounded up to the line
     small, read = targets(root, cdl.DESIGN_REL, a.target)
     lines = low + small + [f'UNREAD {th}: {k} ({why})' for th, k, why in unread]
     if measured == 0:

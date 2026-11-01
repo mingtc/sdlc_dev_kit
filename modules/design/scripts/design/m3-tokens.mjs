@@ -34,6 +34,8 @@ const source = Hct.fromInt(argbFromHex(seedHex));
 const hex = argb => hexFromArgb(argb).toLowerCase();
 const toneHex = (pal, tone) => hex(pal.tone(tone));
 
+const grey = h => { const t = Hct.fromInt(argbFromHex(h)).tone; return hex(Hct.from(0, 0, t).toInt()); };   // the wire value of a colour
+
 function roles(dark) {
   const sch = new SchemeTonalSpot(source, dark, 0.0, '2021'), dc = new MaterialDynamicColors(), o = {};
   for (const n of roleNames) { const c = dc[n](); if (c) o[kebab(n)] = hex(c.getArgb(sch)); }
@@ -45,9 +47,11 @@ function roles(dark) {
   const onTone = (bg, preferred) => {
     const bgArgb = argbFromHex(bg);
     const order = [preferred, ...[10, 5, 0, 15, 20, 90, 95, 100, 25, 80].filter(t => t !== preferred)];
-    for (const t of order) if (wcag(pal.tone(t), bgArgb) >= 4.5) return t;
-    console.error(`warning: no tone of the seed's palette reaches 4.5:1 on ${bg}; the on-colour is the best of the tried tones`);
-    return order.reduce((best, t) => (wcag(pal.tone(t), bgArgb) > wcag(pal.tone(best), bgArgb) ? t : best), order[0]);
+    // both the colour pair and the wire pair (each value greyed and rounded to 8 bits) must reach it
+    const score = t => Math.min(wcag(pal.tone(t), bgArgb), wcag(argbFromHex(grey(toneHex(pal, t))), argbFromHex(grey(bg))));
+    for (const t of order) if (score(t) >= 4.5) return t;
+    console.error(`warning: no tone of the seed's palette reaches 4.5:1 on ${bg}, in colour and in wire; the on-colour is the best of the tried tones`);
+    return order.reduce((best, t) => (score(t) > score(best) ? t : best), order[0]);
   };
   if (pin && !dark) {
     o.primary = seedHex;
@@ -61,7 +65,6 @@ function roles(dark) {
   return o;
 }
 const light = roles(false), dark = roles(true);
-const grey = h => { const t = Hct.fromInt(argbFromHex(h)).tone; return hex(Hct.from(0, 0, t).toInt()); };
 const wire = Object.fromEntries(Object.entries(light).map(([k, v]) => [k, grey(v)]));
 
 const px = v => v + 'px';

@@ -8,11 +8,13 @@ usage: render.py PROJECT_DIR OUT_DIR --runtime PATH [--theme ID] [--scheme light
   PROJECT_DIR  the canvas's project/ folder: the *.dc.html files and canvas.json (the board sizes; 390x844 when absent)
   OUT_DIR      gets <Name><suffix>.png for each board
   --runtime    THE DESIGN RUNTIME (dc-runtime.js; $DC_RUNTIME works too). Required, because this module does not ship it: it is the
-               design tool's own code. You need a copy that matches the canvas. OBSERVED routes: a copy a person saved earlier from the
-               design type's folder (`artifact-type/dc-runtime.js`, about 188 KB); a Claude Code session with the built-in Artifact tool
-               (its `read` with `paths` is documented to save the type's files to disk, not tried here). NOT OBSERVED: that a downloaded or
-               exported canvas contains it. On the claude-artifacts server the file is readable (`read_file` serves it) but only into
-               the transcript; no tool there writes it to disk, and retyping 351 lines is not a route. Without a runtime this tool
+               design tool's own code. A copy that matches the canvas is best (one older copy drew a newer canvas to within 0.043% of
+               a real PNG, so the need for an exact match is unobserved). Routes: a copy kept earlier from the design type's folder
+               (`artifact-type/dc-runtime.js`, about 188 KB), the only one seen to work; a Claude Code session with the built-in Artifact
+               tool (its `read` with `paths` is documented to save the type's files, not tried here); an exported canvas (untested whether
+               it contains one). On the claude-artifacts server the file is readable (`read_file` serves it) but only into the
+               transcript; no tool there writes it to disk, and retyping a file that size is not a route. A copy that is truncated, empty
+               or another file is not accepted: the page must report the runtime's hooks, or the board is a FAIL. Without a runtime this tool
                prints `RUNTIME-ABSENT` and exits 3, and the PNG is a person's: Copy as PNG on the canvas (2x) or Export.
   --theme      sets data-theme="ID" on <html> before the board draws: `wire` for the Gate 1 wireframe review, `dark`, or any theme id
                of the canvas's design system. The page has no theme switch, so this is how a theme is looked at. A board whose own
@@ -24,6 +26,8 @@ usage: render.py PROJECT_DIR OUT_DIR --runtime PATH [--theme ID] [--scheme light
   --timeout    seconds Chrome may take per board (default 90)
   --scale      device scale factor (default 1; the page's Copy as PNG is 2, and a 2x render matched a real copy to 0.043% of pixels)
   --props      JSON prop overrides for every board (what the Tweaks panel sets)
+Exit codes: 0 every board rendered; 1 a board failed (Chrome failed, timed out, or the page never showed the runtime ran: RUNTIME-DID-NOT-RUN);
+2 refused (NO-SUCH-BOARD, NO-SUCH-PROJECT, NO-BOARDS, UNKNOWN-THEME, BAD-PROPS); 3 nothing could be rendered (RUNTIME-ABSENT, CHROME-ABSENT).
 Chrome is found from --chrome, $CHROME, the usual names on PATH, or the macOS application; with none (or a --chrome that does not
 exist), `CHROME-ABSENT` and exit 3. A board whose PNG Chrome did not write (a failed run, a timeout) is `FAIL`, the old PNG removed first.
 The project is COPIED to a temp dir, support.js is written there (never into PROJECT_DIR), the copy is served on 127.0.0.1, each
@@ -39,6 +43,7 @@ POSTLUDE = r"""
 ;(function(){try{
   var q=new URLSearchParams(location.search), t=q.get('theme');
   if(t) document.documentElement.setAttribute('data-theme',t);
+  (function chk(n){ if(typeof window.__dcSetProps==='function'&&typeof window.__dcRootName==='function'){ new Image().src='/__kit-runtime-ran?b='+encodeURIComponent(decodeURIComponent(location.pathname).replace(/^\//,'')); } else if(n<50){ setTimeout(function(){chk(n+1)},100); } })(0);
   var p=q.get('dcprops'); if(!p) return;
   var o=JSON.parse(p);
   function go(){ if(window.__dcSetProps&&window.__dcRootName){ window.__dcSetProps(window.__dcRootName(), o); } }
@@ -72,9 +77,10 @@ def theme_rule(root, board, theme):
         if rx.search(text):
             return True
         base = os.path.dirname(name)
-        for ref in re.findall(r'(?:href=["\']|@import\s+(?:url\()?["\']?)([^"\'\s)]+\.css)', text):
-            if not re.match(r'^([a-z]+:|//|/)', ref):
-                todo.append(os.path.normpath(os.path.join(base, ref)))
+        for ref in re.findall(r'(?:href=["\']?|@import\s+(?:url\()?["\']?)([^"\'\s)>]+\.css)', text):
+            if re.match(r'^([a-z]+:|//)', ref):
+                continue
+            todo.append(os.path.normpath(ref.lstrip('/') if ref.startswith('/') else os.path.join(base, ref)))
     return False
 
 
@@ -105,6 +111,9 @@ def main(argv):
     if not chrome:
         print('CHROME-ABSENT: no Chrome or Chromium found (--chrome, $CHROME, PATH, the macOS application). Nothing was rendered.', file=sys.stderr)
         return 3
+    if not os.path.isdir(a.project):
+        print('NO-SUCH-PROJECT: %s is not a folder. Nothing was rendered.' % a.project, file=sys.stderr)
+        return 2
     os.makedirs(a.out, exist_ok=True)
     tmp = tempfile.mkdtemp(prefix='dcrender-')
     srv = None
@@ -115,11 +124,20 @@ def main(argv):
             runtime = f.read()
         with open(os.path.join(root, 'support.js'), 'w', encoding='utf-8') as f:
             f.write(runtime + POSTLUDE)
+        if a.props:
+            try:
+                json.loads(a.props)
+            except ValueError as e:
+                print('BAD-PROPS: --props is not JSON (%s). Nothing was rendered.' % e, file=sys.stderr)
+                return 2
         boards = {}
         cj = os.path.join(root, 'canvas.json')
         if os.path.exists(cj):
             boards = json.load(open(cj, encoding='utf-8')).get('boards', {})
         files = sorted(n for n in os.listdir(root) if n.endswith('.dc.html'))
+        if not files:
+            print('NO-BOARDS: no *.dc.html file in %s (give the canvas\'s project/ folder). Nothing was rendered.' % a.project, file=sys.stderr)
+            return 2
         if a.only:
             missing = [n for n in a.only if n not in files]
             if missing:
@@ -130,9 +148,19 @@ def main(argv):
             print('UNKNOWN-THEME: no file of %s holds a [data-theme="%s"] rule. Nothing was rendered.' % (a.project, a.theme), file=sys.stderr)
             return 2
 
+        ran = set()
+
         class Q(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *x):
                 pass
+
+            def do_GET(self):
+                if self.path.startswith('/__kit-runtime-ran'):
+                    ran.add(urllib.parse.unquote(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('b', [''])[0]))
+                    self.send_response(204)
+                    self.end_headers()
+                    return
+                super().do_GET()
         srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Q, directory=root))
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         port = srv.server_address[1]
@@ -159,9 +187,13 @@ def main(argv):
                 err = r.stderr[-500:]
             except subprocess.TimeoutExpired:
                 ok, err = False, 'Chrome did not finish in %d s' % a.timeout
+            if ok and n not in ran:
+                ok, err = False, 'RUNTIME-DID-NOT-RUN: the page never reported the runtime\'s hooks (__dcSetProps, __dcRootName), so %s is not a working design runtime (truncated, empty, or another file?); the PNG was not kept\n' % rt
             note = ''
             if ok and a.theme and not theme_rule(root, n, a.theme):
                 note = ' NO-THEME-RULE: this board and its linked sheets hold no [data-theme="%s"] rule, so it is drawn as the brand version' % a.theme
+            elif ok and a.theme and re.search(r':root\s*\{[^}]*--[\w-]+\s*:', open(os.path.join(root, n), encoding='utf-8', errors='replace').read()):
+                note = ' NOTE: the board has its own :root block of custom properties, which wins over a theme sheet for the properties it sets'
             print(('OK   ' if ok else 'FAIL ') + '%s %dx%d%s -> %s%s' % (n, w, h, ' @%gx' % a.scale if a.scale != 1 else '', out, note))
             if not ok:
                 rc = 1

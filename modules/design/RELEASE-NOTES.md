@@ -14,14 +14,17 @@ any other heading are not read. Nothing here is read while the module is disable
   review is `--theme wire`. **It needs the design runtime, which the module does not ship**; a copy comes from a person or from a
   session that has the built-in Artifact tool (the claude-artifacts server serves the file's text but writes nothing to disk; that a downloaded
   canvas carries it is untested). Without one it says
-  `RUNTIME-ABSENT` and exits 3; without Chrome, `CHROME-ABSENT`.
+  `RUNTIME-ABSENT` and exits 3; without Chrome, `CHROME-ABSENT`. A copy that is cut short, empty or another file draws a plausible
+  screen without running, so a board whose page did not report the runtime's hooks is a `FAIL` (`RUNTIME-DID-NOT-RUN`) with no PNG.
 - **The audits.** `scripts/design/contrast-audit.py` measures every `on-X` on `X` pair and the text on the surfaces in each theme (WCAG
   4.5:1) and flags a button, link or input styled below 44 px; a report, `--strict` makes a failure the exit status.
 - **The token tools.** `scripts/design/m3-tokens.mjs <seed> --name <ns> --out requirements/design/tokens` (Node 22 or later, optional)
   writes Material 3 colour roles, shape, spacing and elevation from one seed as `<ns>.tokens.json`, `.dark` and `.wire` (greyscale);
   the seed's hue and chroma are kept, the same seed gives the same bytes, and the output passes the contrast audit. It uses a vendored,
   patched copy of `material-color-utilities` (Apache-2.0; `scripts/design/vendor/NOTICE`). `scripts/design/dtcg-convert.py` writes a
-  design system's `tokens.json` and `tokens.css` from the token files, unprefixed, in the shape the design type's compiler writes.
+  design system's `tokens.json` and `tokens.css` from the token files, unprefixed, in the shape the design type's compiler writes; it reads
+  `#rgb` and a colour object's `alpha`, and a colour, spacing or radius token it cannot read is named (`NOT CONVERTED`) and the exit status is 1.
+  The audit prints `UNREAD` for a colour with an alpha, since its contrast depends on what is behind it.
 - The Designer role drops its three needs-the-next-version lines for these; the packaged `/design-pull` and `/design-publish` skills stay
   on it. No action: nothing runs until the Designer or a person runs it.
 
@@ -95,7 +98,7 @@ any other heading are not read. Nothing here is read while the module is disable
   packaged `/design-pull` and `/design-publish` skills are not in this version. A colour literal's next act is the Designer
   correcting the screen; the Gate 1 wire review is a local render with `data-theme="wire"` or a separate board, since the page has no
   theme switch; no tool makes a PNG, so a human copies one (Copy as PNG, 2x) or an agent that holds the design runtime renders it.
-  The runtime cannot be fetched on the `claude-artifacts` surface, so a local render needs a copy a human or the built-in tool supplies.
+  The runtime can be read on the `claude-artifacts` surface but not written to disk from there, so a local render needs a copy kept earlier or saved by the built-in tool.
 - A screen with its own registry row reports its colours on its own row, not again on a screen that imports it.
 
 ## [0.1.0]
