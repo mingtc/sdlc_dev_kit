@@ -55,12 +55,14 @@ Python 3, read-only except `prd-view.py --md`; each prints one finding per line.
 python3 scripts/design/check-design-links.py                  # the registry, the markers, the approvals, the pins, both ways
 python3 scripts/design/check-design-links.py --leaving <card> # the PM's check before a card leaves todo/: pinned, resolves, approved or waived
 python3 scripts/design/prd-view.py PRD-NNN [--md]             # the screens and states one PRD reaches; --md writes views/PRD-NNN.md
-python3 scripts/design/flow-from-links.py <canvas>/project    # the screen-flow graph from the artboards' links, as Mermaid
+python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  # the screen-flow graph from the artboards' links, as Mermaid
 python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
 ```
 
-An `UNCLASSIFIED` line is information: a PRD or story with no `**UI:**` line reads as none declared. `STALE-APPROVAL` sends a
-row back to `changes` (§ The two gates). `drift` in the pin-drift report is not yours to fix: a pinned state changed after its pin, so
+An `UNCLASSIFIED` or `LITERAL-COLOUR` line is a report line, not a finding: a PRD or story with no `**UI:**` line reads as none
+declared, and a colour literal in a screen goes back to the design tool's agent as a request in the brief. `STALE-APPROVAL` sends a
+row back to `changes` (§ The two gates). `uncompared` in the pin-drift report means it could not tell (a `var()` naming no token, an
+alias that does not resolve, a state the registry lacks): fix the record, then read it again; it is never `clean`. `drift` in the pin-drift report is not yours to fix: a pinned state changed after its pin, so
 raise a `D-NN` with `ask.sh` (rule 6); a pinned card is never re-targeted.
 
 ## Model & effort contract

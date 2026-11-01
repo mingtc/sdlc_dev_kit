@@ -18,6 +18,7 @@ Parses every *.dc.html and collects <a href="X.dc.html"> relative board links; p
 Python 3 standard library only.
 """
 import argparse, fnmatch, json, re, sys
+from urllib.parse import unquote
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -136,7 +137,9 @@ def main(argv):
     cj = root / "canvas.json"
     if cj.is_file():
         try:
-            for k, v in json.loads(cj.read_text(encoding="utf-8")).get("boards", {}).items():
+            doc = json.loads(cj.read_text(encoding="utf-8", errors="replace"))
+            boards = doc.get("boards", {}) if isinstance(doc, dict) else {}
+            for k, v in (boards.items() if isinstance(boards, dict) else ()):
                 if isinstance(v, dict) and v.get("title"):
                     titles[k] = v["title"]
         except json.JSONDecodeError as e:
@@ -147,12 +150,12 @@ def main(argv):
     edges = []
     for f in files:
         p = LinkParser()
-        p.feed((root / f).read_text(encoding="utf-8"))
+        p.feed((root / f).read_text(encoding="utf-8", errors="replace"))
         script = "".join(p.script)
         for l in p.links:
             if not is_board_link(l["href"]):
                 continue
-            target = Path(l["href"].split("#", 1)[0].split("?", 1)[0]).name
+            target = Path(unquote(l["href"].split("#", 1)[0].split("?", 1)[0])).name
             if any(fnmatch.fnmatch(target, g) for g in skip):
                 continue
             raw = collapse("".join(l["parts"])) or collapse(l["aria"] or "") or "(no text)"
@@ -169,8 +172,14 @@ def main(argv):
                          indent=2, ensure_ascii=False))
         return 0
 
+    node_ids = {}
+
     def nid(f):
-        return re.sub(r"[^A-Za-z0-9_]", "_", f.removesuffix(".dc.html"))
+        """A Mermaid-safe id per file: the file's name with other characters as `_`, numbered when two names collapse to one."""
+        if f not in node_ids:
+            base = re.sub(r"[^A-Za-z0-9_]", "_", f.removesuffix(".dc.html"))
+            node_ids[f] = base if base not in node_ids.values() else f"{base}_{len(node_ids)}"
+        return node_ids[f]
 
     def q(s):
         return s.replace('"', "#quot;")

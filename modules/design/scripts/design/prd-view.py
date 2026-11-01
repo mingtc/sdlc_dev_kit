@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — design tool: per-PRD view of the design record, derived from the registry and the PRD's markers, never kept by hand.
 """prd-view.py -- every screen and state one PRD's stories reach, from the registry AND from the PRD's own markers.
 
-usage: prd-view.py PRD-NNN [--md] [--root REPO_ROOT] [--requirements DIR] [--design DIR]
+usage: prd-view.py <PRD_PREFIX>-NNN [--md] [--root REPO_ROOT] [--requirements DIR] [--design DIR]
 
   default   print the view on stdout
   --md      also write <design>/views/PRD-NNN.md (GENERATED; the file says so; never hand-edit it, rerun this script)
@@ -21,7 +21,7 @@ Disagreements flagged (each line starts with its class):
   NO-STATE       a marker cites a state the registry row does not list
   STATE-UNCITED  info: a state of a screen this PRD reaches that none of this PRD's markers cites
 A screen is never "owned" by the PRD: the view also names the other PRDs whose stories sit on the same row.
-Python 3 standard library only. Exit 0 always (a report, never a gate).
+Python 3 standard library only. Exit 0 once the view is printed (a report); 1 for an argument that is not a PRD id or a PRD it cannot find.
 """
 import argparse, importlib.util, re, sys
 from pathlib import Path
@@ -164,8 +164,9 @@ def main(argv):
     REQ = ns.requirements
     DESIGN = ns.design or f'{ns.requirements}/design'
     root = Path(ns.root).resolve()
-    if not re.fullmatch(r'PRD-\d+', ns.prd):
-        sys.exit('prd-view: the argument is a PRD id, PRD-NNN')
+    prefix = cdl.set_prd_prefix(root)
+    if not re.fullmatch(re.escape(prefix) + r'-\d+', ns.prd):
+        sys.exit(f'prd-view: the argument is a PRD id, {prefix}-NNN (PRD_PREFIX in scripts/config.sh)')
     prd_id = ns.prd
     text, hard, info = render(root, prd_id)
     print(text, end='')

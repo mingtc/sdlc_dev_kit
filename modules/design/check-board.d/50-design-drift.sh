@@ -4,10 +4,11 @@
 #
 # For every card past todo/ and not in done/, declined/ or history/ whose frontmatter carries `design: [UX-NNN#state@<commit>, ...]`,
 # scripts/design/pin-drift.py compares the pinned artboard (found through the screen registry at the pin) and the tokens it
-# uses with the trunk, and says clean | moved | drift | gone | unresolved. A drift line then says `ruling pending` when a
-# question file under dev/questions/ or requirements/DECISIONS.md names both the card and the screen, else `owed`.
+# uses with the trunk, and says clean | moved | drift | gone | unresolved | uncompared (something it could not compare: the
+# line says what). A drift line then says `ruling pending` when a question file under dev/questions/ or
+# requirements/DECISIONS.md names both the card and the screen, else `owed`.
 # A todo card is unpinned by rule, a landed card's pin is history, a declined one builds nothing: none is read.
-# Status 3 when a line is not clean or moved; the arm decides nothing either way.
+# Status 3 when a line is not clean or moved; 1 when the tool did not run; the arm decides nothing either way.
 
 _dd_tool="$CB_LIB_DIR/../design/pin-drift.py"
 _dd_head="${CB_REF:-HEAD}"
@@ -29,23 +30,15 @@ if [ ! -f "$_dd_tool" ]; then
   echo "      design pin drift: skipped: scripts/design/pin-drift.py is not in this tree"
   return 0
 fi
-_dd_files="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$_dd_head" -- requirements/design 2>/dev/null)" || _dd_files=""
-case "$_dd_files" in
-  *"/CANVAS.md"*) : ;;
-  *)
-    echo "      design pin drift: no screen registry (requirements/design/<canvas>/CANVAS.md) at $_dd_head; nothing to compare"
-    return 0 ;;
-esac
-
 _dd_out="$(PYTHONDONTWRITEBYTECODE=1 python3 "$_dd_tool" --root "$REPO_ROOT" --head "$_dd_head" --cards "$CB_TREE/progress" 2>&1 </dev/null)" || {
-  echo "      design pin drift: pin-drift.py failed: $(printf '%s' "$_dd_out" | tail -1)"
-  return 0
+  echo "      design pin drift: pin-drift.py did not run: $(printf '%s' "$_dd_out" | tail -1)"
+  return 1
 }
 echo "      design pin drift: compared with ${_dd_head}; cards: $(cb_src)"
 _dd_found=0
 while IFS= read -r _dd_line; do
-  case "$_dd_line" in "pin-drift against "*) continue ;; esac
-  _dd_verdict="$(printf '%s\n' "$_dd_line" | awk '$2 ~ /^UX-[0-9]+/ { print $3 }')"
+  case "$_dd_line" in "pin-drift against "*) continue ;; "pin-drift: "*) echo "      $_dd_line"; continue ;; esac
+  _dd_verdict="$(printf '%s\n' "$_dd_line" | awk '{ print $3 }')"
   case "$_dd_verdict" in
     clean|moved) echo "      $_dd_line" ;;
     drift)
@@ -57,7 +50,7 @@ while IFS= read -r _dd_line; do
       else
         echo "      $_dd_line  -> drift, owed (a D-NN raised with scripts/ask.sh)"
       fi ;;
-    gone|unresolved) _dd_found=1; echo "      $_dd_line" ;;
+    gone|unresolved|uncompared) _dd_found=1; echo "      $_dd_line" ;;
     *) echo "      $_dd_line" ;;
   esac
 done <<DD_EOF

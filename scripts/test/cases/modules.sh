@@ -773,7 +773,7 @@ case_the_manifest_keys_for_fragments_move_checks_and_cell_checks_place_and_refus
 case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
   cf_reset
   local L="each module under modules/ has a manifest whose name is its directory, a row in modules/README.md (a row may outlive a deleted directory), and enables and disables in a sandbox to the bytes it found, with every recorded thing intact in between"
-  local m name dirs="" s0 s1
+  local m name dirs="" s0 s1 skipped="" judged=0
   for m in "$REAL_REPO_ROOT"/modules/*/module.manifest; do
     [ -f "$m" ] || continue
     dirs="${dirs}$(basename "$(dirname "$m")")
@@ -791,7 +791,12 @@ case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
     grep -F "[\`$name\`]" "$REAL_REPO_ROOT/modules/README.md" >/dev/null 2>&1 || cf "($name) modules/README.md has no row for it"
     _md_snap "$SB_WORK" > "$s0"
     _md_mod enable "$name"
-    if [ "$_md_rc" -ne 0 ]; then cf "($name) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"; continue; fi
+    if [ "$_md_rc" -ne 0 ]; then
+      # a required requirement that does not hold on this machine is the module's refusal, not the lifecycle's defect: named, not failed
+      if [ "$(_md_recs module-requires-missing)" -ge 1 ] && [ ! -e "$SB_WORK/process/MODULES" ]; then skipped="${skipped}${skipped:+, }$name"; continue; fi
+      cf "($name) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"; continue
+    fi
+    judged=$((judged + 1))
     _md_mod status "$name"
     printf '%s\n' "$_md_out" | grep -E 'edited|missing' >/dev/null && cf "($name) status reports an edited or missing thing straight after enable"
     _md_mod disable "$name"
@@ -804,6 +809,10 @@ MODULE_DIRS_EOF
   # The other direction is deliberately not checked: EXTRACTION.md sanctions deleting a module's directory,
   # and the index row of a module the project declined may stay.
 
+  if [ -n "$skipped" ]; then
+    if [ "$judged" -eq 0 ] && [ -z "$_cf" ]; then skp "$L" "every module's required requirement fails on this machine (refused module-requires-missing): $skipped"; teardown; return; fi
+    printf '  note  not judged here, a required requirement does not hold (refused module-requires-missing): %s\n' "$skipped"
+  fi
   finish "$L"
   teardown
 }

@@ -71,7 +71,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   **An AC a card already carries is never edited**: add a delta story.
 - Both directions are read: every (UI) AC has a marker; every marker resolves to a registry row and state; every row cites
   a story; no `Design: pending` outlives its first marker. `python3 scripts/design/check-design-links.py` reports these, and
-  `--strict` makes it the design-record gate in `PROJECT.md`; `prd-view.py PRD-NNN` lists the screens and states one PRD reaches.
+  `--strict` makes it the design-record gate in `PROJECT.md`: it says the PRDs, the registry, the approvals and the pins of cards in
+  flight agree, and nothing about a build. `prd-view.py <PRD id>` lists the screens and states one PRD reaches. A gate cell is
+  `open`, `changes`, `superseded` or `approved@<sha>`; a card's `design:` value is `none` or `[UX-NNN#state@<commit>, ...]`.
 
 ## 4. Pins
 
@@ -80,14 +82,17 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   `Pin-ready: <sha>`. That sha is the last commit that touched the screen files and tokens the card cites, **excluding
   `CANVAS.md` bookkeeping** (recording a pin touches that file, so counting it would never settle).
 - Only a row whose `gate1` is `approved@<sha>` can be pinned, or the card's `design:` line carries a named waiver, a
-  `[decision: D-NN]` in its trailing comment. The sha in an
+  `[decision: D-NN]` in its trailing comment: it covers every screen on that line, and its D-NN must be an entry of
+  `requirements/DECISIONS.md`. The sha in an
   approval is the commit that took in the approved version; an approval whose artboard has since changed is **stale** and the row goes back to
   `changes`; the link check reports it as `STALE-APPROVAL`.
 - Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
   waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's, and
-  `python3 scripts/design/check-design-links.py --leaving <card>` runs it.
+  `python3 scripts/design/check-design-links.py --leaving <card>` runs it, and also checks that each pin holds the screen's artboard,
+  is not older than its row's approval, and that the approval still holds at HEAD.
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
-  `history/`, each pinned state as `clean`, `moved`, `drift`, `gone` or `unresolved` (`[+design-drift]`). A state is compared by
+  `history/`, each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (`[+design-drift]`; the last means
+  something could not be compared, and the line says what: it is never `clean`). A state is compared by
   its artboard and the tokens it uses, per state when the artboard marks its branches with `data-state`, else per file. A
   `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
 - **A pinned card is never re-targeted.** A change to a pinned state needs a `D-NN`, which the Designer raises with
@@ -111,8 +116,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
 screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
 carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
-token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`) outside the
-`:root` block is a `LITERAL-COLOUR` finding of the link check; the `:root` block is exempt. A token change on a screen is a
+token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
+in a screen's styles, presentation attributes or script, outside the `:root` block, is a `LITERAL-COLOUR` line of the link check: a
+report line, not a finding, so it does not fail the gate; the `:root` block is exempt. A token change on a screen is a
 request the human carries to the design tool's agent.
 
 - **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks

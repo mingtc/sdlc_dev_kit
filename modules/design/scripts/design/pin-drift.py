@@ -20,7 +20,7 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
   2. COMPARE BLOBS. Artboard bytes at the pin against the artboard at its HEAD path (git blob ids, so exact), and the
      values of the design tokens the artboard uses: every var(--name) in it names the token whose path, dots as hyphens,
      is `name` (`--color-primary` is `color.primary`), read from <design>/tokens/*.tokens.json at both revisions, aliases
-     resolved. A token value changed or removed is drift; a token added is not.
+     resolved across every token file. A token value changed or removed is drift; a token added is not.
   3. VERDICT per card per state:
        clean   same artboard bytes at the same path, and the tokens it uses unchanged. A difference confined to the root's
                data-stories attribute (the registry row's story ids, rewritten whenever a PRD adds a story to the screen) is
@@ -39,11 +39,15 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      computed by the component script.
        gone    the registry at --head has no row for the UX id, or the file is missing
        unresolved   the pin is not a commit, or the registry at the pin has no such row or file
+       uncompared   something it could not compare, said on the line: a var() with no token at either revision, an alias that does
+               not resolve, a tokens file that is not JSON, a state the registry row does not list at the pin or at --head, a
+               `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
+               `uncompared` is never `clean`
      One more column is evidence, not verdict: `render` says whether the committed render of THIS state
      (renders/<Stem>-<state>.png) is byte-identical at the pin and at --head. All states of one screen share one
      source file, so the verdict is the file's; `render: identical` beside `drift` means the change is in markup this
      state does not show, or is not visual (an attribute), and the reader decides.
-Python 3 standard library only; reads git, writes nothing. Exit 0 always.
+Python 3 standard library only; reads git, writes nothing. Exit 0 once it has read the revision, 1 when --head is not a commit.
 """
 import hashlib, importlib.util, json, re, subprocess, sys
 from html.parser import HTMLParser
@@ -59,13 +63,15 @@ _spec = importlib.util.spec_from_file_location('check_design_links', HERE / 'che
 cdl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cdl)
 
-PIN_ITEM = re.compile(r'(UX-\d+)(?:#([A-Za-z0-9_-]+))?(?:@([0-9a-fA-F]{7,40}))?')
 META = re.compile(r' data-stories="[^"]*"')   # the artboard's copy of its registry row's story ids; adding a PRD's story to a row rewrites it
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
+P_CLOSERS = {'address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+             'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'}   # a start tag that ends an open <p>
+UNRESOLVED = '\x00unresolved'
 
 
 def git(*args, check=False):
-    r = subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True)
+    r = subprocess.run(['git', '-C', str(ROOT), '-c', 'core.quotePath=false', *args], capture_output=True)
     if check and r.returncode:
         raise RuntimeError(r.stderr.decode())
     return r.returncode, r.stdout
@@ -86,6 +92,12 @@ def show(r, path):
     return out if rc == 0 else None
 
 
+def tree_paths(r, under):
+    """Every path under `under` at revision r, names unquoted (-z): a non-ASCII name is not read through git's quoting."""
+    rc, out = git('ls-tree', '-r', '--name-only', '-z', r, '--', under)
+    return [p for p in out.decode('utf-8', 'replace').split('\0') if p]
+
+
 _reg_cache = {}
 
 
@@ -93,11 +105,10 @@ def registry_at(r):
     """{ux: row} from every requirements/design/*/CANVAS.md at revision r."""
     if r in _reg_cache:
         return _reg_cache[r]
-    rc, out = git('ls-tree', '-r', '--name-only', r, '--', DESIGN)
     rows = {}
-    for p in out.decode().splitlines():
+    for p in tree_paths(r, DESIGN):
         if p.endswith('/' + cdl.REGISTRY_NAME) and Path(p).parent.parent.as_posix() == DESIGN:
-            text = show(r, p).decode('utf-8')
+            text = show(r, p).decode('utf-8', 'replace')
             rr, _ = cdl.parse_registry(text, p, Path(p).parent)
             for row in rr:
                 rows.setdefault(row['ux'], row)
@@ -133,7 +144,9 @@ class Sig(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
-        text = '<%s %s>' % (tag, ' '.join(f'{k}={v}' for k, v in sorted(attrs)))
+        if tag in P_CLOSERS and self.stack and self.stack[-1][0] == 'p':
+            self.handle_endtag('p')
+        text = '<%s %s>' % (tag, ' '.join(f'{k}={v}' for k, v in sorted(attrs, key=lambda kv: (kv[0], kv[1] or ''))))
         pushed, sc = None, self.scope[-1]
         if a.get('data-state'):
             sc = _states(a['data-state'])
@@ -214,41 +227,77 @@ def _leaves(node, path=(), out=None):
     return out
 
 
-def _resolve(value, leaves, depth=0):
-    m = ALIAS.match(value) if isinstance(value, str) else None
-    if m and depth < 8 and m.group(1) in leaves:
-        return _resolve(leaves[m.group(1)], leaves, depth + 1)
-    return value
+def _resolve(value, own, merged, seen=()):
+    """(value with every alias replaced, True when one did not resolve). An alias is looked up in its own file, then in any
+    token file; a cycle or a name nobody defines does not resolve. Composite values (objects, lists) are resolved member by member."""
+    if isinstance(value, str):
+        m = ALIAS.match(value)
+        if not m:
+            return value, False
+        name = m.group(1)
+        target = own.get(name, merged.get(name))
+        if name in seen or target is None:
+            return value, True
+        return _resolve(target, own, merged, seen + (name,))
+    if isinstance(value, dict):
+        res = {k: _resolve(v, own, merged, seen) for k, v in value.items()}
+        return {k: r[0] for k, r in res.items()}, any(r[1] for r in res.values())
+    if isinstance(value, list):
+        res = [_resolve(v, own, merged, seen) for v in value]
+        return [r[0] for r in res], any(r[1] for r in res)
+    return value, False
 
 
 _tok_cache = {}
 
 
 def token_map(r):
-    """{(token file, css var name): resolved value} from every <design>/tokens/*.tokens.json at revision r. A file that is not
-    JSON holds no tokens here."""
+    """-> ({(token file, css var name): resolved value, or UNRESOLVED}, [problem]) from every <design>/tokens/*.tokens.json at
+    revision r. A file that is not a JSON object is a problem, not silence."""
     if r in _tok_cache:
         return _tok_cache[r]
-    rc, out = git('ls-tree', '-r', '--name-only', r, '--', f'{DESIGN}/tokens')
-    found = {}
-    for p in out.decode().splitlines():
+    files, problems = {}, []
+    for p in sorted(tree_paths(r, f'{DESIGN}/tokens')):
         if not p.endswith('.tokens.json') or Path(p).parent.as_posix() != f'{DESIGN}/tokens':
             continue
         try:
-            leaves = _leaves(json.loads(show(r, p).decode('utf-8')))
-        except (ValueError, UnicodeDecodeError):
-            continue
+            data = json.loads(show(r, p).decode('utf-8'))
+            if not isinstance(data, dict):
+                raise ValueError('not an object')
+            files[Path(p).name] = _leaves(data)
+        except (ValueError, UnicodeDecodeError) as e:
+            problems.append(f'{Path(p).name} is not a JSON object of tokens ({e})')
+    merged = {}
+    for name in sorted(files):
+        for k, v in files[name].items():
+            merged.setdefault(k, v)
+    found = {}
+    for name, leaves in files.items():
         for dotted, v in leaves.items():
-            found[(Path(p).name, dotted.replace('.', '-'))] = json.dumps(_resolve(v, leaves), sort_keys=True)
-    _tok_cache[r] = found
-    return found
+            val, bad = _resolve(v, leaves, merged, (dotted,))
+            found[(name, dotted.replace('.', '-'))] = UNRESOLVED if bad else json.dumps(val, sort_keys=True)
+    _tok_cache[r] = (found, problems)
+    return _tok_cache[r]
 
 
-def tokens_changed(old_html, r_old, r_new):
-    """The custom properties (--name) the artboard at the pin uses whose token value changed or vanished between the two revisions."""
-    used = set(re.findall(r'var\(--([A-Za-z0-9_-]+)', old_html))
-    a, b = token_map(r_old), token_map(r_new)
-    return sorted('--' + n for n in used if {k: v for k, v in a.items() if k[1] == n} != {k: v for k, v in b.items() if k[1] == n})
+def tokens_check(old_html, r_old, r_new):
+    """-> (the custom properties (--name) the artboard at the pin uses whose token value changed or vanished between the two
+    revisions, [what could not be compared]): a var with no token at either revision, an alias that does not resolve, a tokens file
+    that is not JSON."""
+    used = sorted(set(re.findall(r'var\(--([A-Za-z0-9_-]+)', old_html)))
+    (a, pa), (b, pb) = token_map(r_old), token_map(r_new)
+    changed, why = [], []
+    if used and (pa or pb):
+        why.append('tokens: ' + '; '.join(sorted(set(pa + pb))))
+    for n in used:
+        ea, eb = {k: v for k, v in a.items() if k[1] == n}, {k: v for k, v in b.items() if k[1] == n}
+        if not ea and not eb:
+            why.append(f'--{n} names no token')
+        elif ea != eb:
+            changed.append('--' + n)
+        elif UNRESOLVED in ea.values():
+            why.append(f'--{n}: an alias does not resolve')
+    return changed, why
 
 
 def cards(paths):
@@ -262,20 +311,12 @@ def cards(paths):
     return out
 
 
-def pins_of(card):
-    text = card.read_text(encoding='utf-8')
-    m = re.search(r'^---\n(.*?)\n---', text, re.S | re.M)   # a card opens with an HTML comment before its frontmatter
-    if not m:
-        return None, []
-    for line in m.group(1).splitlines():
-        if line.startswith('design:'):
-            body = line[len('design:'):]
-            lb, rb = body.find('['), body.rfind(']')
-            if lb < 0 or rb < lb:
-                return body.split('#')[0].strip() or None, []
-            items = [(x.group(1), x.group(2), x.group(3)) for x in PIN_ITEM.finditer(body[lb:rb])]
-            return 'list', items
-    return None, []
+def card_id(card):
+    m = re.search(r'^id:\s*(\S+)', cdl.read(card), re.M)
+    if m and re.match(r'^[A-Za-z0-9]+(-[A-Za-z0-9]+)*-\d+$', m.group(1)):
+        return m.group(1)
+    m = re.match(r'(.+?-\d+)(?:-|\.md$)', card.name)
+    return m.group(1) if m else card.stem
 
 
 def check(card_id, ux, state, pin, head):
@@ -299,8 +340,8 @@ def check(card_id, ux, state, pin, head):
     new = show(head, path_h)
     if new is None:
         return {**base, 'verdict': 'gone', 'why': f'{path_h} is not in HEAD', 'path_pin': path_p}
-    old_html, new_html = old.decode('utf-8'), new.decode('utf-8')
-    toks = tokens_changed(old_html, full, head)
+    old_html, new_html = old.decode('utf-8', 'replace'), new.decode('utf-8', 'replace')
+    toks, why = tokens_check(old_html, full, head)
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
     meta_only = False
     if not same_bytes and META.sub('', old_html) == META.sub('', new_html):
@@ -313,18 +354,25 @@ def check(card_id, ux, state, pin, head):
         render = 'identical' if blob_id(full, rp) == blob_id(head, rh) else 'changed'
     else:
         render = 'n/a'
-    if (same_bytes or (not ids and aside)) and not toks:
-        verdict = 'clean' if path_p == path_h else 'moved'
-    else:
+    if state and state not in row_p['states']:
+        why.append(f'state {state} is not in the registry row at the pin')
+    if state and state not in row_h['states']:
+        why.append(f'state {state} is not in the registry row at HEAD')
+    if not ((same_bytes or (not ids and aside)) and not toks):
         verdict = 'drift'
+    elif why:
+        verdict = 'uncompared'
+    else:
+        verdict = 'clean' if path_p == path_h else 'moved'
     commits = []
     if verdict == 'drift':
         rc, out = git('log', '--follow', '--format=%h %s', f'{full}..{head}', '--', path_h)
         commits = [l[:90] for l in out.decode().splitlines()]
     res = {**base, 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
-           'ids': ids, 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'tokens': toks, 'render': render}
-    if state and state not in row_p['states']:
-        res['note'] = f'{state} is not a state in the registry at the pin'
+           'ids': ids, 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'tokens': toks, 'render': render,
+           'uncompared': why}
+    if verdict == 'uncompared':
+        res['why'] = '; '.join(why)
     return res
 
 
@@ -355,14 +403,25 @@ def main(argv):
         sys.exit(f'pin-drift: {head_arg} is not a commit')
     results, skipped = [], []
     for card in cards(paths):
-        kind, items = pins_of(card)
-        cid = re.match(r'([A-Z]+-\d+)', card.name)
-        cid = cid.group(1) if cid else card.stem
-        if kind is None or kind == 'none' or not items:
-            skipped.append(f'{cid} (design: {kind or "absent"})')
+        cid = card_id(card)
+        try:
+            dv = cdl.design_value(cdl.read(card))
+        except OSError as e:
+            results.append({'card': cid, 'ux': 'card', 'state': None, 'pin': None, 'verdict': 'uncompared', 'why': f'could not read: {e}'})
             continue
-        for ux, st, pin in items:
-            results.append(check(cid, ux, st, pin, head))
+        if dv['kind'] in ('absent', 'none'):
+            skipped.append(f'{cid} (design: {dv["kind"]})')
+            continue
+        if dv['kind'] == 'bad':
+            results.append({'card': cid, 'ux': 'design:', 'state': None, 'pin': None, 'verdict': 'uncompared',
+                            'why': f'`{dv["raw"] or "empty"}` is not none or [UX-NNN#state@<commit>, ...]'})
+            continue
+        for ux, st, pin in dv['items']:
+            try:
+                results.append(check(cid, ux, st, pin, head))
+            except Exception as e:   # one bad file costs one line, not the report
+                results.append({'card': cid, 'ux': ux, 'state': st, 'pin': pin, 'verdict': 'uncompared',
+                                'why': f'could not compare: {type(e).__name__}: {str(e)[:100]}'})
     if as_json:
         for r in results:
             print(json.dumps(r, sort_keys=True))
@@ -372,7 +431,8 @@ def main(argv):
         loc = r.get('path_head') or r.get('path_pin') or ''
         extra = ''
         if r['verdict'] == 'drift':
-            extra = (' [per-file: no data-state marks]' if r.get('granularity') == 'file' and r.get('state') else '') + ' ids: ' + (' '.join(r['ids'][:10]) + (f' (+{len(r["ids"]) - 10} more)' if len(r['ids']) > 10 else '') if r['ids'] else '(none: tokens only)')
+            none = '(none: tokens only)' if r['tokens'] else '(none: markup outside every element, such as a comment, a doctype or whitespace)'
+            extra = (' [per-file: no data-state marks]' if r.get('granularity') == 'file' and r.get('state') else '') + ' ids: ' + (' '.join(r['ids'][:10]) + (f' (+{len(r["ids"]) - 10} more)' if len(r['ids']) > 10 else '') if r['ids'] else none)
             if r['tokens']:
                 extra += ' tokens: ' + ' '.join(r['tokens'])
             if r.get('commits'):
