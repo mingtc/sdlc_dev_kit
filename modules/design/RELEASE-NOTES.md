@@ -7,6 +7,11 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ## [0.3.0]
 
+### Action required
+
+- **Cards in flight when the `design` module is carried to this version can need one step each.** A card pinned to a commit that holds no render of its state: the PM re-pins its entry to the commit that holds the render (the one allowed re-target). A card whose `(UI)` AC has QA's `file:line` row: QA writes a `design` row with the images instead. A card with `design: none` and a `(UI)` AC: the PM pins it. `python3 scripts/design/check-design-links.py --strict` lists the first and the last (the second shows at landing).
+  Verify: [ ! -f scripts/design/check-design-links.py ] || python3 scripts/design/check-design-links.py --strict >/dev/null
+
 ### Added
 
 - **The card gate.** A move check on `in_progress/` and `dev_complete/` (`scripts/move-check.d/in_progress/50-design-pin.sh`, and
@@ -28,7 +33,7 @@ any other heading are not read. Nothing here is read while the module is disable
   `scripts/design/check-design-cell.py`): the QA gate refuses a PASS row unless every entry reads `identical`, its pin is a commit
   the card carries, both PNGs are committed **on the trunk** (QA commits evidence there with `register-commit.sh`, as the QA role
   says), each is a PNG, the build image is not the pin image, and the pin image is the render the pin commit holds for that screen.
-- No action: an enabled project is carried to this version by `kit-upgrade.sh`. Push the trunk so the gate reads it.
+- An enabled project is carried to this version by `kit-upgrade.sh`. Push the trunk so the gate reads it.
 
 ## [0.2.0]
 

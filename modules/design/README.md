@@ -24,7 +24,8 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 | Evidence kind `design` | `process/evidence-kinds.d/design` |
 | The checkers: the link check, the PRD view, the flow graph, the pin-drift report | `scripts/design/`; Python 3, which `enable` requires |
 | The pin-drift arm of `check-board.sh`, report only | `scripts/check-board.d/50-design-drift.sh` |
-| The card gate: a card leaves `todo/` pinned, resolved and approved | `scripts/move-check.d/in_progress/50-design-pin.sh` |
+| The card gate: a card arrives in `in_progress/` or `dev_complete/` pinned, resolved and approved | `scripts/move-check.d/in_progress/50-design-pin.sh`, `scripts/move-check.d/dev_complete/50-design-pin.sh` |
+| The design rows check: a card reaches `qa_complete/` with a design row for every UI AC and every `design:` entry | `scripts/move-check.d/qa_complete/50-design-rows.sh` |
 | The QA design-cell check on each PASS row of kind `design` | `scripts/qa-cell.d/design/50-design-cell.sh`, with `scripts/design/check-design-cell.py` |
 | Gate row, CORPUS manifest and bucket rows | blocks in `PROJECT.md` and `requirements/CORPUS.md` |
 | Ignore lines for the renderer's cache and generated tokens | a block at the end of `.gitignore` |

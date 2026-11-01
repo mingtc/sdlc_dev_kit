@@ -26,7 +26,7 @@ case "$rc" in
      broken "scripts/design/check-design-cell.py exited 0 without saying design-rows: ok." "read what it printed above, fix the tool, then land $id again." ;;
   1) printf '%s\n' "$out" | grep -q 'the design rows are refused' || { printf '%s\n' "$out" | tail -3; broken "scripts/design/check-design-cell.py exited 1 without a refusal." "read what it printed above, fix the tool, then land $id again."; }
      printf '%s\n' "$out"
-     echo "Next: give each such AC a verdict row of evidence kind design, one UX-NNN#state@<pin> entry per state the AC cites (.claude/templates/design/QA-verdict-design.fragment.md), commit the images and the card to the trunk (./scripts/register-commit.sh), then land again."
+     echo "Next: give each AC named above, and each design: entry the card pins, a place in a verdict row of evidence kind design: one cell holding one UX-NNN#state@<pin> entry per state (.claude/templates/design/QA-verdict-design.fragment.md), commit the images and the card to the trunk (./scripts/register-commit.sh), then land again."
      exit 3   # exit-class: internal — the check contract's refusal status; the mover turns it into its own refusal
      ;;
   *) printf '%s\n' "$out" | tail -3

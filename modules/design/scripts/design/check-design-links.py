@@ -47,7 +47,7 @@ Reports (each line starts with its class)
   NO-RENDER     (only with --leaving) a pin whose commit holds no render for its state (<canvas>/renders/<Screen>-<state>.png): QA's
                 pin image is that render, so a card pinned before the PNG was committed could not land
   DESIGN-NONE   a card past todo/ (or named by --leaving) whose design: is none or absent although one of its ACs is tagged (UI) or
-                carries a [design: ...] marker, or a story it lists has a UI: line that is not none
+                carries a [design: ...] marker
   DESIGN-MISSING a card's AC cites [design: UX-NNN#state] that the card's design: key does not list
   UI-MISMATCH   a story whose `UI:` field says none while one of its ACs is tagged (UI)
   PAIR          a row's `pair` names a row that is missing or does not name it back
@@ -80,6 +80,8 @@ Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
   UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
                 colours are not checked. Put the sheet under project/ as a file and link it by a relative path
+  DESIGN-STORY  a card whose design: is none or absent, listing a story that has a UI: line, when no AC of the card is tagged (UI) or
+                cites a screen: shown, not refused (a card that builds no screen moves and lands; only a tag, a marker or a pin asks for design work)
   UNCOMPARED    a `[data-theme="x"]` block that sets a token-named property when no <ns>.x.tokens.json holds that theme: nothing to compare it
                 with, said and not passed as clean
   SCRIPT-COLOUR a colour-looking string in the component script: a script cannot be read as CSS, so this is shown, never counted
@@ -107,7 +109,7 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 
 META = re.compile(r' data-stories="[^"]*"')
@@ -1168,7 +1170,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         leave = where in leaving
         acs, cstories = card_facts(ctext)
         if shelf_name != 'todo' or leave:
-            ui_why = None
+            ui_why, story_why = None, None
             if acs:
                 ui_why = f"{acs[0][0]} is tagged (UI) or cites a screen"
             else:
@@ -1176,12 +1178,14 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                     for sc in scans.values():
                         v = sc['stories'].get(sid)
                         if v and (any(a['ui'] for a in v['acs']) or (v['ui_field'] not in (None, '') and not re.match(r'^(none|n/a)\b', v['ui_field'] or ''))):
-                            ui_why = f'its story {sid} has a UI: line'
+                            story_why = f'its story {sid} has a UI: line'
                             break
-                    if ui_why:
+                    if story_why:
                         break
             if dv['kind'] in ('absent', 'none') and ui_why:
-                out.append(line('DESIGN-NONE', f"{where}: design: is {dv['kind']} but {ui_why}; pin the screen's states (design: [UX-NNN#state@<commit>]) or take the (UI) tag off the AC"))
+                out.append(line('DESIGN-NONE', f"{where}: design: is {dv['kind']} but {ui_why}; pin the screen's states (design: [UX-NNN#state@<commit>]), or take the (UI) tag or the [design: ...] marker off the AC if the card builds no screen"))
+            elif dv['kind'] in ('absent', 'none') and story_why:
+                out.append(line('DESIGN-STORY', f"{where}: design: is {dv['kind']} and {story_why}, with no AC tagged (UI) or citing a screen (info): fine when the card builds no screen"))
             if dv['kind'] == 'list':
                 listed = {(u, st) for u, st, _ in dv['items']}
                 for ac, refs in acs:
@@ -1222,7 +1226,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             if pin_ok and st and rel:
                 render = f"{row['canvas'].relative_to(root).as_posix()}/renders/{Path(row['file']).name.replace('.dc.html', '')}-{st}.png"
                 if git(root, 'cat-file', '-e', f'{pin}:{render}')[0] != 0:
-                    out.append(line('NO-RENDER', f'{where}: pin @{pin[:7]} of {tag} holds no {render}; commit the PNG, then pin the commit that holds it'))
+                    out.append(line('NO-RENDER', f'{where}: pin @{pin[:7]} of {tag} holds no {render}; re-pin the entry to the commit that holds the render (the one allowed re-target), or commit the PNG first'))
             g1 = row['gates'].get('gate1', '')
             sha = re.fullmatch(r'approved@([0-9a-f]{7,40})', g1)
             if not sha and not waived:
@@ -1271,8 +1275,9 @@ def main(argv):
         out = [l for l in out if any(f' {w}:' in l for w in want)]
         for ln in out:
             print(ln)
-        print(f'design-links: {len(want)} card(s) leaving todo/; {len(out)} finding(s)')
-        return 1 if out else 0
+        nfind = sum(1 for l in out if not l.startswith(REPORT_CLASSES))
+        print(f'design-links: {len(want)} card(s) leaving todo/; {nfind} finding(s)' + (f', {len(out) - nfind} report line(s)' if len(out) > nfind else ''))
+        return 1 if nfind else 0
     out, c = analyse(root, a.requirements, a.design, a.cards)
     for ln in out:
         print(ln)

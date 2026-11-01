@@ -699,9 +699,9 @@ kit_qa_verdict_check() {
     kit_refuse 2 qa-verdict-no-observed \
       "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted}." \
       "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
-      "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
+      "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"', or use a kind whose qa-cell check passes." \
       "       (.claude/roles/qa.md step 4.)" \
-      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote (or a row whose qa-cell check passed); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

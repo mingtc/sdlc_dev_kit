@@ -215,7 +215,8 @@ Today I need help with: <task>
 5. **States `Pin-ready: <sha>` in `CANVAS.md`**: the last commit that touched the screen files, tokens and renders (the PNG of each
    state the card cites) the card cites, `CANVAS.md` bookkeeping excluded, never HEAD, and only when every row the card cites has
    `approved@<sha>` in `gate1`. A PNG is made after the screen is published: commit it first, then state Pin-ready; a pin whose
-   commit holds no render for its state is refused at the card gate.
+   commit holds no render for its state is refused at the card gate, and a card already pinned that way is re-pinned (by the PM) to the
+   commit that holds the render, the one allowed re-target.
    The PM copies it onto the card as `design: [UX-NNN#state@<sha>]` before the card leaves `todo/`.
 6. **A change to a pinned state needs a `D-NN`.** The Designer raises it with `ask.sh` (naming the card and the UX id), then
    proceeds. A pinned card is never re-targeted: a later design change is new work.

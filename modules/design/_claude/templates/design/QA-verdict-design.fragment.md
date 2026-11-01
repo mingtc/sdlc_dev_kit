@@ -2,7 +2,7 @@
 # QA verdict: the design cell
 
 Each AC tagged `(UI)` gets one verdict row whose evidence kind is `design` (the module registers it; it is pointer-only).
-The pointer is one cell per pinned state:
+The pointer is one cell, holding one entry per pinned state (a further cell is read by nothing):
 
 ```
 | AC3 | PASS | design | UX-001#<state>@<pin>: identical; dev/evidence/<PREFIX>-NNN/UX-001-<state>-pin.png, dev/evidence/<PREFIX>-NNN/UX-001-<state>-build.png |

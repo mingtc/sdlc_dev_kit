@@ -32,7 +32,7 @@ out="$( cd "$scratch" && GIT_DIR="$gitdir" PYTHONDONTWRITEBYTECODE=1 python3 scr
 rc=$?
 # an answer is the tool's own summary line; no line, or a status that is neither 0 nor 1, is a tool that did not run
 case "$rc" in 0|1) printf '%s\n' "$out" | grep -q '^design-links: ' || { printf '%s\n' "$out" | tail -3; broken "scripts/design/check-design-links.py exited $rc without its summary line." "read what it printed above, fix the design record or the tool, then move $id again."; } ;; esac
-found="$(printf '%s\n' "$out" | grep -v '^design-links:' | grep -E '^[A-Z][A-Z-]+ ' || true)"
+found="$(printf '%s\n' "$out" | grep -v '^design-links:' | grep -E '^[A-Z][A-Z-]+ ' | grep -vE '^(UNCITED|UNCLASSIFIED|SCRIPT-COLOUR|UNREAD|UNCOMPARED|DESIGN-STORY) ' | sed "s#progress/todo/#progress/$from/#" || true)"
 [ "$mode" = full ] || found="$(printf '%s\n' "$found" | grep -E '^(UNPINNED|BARE-PIN|DESIGN-KEY|DESIGN-NONE|DESIGN-MISSING) ' || true)"
 case "$rc" in
   0|1) [ -n "$found" ] || exit 0
