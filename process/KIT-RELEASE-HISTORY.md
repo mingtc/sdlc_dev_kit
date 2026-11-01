@@ -8,6 +8,12 @@
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
 
+## [0.12.3] — 2026-11-01
+
+### Changed
+
+- **The `design` module now ships its checkers and a pin-drift report, and requires Python 3.9 or later.** `scripts/design/check-design-links.py` reports the links between PRD stories, screens, approvals and cards in both directions (and, with `--leaving <card>`, what a card leaving `todo/` owes), `prd-view.py` and `flow-from-links.py` derive a PRD's screens and the screen-flow graph, and `check-board.sh` prints `[+design-drift]`: each pinned state of a card past `todo/` as clean, moved, drift, gone, unresolved or uncompared (it could not tell, and says why). It reports and decides nothing. A PRD or story with no `**UI:**` line reads as none declared (an info line, not a finding). The module's gate row in `PROJECT.md` runs the link check with `--strict`; a colour literal in a screen's CSS (a style, a style attribute, a presentation attribute, a sheet or imported screen it loads) other than as the value of a custom property named for a token fails it unless the screen's registry row carries a `[decision: D-NN]` that `requirements/DECISIONS.md` holds, so a project whose screens already carry literals goes red after the upgrade (the module's notes say what to do). A token-named custom property (no prefix: `--color-primary` for `color.primary`) must hold its token's value (`:root` against the base token file, `[data-theme="x"]` against `<ns>.x.tokens.json`) or the gate says `TOKEN-VALUE` (a `var(--<token>, #hex)` fallback equal to the token's value is no literal), and a stylesheet or script is a file under `project/`, since an uploaded one cannot be read (the check says `UNREAD`, the pin report `uncompared`). The Designer authors the canvas itself with the artifact tools; a human carries nothing, and uses Send to Claude for a comment it must act on. Pins and approvals cover the artboard, the tokens it uses and the local files it loads (stylesheets, scripts, images, screens it imports), and a pin says `uncompared` where it cannot compare. `enable` and `module.sh status` check for Python; `kit-upgrade.sh` carries a project that enabled the module to the new version, and the module's own notes carry its Action required entries. A project that does not enable the module changes no behaviour; its self-test skips what needs Python 3.9 or later when that is absent.
+
 ## [0.12.2] — 2026-11-01
 
 ### Action required
