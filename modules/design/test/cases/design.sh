@@ -397,6 +397,9 @@ _dm_card() {  # a shelf name written beside its number reads as a citation to th
 #   UX-015 pinned at a state its row does not list (uncompared)   UX-016 a Latin-1 artboard that changed (drift)
 #   UX-017 a duplicate bare attribute that changed (drift)   UX-018 an implied </p>: a shared element changed (drift for state b)
 #   UX-019 only a comment changed (drift, saying markup outside every element)
+#   UX-020..022 the pinned state's own branch is marked Empty, emtpy and {{variant}} where the row lists `empty` (uncompared, not set aside)
+#   UX-023 reads the changed token as `var( --color-primary )` with an empty :root; UX-024 only declares it in :root (drift on the token)
+#   UX-025 links a stylesheet that changed (drift); UX-026 one the repository lacks, UX-027 a remote one (uncompared)
 _dm_drift_fixture() {
   local S='--color-surface: #ffffff;' P='--color-primary: #485d92;'
   _md_sandbox
@@ -425,6 +428,15 @@ _dm_drift_fixture() {
   _dm_art "$D/Q.dc.html" 017 "$S" '<input class class="x" id="ux-017-in" style="color: var(--color-surface)">'
   _dm_art "$D/R.dc.html" 018 "$S" '<p data-state="a">alpha<div id="ux-018-shared" style="color: var(--color-surface)">Shared</div><p data-state="b">beta</p>'
   _dm_art "$D/S.dc.html" 019 "$S" '<!-- one --><h1 id="ux-019-title" style="color: var(--color-surface)">Comment</h1>'
+  _dm_art "$D/T20.dc.html" 020 "$S" '<div id="ux-020-x" data-state="Empty"><p id="ux-020-t" style="color: var(--color-surface)">Hi</p></div>'
+  _dm_art "$D/T21.dc.html" 021 "$S" '<div id="ux-021-x" data-state="emtpy"><p id="ux-021-t" style="color: var(--color-surface)">Hi</p></div>'
+  _dm_art "$D/T22.dc.html" 022 "$S" '<div id="ux-022-x" data-state="{{variant}}"><p id="ux-022-t" style="color: var(--color-surface)">Hi</p></div>'
+  _dm_art "$D/T23.dc.html" 023 '' '<h1 id="ux-023-t" style="color: var( --color-primary )">Spaced</h1>'
+  _dm_art "$D/T24.dc.html" 024 '--color-primary: #485d92;' '<h1 id="ux-024-t">Declared only</h1>'
+  _dm_art "$D/T25.dc.html" 025 "$S" '<link rel="stylesheet" href="app.css"><h1 id="ux-025-t" style="color: var(--color-surface)">Sheet</h1>'
+  _dm_art "$D/T26.dc.html" 026 "$S" '<link rel="stylesheet" href="missing.css"><h1 id="ux-026-t" style="color: var(--color-surface)">Sheet</h1>'
+  _dm_art "$D/T27.dc.html" 027 "$S" '<link rel="stylesheet" href="https://example.invalid/x.css"><h1 id="ux-027-t" style="color: var(--color-surface)">Sheet</h1>'
+  printf 'h1 { margin: 10px }\n' > "$D/app.css"
   _dm_registry "$SB_WORK/requirements/design/app" \
     'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S1|open|open' \
     'UX-003|D.dc.html|default|PRD-001-F1-S1|open|open' 'UX-004|E.dc.html|default|PRD-001-F1-S1|open|open' \
@@ -434,12 +446,17 @@ _dm_drift_fixture() {
     'UX-011|L.dc.html|default|PRD-001-F1-S1|open|open' 'UX-012|M.dc.html|default|PRD-001-F1-S1|open|open' \
     'UX-015|O.dc.html|default|PRD-001-F1-S1|open|open' 'UX-016|P.dc.html|default|PRD-001-F1-S1|open|open' \
     'UX-017|Q.dc.html|default|PRD-001-F1-S1|open|open' 'UX-018|R.dc.html|a, b|PRD-001-F1-S1|open|open' \
-    'UX-019|S.dc.html|default|PRD-001-F1-S1|open|open'
+    'UX-019|S.dc.html|default|PRD-001-F1-S1|open|open' 'UX-020|T20.dc.html|default, empty|PRD-001-F1-S1|open|open' \
+    'UX-021|T21.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-022|T22.dc.html|default, empty|PRD-001-F1-S1|open|open' \
+    'UX-023|T23.dc.html|default|PRD-001-F1-S1|open|open' 'UX-024|T24.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-025|T25.dc.html|default|PRD-001-F1-S1|open|open' 'UX-026|T26.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-027|T27.dc.html|default|PRD-001-F1-S1|open|open'
   _dm_registry "$SB_WORK/requirements/design/café" 'UX-014|K.dc.html|default|PRD-001-F1-S1|open|open'
   _dm_commit "the design at its pin"; _DM_P="$_DM_SHA"
   local p="@$_DM_P" id="$SB_PREFIX"
   _dm_card 701 in_progress "design: [UX-001#default$p, UX-002#default$p, UX-003#default$p, UX-004#default$p, UX-004#default@deadbee, UX-099#x$p, UX-005#a$p, UX-005#b$p, UX-006#a$p, UX-007#default$p, UX-008#default$p, UX-009#default$p]"
   _dm_card 706 in_progress "design: [UX-010#default$p, UX-011#default$p, UX-012#default$p, UX-014#default$p, UX-015#typo$p, UX-016#default$p, UX-017#default$p, UX-018#b$p, UX-019#default$p]"
+  _dm_card 710 in_progress "design: [UX-020#empty$p, UX-021#empty$p, UX-022#empty$p, UX-023#default$p, UX-024#default$p, UX-025#default$p, UX-026#default$p, UX-027#default$p]"
   _dm_card 707 in_progress "design: TBD"
   printf -- '---\nid: app2-709\ntype: chore\ntitle: t\nbranch: n/a\npr: null\ncreated_at: 2026-01-01\ncreated_by: PM\nforks: none\ndesign: [UX-004#default%s]\n---\n\n# card\n' "$p" > "$SB_WORK/progress/in_progress/app2-709-c.md"
   _dm_card 704 qa_complete "design: [UX-001#empty$p]"
@@ -464,6 +481,8 @@ _dm_drift_fixture() {
   _dm_edit "$D/Q.dc.html" 's|class="x"|class="y"|'
   _dm_edit "$D/R.dc.html" 's|>Shared<|>Shared two<|'
   _dm_edit "$D/S.dc.html" 's|<!-- one -->|<!-- two -->|'
+  for n in 20 21 22; do _dm_edit "$D/T$n.dc.html" 's|>Hi<|>Hi two<|'; done
+  printf 'h1 { margin: 90px }\n' > "$D/app.css"
   perl -pi -e 's/caf\xe9/cafe/' "$D/P.dc.html"
   _dm_land "the design moves on"
   return 0
@@ -575,6 +594,21 @@ case_pin_drift_judges_a_state_by_its_data_state_branch_and_the_tokens_it_uses() 
   { [ "$(_dm_verdict "$_dm_out" "$c" "UX-018#b@$p7")" = drift ] && _dm_has "$r" "~ux-018-shared"; } || cf "(l) UX-018#b, whose shared element follows an implied close of a state-a paragraph, does not read drift on it: $r"
   r="$(_dm_row "$_dm_out" "$c" "UX-019#default@$p7")"
   { [ "$(_dm_verdict "$_dm_out" "$c" "UX-019#default@$p7")" = drift ] && _dm_has "$r" "markup outside every element" && ! _dm_has "$r" "tokens only"; } || cf "(m) UX-019, where only a comment changed, does not read drift saying markup outside every element: $r"
+  c="$SB_PREFIX-710"
+  for n in 20 21 22; do
+    r="$(_dm_row "$_dm_out" "$c" "UX-0$n#empty@$p7")"
+    { [ "$(_dm_verdict "$_dm_out" "$c" "UX-0$n#empty@$p7")" = uncompared ] && _dm_has "$r" "data-state"; } || cf "(o) UX-0$n, whose pinned state's branch carries a mark the row does not list, is set aside or read otherwise than uncompared naming the mark: $r"
+  done
+  for n in 23 24; do
+    r="$(_dm_row "$_dm_out" "$c" "UX-0$n#default@$p7")"
+    { [ "$(_dm_verdict "$_dm_out" "$c" "UX-0$n#default@$p7")" = drift ] && _dm_has "$r" "tokens: --color-primary"; } || cf "(p) UX-0$n, which reads or declares the changed token without the plain var(--x) shape, does not read drift on it: $r"
+  done
+  r="$(_dm_row "$_dm_out" "$c" "UX-025#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-025#default@$p7")" = drift ] && _dm_has "$r" "stylesheets: app.css"; } || cf "(q) UX-025, whose linked stylesheet changed, does not read drift on it: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-026#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-026#default@$p7")" = uncompared ] && _dm_has "$r" "missing.css"; } || cf "(q) UX-026, which links a stylesheet in neither revision, does not read uncompared: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-027#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-027#default@$p7")" = uncompared ] && _dm_has "$r" "not a file of the repository"; } || cf "(q) UX-027, which links a remote stylesheet, does not read uncompared: $r"
   r="$(_dm_row "$_dm_out" "$SB_PREFIX-707" "design:")"
   [ "$(printf '%s' "$r" | awk '{ print $3 }')" = uncompared ] || cf "(n) a card whose design: value is TBD does not read uncompared: $r"
   _dm_has "$_dm_out" "pin-drift: " || cf "(n) no summary line"
@@ -596,7 +630,7 @@ _dm_links_fixture() {
   _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — See the list\n\n**UI:** default, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#default]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: the list is sorted.\n\n##### F1-S2 — Edit\n\n**UI:** default\n\n- [ ] AC1: (UI) the edit form shows. [design: UX-002#default]\n' > "$SB_WORK/requirements/PRD-001-app.md"
-  printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n' > "$SB_WORK/requirements/PRD-002-api.md"
+  printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n\n~~~\n```\ninside\n~~~\n' > "$SB_WORK/requirements/PRD-002-api.md"
   printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
   _dm_commit "the screens"; _DM_X="$_DM_SHA"
   _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$_DM_X|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
@@ -623,6 +657,13 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   _dm_has "$_dm_out" "PRD-002-api.md: not design-classified: no story carries a UI: line (info)" || cf "(b) a PRD with no UI line gets no info line saying it is not design-classified: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_has "$_dm_out" "PRD-003-mixed.md: not design-classified: F1-S2 carry no UI: line (info)" || cf "(b) a PRD with a UI line in one story only gets no info line naming the story without one: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_has "$_dm_out" "UNCLASSIFIED  requirements/PRD-001" && cf "(b) a fully classified PRD got an UNCLASSIFIED line"
+  _dm_has "$_dm_out" "FENCE" && cf "(b) a ~~~ block holding a \`\`\` line is read as a fence never closed"
+  git -C "$SB_WORK" mv requirements/design/app requirements/design/app2
+  _dm_commit "the canvas moves with its bytes"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(b2) a canvas directory moved with identical bytes loses its approval (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  git -C "$SB_WORK" mv requirements/design/app2 requirements/design/app
+  _dm_commit "the canvas moves back"
   # one defect of each class
   printf '\n##### F1-S3 — Hint\n\n**UI:** default\n\n- [ ] AC1: (UI) a hint shows.\n- [ ] AC2: (UI) a bad state. [design: UX-001#nostate]\n- [ ] AC3: (UI) no such screen. [design: UX-077#a]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
   printf '\n### F2 — Later\n\n**Design:** pending\n\n##### F2-S1 — Later\n\n**UI:** default\n\n- [ ] AC1: (UI) already designed. [design: UX-002#default]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
@@ -653,7 +694,7 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   _dm_has "$out" "$SB_PREFIX-903-c.md: pin @deadbee of UX-001#default is not a commit" || cf "(d) a pin that is not a commit, on a card past todo/, is not an UNRESOLVED finding under --strict"
   _dm_has "$out" "$SB_PREFIX-904-c.md" && cf "(d) the check read a declined card, whose pin is nobody's to keep"
   _dm_has "$out" "FENCE" && _dm_has "$out" "never closed" || cf "(d) no FENCE line for a PRD whose code fence is never closed"
-  _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(d) no LITERAL-COLOUR report line for a colour literal in a style outside the :root block"
+  _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(d) no LITERAL-COLOUR line for a colour literal in a style outside the :root block"
   _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/A.dc.html" && cf "(d) a colour literal inside a :root block was reported"
   # the approval of UX-001 was recorded against the commit that took in the artboard, which has not changed since
   _dm_has "$out" "UX-001 gate1 approved@${X:0:7}, but" && cf "(e) an approval of an artboard that has not changed since reads stale"
@@ -678,7 +719,7 @@ case_the_leaving_check_refuses_an_unpinned_unresolved_or_unapproved_pin_and_acce
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
   _dm_links_fixture || { finish "$L"; teardown; return; }
-  local X="$_DM_X" Y="$_DM_Y" dn dm
+  local X="$_DM_X" Y="$_DM_Y" dn dm dw
   dn="D-$((6 + 6))"; dm="D-$((70 + 7))"   # built here: a decision id written out in a shipped file is read as a citation of the project's register
   _dm_card 801 todo "design: [UX-001#default]"
   _dm_card 802 todo "design: [UX-001]"
@@ -717,6 +758,13 @@ case_the_leaving_check_refuses_an_unpinned_unresolved_or_unapproved_pin_and_acce
   _dm_leaving 811; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "PIN-ORDER"; } || cf "(l) a pin older than the approval of its row is not refused with PIN-ORDER (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_edit "$SB_WORK/requirements/design/app/project/A.dc.html" 's|>List<|>Lists<|'
   _dm_commit "the approved artboard changes"
+  _dm_card 815 todo "design: [UX-001#default@$X]   # [decision: $dn]"
+  _dm_leaving 815; [ "$_dm_rc" -eq 0 ] || cf "(n) a waiver the register confirms does not stand in for an approval gone stale (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  dw="D-$((40 + 2))"
+  printf '\n### %s — a ruling since withdrawn\n\n**Ruling.** WITHDRAWN 2026-01-01 — nothing replaces it.\n' "$dw" >> "$SB_WORK/requirements/DECISIONS.md"
+  _dm_commit "a withdrawn entry"
+  _dm_card 816 todo "design: [UX-002#default@$X]   # [decision: $dw]"
+  _dm_leaving 816; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "WITHDRAWN"; } || cf "(o) a waiver citing a withdrawn entry, which has no current ruling, is accepted (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_leaving 803; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(m) a pin to a row whose approval is stale at HEAD is not refused with STALE-APPROVAL (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_py scripts/design/check-design-links.py --leaving "progress/todo/nothing.md"
   [ "$_dm_rc" -eq 2 ] || cf "(h) a card that is not a file exits $_dm_rc, not 2"
@@ -818,13 +866,13 @@ case_the_manifest_requires_python3_while_it_places_a_python_tool_and_enable_refu
 
 # =============================================================================
 # CASE — A COLOUR LITERAL IS READ WHERE IT IS A COLOUR (A STYLE, A PRESENTATION ATTRIBUTE, THE SCRIPT) AND NOT IN COPY, A SELECTOR,
-# A REFERENCE, A COMMENT OR THE :root BLOCK; IT IS A REPORT LINE, NOT A FINDING.
+# A REFERENCE, A COMMENT OR THE :root BLOCK; IT IS A FINDING UNLESS A RECORDED DECISION WAIVES IT.
 #   Operand: scripts/design/check-design-links.py --strict over a screen that holds only the safe shapes (exit 0, no LITERAL line), then
-#   the same screen with a colour in each place a colour can be (exit still 0, a line naming each, counted as a report line).
+#   the same screen with a colour in each place a colour can be (exit 1, a line naming each), then the same screen with a recorded decision on its registry row (exit 0 only if the register holds it with a current ruling).
 # =============================================================================
-case_the_link_check_reads_a_colour_where_it_is_a_colour_and_reports_it_without_failing_the_gate() {
+case_the_link_check_reads_a_colour_where_it_is_a_colour_and_fails_the_gate_unless_a_recorded_decision_waives_it() {
   cf_reset
-  local L="check-design-links.py reads #hex, rgb() and oklch() colours in a style, a presentation attribute and a script and not Order #1042, an href or selector #fab, url(#id), a comment or the :root block, and a LITERAL-COLOUR line is a report line that leaves --strict at exit 0"
+  local L="check-design-links.py reads #hex, rgb() and oklch() colours in a style, a presentation attribute and a script and not Order #1042, an href or selector #fab, url(#id), a comment or the :root block, and a LITERAL-COLOUR line is a finding that fails --strict unless the screen's registry row carries a [decision: D-NN] the register holds with a current ruling, the brief's fenced text states the rule, and the line says to send a change request through the brief"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
@@ -839,11 +887,26 @@ case_the_link_check_reads_a_colour_where_it_is_a_colour_and_reports_it_without_f
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title" style="color: oklch(60% .1 20)">Lit</h1><svg><rect fill="#f00"/></svg><script type="text/x-dc">const bg = "#c0ffee"; const x = "RGB(1,2,3)";</script>'
   _dm_commit "a colour in each place"
   _dm_py scripts/design/check-design-links.py --strict
-  [ "$_dm_rc" -eq 0 ] || cf "(b) a colour literal fails --strict (exit $_dm_rc): it is a report line"
+  [ "$_dm_rc" -eq 1 ] || cf "(b) a colour literal outside :root does not fail --strict (exit $_dm_rc)"
   for t in 'oklch(' '#f00' '#c0ffee' 'RGB('; do
     _dm_has "$_dm_out" "$t" || cf "(b) the line for the screen does not name $t"
   done
-  _dm_has "$_dm_out" "report line(s)" || cf "(b) the summary does not count the report line"
+  _dm_has "$_dm_out" "change request through the brief" || cf "(b) the line does not say to send a change request through the brief"
+  grep -F 'outside the :root block' "$REAL_REPO_ROOT/modules/design/_claude/templates/design/CANVAS.template.md" >/dev/null || cf "(c) the brief's text for the design tool's agent does not state the rule up front"
+  # the one escape: a recorded decision on the screen's registry row, which the register must hold with a current ruling
+  local dn="D-$((6 + 6))"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" "s/| UX-003 | C.dc.html | t |/| UX-003 | C.dc.html | t [decision: $dn] |/"
+  _dm_commit "a waiver on the screen"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "WAIVER" && _dm_has "$_dm_out" "LITERAL-COLOUR"; } || cf "(d) a waiver the project has no register to confirm excuses the colour (exit $_dm_rc)"
+  printf '# Decisions\n\n### %s — a ruling\n' "$dn" > "$SB_WORK/requirements/DECISIONS.md"
+  _dm_commit "a register"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "LITERAL-COLOUR"; } || cf "(e) a waiver the register holds does not excuse the colour (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '# Decisions\n\n### %s — a ruling\n\n**Ruling.** WITHDRAWN 2026-01-01 — nothing replaces it.\n' "$dn" > "$SB_WORK/requirements/DECISIONS.md"
+  _dm_commit "the ruling is withdrawn"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "WITHDRAWN"; } || cf "(f) a waiver citing a withdrawn ruling excuses the colour (exit $_dm_rc)"
   finish "$L"
   teardown
 }
@@ -880,6 +943,10 @@ case_the_link_check_and_the_prd_view_read_the_prd_prefix_and_refuse_when_prds_si
   _dm_has "$_dm_out" "0 finding(s)" && cf "(d) a green count was printed for PRDs it did not read"
   _dm_py scripts/design/prd-view.py PRD-001
   [ "$_dm_rc" -ne 0 ] || cf "(d) the PRD view of an id under no declared prefix exits 0"
+  rm -f "$SB_WORK"/requirements/SPEC-*.md
+  printf '# ADR-001 — Database\n\nWe use one.\n' > "$SB_WORK/requirements/ADR-001-db.md"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -ne 2 ] && ! _dm_has "$_dm_out" "another prefix"; } || cf "(e) a decision record with no story headings is refused as a PRD under another prefix (exit $_dm_rc)"
   finish "$L"
   teardown
 }

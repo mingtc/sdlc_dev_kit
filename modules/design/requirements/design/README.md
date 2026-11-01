@@ -117,9 +117,11 @@ One artifact per screen; a `wire` token theme renders the same source as a greys
 screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
 carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
 token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
-in a screen's styles, presentation attributes or script, outside the `:root` block, is a `LITERAL-COLOUR` line of the link check: a
-report line, not a finding, so it does not fail the gate; the `:root` block is exempt. A token change on a screen is a
-request the human carries to the design tool's agent.
+in a screen's styles, presentation attributes or script, outside the `:root` block, is a `LITERAL-COLOUR` finding of the link check and
+fails the gate; the `:root` block is exempt. The way out is a change request through the brief, which the human carries to the design
+tool's agent; the screen is not edited by hand. The one exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
+row (its title cell), the same marker and the same register as a card's waiver on its `design:` line, the D-NN an entry of
+`requirements/DECISIONS.md` with a current ruling. A token change on a screen is a request the human carries to the design tool's agent.
 
 - **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks
   the design tool's agent to switch the screen's `:root` to the `.wire` token values, reviews, and has it switch back; only

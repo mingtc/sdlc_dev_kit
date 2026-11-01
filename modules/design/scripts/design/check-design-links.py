@@ -14,8 +14,10 @@ usage: check-design-links.py [REPO_ROOT] [--requirements DIR] [--design DIR] [--
   --leaving CARD  the check to run before the board mover takes CARD out of todo/ (repeatable): reads the file named, wherever it
                   is, as a card past todo/, and reports only that card's findings; exit 1 on any, 2 for a card it cannot read.
                   It adds, for each pinned state: its commit must resolve, hold the screen's artboard and not predate the row's
-                  approval; the row's gate1 must be exactly `approved@<sha>`, still true at HEAD, or the `design:` line carries a
-                  `[decision: D-NN]` waiver for each of whose ids the register (<requirements>/DECISIONS.md) holds an entry
+                  approval; the row's gate1 must be exactly `approved@<sha>`, still true at HEAD. A `[decision: D-NN]` waiver on the
+                  `design:` line stands in for all of that on the screens of that line (an approval gone stale or unresolvable
+                  included), if each of its ids is an entry of the register (<requirements>/DECISIONS.md) with a current ruling
+                  (not WITHDRAWN). A screen's waiver for a colour literal is the same marker in its registry row
 
 Reads
   <PRD_PREFIX>-*.md        stories (headings `F<n>-S<n>`, full id <PRD_PREFIX>-NNN-F<n>-S<n>), ACs (`- [ ] AC<n>: (UI) ...`), a story's
@@ -39,7 +41,6 @@ Reports (each line starts with its class)
   UNPINNED      a card past the first shelf (`todo`) whose design item has no @<commit>
   DESIGN-KEY    a card's `design:` value that is not `none` or `[UX-NNN#state@<commit>, ...]`
   NOT-APPROVED  (only with --leaving) a pinned row whose gate1 is not `approved@<sha>`, and no waiver
-  WAIVER        (only with --leaving) a waiver citing a D-NN the register has no entry for, or no register to check
   PIN-ORDER     (only with --leaving) a pin older than the approval of its row
   UI-MISMATCH   a story whose `UI:` field says none while one of its ACs is tagged (UI)
   PAIR          a row's `pair` names a row that is missing or does not name it back
@@ -52,13 +53,16 @@ Reports (each line starts with its class)
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
                 approved gate cell whose file is not there
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
+  LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style, a presentation attribute or its
+                component script, outside its :root block (where a screen holds its tokens' values, so it is exempt), unless the
+                screen's registry row carries a `[decision: D-NN]` waiver the register confirms. The way out is a change request
+                through the brief to the design tool's agent
+  WAIVER        a waiver citing a D-NN the register has no entry for, or that is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
 Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
   UNCLASSIFIED  a PRD with no `UI:` line in any story ("not design-classified"), or the stories of a PRD that has some and these
                 lack it. A story with no `UI:` line reads as none declared
-  LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style, a presentation attribute or its
-                component script, outside its :root block; the :root block is where a screen holds its tokens' values, so it is exempt
 Python 3 standard library only.
 """
 import argparse, re, subprocess, sys
@@ -79,7 +83,8 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'LITERAL-COLOUR')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED')
+WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 
 META = re.compile(r' data-stories="[^"]*"')
 ROOT_BLOCK = re.compile(r':root\s*\{[^}]*\}')
@@ -119,9 +124,9 @@ def find_prds(root, requirements):
     req = Path(root) / requirements
     prds = sorted(req.glob(f'{PRD_PREFIX}-*.md'))
     if not prds and req.is_dir():
-        other = sorted(p.name for p in req.glob('*.md') if re.match(r'^[A-Za-z][A-Za-z0-9]*-\d+-', p.name))
+        other = sorted(p.name for p in req.glob('*.md') if re.match(r'^[A-Za-z][A-Za-z0-9]*-\d+-', p.name) and STORY_HEAD.search(read(p)))
         if other:
-            print(f'design-links: no {PRD_PREFIX}-*.md in {requirements}/, but {", ".join(other[:3])} look like PRDs under another prefix; '
+            print(f'design-links: no {PRD_PREFIX}-*.md in {requirements}/, but {", ".join(other[:3])} hold story headings, so look like PRDs under another prefix; '
                   f'PRD_PREFIX in scripts/config.sh says {PRD_PREFIX}. Nothing was checked.', file=sys.stderr)
             sys.exit(2)
     return prds
@@ -143,6 +148,18 @@ def is_commit(root, rev):
 
 def is_ancestor(root, older, newer):
     return git(root, 'merge-base', '--is-ancestor', older, newer)[0] == 0
+
+
+def same_name_at(root, rev, rel, now):
+    """The bytes at `rev` of a file named like `rel` that match `now` (the root's data-stories aside), else None."""
+    rc, out = git(root, '-c', 'core.quotePath=false', 'ls-tree', '-r', '--name-only', '-z', rev, '--', str(Path(rel).parents[2]))
+    base = Path(rel).name
+    for p in out.decode('utf-8', 'replace').split('\0'):
+        if p and Path(p).name == base:
+            text = git_blob(root, rev, p)
+            if text is not None and META.sub('', text) == META.sub('', now):
+                return text
+    return None
 
 
 def artboard_rel(root, r):
@@ -175,6 +192,8 @@ def approval_problems(root, r, gates=None):
             out.append(('APPROVAL-UNRESOLVED', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: not a commit here (a shallow clone cannot see it)"))
             continue
         then, now = git_blob(root, sha, rel), git_blob(root, 'HEAD', rel)
+        if then is None and now is not None:
+            then = same_name_at(root, sha, rel, now)       # the canvas moved with its bytes: the approval holds
         if then is None or now is None:
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: {rel} is missing at {'that commit' if then is None else 'HEAD'}; back to review"))
         elif META.sub('', then) != META.sub('', now):
@@ -255,30 +274,38 @@ def parse_registry(text, label, canvas):
             'states': set() if get('states').strip('`* ').lower() in ('', 'none', 'n/a', '-') else set(re.findall(r'[A-Za-z0-9_-]+', get('states'))),
             'stories': fs.findall(get('stories')), 'status': status,
             'superseded': 'superseded' in ([get('status').strip('`* ').lower()] + list(gates.values())),
-            'where': f'{label}:{n}', 'canvas': canvas,
+            'where': f'{label}:{n}', 'canvas': canvas, 'waivers': WAIVER_MARK.findall(ln),
         })
     return rows, problems
 
 
+FENCE_OPEN = re.compile(r'^\s*(`{3,}|~{3,})')
+
+
+def fence_scan(text):
+    """-> ([(line_no, text)] outside code fences, the line of a fence never closed or None). A fence closes on a line of the same
+    character, at least as long as the opening one and nothing else, so a ``` line inside a ~~~ block is text."""
+    out, marker, opened = [], None, None
+    for n, ln in enumerate(text.splitlines(), 1):
+        m = FENCE_OPEN.match(ln)
+        if marker is None:
+            if m:
+                marker, opened = m.group(1), n
+            else:
+                out.append((n, ln))
+        elif m and m.group(1)[0] == marker[0] and len(m.group(1)) >= len(marker) and ln.strip() == m.group(1):
+            marker, opened = None, None
+    return out, opened
+
+
 def prd_lines(path):
     """[(line_no, text)] with fenced blocks removed (a fenced marker is prose)."""
-    out, fence = [], False
-    for n, ln in enumerate(read(path).splitlines(), 1):
-        if re.match(r'^\s*(```|~~~)', ln):
-            fence = not fence
-            continue
-        if not fence:
-            out.append((n, ln))
-    return out
+    return fence_scan(read(path))[0]
 
 
 def unclosed_fence(path):
     """The line of a code fence the PRD never closes, or None."""
-    opened = None
-    for n, ln in enumerate(read(path).splitlines(), 1):
-        if re.match(r'^\s*(```|~~~)', ln):
-            opened = None if opened else n
-    return opened
+    return fence_scan(read(path))[1]
 
 
 def markers_in(ln):
@@ -340,7 +367,7 @@ def design_value(text):
     for ln in m.group(1).splitlines():
         if not ln.startswith('design:'):
             continue
-        out['waivers'] = re.findall(r'\[decision:\s*(D-\d+)\]', ln)
+        out['waivers'] = WAIVER_MARK.findall(ln)
         raw = re.sub(r'\s#\s.*$', '', ln[len('design:'):]).strip()
         out['raw'] = raw
         if raw == 'none':
@@ -359,9 +386,30 @@ def design_value(text):
 
 
 def register_ids(root, requirements):
-    """The D-NN entries of <requirements>/DECISIONS.md (`### D-NN` headings), or None when there is no register."""
+    """{D-NN: has a current ruling} for the entries of <requirements>/DECISIONS.md (`### D-NN` headings; an entry whose Ruling
+    field opens WITHDRAWN has none), or None when there is no register."""
     f = Path(root) / requirements / 'DECISIONS.md'
-    return set(re.findall(r'^### (D-\d+)', read(f), re.M)) if f.is_file() else None
+    if not f.is_file():
+        return None
+    entries = {}
+    for part in re.split(r'(?m)^(?=#{2,3} )', read(f)):
+        m = re.match(r'### (D-\d+)', part)
+        if m:
+            entries[m.group(1)] = not re.search(r'(?m)^\*\*Ruling\.\*\*\s*WITHDRAWN\b', part)
+    return entries
+
+
+def waiver_problem(register, requirements, ids):
+    """Why the waiver ids cannot stand in for an approval or a token, or None: no register, an id with no entry, an entry withdrawn."""
+    if register is None:
+        return f'waiver {", ".join(ids)} cannot be checked: no {requirements}/DECISIONS.md'
+    gone = [d for d in ids if d not in register]
+    if gone:
+        return f'{", ".join(gone)} is not an entry in {requirements}/DECISIONS.md'
+    withdrawn = [d for d in ids if not register[d]]
+    if withdrawn:
+        return f'{", ".join(withdrawn)} is WITHDRAWN in {requirements}/DECISIONS.md: it has no current ruling'
+    return None
 
 
 def analyse(root, requirements='requirements', design=None, cards='progress', leaving=()):
@@ -388,6 +436,13 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         by_ux.setdefault(r['ux'], r)
         for s in r['stories']:
             by_story.setdefault(s, []).append(r['ux'])
+
+    reg_box = []
+
+    def get_register():
+        if not reg_box:
+            reg_box.append(register_ids(root, requirements))
+        return reg_box[0]
 
     cited, ncites = set(), 0
 
@@ -472,7 +527,11 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(ms.group(1).split())} != registry {sorted(r['stories'])}"))
             lits = literal_colours(html)
             if lits:
-                out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} outside :root (report only); a colour belongs in a token, asked for in the brief"))
+                problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
+                if problem:
+                    out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} outside :root; send a change request through the brief, do not edit the screen"))
+                    if r['waivers']:
+                        out.append(line('WAIVER', f"{r['where']}: {problem}"))
         elif any(v.startswith('approved') for v in r['gates'].values()):
             out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there"))
 
@@ -484,7 +543,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             paths += [(shelf.name, c) for c in sorted(shelf.glob('*.md'))]
     seen = {str(c.relative_to(root)) for _, c in paths}
     paths += [('todo', root / w) for w in sorted(set(leaving) - seen)]
-    ncards, register = 0, None
+    ncards = 0
     for shelf_name, card in paths:
         dv = design_value(read(card))
         if dv['kind'] in ('absent', 'none'):
@@ -497,15 +556,10 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         ncards += 1
         waived = bool(dv['waivers'])
         if leave and waived:
-            register = register_ids(root, requirements) if register is None else register
-            if register is None:
-                out.append(line('WAIVER', f'{where}: waiver {", ".join(dv["waivers"])} cannot be checked: no {requirements}/DECISIONS.md'))
+            problem = waiver_problem(get_register(), requirements, dv['waivers'])
+            if problem:
+                out.append(line('WAIVER', f'{where}: {problem}'))
                 waived = False
-            else:
-                missing = [d for d in dv['waivers'] if d not in register]
-                if missing:
-                    out.append(line('WAIVER', f'{where}: {", ".join(missing)} is not an entry in {requirements}/DECISIONS.md'))
-                    waived = False
         for ux, st, pin in dv['items']:
             tag = f'{ux}#{st}' if st else ux
             if st is None:
@@ -529,7 +583,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             sha = re.fullmatch(r'approved@([0-9a-f]{7,40})', g1)
             if not sha and not waived:
                 out.append(line('NOT-APPROVED', f"{where}: {ux} gate1 is `{g1 or 'absent'}`, not approved@<sha>, and the design: line carries no waiver the register confirms"))
-            elif sha:
+            elif sha and not waived:
                 for cls, text in approval_problems(root, row, ('gate1',)):
                     out.append(line(cls, text.replace(f"{row['where']}:", f'{where}:', 1)))
                 if pin_ok and is_commit(root, sha.group(1)) and not is_ancestor(root, sha.group(1), pin) and not waived:

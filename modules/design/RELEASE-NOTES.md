@@ -20,7 +20,7 @@ any other heading are not read. Nothing here is read while the module is disable
   directions (an uncovered `(UI)` AC, an unresolved citation, a row citing no story, a stale `Design: pending`, a stale or
   sha-less approval, a card's malformed `design:` value) and, with `--leaving <card>`, what a card leaving `todo/` owes: a pin, a
   commit that resolves and holds the screen, an approved row that still holds, or a `[decision: D-NN]` waiver on its `design:`
-  line that `requirements/DECISIONS.md` confirms. A colour literal outside a screen's `:root` block is a report line, not a finding.
+  line that `requirements/DECISIONS.md` confirms. A colour literal outside a screen's `:root` block is a finding unless the screen's registry row carries a `[decision: D-NN]` the register holds.
   It reads the PRD prefix from `scripts/config.sh` and refuses rather than report on no PRDs.
   `prd-view.py` lists the screens and states one PRD reaches, `flow-from-links.py` derives the screen-flow graph from the
   artboards' links, and `pin-drift.py` compares each pinned state with HEAD. A PRD or story with no `**UI:**` line reads as

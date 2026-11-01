@@ -20,7 +20,9 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
   2. COMPARE BLOBS. Artboard bytes at the pin against the artboard at its HEAD path (git blob ids, so exact), and the
      values of the design tokens the artboard uses: every var(--name) in it names the token whose path, dots as hyphens,
      is `name` (`--color-primary` is `color.primary`), read from <design>/tokens/*.tokens.json at both revisions, aliases
-     resolved across every token file. A token value changed or removed is drift; a token added is not.
+     resolved across every token file. A var is used when the artboard reads it with var() (spaces and case do not matter) or
+     declares it in its :root block. A token value changed or removed is drift; a token added is not. A local stylesheet the
+     artboard links (<link rel="stylesheet" href=...>) is compared by blob: changed is drift.
   3. VERDICT per card per state:
        clean   same artboard bytes at the same path, and the tokens it uses unchanged. A difference confined to the root's
                data-stories attribute (the registry row's story ids, rewritten whenever a PRD adds a story to the screen) is
@@ -41,7 +43,8 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
        unresolved   the pin is not a commit, or the registry at the pin has no such row or file
        uncompared   something it could not compare, said on the line: a var() with no token at either revision, an alias that does
                not resolve, a tokens file that is not JSON, a state the registry row does not list at the pin or at --head, a
-               `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
+               data-state mark naming a state the row does not list (it cannot be set aside), a stylesheet that is not a file
+               of the repository, a `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
                `uncompared` is never `clean`
      One more column is evidence, not verdict: `render` says whether the committed render of THIS state
      (renders/<Stem>-<state>.png) is byte-identical at the pin and at --head. All states of one screen share one
@@ -49,7 +52,7 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      state does not show, or is not visual (an attribute), and the reader decides.
 Python 3 standard library only; reads git, writes nothing. Exit 0 once it has read the revision, 1 when --head is not a commit.
 """
-import hashlib, importlib.util, json, re, subprocess, sys
+import hashlib, importlib.util, json, posixpath, re, subprocess, sys
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -192,21 +195,26 @@ def element_sigs(html):
             if v or k != '(document)'}
 
 
-def changed_ids(old_html, new_html, state=None):
-    """(ids that changed, ids set aside because every version sits under another state, scoped: any data-state in either)."""
+def changed_ids(old_html, new_html, state=None, known=None):
+    """(ids that changed, ids set aside because every version sits under another state of the row, scoped: any data-state in
+    either, [(id, names)] changed under a data-state naming a state the row does not list: those are neither kept nor set aside)."""
     a, b = element_sigs(old_html), element_sigs(new_html)
     scoped = any(sc is not None for _, sc in list(a.values()) + list(b.values()))
     keys = [f'-{i}' for i in a if i not in b] + [f'+{i}' for i in b if i not in a] + \
            [f'~{i}' for i in a if i in b and a[i][0] != b[i][0]]
-    keep, aside = [], []
+    keep, aside, unknown = [], [], []
     for k in keys:
         i = k[1:]
         scopes = [d[i][1] for d in (a, b) if i in d]
-        if state and scopes and all(sc is not None and state not in sc for sc in scopes):
-            aside.append(k)
-        else:
+        if not (state and scopes) or any(sc is None or state in sc for sc in scopes):
             keep.append(k)
-    return keep, aside, scoped
+            continue
+        bad = sorted({x for sc in scopes for x in sc if known is not None and x not in known})
+        if bad:
+            unknown.append((k, bad))
+        else:
+            aside.append(k)
+    return keep, aside, scoped, unknown
 
 
 # ---- tokens: the DTCG files <design>/tokens/*.tokens.json, read at a revision
@@ -280,11 +288,21 @@ def token_map(r):
     return _tok_cache[r]
 
 
-def tokens_check(old_html, r_old, r_new):
+def used_vars(*htmls):
+    """The custom properties a screen uses: read by var() (any case, spaces allowed) or declared in a :root block."""
+    names = set()
+    for h in htmls:
+        names |= set(re.findall(r'(?i:var)\(\s*--([A-Za-z0-9_-]+)', h))
+        for blk in re.findall(r':root\s*\{([^}]*)\}', h):
+            names |= set(re.findall(r'(?:^|[;\s])--([A-Za-z0-9_-]+)\s*:', blk))
+    return sorted(names)
+
+
+def tokens_check(old_html, new_html, r_old, r_new):
     """-> (the custom properties (--name) the artboard at the pin uses whose token value changed or vanished between the two
     revisions, [what could not be compared]): a var with no token at either revision, an alias that does not resolve, a tokens file
     that is not JSON."""
-    used = sorted(set(re.findall(r'var\(--([A-Za-z0-9_-]+)', old_html)))
+    used = used_vars(old_html, new_html)
     (a, pa), (b, pb) = token_map(r_old), token_map(r_new)
     changed, why = [], []
     if used and (pa or pb):
@@ -297,6 +315,34 @@ def tokens_check(old_html, r_old, r_new):
             changed.append('--' + n)
         elif UNRESOLVED in ea.values():
             why.append(f'--{n}: an alias does not resolve')
+    return changed, why
+
+
+def sheet_hrefs(html):
+    out = []
+    for tag in re.findall(r'<link\b[^>]*>', html, re.I):
+        if not re.search(r'rel\s*=\s*["\']?[^"\'>]*stylesheet', tag, re.I):
+            continue
+        m = re.search(r'href\s*=\s*(["\'])(.*?)\1', tag, re.I | re.S)
+        if m:
+            out.append(m.group(2).strip())
+    return out
+
+
+def sheets_check(old_html, new_html, full, head, path_p, path_h):
+    """-> ([linked local stylesheets whose blob differs between the revisions], [what could not be compared])."""
+    changed, why = [], []
+    for href in sorted(set(sheet_hrefs(old_html)) | set(sheet_hrefs(new_html))):
+        bare = href.split('#')[0].split('?')[0]
+        if re.match(r'^([A-Za-z][A-Za-z0-9+.-]*:|//)', bare):
+            why.append(f'stylesheet {href} is not a file of the repository')
+            continue
+        a = blob_id(full, posixpath.normpath(posixpath.join(posixpath.dirname(path_p), bare)))
+        b = blob_id(head, posixpath.normpath(posixpath.join(posixpath.dirname(path_h), bare)))
+        if a is None and b is None:
+            why.append(f'stylesheet {bare} is in neither revision')
+        elif a != b:
+            changed.append(bare)
     return changed, why
 
 
@@ -341,12 +387,17 @@ def check(card_id, ux, state, pin, head):
     if new is None:
         return {**base, 'verdict': 'gone', 'why': f'{path_h} is not in HEAD', 'path_pin': path_p}
     old_html, new_html = old.decode('utf-8', 'replace'), new.decode('utf-8', 'replace')
-    toks, why = tokens_check(old_html, full, head)
+    toks, why = tokens_check(old_html, new_html, full, head)
+    sheets, swhy = sheets_check(old_html, new_html, full, head, path_p, path_h)
+    why = why + swhy
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
     meta_only = False
     if not same_bytes and META.sub('', old_html) == META.sub('', new_html):
         same_bytes, meta_only = True, True      # only data-stories differs: registry bookkeeping, not the design
-    ids, aside, scoped = ([], [], False) if same_bytes else changed_ids(old_html, new_html, state)
+    known = row_p['states'] | row_h['states']
+    ids, aside, scoped, unk = ([], [], False, []) if same_bytes else changed_ids(old_html, new_html, state, known)
+    for k, names in unk:
+        why.append(f'{k} is under data-state {", ".join(names)}, which the row does not list')
     stem = Path(row_p['file']).name.replace('.dc.html', '')
     rp = f"{row_p['canvas'].as_posix()}/renders/{stem}-{state}.png" if state else None
     rh = f"{row_h['canvas'].as_posix()}/renders/{Path(row_h['file']).name.replace('.dc.html', '')}-{state}.png" if state else None
@@ -358,8 +409,10 @@ def check(card_id, ux, state, pin, head):
         why.append(f'state {state} is not in the registry row at the pin')
     if state and state not in row_h['states']:
         why.append(f'state {state} is not in the registry row at HEAD')
-    if not ((same_bytes or (not ids and aside)) and not toks):
+    if ids or toks or sheets:
         verdict = 'drift'
+    elif not same_bytes and not aside and not unk:
+        verdict = 'drift'      # the bytes differ outside every element: a comment, a doctype, whitespace
     elif why:
         verdict = 'uncompared'
     else:
@@ -369,7 +422,7 @@ def check(card_id, ux, state, pin, head):
         rc, out = git('log', '--follow', '--format=%h %s', f'{full}..{head}', '--', path_h)
         commits = [l[:90] for l in out.decode().splitlines()]
     res = {**base, 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
-           'ids': ids, 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'tokens': toks, 'render': render,
+           'ids': ids, 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'tokens': toks, 'sheets': sheets, 'render': render,
            'uncompared': why}
     if verdict == 'uncompared':
         res['why'] = '; '.join(why)
@@ -431,10 +484,12 @@ def main(argv):
         loc = r.get('path_head') or r.get('path_pin') or ''
         extra = ''
         if r['verdict'] == 'drift':
-            none = '(none: tokens only)' if r['tokens'] else '(none: markup outside every element, such as a comment, a doctype or whitespace)'
+            none = '(none: tokens only)' if r['tokens'] and not r['sheets'] else '(none: a linked stylesheet)' if r['sheets'] else '(none: markup outside every element, such as a comment, a doctype or whitespace)'
             extra = (' [per-file: no data-state marks]' if r.get('granularity') == 'file' and r.get('state') else '') + ' ids: ' + (' '.join(r['ids'][:10]) + (f' (+{len(r["ids"]) - 10} more)' if len(r['ids']) > 10 else '') if r['ids'] else none)
             if r['tokens']:
                 extra += ' tokens: ' + ' '.join(r['tokens'])
+            if r.get('sheets'):
+                extra += ' stylesheets: ' + ' '.join(r['sheets'])
             if r.get('commits'):
                 extra += ' | since the pin: ' + ' / '.join(c.split(' ', 1)[0] for c in r['commits'])
         elif r['verdict'] == 'clean' and r.get('scoped_out'):

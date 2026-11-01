@@ -773,7 +773,7 @@ case_the_manifest_keys_for_fragments_move_checks_and_cell_checks_place_and_refus
 case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
   cf_reset
   local L="each module under modules/ has a manifest whose name is its directory, a row in modules/README.md (a row may outlive a deleted directory), and enables and disables in a sandbox to the bytes it found, with every recorded thing intact in between"
-  local m name dirs="" s0 s1 skipped="" judged=0
+  local m name dirs="" s0 s1 skipped="" judged=0 absent id
   for m in "$REAL_REPO_ROOT"/modules/*/module.manifest; do
     [ -f "$m" ] || continue
     dirs="${dirs}$(basename "$(dirname "$m")")
@@ -793,7 +793,15 @@ case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
     _md_mod enable "$name"
     if [ "$_md_rc" -ne 0 ]; then
       # a required requirement that does not hold on this machine is the module's refusal, not the lifecycle's defect: named, not failed
-      if [ "$(_md_recs module-requires-missing)" -ge 1 ] && [ ! -e "$SB_WORK/process/MODULES" ]; then skipped="${skipped}${skipped:+, }$name"; continue; fi
+      if [ "$(_md_recs module-requires-missing)" -ge 1 ] && [ ! -e "$SB_WORK/process/MODULES" ]; then
+        # legitimate only when a tool the manifest requires (a `requires:` id) is really absent here; a check that fails with every tool present is the module's defect
+        absent=""
+        for id in $(sed -n -E 's/^requires:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*\| required[[:space:]]*$/\1/p' "$REAL_REPO_ROOT/modules/$name/module.manifest"); do
+          command -v "$id" >/dev/null 2>&1 || absent="$absent $id"
+        done
+        if [ -n "$absent" ]; then skipped="${skipped}${skipped:+, }$name"; continue; fi
+        cf "($name) enable refused a required requirement although every tool it names is present: its check fails on this machine"; continue
+      fi
       cf "($name) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"; continue
     fi
     judged=$((judged + 1))

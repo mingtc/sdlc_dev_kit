@@ -59,8 +59,10 @@ python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  
 python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
 ```
 
-An `UNCLASSIFIED` or `LITERAL-COLOUR` line is a report line, not a finding: a PRD or story with no `**UI:**` line reads as none
-declared, and a colour literal in a screen goes back to the design tool's agent as a request in the brief. `STALE-APPROVAL` sends a
+An `UNCLASSIFIED` line is a report line, not a finding: a PRD or story with no `**UI:**` line reads as none declared. A
+`LITERAL-COLOUR` line is a finding and fails the gate: a colour literal in a screen goes back to the design tool's agent as a request
+in the brief, and the screen is not edited here; only a `[decision: D-NN]` in the screen's registry row, the register holding it,
+excuses it. `STALE-APPROVAL` sends a
 row back to `changes` (§ The two gates). `uncompared` in the pin-drift report means it could not tell (a `var()` naming no token, an
 alias that does not resolve, a state the registry lacks): fix the record, then read it again; it is never `clean`. `drift` in the pin-drift report is not yours to fix: a pinned state changed after its pin, so
 raise a `D-NN` with `ask.sh` (rule 6); a pinned card is never re-targeted.
@@ -111,9 +113,10 @@ Today I need help with: <task>
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
    (DTCG); a screen carries a `:root` block with one custom property per token it uses, named for the token's path with hyphens for dots
-   (`color.primary` is `--color-primary`) and holding the token's value. A literal
-   colour, size or font in a screen, outside the `:root` block, where a token exists is a finding: add the token, then put a request in the brief for the human to give Claude
-   Design's agent. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
+   (`color.primary` is `--color-primary`) and holding the token's value. A colour literal in a screen outside the `:root`
+   block is a finding of the link check and fails the gate; a size or font literal where a token exists is a finding too. Add the
+   token, then put a request in the brief for the human to give Claude Design's agent; never edit the screen. Only a
+   `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
 9. **Never asks the human to overwrite the canvas with a file.** A change made in the repo (a token, a registry fix) reaches
    the canvas as a request the human carries to Claude Design's agent; a canvas that agent has changed since the last take-in
    is taken in first.
