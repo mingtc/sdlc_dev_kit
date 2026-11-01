@@ -15,7 +15,7 @@ Prints one line per anchor, to paste into COMMENTS.md's `element` column:
 An element with no id is named by its path (`<Board>.dc.html#(no id: x-dc/1/0)`): say so in the thread's row. The place and the path must
 agree; if they do not, or the board is not in PROJECT_DIR, the pulled file differs from the one the commenter saw: UNRESOLVED, and the
 thread is logged against the board with `(board)` until the Designer has pulled again. A board-level or note anchor is UNRESOLVED too.
-Exit 0 every anchor resolved; 1 one or more not; 2 bad usage. Python 3 standard library only; reads files, writes nothing.
+Exit 0 every anchor resolved (and --help); 1 one or more not; 2 bad usage. Python 3 standard library only; reads files, writes nothing.
 """
 import html.parser, re, sys
 from pathlib import Path
@@ -85,6 +85,9 @@ def resolve(project, anchor):
 
 
 def main(argv):
+    if len(argv) == 2 and argv[1] in ('-h', '--help'):
+        print(__doc__)
+        return 0
     if len(argv) < 3 or argv[1].startswith('-'):
         print(__doc__)
         return 2

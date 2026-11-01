@@ -17,6 +17,7 @@ any other heading are not read. Nothing here is read while the module is disable
 - **`scripts/design/normalise-canvas.py`** gives a page save's re-serialising (a sorted `canvas.json` with an empty `attachments`, a board's `data-props` in `&quot;` form)
   the spelling an agent writes, so the drift checks and approvals read no change where no value moved; **`scripts/design/resolve-anchor.py`** turns a
   sent comment's anchor into `<Board>.dc.html#<element id>`, and says `UNRESOLVED` with the reason when it cannot.
+- `COMMENTS.md` gains a `thread` column (the thread's id), so a pull updates a thread it already logged. The pull lays its files over `project/` and runs the link check before you decide, and puts `project/` back on a no.
 - `CANVAS.md` gains a `## Manifest` section: per `project/` file, the canvas sha and the repo sha (they differ only for a file the normaliser rewrote); a `CANVAS.md` made from an older template gets the section from the first pull, which then treats every file as changed.
 - Requirements: `claude-code` (2.1.228 or later, optional: the commands and comment replies) and `claude-ai-login` (an agent-side requirement the commands make as their first call).
 - The Designer role drops its last needs-the-next-version lines.

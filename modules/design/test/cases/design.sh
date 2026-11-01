@@ -3074,6 +3074,8 @@ PYEOF
   cmp -s "$d/bad/Bad.dc.html" "$d/Bad.before" || cf "(e) the unparsable board was rewritten"
   _dm_py "$m/normalise-canvas.py" "$d/no-such-folder"
   [ "$_dm_rc" -eq 2 ] || cf "(e) a folder that is not there exits $_dm_rc, not 2"
+  _dm_py "$m/normalise-canvas.py" --help
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "usage:"; } || cf "(e) --help exits $_dm_rc, not 0, or prints no usage"
   finish "$L"
   teardown
 }
@@ -3134,6 +3136,8 @@ EOF
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "not an element anchor"; } || cf "(d) a note anchor is resolved or passes in silence (exit $_dm_rc): $_dm_out"
   _dm_py "$m/resolve-anchor.py"
   [ "$_dm_rc" -eq 2 ] || cf "(e) no arguments exit $_dm_rc, not 2"
+  _dm_py "$m/resolve-anchor.py" --help
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "usage:"; } || cf "(e) --help exits $_dm_rc, not 0, or prints no usage"
   finish "$L"
   teardown
 }
@@ -3171,11 +3175,11 @@ case_the_design_skills_state_their_surface_and_carry_the_guards_and_are_placed_w
     done
   done
   f="$SB_WORK/.claude/skills/design-pull/SKILL.md"
-  for tok in 'list_files' 'sha256' 'shasum -a 256' 'one path a call' 'normalise-canvas.py' 'resolve-anchor.py' 'read_comments' 'Send to Claude' 'invisible' 'go-ahead' 'Last pull' 'canvas sha' 'repo sha' 'You publish nothing here' 'acknowledgement, not the change' 'proves nothing' 'a size proves nothing'; do
+  for tok in 'list_files' 'sha256' 'shasum -a 256' 'one path a call' 'normalise-canvas.py' 'resolve-anchor.py' 'read_comments' 'Send to Claude' 'invisible' 'go-ahead' 'Last pull' 'canvas sha' 'repo sha' 'You publish nothing here' 'acknowledgement, not the change' 'proves nothing' 'a size proves nothing' 'git status --porcelain' 'rm -rf .cache/design/pull' 'limit: 1' 'Last publish' 'thread' 'plain `rm`'; do
     grep -F -- "$tok" "$f" >/dev/null || cf "(d) design-pull does not carry '$tok'"
   done
   f="$SB_WORK/.claude/skills/design-publish/SKILL.md"
-  for tok in 'list_files' 'base_version: V' 'mode: "patch"' 'wouldOverwrite' 'liveEntry' 'warnings' 'stop' 'do not resend your bytes with `live`' 'Read back' 'never verify' 'continues_reply_id' 'resolve_comment' 'reply_shared_comment' '/design-pull' 'Last pull: none' 'create_from_type' 'rsync' 'Never `git diff`'; do
+  for tok in 'list_files' 'base_version: V' 'mode: "patch"' 'wouldOverwrite' 'liveEntry' 'warnings' 'stop' 'do not resend your bytes with `live`' 'Read back' 'never verify' 'continues_reply_id' 'resolve_comment' 'reply_shared_comment' '/design-pull' 'Last pull: none' 'create_from_type' 'rsync' 'Never `git diff`' 'restore nothing' 'limit: 1' 'never re-send' 'restore (they reject'; do
     grep -F -- "$tok" "$f" >/dev/null || cf "(e) design-publish does not carry '$tok'"
   done
   grep -F 'base_version' "$SB_WORK/.claude/skills/design-pull/SKILL.md" >/dev/null && cf "(f) design-pull carries base_version: the pull sends nothing"
@@ -3225,6 +3229,542 @@ case_the_manifest_declares_the_claude_code_floor_and_the_login_and_the_skills_ma
   _md_mod enable design
   { [ "$_md_rc" -eq 0 ] && _dm_has "$_md_out" "claude-ai-login"; } || cf "(d) enable refuses or does not print the claude-ai-login requirement (exit $_md_rc): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   { grep -F '2.1.228' "$m/SETUP.md" >/dev/null && grep -F '/login' "$m/SETUP.md" >/dev/null; } || cf "(e) SETUP.md does not name Claude Code 2.1.228 and /login"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL SKILL, WALKED OVER A REAL PULL'S SHAPE: THE PULL FOLDER, THE NORMALISER, THE LINK CHECK ON THE PULLED FILES, THE ANCHORS AND THE UNDO.
+#   Operand: the shell blocks of .claude/skills/design-pull/SKILL.md (the fenced ```sh blocks labelled start, normalise, place, check, anchor and undo),
+#   run in order in a project made of a real pulled canvas (three boards, the sheets, the token files, the registry, a PRD) with the pull that follows a
+#   person's page edit: a Timer board with a colour literal, and a page-saved canvas.json beside it, and nothing else, as step 4 writes it
+#   (the listing's path, project/<file>). The expected answers are fixed here: the sheet is normalised, the literal is a finding only once the files are in
+#   place, an unchanged board's anchor resolves, a changed board's anchor resolves, and "no" puts project/ back byte for byte.
+# =============================================================================
+_dm_fence() { awk -v l="$2" '$0 == "```sh " l { f = 1; next } f && /^```$/ { exit } f { print }' "$1"; }   # <skill> <label> — the lines of that block
+_dm_sh() { _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PYTHONDONTWRITEBYTECODE=1 bash -c "$1" 2>&1 </dev/null )" || _dm_rc=$?; }
+case_the_pull_skill_walked_over_a_real_pulls_shape_checks_the_pulled_files_resolves_anchors_on_the_whole_set_and_undoes() {
+  cf_reset
+  local L="the design-pull skill's own shell blocks, run over a real pull's shape, empty the pull folder, normalise project/canvas.json in it, find a colour literal only after the pull is laid over project/ (and not before), resolve the anchor of an unchanged board and of a changed one, and restore project/ byte for byte on a no"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  _dm_land "enable the design module"
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/Main.dc.html")"
+  cat > "$SB_WORK/requirements/design/steep/project/Main.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brews</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+:root{
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+</style>
+</helmet>
+<div id="ux-001-root" data-ux="UX-001" data-stories="PRD-001-F1-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-001-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Brews</h1>
+<sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+<div id="ux-001-list" data-state="list" style="display: flex; flex-direction: column; gap: 12px">
+<a id="ux-001-open-sencha" href="Timer.dc.html" style="display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 16px; border-radius: 12px; background: var(--color-surface-raised); color: var(--color-on-surface); text-decoration: none">
+<span id="ux-001-name-sencha" style="font-size: 16px; font-weight: 500">Sencha</span>
+<span id="ux-001-time-sencha" style="font-size: 14px; color: var(--color-muted)">2 min</span>
+</a>
+<div id="ux-001-preview" style="width: 156px; height: 338px; overflow: hidden; border-radius: 12px">
+<div style="width: 390px; height: 844px; transform: scale(0.4); transform-origin: top left">
+<dc-import name="Timer" view="idle" hint-size="390px,844px"></dc-import>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<div id="ux-001-empty" data-state="empty" style="padding: 24px; border-radius: 12px; background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">
+<p id="ux-001-empty-text" style="margin: 0">No brews yet</p>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"list","options":["list","empty"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'list';
+return { isList: v === 'list', isEmpty: v === 'empty' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/Settings.dc.html")"
+  cat > "$SB_WORK/requirements/design/steep/project/Settings.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/steep/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F2-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: var(--space-6) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-surface); color: var(--color-on-surface); font-family: var(--font-sans)">
+<h1 id="ux-003-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Settings</h1>
+<div id="ux-003-sound" data-state="default" style="padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">Sound on finish</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/Timer.dc.html")"
+  cat > "$SB_WORK/requirements/design/steep/project/Timer.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="sheets/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" class="ux-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-002-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Sencha</h1>
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-idle" data-state="idle" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-remaining" style="margin: 0; font-size: 48px; line-height: 56px; font-weight: 300">2:00</p>
+<button id="ux-002-start" type="button" style="height: 48px; border: 0; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); font-size: 16px; font-weight: 500; font-family: inherit">Start</button>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-done" data-state="done" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-ready" style="margin: 0; font-size: 24px; line-height: 32px">Ready to pour</p>
+<a id="ux-002-back" href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 16px; font-weight: 500">Back to brews</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":["idle","done"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+return { isIdle: v === 'idle', isDone: v === 'done' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/canvas.json")"
+  cat > "$SB_WORK/requirements/design/steep/project/canvas.json" <<'EOF'
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"Brews canvas","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"Authored from a brief."}},"designSystems":[{"title":"Steep tokens","namespace":"steep","artifact":"design-system-address","version":"0-0000","copiedAt":"2026-11-01T04:30:00Z"}]}
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/sheets/tokens.css")"
+  cat > "$SB_WORK/requirements/design/steep/project/sheets/tokens.css" <<'EOF'
+/* Steep tokens, for a screen that may be imported: a child's helmet takes no :root rule. */
+:root {
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+.ux-screen { letter-spacing: 0.1px; }
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/ds/steep/tokens.css")"
+  cat > "$SB_WORK/requirements/design/steep/project/ds/steep/tokens.css" <<'EOF'
+/* Steep tokens — generated from tokens.json */
+
+:root, [data-theme="light"] {
+  --color-surface: #FAF8F3;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1F2421;
+  --color-muted: #4A5553;
+  --color-primary: #22577A;
+  --color-on-primary: #FFFFFF;
+}
+
+[data-theme="dark"] {
+  --color-surface: #141816;
+  --color-surface-raised: #1F2421;
+  --color-on-surface: #F0EEE8;
+  --color-muted: #B8C2BF;
+  --color-primary: #8FC4E8;
+  --color-on-primary: #0B2433;
+}
+
+[data-theme="wire"] {
+  --color-surface: #F9F9F9;
+  --color-surface-raised: #FFFFFF;
+  --color-on-surface: #1C1C1C;
+  --color-muted: #464646;
+  --color-primary: #555555;
+  --color-on-primary: #FFFFFF;
+}
+
+:root {
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius-md: 12px;
+  --radius-full: 24px;
+  --font-sans: system-ui, sans-serif;
+}
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/tokens/steep.tokens.json")"
+  cat > "$SB_WORK/requirements/design/tokens/steep.tokens.json" <<'EOF'
+{
+ "color": {
+  "surface": {
+   "$type": "color",
+   "$value": "#FAF8F3"
+  },
+  "surface-raised": {
+   "$type": "color",
+   "$value": "#FFFFFF"
+  },
+  "on-surface": {
+   "$type": "color",
+   "$value": "#1F2421"
+  },
+  "muted": {
+   "$type": "color",
+   "$value": "#4A5553"
+  },
+  "primary": {
+   "$type": "color",
+   "$value": "#22577A"
+  },
+  "on-primary": {
+   "$type": "color",
+   "$value": "#FFFFFF"
+  }
+ },
+ "space": {
+  "2": {
+   "$type": "dimension",
+   "$value": "8px"
+  },
+  "4": {
+   "$type": "dimension",
+   "$value": "16px"
+  },
+  "6": {
+   "$type": "dimension",
+   "$value": "24px"
+  }
+ },
+ "radius": {
+  "md": {
+   "$type": "dimension",
+   "$value": "12px"
+  },
+  "full": {
+   "$type": "dimension",
+   "$value": "24px"
+  }
+ },
+ "font": {
+  "sans": {
+   "$type": "fontFamily",
+   "$value": "system-ui, sans-serif"
+  }
+ }
+}
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/tokens/steep.dark.tokens.json")"
+  cat > "$SB_WORK/requirements/design/tokens/steep.dark.tokens.json" <<'EOF'
+{
+ "color": {
+  "surface": {
+   "$type": "color",
+   "$value": "#141816"
+  },
+  "surface-raised": {
+   "$type": "color",
+   "$value": "#1F2421"
+  },
+  "on-surface": {
+   "$type": "color",
+   "$value": "#F0EEE8"
+  },
+  "muted": {
+   "$type": "color",
+   "$value": "#B8C2BF"
+  },
+  "primary": {
+   "$type": "color",
+   "$value": "#8FC4E8"
+  },
+  "on-primary": {
+   "$type": "color",
+   "$value": "#0B2433"
+  }
+ }
+}
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/tokens/steep.wire.tokens.json")"
+  cat > "$SB_WORK/requirements/design/tokens/steep.wire.tokens.json" <<'EOF'
+{
+ "color": {
+  "surface": {
+   "$type": "color",
+   "$value": "#F9F9F9"
+  },
+  "surface-raised": {
+   "$type": "color",
+   "$value": "#FFFFFF"
+  },
+  "on-surface": {
+   "$type": "color",
+   "$value": "#1C1C1C"
+  },
+  "muted": {
+   "$type": "color",
+   "$value": "#464646"
+  },
+  "primary": {
+   "$type": "color",
+   "$value": "#555555"
+  },
+  "on-primary": {
+   "$type": "color",
+   "$value": "#FFFFFF"
+  }
+ }
+}
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/PRD-001-steep.md")"
+  cat > "$SB_WORK/requirements/PRD-001-steep.md" <<'EOF'
+---
+id: PRD-001
+title: Steep
+status: approved
+---
+
+# PRD-001 — Steep
+
+## Features
+
+### F1 — Brewing
+
+#### Stories
+
+##### F1-S1 — See my brews
+
+**UI:** list, empty
+
+- [ ] AC1: (UI) The home screen lists brews with their times. [design: UX-001#list]
+- [ ] AC2: (UI) With no brews, it says so. [design: UX-001#empty]
+
+##### F1-S2 — Time a brew
+
+**UI:** idle, done
+
+- [ ] AC1: (UI) A brew shows its time and a Start button. [design: UX-002#idle]
+- [ ] AC2: (UI) When done, it offers a way back. [design: UX-002#done]
+
+### F2 — Settings
+
+#### Stories
+
+##### F2-S1 — Sound
+
+**UI:** default
+
+- [ ] AC1: (UI) The user can see the finish sound setting. [design: UX-003#default]
+EOF
+  mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/CANVAS.md")"
+  cat > "$SB_WORK/requirements/design/steep/CANVAS.md" <<'EOF'
+# CANVAS — steep
+
+- **Canvas:** Brews canvas — design-system-address
+- **Last pull:** none
+- **Last publish:** none
+- **Pin-ready:** none
+- **Breakpoint:** none declared; widths covered: 390.
+- **PRDs served:** PRD-001
+- **Tokens:** `requirements/design/tokens/steep.tokens.json` (+ `.dark`, `.wire`)
+
+## Screen registry
+
+### Brewing
+
+| UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |
+|---|---|---|---|---|---|---|---|---|
+| UX-001 | Main.dc.html | Brews (phone) | phone | none | list, empty | PRD-001-F1-S1 | open | open |
+| UX-002 | Timer.dc.html | Timer (phone) | phone | none | idle, done | PRD-001-F1-S2 | open | open |
+| UX-003 | Settings.dc.html | Settings (phone) | phone | none | default | PRD-001-F2-S1 | open | open |
+EOF
+  _dm_commit "the last pull"
+  local sk="$SB_WORK/.claude/skills/design-pull/SKILL.md" b pj="$SB_WORK/.cache/design/pull/project"
+  for b in start normalise place check anchor undo; do
+    [ -n "$(_dm_fence "$sk" "$b")" ] || cf "(a) design-pull has no fenced \`\`\`sh $b block"
+  done
+  blk() { _dm_fence "$sk" "$1" | sed "s|<canvas>|steep|g; s|<board>#<n>:<path>|${2:-}|g"; }   # <label> [<anchor>]
+  cp "$SB_WORK/requirements/design/steep/project/Timer.dc.html" "$SB_TMP/Timer.before"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(prereq) the fixture is not committed: $_dm_out"
+  # (b) step 4 starts from an empty pull folder, however full the last one was
+  mkdir -p "$SB_WORK/.cache/design/pull/project"; printf 'old\n' > "$SB_WORK/.cache/design/pull/project/Stale.dc.html"
+  _dm_sh "$(blk start)"
+  { [ "$_dm_rc" -eq 0 ] && [ -d "$pj" ] && [ -z "$(ls -A "$pj")" ]; } || cf "(b) the start block does not leave an empty pull/project folder (exit $_dm_rc): $_dm_out"
+  # step 4 as written: only the files that differed, at the listing's path
+  cat > "$pj/Timer.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="sheets/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2" class="ux-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; background: var(--color-surface); color: var(--color-on-surface); font-family: system-ui, sans-serif">
+<h1 id="ux-002-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Sencha</h1>
+<sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+<div id="ux-002-idle" data-state="idle" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-remaining" style="margin: 0; font-size: 48px; line-height: 56px; font-weight: 300">2:00</p>
+<button id="ux-002-start" type="button" style="height: 48px; border: 0; border-radius: 24px; color: var(--color-on-primary); font-size: 16px; font-weight: 500; font-family: inherit; background-color: #ff0000">Get Started</button>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-done" data-state="done" style="display: flex; flex-direction: column; gap: 16px">
+<p id="ux-002-ready" style="margin: 0; font-size: 24px; line-height: 32px">Ready to pour</p>
+<a id="ux-002-back" href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 24px; background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 16px; font-weight: 500">Back to brews</a>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":["idle","done"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+return { isIdle: v === 'idle', isDone: v === 'done' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$pj/canvas.json" <<'EOF'
+{
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "UX-001 Brews (phone)",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Settings.dc.html": {
+      "h": 844,
+      "title": "UX-003 Settings (phone)",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "Timer.dc.html": {
+      "h": 844,
+      "title": "UX-002 Timer (phone)",
+      "w": 390,
+      "x": 617,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-01T04:30:00Z",
+    "v": 1
+  },
+  "designSystems": [
+    {
+      "artifact": "design-system-address",
+      "copiedAt": "2026-11-01T04:30:00Z",
+      "namespace": "steep",
+      "title": "Steep tokens",
+      "version": "0-0000"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "note-brief": {
+      "text": "Authored from a brief.",
+      "w": 320,
+      "x": 0,
+      "y": -200
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Timer.dc.html",
+    "Settings.dc.html"
+  ],
+  "pages": [],
+  "title": "Brews canvas",
+  "v": 3
+}
+EOF
+  # (c) step 5: the page-saved canvas.json in the pull is normalised (the old path named the folder above, which has no canvas.json)
+  _dm_sh "$(blk normalise)"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "normalised canvas.json"; } || cf "(c) the normalise block does not normalise the pulled canvas.json (exit $_dm_rc): $_dm_out"
+  grep -F '"attachments"' "$pj/canvas.json" >/dev/null && cf "(c) the empty attachments stayed in the pulled canvas.json"
+  # (d) step 6: before the pull is laid over project/ the check reads the old files and is clean; after, it names the literal
+  _dm_sh "$(blk check)"
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "LITERAL-COLOUR"; } || cf "(d) the prereq: the old files are not clean (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_sh "$(blk place)"
+  [ "$_dm_rc" -eq 0 ] || cf "(d) the place block failed (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(blk check)"
+  { _dm_has "$_dm_out" "LITERAL-COLOUR" && _dm_has "$_dm_out" "#ff0000" && _dm_has "$_dm_out" "Timer.dc.html"; } || cf "(d) the link check, run after the pull is laid over project/, does not name the pulled colour literal: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (e) step 7: Settings is not in the pull and still resolves; Timer is, and resolves in its pulled form
+  _dm_sh "$(blk anchor 'Settings.dc.html#2:1')"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "Settings.dc.html#ux-003-root"; } || cf "(e) the anchor of an unchanged board does not resolve (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(blk anchor 'Timer.dc.html#2:1')"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "Timer.dc.html#ux-002-root"; } || cf "(e) the anchor of a changed board does not resolve (exit $_dm_rc): $_dm_out"
+  # (f) a no: project/ is as it was
+  _dm_sh "$(blk undo)"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(f) the undo block leaves project/ changed: $_dm_out"
+  cmp -s "$SB_TMP/Timer.before" "$SB_WORK/requirements/design/steep/project/Timer.dc.html" || cf "(f) Timer is not the last pull's after the undo"
   finish "$L"
   teardown
 }

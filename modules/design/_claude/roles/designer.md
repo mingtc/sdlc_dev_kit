@@ -54,7 +54,7 @@ needs no canvas (the registry, tokens, citations) continues.
 makes the sign-in call (`list_artifacts`) first, and ends with a `Next:` when you are not signed in or have no artifact tools; the human is asked to look, to decide on a
 diff and to approve, and to carry nothing. The pull compares shas from one list, reads only what differs one path at a time and verifies each, runs
 `scripts/design/normalise-canvas.py` (a page save re-serialises `canvas.json` and a board's `data-props` without a value moving; it gives them the spelling an agent writes), resolves each
-sent comment's anchor with `scripts/design/resolve-anchor.py`, shows the diff and commits only on the go-ahead. The publish refuses a canvas that moved since the last pull, sends only
+sent comment's anchor with `scripts/design/resolve-anchor.py` against the whole board set, lays the pull over `project/` uncommitted so the link check reads the pulled files, shows its output and the diff and commits only on the go-ahead (a "no" puts `project/` back). The publish refuses a canvas that moved since the last pull, sends only
 what changed with the version the check used, stops on a `warnings` entry or a 409 over a person's edit, reads back by sha, and only then answers and resolves the threads.
 
 ### Creating a canvas
@@ -98,10 +98,10 @@ differs from it is found by you.
 
 | Result | Means | Do |
 |---|---|---|
-| 409, a `changed` entry with `wouldOverwrite: true` | that file moved since `V` | `list_files`, read it, redo your change on what it holds, send with `live` |
-| 409, `changed` with no `wouldOverwrite` | others moved; yours did not | send the same call with `live` |
+| 409, a `changed` entry with `wouldOverwrite: true` | that file moved since `V` | pull it (`/design-pull`), redo your change on what it holds, send with the new `version` |
+| 409, `changed` with no `wouldOverwrite` | others moved; yours did not | list again, check that the files you send are unchanged, send the same set with the new `version` |
 | 409, `liveEntry: "page"` | a person saved on the page | pull and show them first (step 3) |
-| Success with `warnings` | you replaced a person's page edit | **stop and tell the human which files**; the tool will not copy them back from an earlier version, so restore from your pull |
+| Success with `warnings` | the version before yours was a page save and you replaced a file in it | compare each named file's listed sha with the manifest's canvas sha: equal, the edit was pulled and your change sits on it, so tell the human, restore nothing and read back; otherwise **stop and tell the human which files**, restoring from your pull only if it holds their bytes (the tool will not copy them back from an earlier version) |
 | Third refusal | | tell the human and stop |
 
 **Never resend your bytes with `live` over a file the 409 marks `wouldOverwrite`, or after `liveEntry: "page"`:** that publish
@@ -167,7 +167,7 @@ whose logic failed (the board then draws a red label).
   `continues_reply_id`; an automatic reply is an acknowledgement, not the change.
 - `resolve_comment` after the change is published and read back. Both work unasked only on an artifact nobody else can open; on a
   shared one use `reply_shared_comment` and the user resolves.
-- Commit the sent threads in `COMMENTS.md`, which then holds only those.
+- Commit the sent threads in `COMMENTS.md`, which then holds only those; the `thread` column holds the thread's id, so a pull updates a thread it has and does not log it twice.
 
 ### What the human still does
 

@@ -17,7 +17,7 @@ value moved. Run it on a pull before the files are compared or committed. It is 
 sha differ when it rewrote anything: the pull records both (see the design-pull skill).
 Prints `normalised <path>` per file changed (`would normalise <path>` with --check). A file it cannot parse is named on stderr and left
 untouched (`UNREAD <path>: <why>`), never passed as fine.
-Exit 0 done or nothing to do; 1 --check found a file it would change; 2 a file could not be read, or bad usage.
+Exit 0 done or nothing to do (and --help); 1 --check found a file it would change; 2 a file could not be read, or bad usage.
 Python 3 standard library only.
 """
 import html, json, re, sys
@@ -48,6 +48,9 @@ def norm_canvas(text):
 
 
 def main(argv):
+    if len(argv) == 2 and argv[1] in ('-h', '--help'):
+        print(__doc__)
+        return 0
     args = [a for a in argv[1:] if a != '--check']
     check = len(args) != len(argv) - 1
     if len(args) != 1 or args[0].startswith('-'):

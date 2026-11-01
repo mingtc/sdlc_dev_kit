@@ -7,6 +7,6 @@ human makes in conversation is logged here too, with who and where.
 `status`: `open`, `acknowledged` (an auto-reply only: the change is not made), `resolved` (done and answered),
 `rejected` (declined: say why in `resolution`).
 
-| id | status | who | date | element (file#id) | request | resolution |
-|---|---|---|---|---|---|---|
-| C-01 | open | <name> | <YYYY-MM-DD> | <File>.dc.html#<element-id> | <the request, quoted or condensed> | |
+| id | thread | status | who | date | element (file#id) | request | resolution |
+|---|---|---|---|---|---|---|---|
+| C-01 | <thread id, or "none" for a request made in conversation> | open | <name> | <YYYY-MM-DD> | <File>.dc.html#<element-id> | <the request, quoted or condensed> | |
