@@ -916,7 +916,7 @@ case_the_link_check_reads_a_colour_where_it_is_a_colour_and_fails_the_gate_unles
   _dm_links_fixture || { finish "$L"; teardown; return; }
   local D="$SB_WORK/requirements/design/app/project" dn="D-$((6 + 6))" body
   printf '| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$SB_WORK/requirements/design/app/CANVAS.md"
-  printf ':root { --color-primary: #485d92; }\n:root[data-theme="dark"] { --color-primary: #a0b4e8; }\n:ROOT, :host { --x: #fff; }\n' > "$D/tokens.css"
+  printf ':root { --color-primary: #485d92; }\n:root[data-theme="dark"] { --color-primary: #a0b4e8; }\n:ROOT, :host { --x: #fff; }\n[data-theme="dark"] { --color-surface: #121318; }\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-surface: #121318; } }\n' > "$D/tokens.css"
   body='<link rel="stylesheet" href="tokens.css"><h1 id="ux-003-title" style="color: var(--color-primary)">Order #1042 <a href="#fab">x</a></h1><!-- #fff --><style>/* was #ff0000 */ #add { color: var(--color-primary) } .b { background: url( #fade ); content: "#1042"; color: rgb(var(--x-rgb) / .5) }</style><input data-target="#abc" data-style="#abc"><p>fill="#fff" &#35;ff0000 color: red</p><script type="text/x-dc">// issue #123
 const copy = { label: "Order #1042" }; document.querySelector("#add"); location.hash = "#feed"; function color(x) { return x; }</script>'
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$body"
@@ -935,7 +935,7 @@ const copy = { label: "Order #1042" }; document.querySelector("#add"); location.
   _dm_commit "a colour in each place"
   _dm_py scripts/design/check-design-links.py --strict
   [ "$_dm_rc" -eq 1 ] || cf "(c) a colour literal in CSS outside :root does not fail --strict (exit $_dm_rc)"
-  for t in 'oklch(' '#f00' '#0f0' '#ff0000 (in lit.css)'; do
+  for t in 'oklch(' '#f00' '#0f0' '#ff0000 (in requirements/design/app/project/lit.css)'; do
     _dm_has "$_dm_out" "$t" || cf "(c) the line for the screen does not name $t"
   done
   _dm_has "$_dm_out" "change request through the brief" || cf "(c) the line does not say to send a change request through the brief"

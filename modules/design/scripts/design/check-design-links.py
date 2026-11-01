@@ -55,7 +55,7 @@ Reports (each line starts with its class)
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
   LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style block, a style attribute, a
                 presentation attribute or a local stylesheet it links (comments, strings and url() left out), outside a :root rule
-                (where a screen holds its tokens' values, so it is exempt), unless the screen's registry row carries a
+                and not as a custom property's value (where a screen holds its tokens' values, so both are exempt), unless the screen's registry row carries a
                 `[decision: D-NN]` waiver the register confirms. Colour names (`red`) are not caught. The way out is a change
                 request through the brief to the design tool's agent. A `superseded` row is not read for colours
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
@@ -254,11 +254,13 @@ def refs_in(text, css=False):
 
 
 def css_values(css):
-    """The declaration text of CSS: selectors, comments, strings, url() and :root rules removed, so what is left can hold a colour."""
+    """The declaration text of CSS: selectors, comments, strings, url(), :root rules and custom-property declarations (a token's
+    definition, in a theme selector of a token sheet too) removed, so what is left can hold a colour."""
     css = CSS_URL.sub(' ', ROOT_BLOCK.sub(' ', CSS_COMMENT.sub(' ', css)))
     css = CSS_STRING.sub('""', css)
     parts = re.split(r'([{};])', css)
-    return ' ; '.join(parts[i] for i in range(0, len(parts), 2) if (parts[i + 1] if i + 1 < len(parts) else '') != '{')
+    return ' ; '.join(parts[i] for i in range(0, len(parts), 2)
+                       if (parts[i + 1] if i + 1 < len(parts) else '') != '{' and not re.match(r'\s*--[\w-]+\s*:', parts[i]))
 
 
 def colours_in(text):

@@ -121,7 +121,8 @@ carries a `:root` block with one custom property per token it uses, holding the 
 token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
 in a screen's style blocks, style attributes, presentation attributes or a local stylesheet it links, outside a `:root` rule, is a
 `LITERAL-COLOUR` finding of the link check and fails the gate; `:root` rules (also `:root[...]` and `:root, :host`) are exempt, and
-a sheet that only defines tokens in `:root` passes. A colour name (`red`) is not caught. A colour in the component script is shown
+a custom property declared anywhere (`--name: value`, as a theme selector of a token sheet does) defines a token and is exempt too, so a
+sheet that only defines tokens passes. A colour name (`red`) is not caught. A colour in the component script is shown
 as a `SCRIPT-COLOUR` line and never fails the gate: a script is code and copy and cannot be read as CSS. The way out is a change request through the brief, which the human carries to the design
 tool's agent; the screen is not edited by hand. The one exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
 row (its title cell), the same marker and the same register as a card's waiver on its `design:` line, the D-NN an entry of
