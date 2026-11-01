@@ -886,8 +886,8 @@ case_the_prd_view_lists_what_a_prd_reaches_and_the_flow_graph_comes_from_the_art
   printf '[]\n' > "$P/canvas.json"
   _dm_py scripts/design/flow-from-links.py requirements/design/app/project
   _dm_has "$_dm_out" "Traceback" && cf "(e) a canvas.json that is a list stops the graph: $(printf '%s' "$_dm_out" | tail -1)"
-  _dm_has "$_dm_out" "which is not in" && cf "(e) a link written with %20 is read as a board that is not there: $(printf '%s' "$_dm_out" | /usr/bin/grep -m1 'not in')"
-  n="$(printf '%s\n' "$_dm_out" | /usr/bin/grep -E '^    [A-Za-z0-9_]+\[' | sed -E 's/^ +([A-Za-z0-9_]+)\[.*/\1/' | sort -u | wc -l | tr -d ' ')"
+  _dm_has "$_dm_out" "which is not in" && cf "(e) a link written with %20 is read as a board that is not there: $(printf '%s' "$_dm_out" | grep -m1 'not in')"
+  n="$(printf '%s\n' "$_dm_out" | grep -E '^    [A-Za-z0-9_]+\[' | sed -E 's/^ +([A-Za-z0-9_]+)\[.*/\1/' | sort -u | wc -l | tr -d ' ')"
   [ "$n" = 5 ] || cf "(e) five boards, two of them with non-ASCII names, are $n distinct nodes: the names collapse"
   finish "$L"
   teardown
