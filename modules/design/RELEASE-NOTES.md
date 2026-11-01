@@ -5,6 +5,27 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.3.0]
+
+### Added
+
+- **The card gate.** A move check on `in_progress/` and `dev_complete/` (`scripts/move-check.d/in_progress/50-design-pin.sh`, and
+  the same file at `dev_complete/`): a card arriving there from `todo/`, or from `blocked/` when it was never in progress, is refused,
+  with the reason and a `Next:` line and nothing changed, unless each `design:` entry carries an `@<commit>` that resolves and
+  holds the screen, of a row whose `gate1` is `approved@<sha>` (an ancestor of the pin, still true on the trunk), or the line
+  carries a `[decision: D-NN]` the register holds. A `design:` of `none`, or one lacking a screen an AC cites (`[design: UX-NNN#state]`),
+  is refused when an AC is tagged `(UI)` or a listed story has a `UI:` line. A card back from `blocked/` that was in progress before
+  is checked only for being pinned (drift is reported, not blocked). It judges the trunk's design record and tool; a gate that cannot
+  run (no Python, the tool not on the trunk, no answer from it) refuses as broken. Slices are judged like cards.
+- **The design rows check.** A move check on `qa_complete/` (`scripts/move-check.d/qa_complete/50-design-rows.sh`, run by
+  `finish-pr.sh` before its squash): a card whose AC is tagged `(UI)` or cites a screen needs a verdict row of kind `design` with an
+  entry for each state it cites.
+- **The QA design-cell check.** A cell check for evidence kind `design` (`scripts/qa-cell.d/design/50-design-cell.sh`, with
+  `scripts/design/check-design-cell.py`): the QA gate refuses a PASS row unless every entry reads `identical`, its pin is a commit
+  the card carries, both PNGs are committed **on the trunk** (QA commits evidence there with `register-commit.sh`, as the QA role
+  says), each is a PNG, the build image is not the pin image, and the pin image is the render the pin commit holds for that screen.
+- No action: an enabled project is carried to this version by `kit-upgrade.sh`. Push the trunk so the gate reads it.
+
 ## [0.2.0]
 
 ### Action required

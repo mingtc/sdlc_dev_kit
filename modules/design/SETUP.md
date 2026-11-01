@@ -19,7 +19,7 @@ What you do, once, before the Designer is useful. The checkers need Python 3.9 o
    PNG of a state, use **Copy as PNG** on the canvas (it is 2x); no tool exports one. Comments reach a session only for a canvas
    private to you or shared within your organisation.
 
-The packaged pull and publish skills, the card gate, the token generator and the other tools state their own
+The packaged pull and publish skills, the token generator and the other tools state their own
 requirements here once they are installed. Until the skills are, the Designer follows the order in its role (list, compare shas,
 pull first, edit, send with `base_version`, read the result, read back). While one is absent from your project, asking the Designer for it gets the answer
 that it needs the next version of the kit, which brings it.

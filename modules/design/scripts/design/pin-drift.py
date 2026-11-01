@@ -4,7 +4,7 @@
 
 usage: pin-drift.py [--head REV] [--json] [--root DIR] [--design DIR] [--cards DIR] [CARD.md ...]
 
-  no CARD   every <cards>/<shelf>/*.md except the shelves todo, done, declined and history: a card in todo/ is unpinned by
+  no CARD   every <cards>/<shelf>/*.md (and slice, <cards>/subtasks/<parent>/<shelf>/*.md) except the shelves todo, done, declined and history: a card in todo/ is unpinned by
             rule, a landed card's pin is history (a later design change is new work), a declined card builds nothing
   --root    the git repository (default: the working directory);  --cards default `progress` (a path outside --root is
             allowed: a report may read a copy of the board);  --design default `requirements/design` (the registry files
@@ -399,6 +399,10 @@ def cards(paths):
     if (ROOT / CARDS).is_dir():
         for shelf in sorted((ROOT / CARDS).iterdir()):
             if shelf.is_dir() and shelf.name not in SKIP_SHELVES:
+                out += sorted(shelf.glob('*.md'))
+        sub = ROOT / CARDS / 'subtasks'
+        for parent in sorted(d for d in sub.iterdir() if d.is_dir()) if sub.is_dir() else ():
+            for shelf in sorted(d for d in parent.iterdir() if d.is_dir() and d.name not in SKIP_SHELVES):
                 out += sorted(shelf.glob('*.md'))
     return out
 

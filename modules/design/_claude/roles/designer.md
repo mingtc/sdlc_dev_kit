@@ -31,7 +31,7 @@ AC (QA).
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
 procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
-`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`.
+`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check.
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
 of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it or report it as
@@ -40,7 +40,6 @@ delete the line. Until the packaged skills ship, follow § The canvas with the a
 
 - `/design-pull` (`.claude/skills/design-pull/SKILL.md`), the packaged pull: needs the next version of the kit.
 - `/design-publish` (`.claude/skills/design-publish/SKILL.md`), the packaged publish: needs the next version of the kit.
-- The card gate, a move check on leaving `todo/` (`scripts/move-check.d/todo/50-design-pin.sh`): needs the next version of the kit.
 - The token generator and the colour utility (`scripts/design/m3-tokens.mjs`, `scripts/design/vendor/material-color-utilities`): needs the next version of the kit.
 - Rendering a board to a PNG (`scripts/design/render.py`): needs the next version of the kit; until then a human copies a PNG from the canvas, or an agent that holds the design runtime renders locally (§ PNGs).
 - The contrast and 44 px target audits (`scripts/design/contrast-audit.py`): needs the next version of the kit; until then the human approves Gate 2 visually on the canvas.
@@ -254,7 +253,7 @@ approval reads as a stale approval and goes back to `changes`; the Designer tell
 
 ## Handoff
 
-- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The PM runs `check-design-links.py --leaving <card>` before the card leaves `todo/`.
+- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The card gate runs `check-design-links.py --leaving <card>` when the PM moves the card out of `todo/`; the PM can run it first.
 - **To Dev:** nothing directly. Dev reads the pin on the card, builds from that commit's files and tokens, and never edits
   `requirements/design/`.
 - **To QA:** the PNGs committed at the pin; QA reads them with `git show <pin>:requirements/design/…`, never from the working tree.

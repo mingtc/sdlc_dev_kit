@@ -28,6 +28,7 @@ _dm_kinds() { ( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/lib
 _dm_land() {  # <message> — commit what the sandbox holds and publish it: the readers below read the trunk
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -q -m "[PM] $_MD_ID: $1" >/dev/null 2>&1
+  git -C "$SB_WORK" pull -q --rebase origin "$SB_TRUNK" >/dev/null 2>&1   # a mover or a landing may have advanced the trunk since
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
 }
 _dm_move() {  # <id> <role> — the board mover, status in _dm_rc and output in _dm_out
@@ -250,7 +251,7 @@ case_the_designer_role_names_each_capability_this_version_lacks_and_drops_the_li
 /design-pull|file|^[.]claude/skills/design-pull/SKILL[.]md$
 /design-publish|file|^[.]claude/skills/design-publish/SKILL[.]md$
 50-design-drift.sh|arm|.
-50-design-pin.sh|move-check|^todo/
+50-design-pin.sh|move-check|^in_progress/
 m3-tokens.mjs|file|^scripts/design/m3-tokens[.]mjs$
 material-color-utilities|file|^scripts/design/vendor/material-color-utilities/index[.]js$
 render.py|file|^scripts/design/render[.]py$
@@ -1359,6 +1360,292 @@ EOF
   _dm_commit "a literal in the imported Timer"
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^LITERAL-COLOUR')" = 1 ] && _dm_has "$_dm_out" "Timer.dc.html: #123456"; } || cf "(g) a literal in a screen with its own row, imported by another, is not reported once on its own row (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# THE CARD GATE, THE DESIGN ROWS CHECK AND THE QA DESIGN-CELL CHECK, through the project's own mover, its own landing script and its own
+# QA gate. The operand of each case is the placed check, read by the real script from the trunk; every expected answer is written here.
+# =============================================================================
+
+# _dm_seed <number> <design line> [<extra frontmatter line>] — a card in todo/ on the trunk, with that design: line in its frontmatter; the id is in _DM_CARD.
+_dm_seed() {
+  _DM_CARD="$SB_PREFIX-$1"
+  seed_issue todo "$_DM_CARD" gate chore "A card for the design gate"
+  awk -v d="$2" -v e="${3:-}" '{ print } /^forks: none$/ && !done { print d; if (e != "") print e; done = 1 }' "$SB_WORK/progress/todo/$_DM_CARD-gate.md" > "$SB_TMP/seed.md" && mv "$SB_TMP/seed.md" "$SB_WORK/progress/todo/$_DM_CARD-gate.md"
+  _dm_land "seed $_DM_CARD"
+}
+# _dm_png <path> <tag> — a PNG (the signature and a 1x1 IHDR) that differs from another by its tag; the checks read the header, not the pixels.
+_dm_png() { mkdir -p "$(dirname "$1")"; { printf '\211PNG\r\n\032\n\0\0\0\rIHDR\0\0\0\001\0\0\0\001\010\006\0\0\0\0\0\0\0'; printf '%s' "$2"; } > "$1"; }
+# _dm_refusal <rule id> — status 0 when the last mover or gate call left a refusal record of that rule.
+_dm_refusal() { cat "$SB_TMP"/records/*.tsv 2>/dev/null | /usr/bin/grep -c "refusal=$1" | /usr/bin/grep -v '^0$' >/dev/null; }
+_dm_qrefusal() { cat "$SB_TMP/qc-rec-$_dm_qn"/*.tsv 2>/dev/null | /usr/bin/grep -c "refusal=$1" | /usr/bin/grep -v '^0$' >/dev/null; }
+# _dm_gate_to <id> <target> — the board mover to any status folder, fresh refusal records.
+_dm_gate_to() {
+  rm -rf "$SB_TMP/records"; _dm_rc=0
+  _dm_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/move-issue.sh "$1" "$2" --role PM --note x 2>&1 </dev/null )" || _dm_rc=$?
+}
+_dm_gate_move() { _dm_gate_to "$1" in_progress; }
+
+# =============================================================================
+# CASE — THE CARD GATE REFUSES, THROUGH THE REAL MOVER, A CARD ARRIVING IN in_progress/ OR dev_complete/ THAT THE DESIGN RECORD DOES NOT BACK,
+# BY EVERY ROUTE THE MOVER OFFERS, AND ALLOWS THE REST.
+#   Operand: scripts/move-issue.sh in a sandbox that enabled the module and pushed the design record. Refused: nothing moves (the card
+#   stays where it was on the trunk) and the output ends in a Next: line. A gate that cannot run (the tool is not on the trunk, or exits
+#   without its summary line) refuses as broken. Allowed: a pinned card on an approved screen, design: none with no screen in the card, a
+#   park in blocked/, and a pinned card that was in progress before, whose approval has since changed (drift never blocks).
+# =============================================================================
+case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_design_record_does_not_back() {
+  cf_reset
+  local L="the board mover refuses a card arriving in in_progress/ or dev_complete/ from todo/ or blocked/ whose design: entry is unpinned, pinned to a commit that does not exist or to a screen whose gate1 is not approved, or whose design: is none or lacks a screen its AC cites, with the check's reason and a Next: line and the card left where it was, allows a pinned card on an approved screen, design: none with no screen in the card, todo/ to blocked/, and a card back from blocked/ that was in progress before (its approval since changed), and a gate whose tool is missing, exits 0 or exits 1 without its summary line is refused as broken"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  _dm_land "the design record"
+  local X="$_DM_X" id f
+  _dm_seed 831 "design: [UX-001#default]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "UNPINNED"; } || cf "(a) a card leaving todo/ with an unpinned design: entry is not refused with the reason (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null || cf "(a) the refusal has no Next: line"
+  { [ -f "$SB_WORK/progress/todo/$id-gate.md" ] && ! origin_has_path "progress/in_progress/$id-gate.md"; } || cf "(a) the refused card moved"
+  _dm_refusal move-check-refused || cf "(a) no refusal=move-check-refused record"
+  _dm_seed 832 "design: [UX-001#default@$X]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  [ "$_dm_rc" -eq 0 ] || cf "(b) a card pinned to an approved screen's commit is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  origin_has_path "progress/in_progress/$id-gate.md" || cf "(b) the allowed card did not reach in_progress/ on the trunk"
+  _dm_seed 833 "design: none"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  [ "$_dm_rc" -eq 0 ] || cf "(c) a card with design: none and no screen in it is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_seed 834 "design: [UX-002#default@$X]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "NOT-APPROVED"; } || cf "(d) a pin to a screen whose gate1 is open is not refused with NOT-APPROVED (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_seed 835 "design: [UX-001#default@deadbee]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "is not a commit"; } || cf "(e) a pin to a commit that does not exist is not refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (f) the routes round it: parked in blocked/ (free), then back to in_progress/ or to dev_complete/ (judged), or todo/ straight to dev_complete/
+  _dm_seed 836 "design: [UX-001#default]"; id="$_DM_CARD"
+  _dm_gate_to "$id" blocked
+  { [ "$_dm_rc" -eq 0 ] && origin_has_path "progress/blocked/$id-gate.md"; } || cf "(f) parking an unpinned card in blocked/ is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_gate_to "$id" in_progress
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "UNPINNED" && origin_has_path "progress/blocked/$id-gate.md"; } || cf "(f1) blocked/ to in_progress/ with an unpinned entry is not refused, leaving the card in blocked/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_gate_to "$id" dev_complete
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "UNPINNED"; } || cf "(f2) blocked/ to dev_complete/ with an unpinned entry is not refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_seed 837 "design: [UX-001#default]"; id="$_DM_CARD"
+  _dm_gate_to "$id" dev_complete
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "UNPINNED" && origin_has_path "progress/todo/$id-gate.md"; } || cf "(f3) todo/ straight to dev_complete/ with an unpinned entry is not refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (g) a card that was in progress, parked, whose screen's approval has since gone: it comes back (drift never blocks); its entries are still pinned
+  id="$SB_PREFIX-832"
+  _dm_gate_to "$id" blocked
+  [ "$_dm_rc" -eq 0 ] || cf "(g) parking a card that is in progress is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/approved@[0-9a-f]*/changes/'
+  _dm_land "the approval is withdrawn"
+  _dm_gate_to "$id" in_progress
+  { [ "$_dm_rc" -eq 0 ] && origin_has_path "progress/in_progress/$id-gate.md"; } || cf "(g) a pinned card that was in progress is judged again on its way back from blocked/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_gate_to "$id" dev_complete
+  [ "$_dm_rc" -eq 0 ] || cf "(g2) a card in progress is judged on its way to dev_complete/ (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  git -C "$SB_WORK" checkout -q HEAD~1 -- requirements/design/app/CANVAS.md >/dev/null 2>&1; _dm_land "the approval is back"
+  # (h) design: none on a card whose AC is tagged (UI), or whose story has a UI: line, is the minted default left in place
+  _dm_seed 838 "design: none"; id="$_DM_CARD"
+  perl -0pi -e 's/(## Acceptance Criteria\n\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/' "$SB_WORK/progress/todo/$id-gate.md"
+  _dm_land "an AC that cites a screen"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "DESIGN-NONE" && _dm_has "$_dm_out" "AC2"; } || cf "(h) design: none on a card whose AC is tagged (UI) is not refused as DESIGN-NONE naming the AC (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_seed 839 "design: none" "stories: [PRD-001-F1-S1]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "DESIGN-NONE" && _dm_has "$_dm_out" "PRD-001-F1-S1"; } || cf "(h2) design: none on a card whose story has a UI: line is not refused as DESIGN-NONE naming the story (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_seed 841 "design: [UX-001#default@$X]"; id="$_DM_CARD"
+  perl -0pi -e 's/(## Acceptance Criteria\n\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the empty list shows. [design: UX-001#empty]\n/' "$SB_WORK/progress/todo/$id-gate.md"
+  _dm_land "an AC that cites a state the key lacks"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "DESIGN-MISSING" && _dm_has "$_dm_out" "UX-001#empty"; } || cf "(h3) an AC that cites a state the design: key lacks is not refused as DESIGN-MISSING (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (i) a tool that cannot answer: missing, silent with status 0, or failing with status 1 and no summary line: refused as broken, never as a record fault
+  cp "$SB_WORK/scripts/design/check-design-links.py" "$SB_TMP/real-links.py"
+  printf 'import sys\nsys.exit(0)\n' > "$SB_WORK/scripts/design/check-design-links.py"
+  _dm_land "a tool that says nothing"
+  _dm_seed 842 "design: [UX-001#default]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "could not run" && origin_has_path "progress/todo/$id-gate.md"; } || cf "(i) a tool that exits 0 and prints nothing lets an unpinned card move or refuses as a fault of the record (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_refusal move-check-broken || cf "(i) no refusal=move-check-broken record for a silent tool"
+  printf 'import sys\nraise SystemExit(1)\n' > "$SB_WORK/scripts/design/check-design-links.py"
+  _dm_land "a tool that fails"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "could not run"; } || cf "(i2) a tool that exits 1 with no summary line is read as a refusal of the record (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_refusal move-check-broken || cf "(i2) no refusal=move-check-broken record for a failing tool"
+  git -C "$SB_WORK" rm -q -f scripts/design/check-design-links.py
+  _dm_land "the tool leaves"
+  _dm_seed 843 "design: none"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "could not run" && printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null; } || cf "(j) a gate whose tool is missing lets the move through or refuses without a reason and a Next: (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# _dm_qa_gate <card file> <rev> <trunk rev> — kit_qa_verdict_check on that card, status in _dm_rc and output in _dm_out.
+_dm_qn=0
+_dm_qa_gate() {
+  _dm_qn=$((_dm_qn + 1)); _dm_rc=0
+  _dm_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/qc-rec-$_dm_qn" bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; kit_qa_verdict_check "$@"' _ "$1" "$_DM_QID" "$SB_WORK" "$2" "$3" 2>&1 )" || _dm_rc=$?
+}
+
+# =============================================================================
+# CASE — THE QA GATE REFUSES A PASS ROW OF KIND design WHOSE CELL THE TRUNK DOES NOT BACK, AND PASSES ONE IT DOES.
+#   Operand: scripts/lib/qa-gate.sh's kit_qa_verdict_check, with the card and the evidence images on the TRUNK (where QA commits them) and
+#   the branch holding neither. A cell that is not `identical`, names no image, cites a pin the card lacks, whose pin image is not the
+#   render the pin commit holds for that screen, whose image is empty, not a PNG, or the same bytes as the pin image, or whose image only
+#   a branch holds: refused, with a Next: line. A gate that cannot run: refused as broken.
+# =============================================================================
+case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_does() {
+  cf_reset
+  local L="the QA gate passes a PASS row of kind design whose cell says identical for a pin the card carries, with both PNGs committed on the trunk and the pin image the render the pin commit holds for that screen, and refuses (qa-verdict-cell-refused, a Next: line, NOTHING WAS CHANGED) a cell that names differences, omits an image, cites a pin the card lacks, whose pin image is another screen's or another render, whose build image is empty, text or the pin image, or whose images only a branch holds, and refuses as broken when the tool is off the trunk"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  _DM_QID="$SB_PREFIX-840"
+  local X="$_DM_X" P card="$SB_TMP/card840.md" ev="dev/evidence/$_DM_QID" good
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
+  _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
+  _dm_commit "renders at the pin"; P="$_DM_SHA"
+  seed_issue dev_complete "$_DM_QID" cell chore "A card with a design row"
+  perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | x |\n$1/' "$SB_WORK/progress/dev_complete/$_DM_QID-cell.md"
+  _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" BUILD
+  _dm_land "the card and its evidence, on the trunk"
+  good="UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
+  _dm_row_card() {  # <cell> — the trunk's card with the AC2 row's cell replaced
+    git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/dev_complete/$_DM_QID-cell.md" > "$card"
+    CELL="$1" perl -0pi -e 's/^\| AC2 \| PASS \|[^\n]*$/| AC2 | PASS | design | $ENV{CELL} |/m' "$card"
+  }
+  _dm_row_card "$good"
+  _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
+  [ "$_dm_rc" -eq 0 ] || cf "(a) a design row the trunk backs is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  refused() {  # <label> <cell> <text the refusal must hold>
+    _dm_row_card "$2"
+    _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
+    { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "$3"; } || cf "($1) the row was not refused for '$3' (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+    _dm_qrefusal qa-verdict-cell-refused || cf "($1) no refusal=qa-verdict-cell-refused record"
+    printf '%s\n' "$_dm_out" | /usr/bin/grep '^Next:' >/dev/null || cf "($1) the refusal has no Next: line"
+    _dm_has "$_dm_out" "NOTHING WAS CHANGED" || cf "($1) the refusal does not say nothing was changed"
+  }
+  refused b "UX-001#default@$P: diffs: ux-001-title; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "names differences"
+  refused c "UX-001#default@$P: identical; $ev/UX-001-default-pin.png" "UX-001-default-build.png"
+  refused d "UX-001#default@$X: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "carries no such entry"
+  refused f "UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-missing.png" "UX-001-default-build.png"
+  refused g "no entry here" "holds no"
+  # the images: another screen's render as the pin image, the same bytes as the pin image, an empty file, a text file
+  _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" EDIT
+  _dm_land "the pin image is another screen's render"
+  refused e "$good" "is not the render"
+  _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" LIST
+  _dm_land "the build image is the pin image"
+  refused h "$good" "the build image is the pin image"
+  : > "$SB_WORK/$ev/UX-001-default-build.png"
+  _dm_land "an empty build image"
+  refused i "$good" "is not a PNG"
+  printf 'not an image\n' > "$SB_WORK/$ev/UX-001-default-build.png"
+  _dm_land "a text build image"
+  refused j "$good" "is not a PNG"
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" BUILD
+  _dm_land "the build image is back"
+  # the images on a branch only: the trunk does not hold them, so the row is refused although the branch tip does
+  git -C "$SB_WORK" checkout -q -b dev-840-only "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" rm -q -f "$ev/UX-001-default-build.png" >/dev/null 2>&1
+  sbcommit -qm "[PM] $_MD_ID: the trunk loses the build image" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin dev-840-only:"$SB_TRUNK" >/dev/null 2>&1
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" BUILD
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] $_DM_QID: the image on the branch" >/dev/null 2>&1
+  _dm_row_card "$good"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  _dm_qa_gate "$card" dev-840-only "origin/$SB_TRUNK"
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "is not committed on the trunk"; } || cf "(k) an image only the branch holds passes (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  # (l) the tool is not on the trunk: the check cannot answer, and a check that cannot answer is a refusal
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" rm -q -f scripts/design/check-design-cell.py
+  _dm_land "the cell tool leaves"
+  _dm_row_card "$good"
+  _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "could not run"; } || cf "(l) a cell check whose tool is missing passes or refuses without saying it could not run (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_qrefusal qa-verdict-cell-check-broken || cf "(l) no refusal=qa-verdict-cell-check-broken record"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A CARD WITH A (UI) AC LANDS ONLY WITH A DESIGN ROW FOR IT, THROUGH THE REAL finish-pr.sh AND subtask.sh, ON A PROJECT THAT FILLED
+#   CODE_GLOBS, AS QA WORKS: THE EVIDENCE AND THE VERDICT COMMITTED ON THE TRUNK WITH register-commit.sh, NOT ON THE BRANCH.
+#   Operand: finish-pr.sh on a card with AC2 tagged (UI), then subtask.sh move on a slice with the same shape. Refused: a verdict with no
+#   design row for AC2; a row whose images are not committed on the trunk; a row of another evidence kind. Landed: the row backed by both
+#   PNGs on the trunk. The module's own cell check reads the card and the images at the trunk, so a QA following its role can pass.
+# =============================================================================
+case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_subtask() {
+  cf_reset
+  local L="finish-pr.sh and subtask.sh move refuse a card or a slice whose (UI) AC has no design row, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  _array_set_body "$SB_WORK/scripts/config.sh" CODE_GLOBS '  "app/*"'
+  _dm_land "CODE_GLOBS is filled"
+  local id="$SB_PREFIX-850" P ev out rc card good
+  ev="dev/evidence/$id"
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
+  _dm_commit "a render at the pin"; P="$_DM_SHA"
+  seed_issue dev_complete "$id" walk chore "A card with a screen" "feature/$id-work"
+  card="$SB_WORK/progress/dev_complete/$id-walk.md"
+  perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/' "$card"
+  _dm_land "the design record and the card"
+  git -C "$SB_WORK" checkout -q -b "feature/$id-work" "$SB_TRUNK" >/dev/null 2>&1
+  mkdir -p "$SB_WORK/app"; echo "the screen's code" > "$SB_WORK/app/list.txt"
+  git -C "$SB_WORK" add app/list.txt >/dev/null 2>&1; sbcommit -qm "[Dev] $id: the list screen" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q -u origin "feature/$id-work" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  good="UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
+  _dm_qa_register() {  # <AC2 row> [<paths to commit besides the card>…] — QA's verdict (and evidence) on the trunk, by register-commit.sh
+    local row="$1"; shift
+    ROW="$row" perl -0pi -e 's/^\| AC2 \|[^\n]*\n//m; s/(\| shadow-check )/$ENV{ROW}\n$1/' "$card"
+    ( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/reg" ./scripts/register-commit.sh --role QA --message "$id: the verdict" "progress/dev_complete/$id-walk.md" "$@" >/dev/null 2>&1 </dev/null )
+  }
+  _dm_land_it() { out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/finish-pr.sh "$id" 2>&1 </dev/null )"; rc=$?; }
+  # (a) QA wrote AC2's row as an ordinary file:line row: no design row for a (UI) AC
+  _dm_qa_register '| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |'
+  _dm_land_it
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "AC2" && _dm_has "$out" "design" && ! origin_has_path "app/list.txt"; } || cf "(a) a (UI) AC with a file:line row lands (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-walk.md" || cf "(a) the refused card left dev_complete/"
+  # (b) a design row whose images exist nowhere on the trunk
+  _dm_qa_register "| AC2 | PASS | design | $good |"
+  _dm_land_it
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "is not committed on the trunk" && ! origin_has_path "app/list.txt"; } || cf "(b) a design row with no image on the trunk lands (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  # (c) the images committed on the trunk by QA (register-commit.sh); the build image the same bytes as the pin image
+  _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" LIST
+  _dm_qa_register "| AC2 | PASS | design | $good |" "$ev/UX-001-default-pin.png" "$ev/UX-001-default-build.png"
+  _dm_land_it
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "the build image is the pin image"; } || cf "(c) a build image that is the pin image lands (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  # (d) a real build image: the landing succeeds
+  _dm_png "$SB_WORK/$ev/UX-001-default-build.png" BUILD
+  _dm_qa_register "| AC2 | PASS | design | $good |" "$ev/UX-001-default-build.png"
+  _dm_land_it
+  { [ "$rc" -eq 0 ] && origin_has_path "app/list.txt" && origin_has_path "progress/qa_complete/$id-walk.md"; } || cf "(d) a design row backed by both PNGs on the trunk does not land through finish-pr.sh (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  # (e) a slice of a parent: the same shape, through subtask.sh
+  local sid="$SB_PREFIX-851-s1" sf sev
+  sev="dev/evidence/$sid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1   # finish-pr.sh advanced the trunk
+  _seed_parent "$SB_PREFIX-851" in_progress
+  sf="$(_seed_subtask "$SB_PREFIX-851" s1 dev_complete walk "A slice with a screen")"
+  perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |\n$1/' "$sf"
+  _dm_land "a slice with a screen"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-s" ./scripts/subtask.sh move "$sid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "AC2" && origin_has_path "progress/subtasks/$SB_PREFIX-851/dev_complete/$sid-walk.md"; } || cf "(e) a slice whose (UI) AC has a file:line row moves to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _dm_png "$SB_WORK/$sev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$sev/UX-001-default-build.png" BUILD
+  ROW="| AC2 | PASS | design | UX-001#default@$P: identical; $sev/UX-001-default-pin.png, $sev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$sf"
+  _dm_land "the slice's design row and images"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-s2" ./scripts/subtask.sh move "$sid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-851/qa_complete/$sid-walk.md"; } || cf "(f) a slice with a design row backed on the trunk does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 700) [local: $(grep -c 'design |' "$sf")] [trunk: $(git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-851/dev_complete/$sid-walk.md" 2>&1 | grep 'AC2 |' | cut -c1-120)]"
   finish "$L"
   teardown
 }

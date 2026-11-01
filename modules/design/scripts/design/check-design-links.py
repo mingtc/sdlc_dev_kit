@@ -26,7 +26,8 @@ Reads
   <canvas>/CANVAS.md       the screen registry: a table whose header names the columns (any order). Needed: UX-id, file,
                            states, stories. Optional: title, platform, pair, status or gate1/gate2.
   <canvas>/project/*.dc.html   optional: data-ux / data-stories on the artboard root, and its colour literals
-  <cards>/<shelf>/*.md     the `design:` frontmatter key of each card: `none`, or `[UX-NNN#state@<commit>, ...]`
+  <cards>/<shelf>/*.md     the `design:` frontmatter key of each card: `none`, or `[UX-NNN#state@<commit>, ...]`; slices too
+                           (<cards>/subtasks/<parent>/<shelf>/*.md)
 A marker inside a code span or a fenced block is prose and is ignored.
 
 Reports (each line starts with its class)
@@ -43,6 +44,9 @@ Reports (each line starts with its class)
   DESIGN-KEY    a card's `design:` value that is not `none` or `[UX-NNN#state@<commit>, ...]`
   NOT-APPROVED  (only with --leaving) a pinned row whose gate1 is not `approved@<sha>`, and no waiver
   PIN-ORDER     (only with --leaving) a pin older than the approval of its row
+  DESIGN-NONE   a card past todo/ (or named by --leaving) whose design: is none or absent although one of its ACs is tagged (UI) or
+                carries a [design: ...] marker, or a story it lists has a UI: line that is not none
+  DESIGN-MISSING a card's AC cites [design: UX-NNN#state] that the card's design: key does not list
   UI-MISMATCH   a story whose `UI:` field says none while one of its ACs is tagged (UI)
   PAIR          a row's `pair` names a row that is missing or does not name it back
   GATE-CELL     a gate cell that is not `open`, `changes`, `superseded` or `approved@<sha>`
@@ -901,6 +905,35 @@ def scan_prd(path, prd_id):
     return {'stories': stories, 'markers': markers, 'pending': pend}
 
 
+def card_facts(text):
+    """-> ([(AC id, [(UX id, state or None)])] for each AC line of a card that is tagged (UI) or carries a [design: ...] marker, outside code
+    fences, [story ids] from the frontmatter `stories:` key). The one reading of a card's ACs for the link check and the cell check."""
+    body = text
+    m = re.search(r'^---\n(.*?)\n---', text, re.S | re.M)
+    stories = []
+    if m:
+        body = text[m.end():]
+        sm = re.search(r'^stories:\s*\[([^\]]*)\]', m.group(1), re.M)
+        stories = [x.strip() for x in sm.group(1).split(',') if x.strip()] if sm else []
+    acs = []
+    lines, _ = fence_scan(body)
+    for _, ln in lines:
+        am = re.match(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?(AC\d+)\b', ln)
+        if not am:
+            continue
+        marks = CITE.findall(CODESPAN.sub('', ln))
+        if '(UI)' not in ln and not marks:
+            continue
+        refs = []
+        for grp in marks:
+            for part in grp.split(','):
+                um = UXREF.match(part.strip())
+                if um:
+                    refs.append((um.group(1), um.group(2)))
+        acs.append((am.group(1), refs))
+    return acs, stories
+
+
 def design_value(text):
     """The `design:` key of a card's frontmatter. -> {'kind': absent | none | list | bad, 'items': [(ux, state, pin)], 'waivers': [D-NN],
     'raw': the value}. A trailing ` # comment` is not part of the value; a `[decision: D-NN]` in it is a waiver. The value is `none` or a
@@ -1118,15 +1151,43 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
     if cdir.is_dir():
         for shelf in sorted(d for d in cdir.iterdir() if d.is_dir() and d.name not in SKIP_SHELVES):
             paths += [(shelf.name, c) for c in sorted(shelf.glob('*.md'))]
+    sub = cdir / 'subtasks'
+    if sub.is_dir():
+        for parent in sorted(d for d in sub.iterdir() if d.is_dir()):
+            for shelf in sorted(d for d in parent.iterdir() if d.is_dir() and d.name not in SKIP_SHELVES):
+                paths += [(shelf.name, c) for c in sorted(shelf.glob('*.md'))]
     seen = {str(c.relative_to(root)) for _, c in paths}
     paths += [('todo', root / w) for w in sorted(set(leaving) - seen)]
     ncards = 0
     for shelf_name, card in paths:
-        dv = design_value(read(card))
-        if dv['kind'] in ('absent', 'none'):
-            continue
+        ctext = read(card)
+        dv = design_value(ctext)
         where = str(card.relative_to(root))
         leave = where in leaving
+        acs, cstories = card_facts(ctext)
+        if shelf_name != 'todo' or leave:
+            ui_why = None
+            if acs:
+                ui_why = f"{acs[0][0]} is tagged (UI) or cites a screen"
+            else:
+                for sid in cstories:
+                    for sc in scans.values():
+                        v = sc['stories'].get(sid)
+                        if v and (any(a['ui'] for a in v['acs']) or (v['ui_field'] not in (None, '') and not re.match(r'^(none|n/a)\b', v['ui_field'] or ''))):
+                            ui_why = f'its story {sid} has a UI: line'
+                            break
+                    if ui_why:
+                        break
+            if dv['kind'] in ('absent', 'none') and ui_why:
+                out.append(line('DESIGN-NONE', f"{where}: design: is {dv['kind']} but {ui_why}; pin the screen's states (design: [UX-NNN#state@<commit>]) or take the (UI) tag off the AC"))
+            if dv['kind'] == 'list':
+                listed = {(u, st) for u, st, _ in dv['items']}
+                for ac, refs in acs:
+                    for u, st in refs:
+                        if (u, st) not in listed and not (st is None and any(x[0] == u for x in listed)):
+                            out.append(line('DESIGN-MISSING', f"{where}: {ac} cites {u}{'#' + st if st else ''}, which the design: key does not list"))
+        if dv['kind'] in ('absent', 'none'):
+            continue
         if dv['kind'] == 'bad':
             out.append(line('DESIGN-KEY', f"{where}: design: `{dv['raw'] or 'empty'}` is not none or [UX-NNN#state@<commit>, ...]"))
             continue

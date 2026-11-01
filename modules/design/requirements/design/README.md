@@ -7,7 +7,7 @@ directory is the *record* and the authority. The human looks, approves and may c
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this.** Each capability that section lists as needing the next
-version of the kit (the packaged pull and publish skills, the card gate, the token generator, the renderer, the audits) is not
+version of the kit (the packaged pull and publish skills, the token generator, the renderer, the audits) is not
 installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
 every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
@@ -86,10 +86,12 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   `requirements/DECISIONS.md`. The sha in an
   approval is the commit that took in the approved version; an approval whose artboard, a file it loads (a sheet, a script, an image, a screen it imports) or a token it uses has since changed is **stale** and the row goes back to
   `changes`; the link check reports it as `STALE-APPROVAL`.
-- Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
-  waived. No card gate refuses the move in this version, so this check is the PM's, and
-  `python3 scripts/design/check-design-links.py --leaving <card>` runs it, and also checks that each pin holds the screen's artboard,
-  is not older than its row's approval, and that the approval still holds at HEAD.
+- Before the card moves, every entry is checked: it carries `@<commit>`, that commit resolves and holds the screen's artboard, its
+  row is approved (`approved@<sha>`, an ancestor of the pin and still true at HEAD) or waived, and a card whose ACs cite a screen
+  does not say `design: none` or leave one out. The card gate, a move check on `in_progress/` and `dev_complete/` read from the trunk,
+  refuses a card arriving from `todo/` (or from `blocked/` when it was never in progress; one back from `blocked/` is checked only
+  for being pinned) with a `Next:` line and changes nothing;
+  `python3 scripts/design/check-design-links.py --leaving <card>` is the same check, to run first.
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
   `history/`, each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (`[+design-drift]`; the last means
   something could not be compared, and the line says what: it is never `clean`). A state is compared by
@@ -111,7 +113,11 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - Each (UI) QA row gets a design cell with evidence kind `design`:
   `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). QA reads
   the pinned side from the PNG committed at the pin (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`),
-  never from the working tree, and compares the build's screenshot with it. A row with no image is not a PASS.
+  never from the working tree, and compares the build's screenshot with it. A row with no image is not a PASS: the QA gate runs a
+  cell check on each PASS row of kind `design`, which refuses unless every entry says `identical`, its pin is a commit the card
+  carries in `design:`, both images are PNGs committed on the trunk (QA commits them there, as the QA role says), the build image is
+  not the pin image, and the pin image is the render the pin commit holds for that screen and state. A card cannot reach
+  `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites.
 
 ## 6. Fidelity: one artifact, two gates
 

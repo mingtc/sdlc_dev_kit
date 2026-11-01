@@ -24,6 +24,8 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 | Evidence kind `design` | `process/evidence-kinds.d/design` |
 | The checkers: the link check, the PRD view, the flow graph, the pin-drift report | `scripts/design/`; Python 3, which `enable` requires |
 | The pin-drift arm of `check-board.sh`, report only | `scripts/check-board.d/50-design-drift.sh` |
+| The card gate: a card leaves `todo/` pinned, resolved and approved | `scripts/move-check.d/in_progress/50-design-pin.sh` |
+| The QA design-cell check on each PASS row of kind `design` | `scripts/qa-cell.d/design/50-design-cell.sh`, with `scripts/design/check-design-cell.py` |
 | Gate row, CORPUS manifest and bucket rows | blocks in `PROJECT.md` and `requirements/CORPUS.md` |
 | Ignore lines for the renderer's cache and generated tokens | a block at the end of `.gitignore` |
 
@@ -34,7 +36,7 @@ Claude Design canvas itself with the artifact tools, by the order in its role (l
 `base_version`, read back); nothing passes through a person. The checkers are installed: the
 link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the
 pin-drift report that `check-board.sh` prints. While a capability the Designer role
-lists (the packaged pull and publish skills, the card gate, the token generator and the colour utility, the
+lists (the packaged pull and publish skills, the token generator and the colour utility, the
 renderer and audits) is absent from your project, asking for it gets the answer that
 it needs the next version of the kit, which brings it.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.
