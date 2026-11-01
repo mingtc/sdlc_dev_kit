@@ -3,7 +3,7 @@
 """check-design-links.py -- report on the links between PRD stories and design screens, in both directions.
 
 usage: check-design-links.py [REPO_ROOT] [--requirements DIR] [--design DIR] [--cards DIR] [--registry-name NAME]
-                             [--project-subdir NAME] [--strict] [--leaving CARD]
+                             [--project-subdir NAME] [--strict] [--head REV] [--leaving CARD]
   REPO_ROOT     default: the working directory
   --requirements  default requirements        <PRD_PREFIX>-*.md live here (PRD_PREFIX is read from scripts/config.sh; PRD when absent)
   --design        default <requirements>/design   <canvas>/<registry-name> files live under it
@@ -11,6 +11,7 @@ usage: check-design-links.py [REPO_ROOT] [--requirements DIR] [--design DIR] [--
                   and history are not read: a landed card's pin is history and a declined card builds nothing
   --registry-name default CANVAS.md           --project-subdir default project (the canvas files, beside the registry)
   --strict        exit 1 when there is any finding (the report-only classes below are not findings); without it the exit is 0
+  --head REV      the revision an approval's artboard is compared with (default HEAD)
   --leaving CARD  the check to run before the board mover takes CARD out of todo/ (repeatable): reads the file named, wherever it
                   is, as a card past todo/, and reports only that card's findings; exit 1 on any, 2 for a card it cannot read.
                   It adds, for each pinned state: its commit must resolve, hold the screen's artboard and not predate the row's
@@ -74,6 +75,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 PRD_PREFIX = 'PRD'
+HEAD_REV = 'HEAD'
 CITE = re.compile(r'\[design:\s*([^\]]+)\]')
 CODESPAN = re.compile(r'`[^`]*`')
 UXREF = re.compile(r'^(UX-\d+)(?:#([A-Za-z0-9_-]+))?$')
@@ -214,7 +216,7 @@ def approval_problems(root, r, gates=None):
         if not is_commit(root, sha):
             out.append(('APPROVAL-UNRESOLVED', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: not a commit here (a shallow clone cannot see it)"))
             continue
-        then, now = git_blob(root, sha, rel), git_blob(root, 'HEAD', rel)
+        then, now = git_blob(root, sha, rel), git_blob(root, HEAD_REV, rel)
         if then is None and now is not None:
             then = same_name_at(root, sha, rel, now)       # the canvas moved with its bytes: the approval holds
         if then is None or now is None:
@@ -927,10 +929,11 @@ def main(argv):
     ap.add_argument('--registry-name', default='CANVAS.md')
     ap.add_argument('--project-subdir', default='project')
     ap.add_argument('--strict', action='store_true')
+    ap.add_argument('--head', default='HEAD', metavar='REV', help='the revision an approval is compared with (default HEAD)')
     ap.add_argument('--leaving', metavar='CARD', action='append', default=[])
     a = ap.parse_args(argv[1:])
-    global REGISTRY_NAME, PROJECT_SUBDIR
-    REGISTRY_NAME, PROJECT_SUBDIR = a.registry_name, a.project_subdir
+    global REGISTRY_NAME, PROJECT_SUBDIR, HEAD_REV
+    REGISTRY_NAME, PROJECT_SUBDIR, HEAD_REV = a.registry_name, a.project_subdir, a.head
     root = Path(a.root).resolve()
     if a.leaving:
         # the check before a card leaves todo/: read each named card as if it were past todo/, report only its findings
