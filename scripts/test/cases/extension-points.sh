@@ -639,7 +639,7 @@ ARM
 
   # (c2) an ADVISORY arm's status 1 is not a finding: it is what a `grep` that found nothing returns,
   #      so it is reported as an arm that did not run and the verdict stays as the other arms left it.
-  #      (A DECIDING arm's is judged in case_a_deciding_check_board_d_arm_that_did_not_run_..., not here.)
+  #      (A DECIDING arm's is judged in case_a_deciding_check_board_d_arm_that_did_not_run_to_a_verdict_makes_the_verdict_dirty, not here.)
   rm -f "$dir/30-finding.sh"
   printf '# check-board-arm: advisory\nfalse\n' > "$dir/31-miss.sh"
   out="$( cb_run )"; rc=$?
