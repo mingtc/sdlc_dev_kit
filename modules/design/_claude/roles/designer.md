@@ -31,15 +31,8 @@ AC (QA).
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
 procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
-`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check.
-
-**Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
-of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it or report it as
-done. Give no estimate of what it would have found. A line whose file is present is stale: the capability is installed, so
-delete the line. Until the packaged skills ship, follow § The canvas with the artifact tools.
-
-- `/design-pull` (`.claude/skills/design-pull/SKILL.md`), the packaged pull: needs the next version of the kit.
-- `/design-publish` (`.claude/skills/design-publish/SKILL.md`), the packaged publish: needs the next version of the kit.
+`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check; the packaged
+commands `/design-pull` and `/design-publish` (§ The canvas) with the canvas normaliser and the comment-anchor resolver they run.
 
 ## The canvas
 
@@ -54,6 +47,15 @@ The type's own instructions are written in B's words; on A, `describe_type` maps
 tools in this session, so nothing was sent to the canvas."*, name the need (a Claude Code CLI or desktop session signed in with
 `/login`; artifacts are off by default in the Agent SDK and with `-p`), and do not improvise or write a local stand-in. Work that
 needs no canvas (the registry, tokens, citations) continues.
+
+### The packaged commands
+
+`/design-pull` and `/design-publish` (`.claude/skills/`) are this section's steps as commands: use them. Each states which surface it is written for and how to tell the other,
+makes the sign-in call (`list_artifacts`) first, and ends with a `Next:` when you are not signed in or have no artifact tools; the human is asked to look, to decide on a
+diff and to approve, and to carry nothing. The pull compares shas from one list, reads only what differs one path at a time and verifies each, runs
+`scripts/design/normalise-canvas.py` (a page save re-serialises `canvas.json` and a board's `data-props` without a value moving; it gives them the spelling an agent writes), resolves each
+sent comment's anchor with `scripts/design/resolve-anchor.py`, shows the diff and commits only on the go-ahead. The publish refuses a canvas that moved since the last pull, sends only
+what changed with the version the check used, stops on a `warnings` entry or a 409 over a person's edit, reads back by sha, and only then answers and resolves the threads.
 
 ### Creating a canvas
 
@@ -206,7 +208,7 @@ You are acting as the Designer. Before doing anything:
 1. Read PROJECT.md, then requirements/design/README.md (the layout and rules).
 2. Read the PRD(s) the canvas serves: the stories, their ACs, their [decision: D-NN] rulings.
 3. Read requirements/design/<canvas>/CANVAS.md (registry, last pull, pin-ready) and COMMENTS.md (open threads).
-4. Read this role's § What this version has and § The canvas: what is not installed is not to be improvised (§ The canvas is done with the artifact tools).
+4. Read this role's § What this version has and § The canvas: it is done with the artifact tools, by `/design-pull` and `/design-publish`; with neither tool present, do not improvise.
 5. ls progress/todo/ progress/in_progress/: which cards cite a design pin; do not move a pinned screen under them.
 6. Declare the hat:  echo "Designer <scope>" > .kit/session-role
 
@@ -254,8 +256,8 @@ Today I need help with: <task>
 
 ## Taking the canvas in
 
-Taking a pull into the repo is two commits: the files (`project/` equal to the canvas, by sha), then `Last pull: <canvas version> @ <that commit>`
-in `CANVAS.md`, with the manifest of shas. The registry, `COMMENTS.md` and any PNG go in the **same commit** as the screens
+Taking a pull into the repo is two commits: the files (`project/` equal to the canvas by sha, except a file the normaliser rewrote), then `Last pull: <canvas version> @ <that commit>`
+in `CANVAS.md`, with the manifest: one line per file, `<path> <canvas sha> <repo sha>`, the two equal unless the normaliser rewrote it. The compare in § The canvas uses the canvas sha; the set to publish is the files whose repo sha moved. The registry, `COMMENTS.md` and any PNG go in the **same commit** as the screens
 they describe. Subject: `[Designer] design: take in <canvas>`. `Last publish: <canvas version> @ <repo commit>` records a send
 after its read-back.
 

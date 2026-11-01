@@ -6,10 +6,8 @@ store. A design tool's canvas is the *working surface*, where the Designer autho
 directory is the *record* and the authority. The human looks, approves and may change the canvas by hand; nobody carries files.
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
-**Read its § What this version has before doing any of this.** Each capability that section lists as needing the next
-version of the kit (the packaged pull and publish skills) is not
-installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
-every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
+**Read its § What this version has before doing any of this.** The Designer takes the canvas in with `/design-pull` and sends to it with `/design-publish`.
+This binds every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
 ## 1. Layout
 

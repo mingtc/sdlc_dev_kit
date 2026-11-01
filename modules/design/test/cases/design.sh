@@ -2826,3 +2826,405 @@ EOF
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — NORMALISE-CANVAS.PY GIVES A PAGE SAVE'S RE-SERIALISING THE SPELLING AN AGENT WRITES, AND SAYS WHAT IT CANNOT READ.
+#   Operand: scripts/design/normalise-canvas.py over a pulled canvas whose List board and canvas.json are as a page save left them (data-props
+#   in &quot; form; canvas.json sorted with an empty "attachments") beside a Settings board an agent wrote (single-quoted), and over a canvas.json
+#   as an agent writes it. The expected answers are fixed here, from the spelling the agent's own file has.
+# =============================================================================
+case_normalise_canvas_gives_a_page_save_the_spelling_an_agent_writes_and_says_what_it_cannot_read() {
+  cf_reset
+  local L="normalise-canvas.py rewrites a page-saved board's data-props to the single-quoted compact form an agent writes and nothing else in it, drops an empty attachments from a sorted canvas.json and sorts an agent's, leaves an agent-written board byte for byte, is idempotent, writes nothing under --check (exit 1 when it would), and names a file it cannot parse (UNREAD, exit 2) and leaves it"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/nc" want n0 n1
+  mkdir -p "$d/p"
+  cat > "$d/p/List.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2F6FEB}a:hover{color:#1F4FB0}
+</style>
+</helmet>
+<div id="ux-002-root" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F7F7F5; color: #1C1C1E; font-family: Inter, system-ui, sans-serif">
+<header id="ux-002-header" style="padding: 56px 24px 16px; display: flex; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #5B5B66">Friday, 24 October</span>
+<h1 id="ux-002-title" style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em">Today</h1>
+</div>
+<button id="ux-002-add" aria-label="Add a habit" style="width: 44px; height: 44px; border: none; border-radius: 22px; background: #2F6FEB; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v12M4 10h12"></path></svg>
+</button>
+</header>
+<main style="flex-grow: 1; padding: 8px 24px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+<sc-if value="{{showList}}" hint-placeholder-val="{{ true }}">
+<p id="ux-002-progress" style="margin: 0 0 4px; font-size: 14px; color: #5B5B66">{{doneCount}} of {{totalCount}} done</p>
+<sc-for list="{{habits}}" as="habit" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E4E4E8; border-radius: 14px">
+<button onClick="{{habit.toggle}}" aria-label="{{habit.toggleLabel}}" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 14px; border: 2px solid #2F6FEB; background: {{habit.checkFill}}; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"><path d="M3 7.5l2.5 2.5L11 4.5"></path></svg>
+</button>
+<div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0">
+<span style="font-size: 16px; font-weight: 600">{{habit.name}}</span>
+<span style="font-size: 13px; color: #5B5B66">{{habit.schedule}}</span>
+</div>
+<span style="font-size: 13px; font-weight: 600; color: #C2410C">{{habit.streak}}</span>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{showEmpty}}" hint-placeholder-val="{{ false }}">
+<div id="ux-002-empty" style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 0 16px; text-align: center">
+<svg aria-hidden="true" width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="#9A9AA5" stroke-width="2.5" stroke-linecap="round"><rect x="14" y="14" width="68" height="68" rx="20"></rect><path d="M34 48l10 10 18-20"></path></svg>
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">No habits yet</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #5B5B66">Start with one small thing you want to do every day.</p>
+<a id="ux-002-empty-cta" href="#" style="height: 48px; padding: 0 24px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #2F6FEB; color: #FFFFFF; font-size: 16px; font-weight: 600; text-decoration: none">Add your first habit</a>
+</div>
+</sc-if>
+</main>
+<nav id="ux-002-tabbar" aria-label="Main" style="height: 84px; box-sizing: border-box; padding: 10px 24px 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #FFFFFF; border-top: 1px solid #E4E4E8">
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; text-decoration: none; color: #2F6FEB">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="16" height="16" rx="5"></rect><path d="M7.5 11l2.5 2.5 4.5-5"></path></svg>Today</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; text-decoration: none; color: #5B5B66">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18V10M11 18V4M18 18v-6"></path></svg>Progress</a>
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; text-decoration: none; color: #5B5B66">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="8" r="4"></circle><path d="M3.5 19c1.5-3.5 4.3-5 7.5-5s6 1.5 7.5 5"></path></svg>Account</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;loaded&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;empty&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { done: { read: true, walk: false, water: true, journal: false } };
+}
+renderVals() {
+const variant = this.props.variant ?? 'loaded';
+const base = [
+{ id: 'read', name: 'Read 10 pages', schedule: 'Every day', streak: '12 days' },
+{ id: 'walk', name: 'Walk 20 minutes', schedule: 'Every day', streak: '4 days' },
+{ id: 'water', name: 'Drink 8 glasses', schedule: 'Every day', streak: '30 days' },
+{ id: 'journal', name: 'Journal', schedule: 'Weekdays', streak: '2 days' }
+];
+const done = this.state.done;
+const habits = base.map((h) => ({
+...h,
+checkFill: done[h.id] ? '#2F6FEB' : '#FFFFFF',
+toggleLabel: (done[h.id] ? 'Mark not done: ' : 'Mark done: ') + h.name,
+toggle: () => this.setState({ done: { ...done, [h.id]: !done[h.id] } })
+}));
+const doneCount = base.filter((h) => done[h.id]).length;
+return {
+habits,
+doneCount,
+totalCount: base.length,
+showList: variant === 'loaded',
+showEmpty: variant === 'empty'
+};
+}
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/p/Settings.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/steep/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F2-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: var(--space-6) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-surface); color: var(--color-on-surface); font-family: var(--font-sans)">
+<h1 id="ux-003-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Settings</h1>
+<div id="ux-003-sound" data-state="default" style="padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">Sound when done</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
+EOF
+  cat > "$d/p/canvas.json" <<'EOF'
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "List.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "UX-002 Today (phone)",
+      "w": 390,
+      "x": 617,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "UX-001 Sign in (phone)",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-24T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "note-brief": {
+      "text": "Authored from a brief.",
+      "w": 240,
+      "x": 1323,
+      "y": 983
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "List.dc.html"
+  ],
+  "pages": [],
+  "title": "Brews"
+}
+EOF
+  mkdir -p "$d/agent"
+  cat > "$d/agent/canvas.json" <<'EOF'
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-24T09:00:00Z"},
+  "title": "Brews",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "UX-001 Sign in (phone)", "is_interactive": true},
+    "List.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "title": "UX-002 Today (phone)", "is_interactive": true}
+  },
+  "order": ["Main.dc.html", "List.dc.html"],
+  "notes": {"note-brief": {"x": 940, "y": 0, "w": 240, "text": "Authored from a brief."}},
+  "designSystems": []
+}
+EOF
+  cp "$d/p/List.dc.html" "$d/List.saved"; cp "$d/p/Settings.dc.html" "$d/Settings.agent"
+  want='<script type="text/x-dc" data-dc-script data-props='"'"'{"variant":{"editor":"enum","options":["loaded","empty"],"default":"empty"},"$preview":{"width":390,"height":844}}'"'"'>'
+  # (a) --check names what it would change, changes nothing, exits 1
+  _dm_py "$m/normalise-canvas.py" "$d/p" --check
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "would normalise List.dc.html" && _dm_has "$_dm_out" "would normalise canvas.json" && ! _dm_has "$_dm_out" "Settings"; } || cf "(a) --check does not name the page-saved board and canvas.json, and only them, with exit 1 (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  cmp -s "$d/p/List.dc.html" "$d/List.saved" || cf "(a) --check wrote the board"
+  # (b) the run: the data-props line is the agent's spelling, and it is the only line that moved
+  _dm_py "$m/normalise-canvas.py" "$d/p"
+  [ "$_dm_rc" -eq 0 ] || cf "(b) the run exited $_dm_rc: $_dm_out"
+  grep -Fx -- "$want" "$d/p/List.dc.html" >/dev/null || cf "(b) the data-props line is not the agent's spelling: $(grep -F 'data-props' "$d/p/List.dc.html" | cut -c1-200)"
+  n0="$(diff "$d/List.saved" "$d/p/List.dc.html" | grep -c '^<')"; n1="$(diff "$d/List.saved" "$d/p/List.dc.html" | grep -c '^>')"
+  { [ "$n0" = 1 ] && [ "$n1" = 1 ]; } || cf "(b) more than the one data-props line changed ($n0 removed, $n1 added)"
+  cmp -s "$d/p/Settings.dc.html" "$d/Settings.agent" || cf "(b) an agent-written board was rewritten"
+  grep -F '"attachments"' "$d/p/canvas.json" >/dev/null && cf "(b) the empty attachments stayed in canvas.json"
+  # (c) idempotent
+  _dm_py "$m/normalise-canvas.py" "$d/p"
+  { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) a second run changed something or said something (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/normalise-canvas.py" "$d/p" --check
+  [ "$_dm_rc" -eq 0 ] || cf "(c) --check on a normalised canvas exits $_dm_rc"
+  # (d) a canvas.json an agent wrote becomes the sorted two-space form, and equals the page-saved one's keys
+  _dm_py "$m/normalise-canvas.py" "$d/agent"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "normalised canvas.json"; } || cf "(d) the agent's canvas.json was not normalised (exit $_dm_rc): $_dm_out"
+  python3 - "$d/agent/canvas.json" "$d/p/canvas.json" <<'PYEOF' || cf "(d) the normalised canvas.json is not sorted with a two-space indent and a final newline"
+import json, sys
+t = open(sys.argv[1], encoding='utf-8').read()
+assert t == json.dumps(json.loads(t), indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+assert list(json.loads(t)['boards']) == sorted(json.loads(t)['boards'])
+PYEOF
+  # (d2) the escaping the design type's format rules ask for: & as &amp;, a literal ' as &#39;, nothing else, and the same JSON value
+  mkdir -p "$d/esc"
+  printf '<x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;label&quot;:{&quot;default&quot;:&quot;Tom &amp; it&#39;s&quot;}}">\n</script>\n</x-dc>\n' > "$d/esc/E.dc.html"
+  _dm_py "$m/normalise-canvas.py" "$d/esc"
+  grep -F "data-props='{\"label\":{\"default\":\"Tom &amp; it&#39;s\"}}'" "$d/esc/E.dc.html" >/dev/null || cf "(d2) an ampersand and a quote in a default are not escaped as &amp; and &#39; in single quotes: $(grep -F data-props "$d/esc/E.dc.html" | cut -c1-160)"
+  # (e) what it cannot parse is named and left alone
+  mkdir -p "$d/bad"
+  printf '<x-dc>\n<script type="text/x-dc" data-dc-script data-props='"'"'{not json'"'"'>\n</script>\n</x-dc>\n' > "$d/bad/Bad.dc.html"
+  printf '[1]\n' > "$d/bad/canvas.json"
+  cp "$d/bad/Bad.dc.html" "$d/Bad.before"
+  _dm_py "$m/normalise-canvas.py" "$d/bad"
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "UNREAD" && _dm_has "$_dm_out" "Bad.dc.html" && _dm_has "$_dm_out" "canvas.json"; } || cf "(e) a board and a canvas.json it cannot parse are not named UNREAD with exit 2 (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  cmp -s "$d/bad/Bad.dc.html" "$d/Bad.before" || cf "(e) the unparsable board was rewritten"
+  _dm_py "$m/normalise-canvas.py" "$d/no-such-folder"
+  [ "$_dm_rc" -eq 2 ] || cf "(e) a folder that is not there exits $_dm_rc, not 2"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — RESOLVE-ANCHOR.PY NAMES THE ELEMENT A SENT COMMENT POINTS AT IN THE PULLED BOARD, AND SAYS WHEN IT CANNOT.
+#   Operand: scripts/design/resolve-anchor.py over the Settings board an agent wrote, with the anchor `detail` exactly as the claude-artifacts
+#   server's read_comments returned it for a thread a person sent to Claude (`Settings.dc.html: #2:1 shape "…"`), and the plain form.
+# =============================================================================
+case_resolve_anchor_names_the_element_a_sent_comment_points_at_and_says_when_it_cannot() {
+  cf_reset
+  local L="resolve-anchor.py turns a read_comments anchor detail (and the plain Board#n:path form) into <Board>#<element id> with the tag, the data attributes and the first words, exits 0 when every anchor resolved, and says UNRESOLVED with the reason, exit 1, for a place and path that disagree, a board that is not there, and a board or note anchor"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/ra"
+  mkdir -p "$d/p"
+  cat > "$d/p/Settings.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/steep/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F2-S1" style="width: 390px; height: 844px; box-sizing: border-box; padding: var(--space-6) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-surface); color: var(--color-on-surface); font-family: var(--font-sans)">
+<h1 id="ux-003-title" style="margin: 0; font-size: 24px; line-height: 32px; font-weight: 600">Settings</h1>
+<div id="ux-003-sound" data-state="default" style="padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-raised); color: var(--color-muted); font-size: 16px">Sound when done</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
+EOF
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'Settings.dc.html: #2:1 shape "Settings Sound when done"'
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "RESOLVED" && _dm_has "$_dm_out" "Settings.dc.html#ux-003-root" && _dm_has "$_dm_out" "data-ux=UX-003" && _dm_has "$_dm_out" "Settings Sound when done"; } || cf "(a) the anchor a sent thread carried does not resolve to the root element, with its data attributes and words (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'Settings.dc.html#2:1' 'Settings.dc.html#3:1/0'
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "Settings.dc.html#ux-003-title" && _dm_has "$_dm_out" "h1"; } || cf "(b) the plain form and a nested path do not resolve to the title (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'Settings.dc.html#9:9'
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNRESOLVED" && _dm_has "$_dm_out" "differs"; } || cf "(c) a place and path that name no element are not UNRESOLVED with the reason (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'Settings.dc.html#3:1'
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNRESOLVED"; } || cf "(c) a place that disagrees with its path is resolved (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'Gone.dc.html#1:0'
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "not in the pulled project"; } || cf "(d) a board that is not in the project is not said (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'note-brief'
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "not an element anchor"; } || cf "(d) a note anchor is resolved or passes in silence (exit $_dm_rc): $_dm_out"
+  _dm_py "$m/resolve-anchor.py"
+  [ "$_dm_rc" -eq 2 ] || cf "(e) no arguments exit $_dm_rc, not 2"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL AND PUBLISH SKILLS ARE PLACED WHEN THE MODULE IS ENABLED, STATE THEIR SURFACE AND HOW TO TELL THE OTHER, AND CARRY THE GUARDS.
+#   The expected answer is fixed here: the tokens each skill must carry (the pull compares by sha, reads one path at a time, verifies, normalises, resolves
+#   anchors, reads only sent threads, commits only on the go-ahead and publishes nothing; the publish refuses a moved canvas, sends with the listed version,
+#   stops on a warning and on a 409 over a person's edit, reads back by sha, answers only after the read-back), every tool path they name is placed by
+#   the manifest, and neither tells a person to carry anything. Skills are prose; the attended run is where their steps are walked.
+# =============================================================================
+case_the_design_skills_state_their_surface_and_carry_the_guards_and_are_placed_with_their_tools() {
+  cf_reset
+  local L="enable places /design-pull and /design-publish and the two tools they run; each skill has its frontmatter, names surface A and B, says to use A when both are present and not to improvise when neither is, makes the sign-in call and ends with a Next:; the pull carries the sha compare, one-path reads, normalise, anchors, sent-threads-only and the go-ahead and publishes nothing; the publish carries the moved-canvas refusal, the listed version, the stop on a warning and on wouldOverwrite, the read-back and the reply after it; every script path a skill names is placed by the manifest"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" sk tok p f
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  for sk in design-pull design-publish; do
+    f="$SB_WORK/.claude/skills/$sk/SKILL.md"
+    [ -f "$f" ] || { cf "(a) enable did not place .claude/skills/$sk/SKILL.md"; continue; }
+    [ "$(sed -n 1p "$f")" = '---' ] || cf "(a) $sk has no frontmatter"
+    grep -Fx "name: $sk" "$f" >/dev/null || cf "(a) $sk's frontmatter name is not $sk"
+    grep -E '^description: Use when ' "$f" >/dev/null || cf "(a) $sk's description does not begin 'Use when '"
+    grep -E '^argument-hint: ' "$f" >/dev/null || cf "(a) $sk has no argument-hint"
+    grep -F 'KIT-CLASS:' "$f" >/dev/null || cf "(a) $sk carries no KIT-CLASS marker"
+    for tok in 'A: the `claude-artifacts` server' 'B: the built-in `Artifact` tool' 'use A' 'do not improvise' 'Next:' 'list_artifacts' '/login' 'On B'; do
+      grep -F -- "$tok" "$f" >/dev/null || cf "(b) $sk does not carry '$tok' (the surface it is written for, how to tell the other, the sign-in call)"
+    done
+    for p in $(grep -o 'scripts/design/[a-z0-9-]*[.]py' "$f" | sort -u); do
+      [ -f "$SB_WORK/$p" ] || cf "(c) $sk names $p and enable did not place it"
+    done
+  done
+  f="$SB_WORK/.claude/skills/design-pull/SKILL.md"
+  for tok in 'list_files' 'sha256' 'shasum -a 256' 'one path a call' 'normalise-canvas.py' 'resolve-anchor.py' 'read_comments' 'Send to Claude' 'invisible' 'go-ahead' 'Last pull' 'canvas sha' 'repo sha' 'You publish nothing here' 'acknowledgement, not the change' 'proves nothing' 'a size proves nothing'; do
+    grep -F -- "$tok" "$f" >/dev/null || cf "(d) design-pull does not carry '$tok'"
+  done
+  f="$SB_WORK/.claude/skills/design-publish/SKILL.md"
+  for tok in 'list_files' 'base_version: V' 'mode: "patch"' 'wouldOverwrite' 'liveEntry' 'warnings' 'stop' 'do not resend your bytes with `live`' 'Read back' 'never verify' 'continues_reply_id' 'resolve_comment' 'reply_shared_comment' '/design-pull' 'Last pull: none' 'create_from_type' 'rsync' 'Never `git diff`'; do
+    grep -F -- "$tok" "$f" >/dev/null || cf "(e) design-publish does not carry '$tok'"
+  done
+  grep -F 'base_version' "$SB_WORK/.claude/skills/design-pull/SKILL.md" >/dev/null && cf "(f) design-pull carries base_version: the pull sends nothing"
+  { grep -F '/design-pull' "$SB_WORK/.claude/roles/designer.md" >/dev/null && grep -F '/design-publish' "$SB_WORK/.claude/roles/designer.md" >/dev/null; } || cf "(g) the Designer role does not name /design-pull and /design-publish"
+  _md_mod status design
+  _dm_has "$_md_out" "claude-code" || cf "(h) status does not name the claude-code requirement: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  _md_mod disable design
+  { [ ! -e "$SB_WORK/.claude/skills/design-pull/SKILL.md" ] && [ ! -e "$SB_WORK/.claude/skills/design-publish/SKILL.md" ]; } || cf "(i) disable left a skill behind"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MANIFEST DECLARES CLAUDE CODE'S FLOOR AS A CHECK AND THE CLAUDE.AI LOGIN AS AN AGENT-SIDE REQUIREMENT.
+#   The expected answer is fixed here: the claude-code check, run with a stand-in `claude` that prints each version, passes at 2.1.228 and above and
+#   fails below it and when claude is absent; the requirement is optional (the module's checkers need no Claude Code); the claude-ai-login line has
+#   its four fields; enable prints it and refuses nothing for it; SETUP.md names the floor and /login; and the skills make the call.
+# =============================================================================
+case_the_manifest_declares_the_claude_code_floor_and_the_login_and_the_skills_make_the_call() {
+  cf_reset
+  local L="module.manifest declares an optional claude-code requirement whose check passes at 2.1.228 and above (2.1.290, 2.2.0, 3.0.1) and fails below it (2.1.227, 2.0.999) and with no claude, a claude-ai-login requires-agent line of four fields that enable prints without refusing, and SETUP.md names the floor and /login"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" line chk v bin rc
+  line="$(grep -E '^requires:[[:space:]]*claude-code \| ' "$m/module.manifest" || true)"
+  [ -n "$line" ] || { cf "(a) the manifest declares no claude-code requirement"; finish "$L"; return; }
+  printf '%s\n' "$line" | grep -E ' \| optional: ' >/dev/null || cf "(a) the claude-code requirement is not optional"
+  chk="${line#requires: claude-code | }"; chk="${chk% | *}"; chk="${chk% | *}"
+  bin="$(mktemp -d)"
+  for v in 2.1.290 2.2.0 3.0.1 2.1.228 2.1.227 2.0.999 1.9.9; do
+    printf '#!/bin/sh\necho "%s (Claude Code)"\n' "$v" > "$bin/claude"; chmod +x "$bin/claude"
+    rc=0; PATH="$bin:/usr/bin:/bin" sh -c "$chk" >/dev/null 2>&1 || rc=$?
+    case "$v" in
+      2.1.290|2.2.0|3.0.1|2.1.228) [ "$rc" -eq 0 ] || cf "(b) the check fails at $v (exit $rc), a version at or above the floor" ;;
+      *) [ "$rc" -ne 0 ] || cf "(b) the check passes at $v, below the floor" ;;
+    esac
+  done
+  rm -f "$bin/claude"; rc=0; PATH="$bin:/usr/bin:/bin" sh -c "$chk" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) the check passes with no claude on the path"
+  rm -rf "${bin:?}"
+  line="$(grep -E '^requires-agent:[[:space:]]*claude-ai-login \| ' "$m/module.manifest" || true)"
+  [ -n "$line" ] || cf "(c) the manifest declares no claude-ai-login requires-agent line"
+  [ "$(printf '%s' "$line" | awk -F' [|] ' '{ print NF }')" = 4 ] || cf "(c) the claude-ai-login line does not have four fields"
+  printf '%s\n' "$line" | grep -F 'list_artifacts' >/dev/null || cf "(c) the claude-ai-login call is not a read-only listing"
+  _md_sandbox
+  _md_mod enable design
+  { [ "$_md_rc" -eq 0 ] && _dm_has "$_md_out" "claude-ai-login"; } || cf "(d) enable refuses or does not print the claude-ai-login requirement (exit $_md_rc): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  { grep -F '2.1.228' "$m/SETUP.md" >/dev/null && grep -F '/login' "$m/SETUP.md" >/dev/null; } || cf "(e) SETUP.md does not name Claude Code 2.1.228 and /login"
+  finish "$L"
+  teardown
+}

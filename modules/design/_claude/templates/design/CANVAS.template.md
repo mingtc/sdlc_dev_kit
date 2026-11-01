@@ -2,12 +2,20 @@
 # CANVAS — <canvas>
 
 - **Canvas:** <canvas title, named for the product, never a PRD id> — <URL, or "none yet"> (a canvas that takes comments is private to the owner or shared within the organisation; a public link cannot)
-- **Last pull:** none (then `<canvas version id> @ <repo commit>`: the commit that took the files into `project/`, with the manifest of their shas)
+- **Last pull:** none (then `<canvas version id> @ <repo commit>`: the commit that took the files into `project/`; its manifest is the `## Manifest` section)
 - **Last publish:** none (then `<canvas version id> @ <repo commit>`, written after the read-back by sha)
 - **Pin-ready:** none (the last commit that touched the screen files and tokens a card cites, `CANVAS.md` bookkeeping excluded; set only when every row the card cites has `approved@<sha>` in `gate1`)
 - **Breakpoint:** <the width where phone becomes desktop>; widths covered: <phone width>, <desktop width>. A PRD covers the gap between them or says it is out of scope.
 - **PRDs served:** <PRD-NNN, PRD-NNN: listed for the reader; no screen belongs to one PRD>
 - **Tokens:** `requirements/design/tokens/<ns>.tokens.json` (+ `.dark`, `.wire`)
+
+## Manifest
+
+Written by `/design-pull` and `/design-publish`, one line per `project/` file: `<path> <canvas sha> <repo sha>`. The two shas are equal unless the normaliser rewrote the file. Empty until the first pull or publish.
+
+```
+<path> <canvas sha256> <repo sha256>
+```
 
 ## Screen registry
 

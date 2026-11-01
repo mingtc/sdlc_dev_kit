@@ -5,6 +5,22 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.5.0]
+
+### Added
+
+- **`/design-pull` and `/design-publish`**, the Designer's canvas order as commands (`.claude/skills/`). The pull lists the canvas once, compares shas, reads only what
+  differs one path at a time and verifies each, normalises, resolves each sent comment's anchor, shows the diff and commits only on your go-ahead, and publishes
+  nothing. The publish refuses a canvas that moved since the last pull, sends only what changed with the version its check used, stops on a `warnings` entry or a 409 over a
+  person's edit, reads back by sha and only then answers and resolves the threads. Each says which surface it is written for (the `claude-artifacts` server, or
+  the built-in `Artifact` tool as documented), makes a read-only sign-in call first and ends with a `Next:` when it is refused; nothing passes through a person.
+- **`scripts/design/normalise-canvas.py`** gives a page save's re-serialising (a sorted `canvas.json` with an empty `attachments`, a board's `data-props` in `&quot;` form)
+  the spelling an agent writes, so the drift checks and approvals read no change where no value moved; **`scripts/design/resolve-anchor.py`** turns a
+  sent comment's anchor into `<Board>.dc.html#<element id>`, and says `UNRESOLVED` with the reason when it cannot.
+- `CANVAS.md` gains a `## Manifest` section: per `project/` file, the canvas sha and the repo sha (they differ only for a file the normaliser rewrote); a `CANVAS.md` made from an older template gets the section from the first pull, which then treats every file as changed.
+- Requirements: `claude-code` (2.1.228 or later, optional: the commands and comment replies) and `claude-ai-login` (an agent-side requirement the commands make as their first call).
+- The Designer role drops its last needs-the-next-version lines.
+
 ## [0.4.0]
 
 ### Added

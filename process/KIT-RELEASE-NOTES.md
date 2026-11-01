@@ -333,6 +333,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **The `design` module now ships `/design-pull` and `/design-publish`**, the Designer's canvas order as commands, with `normalise-canvas.py` and `resolve-anchor.py`. They read the canvas by sha from one listing, show you the diff and commit only on your go-ahead, send only what changed and stop on any warning that a person's edit was replaced; nothing passes through you. Optional requirements: Claude Code 2.1.228 or later, and `/login` (the commands make a read-only call first and say what to do if it is refused). Module 0.5.0; `kit-upgrade.sh` carries an enabled project to it. No action.
 - **The `design` module now ships a renderer, contrast and target audits, a Material 3 token generator and a token converter.** `render.py` draws boards with Chrome (it needs a design runtime you supply; the module cannot ship it), `contrast-audit.py` measures token pairs and 44 px targets, `m3-tokens.mjs` (Node 22 or later, optional) writes token files from a seed colour using a vendored Apache-2.0 colour library, and `dtcg-convert.py` writes a design system's `tokens.json` and `tokens.css`. The Designer role drops those needs-the-next-version lines. A project that does not enable the module changes no behaviour.
 
 ## [0.12.4] — 2026-11-01

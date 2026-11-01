@@ -19,7 +19,8 @@ What you do, once, before the Designer is useful. The checkers need Python 3.9 o
    PNG of a state, use **Copy as PNG** on the canvas (it is 2x); no tool exports one. Comments reach a session only for a canvas
    private to you or shared within your organisation.
 
-The packaged pull and publish skills state their own
-requirements here once they are installed. `m3-tokens.mjs` needs Node 22 or later; `render.py` needs Chrome or Chromium and a copy of the design runtime that you or a Claude Code session with the built-in Artifact tool provide (the module cannot ship it). Until the skills are, the Designer follows the order in its role (list, compare shas,
-pull first, edit, send with `base_version`, read the result, read back). While one is absent from your project, asking the Designer for it gets the answer
-that it needs the next version of the kit, which brings it.
+**What the packaged commands need.** `/design-pull` and `/design-publish` need Claude Code 2.1.228 or later (`claude --version`; comments came in 2.1.221 and
+automatic replies in 2.1.228; `enable` checks and only warns, since the checkers need none of it) and a claude.ai account signed in to it: run `/login`. The skills make one
+read-only call first (`list_artifacts`) and stop with a `Next:` naming this file when it is refused. The Designer runs `/design-pull` before it changes anything
+and after you have edited the canvas by hand: it shows you what changed and commits only on your go-ahead. `m3-tokens.mjs` needs Node 22 or later; `render.py` needs Chrome or Chromium and a copy of the design runtime
+that you or a Claude Code session with the built-in Artifact tool provide (the module cannot ship it).

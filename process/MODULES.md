@@ -19,7 +19,7 @@ What the kit ships, enabled or not; nothing here is read by a harness. The words
 | Module | What it enables | What it needs |
 |---|---|---|
 | `example` | A toy module to read and copy; enable it to see what a module does, then disable it. | git (required), awk (optional), example-account (agent check) |
-| `design` | Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true. | python3 (required), node (optional), chrome (optional) |
+| `design` | Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true. | python3 (required), node (optional), chrome (optional), claude-code (optional), claude-ai-login (agent check) |
 
 **Asked for something a disabled module provides, an agent says which module does it, what it needs, and offers to
 enable it. It never enables one on its own:** enabling is the person's yes, recorded as a register entry the way the
