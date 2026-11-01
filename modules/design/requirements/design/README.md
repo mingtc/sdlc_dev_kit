@@ -99,7 +99,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   artboard marks its branches with `data-state`, else per file; the pinned state's branches and everything outside all branches must
   be identical, or the line says `drift`. A
   `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
-- **A pinned card is never re-targeted.** A change to a pinned state needs a `D-NN`, which the Designer raises with
+- **A pinned card is never re-targeted** (the one exception: the PM re-pins an entry whose commit holds no render of its state to the commit that holds it). A change to a pinned state needs a `D-NN`, which the Designer raises with
   `scripts/ask.sh` and then proceeds; a later design change is new work. An element added to a pinned state is a change; a
   new state on a pinned screen is not (its branch, its flag in the component script and its option in the script's props, added and nothing else changed). The pin includes the tokens.
 - **A pin is a commit; a path is not.** A screen may move. Where a card or a QA record must show a path, qualify it with the

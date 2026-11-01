@@ -1455,6 +1455,7 @@ case_the_card_gate_refuses_a_card_arriving_in_progress_or_dev_complete_that_the_
   _dm_land "an AC that cites a screen"
   _dm_gate_move "$id" PM
   { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "DESIGN-NONE" && _dm_has "$_dm_out" "AC2" && _dm_has "$_dm_out" "marker off the AC"; } || cf "(h) design: none on a card whose AC is tagged (UI) is not refused as DESIGN-NONE naming the AC (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_dm_out" | grep '^Next:' | grep 'tag' >/dev/null || cf "(h) the Next: line of a DESIGN-NONE refusal does not offer taking the tag off an AC of a card that builds no screen: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   _dm_seed 839 "design: none" "stories: [PRD-001-F1-S1]"; id="$_DM_CARD"
   _dm_py scripts/design/check-design-links.py --leaving "progress/todo/$id-gate.md"
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "DESIGN-STORY" && _dm_has "$_dm_out" "PRD-001-F1-S1" && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(h2) design: none on a card that builds no screen, whose story has a UI: line, is not a report line with no finding (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"

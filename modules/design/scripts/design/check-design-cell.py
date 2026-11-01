@@ -22,7 +22,7 @@ and is refused (exit 1, the reasons printed) unless, for every entry:
   * the pin image is, byte for byte, the render the pin commit holds for THAT screen and state
     (the row's canvas, renders/<Screen>-state.png): a row with no image is not a PASS.
 --rows: for every AC of the card tagged (UI) or citing [design: UX-NNN#state], the verdict table has a row of evidence kind `design`
-whose one pointer cell (the fourth) holds one `UX-NNN#state@<pin>` entry per state the AC cites; a further cell is read by nothing (any entry when the AC cites none); and every `design:` entry
+whose one pointer cell (the fourth) holds one `UX-NNN#state@<pin>` entry per state the AC cites (any entry when it cites none), a further cell being read by nothing; and every `design:` entry
 of the card has such an entry in some design row, whatever its ACs say (a card pinned to a screen cannot land without the proof).
 Exit 0 and a `design-cell: ok` or `design-rows: ok` line when the answer is yes; 1 when the record is wrong; 2 when it cannot answer
 (the card is not at TRUNK, a bad revision). A caller reads no line as no answer: a check that cannot run is a refusal, never a pass.

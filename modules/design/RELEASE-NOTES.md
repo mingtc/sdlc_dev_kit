@@ -9,8 +9,8 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Action required
 
-- **Cards in flight when the `design` module is carried to this version can need one step each.** A card pinned to a commit that holds no render of its state: the PM re-pins its entry to the commit that holds the render (the one allowed re-target). A card whose `(UI)` AC has QA's `file:line` row: QA writes a `design` row with the images instead. A card with `design: none` and a `(UI)` AC: the PM pins it. `python3 scripts/design/check-design-links.py --strict` lists the first and the last (the second shows at landing).
-  Verify: [ ! -f scripts/design/check-design-links.py ] || python3 scripts/design/check-design-links.py --strict >/dev/null
+- **Cards in flight when the `design` module is carried to this version can need one step each.** A card pinned to a commit that holds no render of its state: the PM re-pins its entry to the commit that holds the render (the one allowed re-target); `check-design-links.py --leaving <card>` shows it (`NO-RENDER`), and so does the landing. A card whose `(UI)` AC has QA's `file:line` row: QA writes a `design` row with the images instead (shown at landing). A card with `design: none` and a `(UI)` AC: the PM pins it, or takes the tag off if the card builds no screen (`--strict` shows it, `DESIGN-NONE`). The Verify line runs `--strict`, which prints what failed and also fails on a stale approval (the Designer sets the row to `changes` and has it approved again) and on a landed `qa_complete/` card with `design: none` and a `(UI)` AC (the PM closes it to `done/`).
+  Verify: [ ! -f scripts/design/check-design-links.py ] || python3 scripts/design/check-design-links.py --strict
 
 ### Added
 
@@ -19,7 +19,7 @@ any other heading are not read. Nothing here is read while the module is disable
   with the reason and a `Next:` line and nothing changed, unless each `design:` entry carries an `@<commit>` that resolves and
   holds the screen, of a row whose `gate1` is `approved@<sha>` (an ancestor of the pin, still true on the trunk), or the line
   carries a `[decision: D-NN]` the register holds. A `design:` of `none`, or one lacking a screen an AC cites (`[design: UX-NNN#state]`),
-  is refused when an AC is tagged `(UI)` or a listed story has a `UI:` line. A card back from `blocked/` that was in progress before
+  is refused when an AC is tagged `(UI)`; a story's `UI:` line alone is only a report line. A card back from `blocked/` that was in progress before
   is checked only for being pinned (drift is reported, not blocked). It judges the trunk's design record and tool; a gate that cannot
   run (no Python, the tool not on the trunk, no answer from it) refuses as broken. Slices are judged like cards.
 - **The design rows check.** A move check on `qa_complete/` (`scripts/move-check.d/qa_complete/50-design-rows.sh`, run by

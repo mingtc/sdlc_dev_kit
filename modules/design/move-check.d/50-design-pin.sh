@@ -37,7 +37,7 @@ found="$(printf '%s\n' "$out" | grep -v '^design-links:' | grep -E '^[A-Z][A-Z-]
 case "$rc" in
   0|1) [ -n "$found" ] || exit 0
      printf '%s\n' "$found"
-     echo "Next: make the card's design: key list every screen its ACs cite, each entry pinned as UX-NNN#state@<commit> (the commit of the Designer's Pin-ready: line) of a screen whose gate1 is approved@<sha> (or cite a recorded [decision: D-NN] on the design: line), commit the card to the trunk, then move $id again (requirements/design/README.md § 4)."
+     echo "Next: make the card's design: key list every screen its ACs cite, each entry pinned as UX-NNN#state@<commit> (the commit of the Designer's Pin-ready: line) of a screen whose gate1 is approved@<sha> (or cite a recorded [decision: D-NN] on the design: line), or take the (UI) tag or the [design: ...] marker off an AC of a card that builds no screen, commit the card to the trunk, then move $id again (requirements/design/README.md § 4)."
      exit 3   # exit-class: internal — the check contract's refusal status; the mover turns it into its own refusal
      ;;
   *) printf '%s\n' "$out" | tail -3
