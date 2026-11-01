@@ -1935,7 +1935,16 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
   case "$cb_arm_rc" in
     0) : ;;
     3) [ "$cb_arm_kind" != deciding ] || drift=1 ;;
-    *) echo "      – scripts/check-board.d/${cb_arm_file} exited $cb_arm_rc — this arm did not run to a verdict  (skipped; findings are status 3, so a status of 1 or any other is a failure of the arm, not a finding)" ;;
+    *)
+      if [ "$cb_arm_kind" = deciding ]; then
+        # A GATE THAT CANNOT ANSWER MUST NOT READ AS ARMED: the verdict is not clean. On a ⚠ line so the
+        # release gate's refusal, which prints only those, names the arm.
+        drift=1
+        echo "      ⚠ scripts/check-board.d/${cb_arm_file} exited $cb_arm_rc — this deciding arm did not run to a verdict, so the board is not called clean"
+        echo "      Next: run scripts/check-board.d/${cb_arm_file} alone to see why it ended, make it end 0 (found nothing) or 3 (found something), then re-run; or declare it advisory if it should only report."
+      else
+        echo "      – scripts/check-board.d/${cb_arm_file} exited $cb_arm_rc — this arm did not run to a verdict  (skipped; findings are status 3, so a status of 1 or any other is a failure of the arm, not a finding)"
+      fi ;;
   esac
 done
 unset cb_arm cb_arm_file cb_arm_name cb_arm_kind cb_arm_rc

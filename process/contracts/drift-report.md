@@ -352,8 +352,12 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   arm that sets the verdict line, for an `advisory` arm it only reports; **any other status, `1`
   included, is a failure of the arm**, printed as "did not run" and never as a finding. *Why `3`, not
   `1`:* `1` is what `grep` returns on no match and what a false `[ … ]` leaves as the last command, so
-  an arm that merely ended on a miss would otherwise turn the verdict dirty and fail `release.sh`
-  gate (d).
+  a stray `1` must never be read as something found. *What a failure of the arm does to the verdict:*
+  for an `advisory` arm nothing, because it only reports and a stray exit must not hold `release.sh`
+  gate (d). For a `deciding` arm the verdict line is not `clean`: its job is to answer whether the
+  board is clean, and a gate that cannot answer must not read as armed. The report prints a `⚠` line
+  naming the arm and its status, with a `Next:` line, and gate (d) refuses until the arm ends `0` or
+  `3`, or is declared `advisory`.
 - **No status changes the report's exit, which stays 0.**
 
 ## 6. REFERENCE IMPLEMENTATION

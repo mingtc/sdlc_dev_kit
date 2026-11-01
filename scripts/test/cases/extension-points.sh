@@ -401,18 +401,17 @@ ARM
   printf '%s\n' "$out" | grep -F '── board-drift: findings above' >/dev/null || cf "(c) a deciding arm's status 3 did not set the verdict line"
   printf '%s\n' "$out" | grep -F '[+second]' >/dev/null || cf "(c) an arm after a finding one did not run"
 
-  # (c2) status 1 is NOT a finding, from either kind: it is what a `grep` that found nothing returns,
+  # (c2) an ADVISORY arm's status 1 is not a finding: it is what a `grep` that found nothing returns,
   #      so it is reported as an arm that did not run and the verdict stays as the other arms left it.
+  #      (A DECIDING arm's is judged in case_a_deciding_check_board_d_arm_that_did_not_run_..., not here.)
   rm -f "$dir/30-finding.sh"
-  printf '# check-board-arm: deciding\ngrep -q zzz-no-such-text /dev/null\n' > "$dir/30-miss.sh"
   printf '# check-board-arm: advisory\nfalse\n' > "$dir/31-miss.sh"
   out="$( cb_run )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(c2) check-board exited $rc when an arm ended on status 1"
   [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
-    || cf "(c2) an arm that ended on an accidental status 1 moved the verdict line: $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
-  printf '%s\n' "$out" | grep -F '30-miss.sh exited 1' >/dev/null || cf "(c2) a deciding arm's accidental status 1 is not reported as an arm that did not run"
+    || cf "(c2) an advisory arm that ended on an accidental status 1 moved the verdict line: $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
   printf '%s\n' "$out" | grep -F '31-miss.sh exited 1' >/dev/null || cf "(c2) an advisory arm's status 1 is not reported as an arm that did not run"
-  rm -f "$dir/30-miss.sh" "$dir/31-miss.sh"
+  rm -f "$dir/31-miss.sh"
 
   # (c3) an ADVISORY arm that signals findings reports them and never moves the verdict.
   printf '# check-board-arm: advisory\necho "      ⚠ only a note"\nexit 3\n' > "$dir/32-note.sh"
@@ -462,13 +461,13 @@ ARM
   [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(c7) an oddly named arm moved the verdict line"
   rm -f "$dir/35-odd name.sh"
 
-  # (d) any other status = did not run, printed, never read as clean, exit still 0.
-  printf '# check-board-arm: deciding\nexit 7\n' > "$dir/34-broken.sh"
+  # (d) an ADVISORY arm's other status = did not run, printed, never read as clean, exit still 0.
+  printf '# check-board-arm: advisory\nexit 7\n' > "$dir/34-broken.sh"
   out="$( cb_run )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(d) check-board exited $rc when an arm exited 7"
   printf '%s\n' "$out" | grep -F '34-broken.sh exited 7' >/dev/null || cf "(d) an arm that exited 7 is not reported as not having run"
   [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
-    || cf "(d) a broken arm moved the verdict line — only a deciding arm's status 3 may"
+    || cf "(d) a broken ADVISORY arm moved the verdict line"
   rm -f "$dir/34-broken.sh"
 
   # (e) ARMS COME FROM BESIDE THE SCRIPT, NEVER FROM THE TREE REPORTED ON: a file the trunk holds and
@@ -486,7 +485,73 @@ ARM
   out="$( cb_run )"
   printf '%s\n' "$out" | grep -F '[+' >/dev/null && cf "(f) an arm header printed after every arm file was removed"
 
-  finish "check-board.d/<NN>-<name>.sh arms declare themselves advisory or deciding (a CRLF declaration is read) and print under their own [+name] header (the advisory header carries the 'reports only' token), run in file-name order from beside the script with the operands the contract names in a subshell, a deciding arm's status 3 sets the verdict line and kit-init's own filter keeps it, status 1 and every other status is reported as an arm that did not run, an undeclared arm is not run, nothing changes check-board's exit, and an absent or empty directory is a no-op"
+  finish "check-board.d/<NN>-<name>.sh arms declare themselves advisory or deciding (a CRLF declaration is read) and print under their own [+name] header (the advisory header carries the 'reports only' token), run in file-name order from beside the script with the operands the contract names in a subshell, a deciding arm's status 3 sets the verdict line and kit-init's own filter keeps it, an advisory arm's status 1 and every other status is reported as an arm that did not run without moving the verdict, an undeclared arm is not run, nothing changes check-board's exit, and an absent or empty directory is a no-op"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DECIDING check-board.d ARM THAT DID NOT RUN TO A VERDICT MAKES THE VERDICT DIRTY.
+#   A gate that cannot answer must not read as armed: a deciding arm that exits with anything but 0
+#   or 3 (a typo, a missing tool, a stray `grep` miss) is reported as a ⚠ line naming the arm and
+#   the act that fixes it, and the closing verdict is not `clean` — so release.sh's gate (d), which
+#   greps for `board-drift: clean`, refuses. An ADVISORY arm in the same state stays report-only.
+#   Expectations are written out, never read back from the report they judge.
+# =============================================================================
+case_a_deciding_check_board_d_arm_that_did_not_run_to_a_verdict_makes_the_verdict_dirty() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local dir="$SB_WORK/scripts/check-board.d" out rc base_verdict verdict st
+  mkdir -p "$dir"
+  out="$( cb_run )"
+  base_verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+  case "$base_verdict" in
+    *clean*) : ;;
+    *) _fixture_die "case_a_deciding_check_board_d_arm_that_did_not_run_to_a_verdict_makes_the_verdict_dirty: the sandbox baseline verdict is not clean ('$base_verdict'): $(printf '%s' "$out" | grep '⚠' | head -3 | tr '\n' '|')" ;;
+  esac
+
+  # (a) a DECIDING arm ending on 1 (a grep miss), on 7, and on 2: each dirties the verdict, names itself
+  #     and what to do on a ⚠ line, and leaves check-board's own exit at 0.
+  for st in 1 7 2; do
+    printf '# check-board-arm: deciding\nexit %s\n' "$st" > "$dir/50-crash.sh"
+    out="$( cb_run )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(a$st) check-board exited $rc when a deciding arm exited $st — no arm may change the exit"
+    verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+    case "$verdict" in
+      *clean*) cf "(a$st) a deciding arm that exited $st left the verdict '$verdict'" ;;
+      '') cf "(a$st) no closing verdict line" ;;
+    esac
+    printf '%s\n' "$out" | grep -F '⚠' | grep -F '50-crash.sh exited '"$st" >/dev/null \
+      || cf "(a$st) no ⚠ line names the deciding arm and its status (release.sh's refusal prints only ⚠ and board-drift lines): $(printf '%s' "$out" | grep -F '50-crash' | head -2 | tr '\n' '|')"
+    printf '%s\n' "$out" | grep -F 'Next:' | grep -F '50-crash.sh' >/dev/null \
+      || cf "(a$st) no Next: line names the arm: $(printf '%s' "$out" | grep -F 'Next:' | head -2 | tr '\n' '|')"
+  done
+  # (a0) a deciding arm that reaches a verdict is unchanged: 0 is clean, 3 is a finding, neither is a crash.
+  printf '# check-board-arm: deciding\nexit 0\n' > "$dir/50-crash.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(a0) a deciding arm that exited 0 moved the verdict line"
+  printf '%s\n' "$out" | grep -F 'did not run to a verdict' >/dev/null && cf "(a0) a deciding arm that exited 0 is reported as not having run"
+
+  # (b) an ADVISORY arm in each of the same states leaves the verdict where it was.
+  for st in 1 7; do
+    printf '# check-board-arm: advisory\nexit %s\n' "$st" > "$dir/50-crash.sh"
+    out="$( cb_run )"
+    [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
+      || cf "(b$st) an ADVISORY arm that exited $st moved the verdict line: $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
+    printf '%s\n' "$out" | grep -F '50-crash.sh exited '"$st" >/dev/null || cf "(b$st) an advisory arm's status $st is not reported as an arm that did not run"
+  done
+  rm -f "$dir/50-crash.sh"
+
+  # (c) the release gate reads the verdict this way: the same grep release.sh gate (d) runs finds no
+  #     `board-drift: clean` in a deciding crash's report, and finds one without it.
+  printf '# check-board-arm: deciding\nexit 7\n' > "$dir/50-crash.sh"
+  out="$( cb_run )"
+  grep -q -- 'board-drift: clean' <<< "$out" && cf "(c) release.sh's gate (d) test would pass a report holding a crashed deciding arm"
+  rm -f "$dir/50-crash.sh"
+  out="$( cb_run )"
+  grep -q -- 'board-drift: clean' <<< "$out" || cf "(c) (control) the same test finds no clean marker once the crashed arm is removed"
+
+  finish "a deciding check-board.d arm that exits with anything but 0 or 3 sets the verdict line to findings, names itself and its next act on a ⚠ line, and leaves check-board's exit at 0, so release.sh's gate (d) refuses; an advisory arm in the same state stays report-only; a deciding arm that exits 0 is unchanged"
   teardown
 }
 
