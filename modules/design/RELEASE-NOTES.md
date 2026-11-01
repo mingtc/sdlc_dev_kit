@@ -24,7 +24,10 @@ any other heading are not read. Nothing here is read while the module is disable
   patched copy of `material-color-utilities` (Apache-2.0; `scripts/design/vendor/NOTICE`). `scripts/design/dtcg-convert.py` writes a
   design system's `tokens.json` and `tokens.css` from the token files, unprefixed, in the shape the design type's compiler writes; it reads
   `#rgb` and a colour object's `alpha`, and a colour, spacing or radius token it cannot read is named (`NOT CONVERTED`) and the exit status is 1.
-  The audit prints `UNREAD` for a colour with an alpha, since its contrast depends on what is behind it.
+  The audit prints `UNREAD` for a colour with an alpha, since its contrast depends on what is behind it, and for a token file that is not JSON
+  (`--strict` fails on both); it names the colour tokens outside `color.*` that no pair measures in a `NOTE` line, which does not fail. The
+  converter takes a token's family from its `$type` (`brand.leaf` is a colour), not from the head of its path, and writes `0` as given.
+  `render.py` notes a file the page asked for that the project lacks (`NOTE-404`) and an error the runtime logged (`NOTE-LOGIC`).
 - The Designer role drops its three needs-the-next-version lines for these; the packaged `/design-pull` and `/design-publish` skills stay
   on it. No action: nothing runs until the Designer or a person runs it.
 

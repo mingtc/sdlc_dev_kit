@@ -14,7 +14,10 @@ both (the base file is the first theme; <ns>.<theme>.tokens.json holds the other
 `color.on-surface` are also measured on `color.surface` (and `color.surface-raised`, `color.surface-container*`) when those exist. A pair
 below --min prints `LOW`; one at or above prints nothing but the total. A colour token the tool cannot read (a #hex of 3, 6 or 8 digits and
 a DTCG colour object with a `hex` are read; an alpha below ff, a name, a function are not) prints `UNREAD`, and so does a run that measured
-no pair (`NONE`): --strict fails on both, so an unread colour never passes as a measured one.
+no pair (`NONE`), and so does a token file that is not JSON (`UNREAD <file>: <why>`; a trailing comma, a BOM, an empty file): --strict
+fails on all three, so an unread colour or file never passes as a measured one. A colour token outside `color.*` (`$type: color`, its own or
+its group's, or a #hex value) is in no pair, since pairs are `color.on-X` on `color.X`: a `NOTE` line names them, and the count says how many;
+it is a report, never a failure (a primitive such as `palette.ink`, which `color.*` tokens point at by alias, is healthy and is listed there too).
 TARGETS. In each artboard under <design>/*/project/*.dc.html, a <button>, <a>, <input>, <select> or element with role="button" whose
 style names a height, min-height, width or min-width in px below --target prints `SMALL`. A size set by a class or a sheet cannot be
 read here; the audit says what it read.
@@ -84,6 +87,36 @@ def themes_of(files):
     return out, unread
 
 
+def typed(node, path=(), t=None, out=None):
+    """[(dotted path, $type in force, $value)] for every token of a DTCG tree; a group's $type holds for its members."""
+    out = [] if out is None else out
+    t = node.get('$type', t)
+    for k, v in node.items():
+        if k.startswith(('$', '_')) or not isinstance(v, dict):
+            continue
+        if '$value' in v:
+            out.append(('.'.join(path + (k,)), v.get('$type', t), v['$value']))
+        else:
+            typed(v, path + (k,), t, out)
+    return out
+
+
+def outside(root, design, files):
+    """{token file: [css var name]} of the colour tokens that do not sit under `color`: a $type of color, or no type and a value that reads as a colour."""
+    found = {}
+    d = root / design / 'tokens'
+    for f in sorted(d.glob('*.tokens.json')) if d.is_dir() else []:
+        if f.name not in files:
+            continue                      # not read: said as UNREAD
+        for dotted, t, _ in typed(json.loads(f.read_text(encoding='utf-8'))):
+            name = dotted.replace('.', '-')
+            if name.startswith('color-'):
+                continue
+            if t == 'color' or (t is None and hexof(files[f.name].get(name))[0]):
+                found.setdefault(f.name, []).append(name)
+    return found
+
+
 def pairs(names):
     seen = []
     for n in names:
@@ -132,8 +165,9 @@ def main(argv):
     a = ap.parse_args(argv[1:])
     root = Path(a.root).resolve()
     cdl.DESIGN_REL = a.design.strip('/')
-    files = cdl.token_files(root)
+    files, tprobs = cdl.token_files(root)
     themes, unread = themes_of(files)
+    away = outside(root, cdl.DESIGN_REL, files)
     base = themes.get('base', {})
     low, measured = [], 0
     for th, toks in sorted(themes.items()):
@@ -145,13 +179,16 @@ def main(argv):
                 low.append(f"LOW {th if th != 'base' else 'light'}: {fg} {merged[fg]} on {bg} {merged[bg]} = {math.floor(r * 100) / 100:.2f}:1 < {a.min:g}:1")   # never rounded up to the line
     small, read = targets(root, cdl.DESIGN_REL, a.target)
     lines = low + small + [f'UNREAD {th}: {k} ({why})' for th, k, why in unread]
+    lines += ['UNREAD %s: %s' % tuple(pr.split(' ', 1)) + ' (none of its tokens were read)' for pr in tprobs]
+    lines += [f"NOTE {f}: colour token(s) outside color.* that no pair measures: {', '.join(ns[:12])}{' ...' if len(ns) > 12 else ''}" for f, ns in sorted(away.items())]
     if measured == 0:
         lines.append('NONE: no colour pair was measured (no readable colour token pairs `color-on-X` on `color-X`)')
     for ln in lines:
         print(ln)
-    print(f"contrast-audit: {measured} pair(s) measured, {len(low)} below {a.min:g}:1, {len(unread)} colour token(s) not read; {read} sized target(s) read, "
+    print(f"contrast-audit: {measured} pair(s) measured, {len(low)} below {a.min:g}:1, {len(unread)} colour token(s) not read, {len(tprobs)} token file(s) not read, "
+          f"{sum(len(v) for v in away.values())} colour token(s) outside color.* in no pair; {read} sized target(s) read, "
           f"{len(small)} below {a.target:g}px (a size set by a class or a sheet is not read)")
-    return 1 if (a.strict and (low or small or unread or measured == 0)) else 0
+    return 1 if (a.strict and (low or small or unread or tprobs or measured == 0)) else 0
 
 
 if __name__ == '__main__':

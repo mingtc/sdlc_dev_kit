@@ -79,7 +79,8 @@ Reports (each line starts with its class)
 Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
   UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
-                colours are not checked. Put the sheet under project/ as a file and link it by a relative path
+                colours are not checked. Put the sheet under project/ as a file and link it by a relative path; or a token file that is not
+                JSON (a trailing comma, a BOM, an empty file): none of its tokens are read
   DESIGN-STORY  a card whose design: is none or absent, listing a story that has a UI: line, when no AC of the card is tagged (UI) or
                 cites a screen: shown, not refused (a card that builds no screen moves and lands; only a tag, a marker or a pin asks for design work)
   UNCOMPARED    a `[data-theme="x"]` block that sets a token-named property when no <ns>.x.tokens.json holds that theme: nothing to compare it
@@ -565,26 +566,27 @@ def token_map(root, rev):
 
 
 def token_table(root):
-    """{css var name: [resolved values]} of the token files on disk (`color.primary` is `color-primary`): the names that may carry a
-    colour, and the values they may carry (one per token file: a theme file gives its own)."""
+    """-> ({css var name: [resolved values]}, [problem]) of the token files on disk (`color.primary` is `color-primary`): the names that
+    may carry a colour, and the values they may carry (one per token file: a theme file gives its own); a file that is not read is a problem."""
     d = Path(root) / DESIGN_REL / 'tokens'
     blobs = {f.name: f.read_bytes() for f in sorted(d.glob('*.tokens.json')) if f.is_file()} if d.is_dir() else {}
-    found, _ = _token_core(blobs)
+    found, problems = _token_core(blobs)
     table = {}
     for (_, name), v in found.items():
         table.setdefault(name, []).append(None if v == UNRESOLVED else json.loads(v))
-    return table
+    return table, problems
 
 
 def token_files(root):
-    """{token file name: {css var name: resolved value, or None}} of the token files on disk."""
+    """-> ({token file name: {css var name: resolved value, or None}}, [problem]) of the token files on disk. A problem is
+    `<file> is not a JSON object of tokens (<why>)`: that file's tokens are not in the first value, and a caller says so."""
     d = Path(root) / DESIGN_REL / 'tokens'
     blobs = {f.name: f.read_bytes() for f in sorted(d.glob('*.tokens.json')) if f.is_file()} if d.is_dir() else {}
-    found, _ = _token_core(blobs)
+    found, problems = _token_core(blobs)
     files = {}
     for (f, name), v in found.items():
         files.setdefault(f, {})[name] = None if v == UNRESOLVED else json.loads(v)
-    return files
+    return files, problems
 
 
 def file_theme(fname):
@@ -594,7 +596,7 @@ def file_theme(fname):
 
 
 def token_names(root):
-    return set(token_table(root))
+    return set(token_table(root)[0])
 
 
 def _norm_value(v):
@@ -696,7 +698,7 @@ def decls_of(markup):
     return out
 
 
-def token_value_problems(markup, loaded, files):
+def token_value_problems(markup, loaded, files, unreadable=()):
     """-> ([text] for each token-named custom property that the artboard, or a sheet or screen it loads, declares with a value its token
     file does not give, [text] for each theme block with no token file of its theme). The file is read from the selector (selector_scope).
     A value with var() or an alias, and a token whose value is not a string, are not compared."""
@@ -717,7 +719,9 @@ def token_value_problems(markup, loaded, files):
                     if th and not tf and (th == 'light' or None in scope):
                         continue    # `light`, or a theme in a rule with :root, is the base: the :root half is compared with it
                     if th and not tf:
-                        msg = f'[data-theme="{th}"] sets --{name}{" in " + where if where else ""}, and no <ns>.{th}.tokens.json holds that theme'
+                        bad = sorted(u for u in unreadable if file_theme(u) == th)
+                        msg = (f'[data-theme="{th}"] sets --{name}{" in " + where if where else ""}, and {", ".join(bad)} could not be read' if bad
+                               else f'[data-theme="{th}"] sets --{name}{" in " + where if where else ""}, and no <ns>.{th}.tokens.json holds that theme')
                         if msg not in unc:
                             unc.append(msg)
                         continue
@@ -1008,10 +1012,14 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
     set_prd_prefix(root)
     DESIGN_REL = (design or f'{requirements}/design').strip('/')
     dsn = root / DESIGN_REL
-    ttable = token_table(root)
-    tfiles = token_files(root)
+    ttable, _ = token_table(root)
+    tfiles, tprobs = token_files(root)
+    unreadable = {pr.split(' ', 1)[0] for pr in tprobs}
     tokens = ttable
     out, prds = [], find_prds(root, requirements)
+    for pr in tprobs:
+        fn, why = pr.split(' ', 1)
+        out.append(line('UNREAD', f"{DESIGN_REL}/tokens/{fn} {why}; none of its tokens are read, so a theme it holds is not compared (info). Correct the file"))
     scans = {}
     for p in prds:
         m = re.match(r'(' + re.escape(PRD_PREFIX) + r'-\d+)', p.name)
@@ -1133,7 +1141,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             if not r['superseded']:
                 for u in unread:
                     out.append(line('UNREAD', f"{art.relative_to(root)}: {u}; its colours are not checked (info). Put the sheet under {PROJECT_SUBDIR}/ as a file and link it by a relative path"))
-                tvs, tuncs = token_value_problems(html, loaded, tfiles)
+                tvs, tuncs = token_value_problems(html, loaded, tfiles, unreadable)
                 for tu in tuncs:
                     out.append(line('UNCOMPARED', f"{art.relative_to(root)}: {tu}, so it is not compared (info)"))
                 for tv in tvs:

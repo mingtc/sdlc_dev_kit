@@ -11,9 +11,12 @@ usage: dtcg-convert.py [TOKENS_DIR] --out DIR [--namespace NS] [--title TEXT] [-
 Order is the file's. Names are the token's path with hyphens, NO prefix (`color.primary` is `color-primary` is `--color-primary`): that is how the design
 tool compiles a system's tokens, and what check-design-links.py reads. tokens.css has the shape the design type's own compiler
 writes (`:root, [data-theme="<first>"]`, then `[data-theme="<id>"]` per other theme): the page does not generate it, so this tool does.
-Colours may be `#rgb`, `#rrggbb[aa]` strings or DTCG colour objects with a `hex` (an `alpha` below 1 is written as the last two digits);
-dimensions `16px`, `0` or {value, unit}. A colour, spacing or radius token it cannot read is said (`NOT CONVERTED: name why`) and the exit
-status is 1, the rest being written; other families (typography, shadows) are listed on stderr and left out. Python 3 standard library only. Exit 1 on input it cannot read.
+A token is a colour when its `$type` is color (its own, its group's, or its alias target's), wherever it sits (`brand.leaf`); with no type, under
+`color` or when its value reads as a colour. Colours may be `#rgb`, `#rrggbb[aa]` strings or DTCG colour objects with a `hex` (an `alpha` below 1 is written as the last two
+digits); dimensions `16px`, `0` (written as given) or {value, unit}, listed as spacing when a segment of the path starts space, spacing or
+gap, as radius for radius, corner or shape. A colour, spacing or radius token it cannot read is said (`NOT CONVERTED: name why`) and the exit
+status is 1, the rest being written; any other token (typography, shadows, a dimension with neither name) is listed on stderr with its true
+reason and left out. Python 3 standard library only. Exit 1 on input it cannot read.
 """
 import argparse, json, re, sys
 from pathlib import Path
@@ -77,21 +80,56 @@ def colour(v):
 def dimension(v):
     """-> ('16px', None) or (None, why)."""
     if isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0:
-        return '0px', None
+        return str(v), None      # as given: the link check compares the sheet's text with the token's, and `0` is not `0px` to it
     if isinstance(v, str) and re.match(r'^-?\d+(\.\d+)?(px|rem|em|%)$', v.strip()):
         return v.strip(), None
     if isinstance(v, str) and v.strip() == '0':
-        return '0px', None
+        return '0', None
     if isinstance(v, dict) and 'value' in v and 'unit' in v:
         return '%s%s' % (v['value'], v['unit']), None
     return None, 'is not a number with a unit (16px, 1rem) or {value, unit}'
 
 
-def family(name):
-    head = name.split('.')[0]
-    if head == 'color':
-        return 'color'
-    return 'spacing' if head.startswith(('space', 'spacing')) else 'radius' if head.startswith(('radius', 'corner', 'shape')) else None
+def typeof(v, t, own, base, seen=()):
+    """The token's $type, or the one its alias target has (DTCG: a reference takes the type of what it points at)."""
+    if t:
+        return t
+    m = ALIAS.match(v) if isinstance(v, str) else None
+    if m and m.group(1) not in seen:
+        tgt = own.get(m.group(1)) or base.get(m.group(1))
+        if tgt:
+            return typeof(tgt[0], tgt[1], own, base, seen + (m.group(1),))
+    return None
+
+
+def family(name, t):
+    """-> ('color' | 'spacing' | 'radius', None), or (None, why it has no list). A colour is a token of $type color wherever it sits, or
+    any token under `color` that names no type; a dimension goes to the spacing list when a segment of its path starts space, spacing or
+    gap, and to the radius list when one starts radius, corner or shape."""
+    parts = name.split('.')
+    if t == 'color' or (t is None and parts[0] == 'color'):
+        return 'color', None
+    if t in (None, 'dimension'):
+        if any(x.startswith(('space', 'spacing', 'gap')) for x in parts):
+            return 'spacing', None
+        if any(x.startswith(('radius', 'corner', 'shape')) for x in parts):
+            return 'radius', None
+        return None, ('is a dimension whose path names neither spacing (space*, gap*) nor radius (radius*, corner*, shape*)' if t
+                      else 'names no $type and its path names no colour, spacing or radius')
+    return None, 'is of $type %s, which the design system has no list for' % t
+
+
+def family_of(name, v, t, own, base):
+    """family() for a token, where a token with no type anywhere whose value reads as a colour is a colour wherever it sits."""
+    ft = typeof(v, t, own, base)
+    fam, why = family(name, ft)
+    if fam is None and ft is None:
+        try:
+            if colour(resolve(v, own, base))[0]:
+                return 'color', None
+        except Fail:
+            pass
+    return fam, why
 
 
 def main(argv):
@@ -126,8 +164,8 @@ def main(argv):
         themes = [a.first] + sorted(t for t in parsed if t and t != a.first)
         skipped, problems, colours, dims = [], [], {}, {'spacing': {}, 'radius': {}}
         for name, (v, t, desc) in base.items():
-            fam = family(name)
-            rv = resolve(v, base, base)
+            fam, nofam = family_of(name, v, t, base, base)
+            rv = resolve(v, base, base) if fam else None
             if fam == 'color':
                 hx, why = colour(rv)
                 if hx:
@@ -141,14 +179,15 @@ def main(argv):
                 else:
                     problems.append('%s %s' % (name, why))
             else:
-                skipped.append(name)
+                skipped.append((name, nofam))
         for th, toks in parsed.items():
             if th is None:
                 continue
             for name, (v, t, desc) in toks.items():
                 key = name.replace('.', '-')
-                if family(name) != 'color':
-                    skipped.append('%s (%s)' % (name, th))
+                fam, nofam = family_of(name, v, t, toks, base)
+                if fam != 'color':
+                    skipped.append(('%s (%s)' % (name, th), nofam or 'is not a colour, and a theme file holds colours only'))
                     continue
                 hx, why = colour(resolve(v, toks, base))
                 if hx and key in colours:
@@ -179,8 +218,9 @@ def main(argv):
     out.mkdir(parents=True, exist_ok=True)
     (out / 'tokens.json').write_text(json.dumps(ds, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     (out / 'tokens.css').write_text('\n'.join(css), encoding='utf-8')
-    if skipped:
-        print('dtcg-convert: left out (not a colour, a spacing or a radius token, which are the families the design system lists): %s' % ', '.join(skipped[:12]) + (' ...' if len(skipped) > 12 else ''), file=sys.stderr)
+    for why in sorted({w for _, w in skipped}):
+        names = [n for n, w in skipped if w == why]
+        print('dtcg-convert: left out (%s): %s' % (why, ', '.join(names[:12]) + (' ...' if len(names) > 12 else '')), file=sys.stderr)
     print('dtcg-convert: %d colour token(s) in %d theme(s), %d dimension(s) -> %s' % (len(colours), len(themes), sum(len(x) for x in dims.values()), out))
     for pr in problems:
         print('dtcg-convert: NOT CONVERTED: %s' % pr, file=sys.stderr)
