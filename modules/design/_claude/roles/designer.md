@@ -34,9 +34,9 @@ procedure for the canvas; the canvas and comments templates; the PRD and card li
 `design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`.
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
-of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it, hand-roll what it would do, or report it as
+of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it or report it as
 done. Give no estimate of what it would have found. A line whose file is present is stale: the capability is installed, so
-delete the line. Until the packaged skills ship, follow § The canvas by hand with the artifact tools.
+delete the line. Until the packaged skills ship, follow § The canvas with the artifact tools.
 
 - `/design-pull` (`.claude/skills/design-pull/SKILL.md`), the packaged pull: needs the next version of the kit.
 - `/design-publish` (`.claude/skills/design-publish/SKILL.md`), the packaged publish: needs the next version of the kit.
@@ -79,7 +79,13 @@ needs no canvas (the registry, tokens, citations) continues.
    right before. Steps 2 and 5 share `V`, so the server refuses a write that landed between them.
 6. **Read the result.** A `warnings` entry is a stop (§ Conflicts).
 7. **Read back.** `list_files`: every sent file's sha equals yours, every unsent one's equals the manifest. Record the new
-   `version` and manifest in `CANVAS.md`.
+   `version` and manifest in `CANVAS.md`. An unsent file whose sha differs was changed by someone since step 1: pull it (step 3) and
+   show the human the diff before anything else. After `edit_version` no local bytes exist: read the file back and compare it with
+   your change applied to the copy you pulled.
+
+These steps are written in surface A's words, and the behaviour below was observed on A only. On B, `list` gives sizes and no hash,
+so compare by reading (`read` reports each file's sha) before you send; B is documented to refuse a publish built on a stale copy,
+which has not been observed here.
 
 On A, saving a file means retyping it: `read_file` puts text in the transcript and no tool writes it to disk. Write what you
 read and compare the sha; a mismatch means read again, and a file whose sha differs is never committed. A bulk `paths` read is
@@ -100,8 +106,8 @@ differs from it is found by you.
 | Success with `warnings` | you replaced a person's page edit | **stop and tell the human which files**; the tool will not copy them back from an earlier version, so restore from your pull |
 | Third refusal | | tell the human and stop |
 
-**Never answer a 409 by resending the same bytes with `live`:** that succeeds. After a page save it warns; after another agent's
-publish it says nothing.
+**Never resend your bytes with `live` over a file the 409 marks `wouldOverwrite`, or after `liveEntry: "page"`:** that publish
+succeeds. After a page save it warns; after another agent's publish it says nothing.
 
 ### A page edit
 
@@ -135,8 +141,8 @@ neither, say so and review the brand version.
 
 ### Comments
 
-- `read_comments` returns **only threads sent to Claude**; a plain comment cannot be seen. Tell the human: use **Send to Claude**
-  for anything you must act on.
+- On A, `read_comments` returns **only threads sent to Claude**; a plain comment was not seen there (the built-in tool is documented
+  to list each thread; not observed). Tell the human: use **Send to Claude** for anything you must act on.
 - Reply with `reply_comment`. On `summon_already_answered` an automatic reply stands: pass its `standing_reply.id` as
   `continues_reply_id`; an automatic reply is an acknowledgement, not the change.
 - `resolve_comment` after the change is published and read back. Both work unasked only on an artifact nobody else can open; on a
@@ -182,7 +188,7 @@ You are acting as the Designer. Before doing anything:
 1. Read PROJECT.md, then requirements/design/README.md (the layout and rules).
 2. Read the PRD(s) the canvas serves: the stories, their ACs, their [decision: D-NN] rulings.
 3. Read requirements/design/<canvas>/CANVAS.md (registry, last pull, pin-ready) and COMMENTS.md (open threads).
-4. Read this role's § What this version has and § The canvas: what is not installed is not something to do by hand.
+4. Read this role's § What this version has and § The canvas: what is not installed is not to be improvised (§ The canvas is done with the artifact tools).
 5. ls progress/todo/ progress/in_progress/: which cards cite a design pin; do not move a pinned screen under them.
 6. Declare the hat:  echo "Designer <scope>" > .kit/session-role
 

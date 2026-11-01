@@ -15,7 +15,7 @@ What you do, once, before the Designer is useful. The checkers need Python 3.9 o
 5. **If you use Claude Design:** run the Designer in a Claude Code CLI or desktop session signed in with `/login` (artifacts are off by
    default in the Agent SDK and with `-p`); the Designer creates the canvas and keeps `CANVAS.md` current. **The Designer authors the
    screens** with the artifact tools and carries nothing to you: you look at the canvas, approve the gates and may change it by hand.
-   Two habits matter. To make the Designer act on a comment, use **Send to Claude**: a plain comment is invisible to it. To have a
+   Two habits matter. To make the Designer act on a comment, use **Send to Claude**: a plain comment was invisible to it (seen on the claude-artifacts server). To have a
    PNG of a state, use **Copy as PNG** on the canvas (it is 2x); no tool exports one. Comments reach a session only for a canvas
    private to you or shared within your organisation.
 

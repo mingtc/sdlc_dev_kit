@@ -6,7 +6,7 @@ store. A design tool's canvas is the *working surface*, where the Designer autho
 directory is the *record* and the authority. The human looks, approves and may change the canvas by hand; nobody carries files.
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
-**Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
+**Read its § What this version has before doing any of this.** Each capability that section lists as needing the next
 version of the kit (the packaged pull and publish skills, the card gate, the token generator, the renderer, the audits) is not
 installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
 every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
@@ -87,7 +87,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   approval is the commit that took in the approved version; an approval whose artboard, a file it loads (a sheet, a script, an image, a screen it imports) or a token it uses has since changed is **stale** and the row goes back to
   `changes`; the link check reports it as `STALE-APPROVAL`.
 - Before the card moves, the PM checks every entry: it carries `@<commit>`, that commit resolves, its row is approved or
-  waived. Where a card gate is installed it refuses the move; otherwise this check is the PM's, and
+  waived. No card gate refuses the move in this version, so this check is the PM's, and
   `python3 scripts/design/check-design-links.py --leaving <card>` runs it, and also checks that each pin holds the screen's artboard,
   is not older than its row's approval, and that the approval still holds at HEAD.
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
@@ -121,7 +121,7 @@ screen is not allowed outside a token's value**. Tokens are written by hand in t
 `@font-face` and `body{margin:0}`) declares one custom property per token it uses, holding the token's value. The property is named for the
 token's path with hyphens for dots, **with no prefix** (`color.primary` is `--color-primary`): that is how the design tool compiles a design system's
 tokens, and a prefix cannot be told from a stray name, so a prefixed sheet is a finding until the tokens are named without one. Its value is the
-token's: a different one is a `TOKEN-VALUE` finding (a theme block of a sheet matches the token file of that theme, `<theme>.tokens.json`).
+token's: a different one is a `TOKEN-VALUE` finding (a theme block of a sheet is held to the token file of that theme, `<ns>.<theme>.tokens.json`, and `:root` to the base file; a theme with no file is shown as `UNCOMPARED`, not passed).
 Stylesheets and scripts are files under `project/` linked by a relative path (or by a leading `/`, read from `project/`); one uploaded to the canvas
 (`/_blob/<id>`) cannot be read, and is shown as an `UNREAD` line by the link check and as `uncompared` by the pin report. A colour literal
 (`#hex`, `rgb()`, `hsl()`, `oklch()` ...) in a screen's style blocks, style attributes, presentation attributes or a stylesheet or screen it loads, is a
@@ -161,4 +161,4 @@ Every navigation is an `<a href>`, so `scripts/design/flow-from-links.py` derive
 | **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
 | **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
 | **QA** | Verifies each (UI) AC; the design cell compares the build with the pinned render. |
-| **The human** | Looks at the canvas and approves the gates; sends the comments the Designer must act on with Send to Claude (a plain comment is invisible to it); copies a PNG; may change the canvas by hand. Carries nothing. |
+| **The human** | Looks at the canvas and approves the gates; sends the comments the Designer must act on with Send to Claude (a plain comment was invisible to the agent on the claude-artifacts server); copies a PNG; may change the canvas by hand. Carries nothing. |

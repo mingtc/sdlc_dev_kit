@@ -696,7 +696,7 @@ _dm_links_fixture() {
   _dm_land "enable the design module"
   local D="$SB_WORK/requirements/design/app/project"
   _dm_tokens '{"color":{"primary":{"$value":"#485d92"},"surface":{"$value":"#ffffff"}}}'
-  _dm_tokens '{"color":{"primary":{"$value":"#a0b4e8"},"surface":{"$value":"#121318"}}}' dark.tokens.json
+  _dm_tokens '{"color":{"primary":{"$value":"#a0b4e8"},"surface":{"$value":"#121318"}}}' app.dark.tokens.json
   _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
   _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
@@ -1241,14 +1241,29 @@ EOF
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "--color-primary: #FF0000" && _dm_has "$_dm_out" "#22577A"; } || cf "(a) a :root value of --color-primary that is not the token's is not a TOKEN-VALUE finding naming both values (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_back
+  # a theme block is held to the token file of its theme: [data-theme="x"] to <ns>.x.tokens.json, :root to the base file
   printf ':root { --color-primary: #22577A; --color-surface: #FAF8F3; }\n[data-theme="dark"] { --color-primary: #8FB4D4; }\n' > "$D/sheets/tokens.css"
-  _dm_commit "a theme block in the token sheet"
+  _dm_commit "a theme block in the token sheet, and no dark token file"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "sheets/tokens.css"; } || cf "(a2) a theme block whose value no token file gives is not a TOKEN-VALUE finding in the sheet (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
-  _dm_tokens '{"color":{"primary":{"$value":"#8FB4D4"}}}' dark.tokens.json
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "UNCOMPARED" && _dm_has "$_dm_out" "dark" && ! _dm_has "$_dm_out" "TOKEN-VALUE"; } || cf "(a2) a theme block with no token file of its theme is not an UNCOMPARED report line naming the theme, nor left out of the findings (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_tokens '{"color":{"primary":{"$value":"#8FB4D4"}}}' app.dark.tokens.json
   _dm_commit "the dark token file"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a3) a theme block matching the dark token file is a finding (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "UNCOMPARED"; } || cf "(a3) a theme block matching the dark token file is a finding or is called uncompared (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  printf ':root { --color-primary: #22577A; --color-surface: #FAF8F3; }\n[data-theme="dark"] { --color-primary: #22577A; }\n' > "$D/sheets/tokens.css"
+  _dm_commit "dark's block holds light's value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "sheets/tokens.css" && _dm_has "$_dm_out" "#8FB4D4"; } || cf "(a4) [data-theme=dark] holding light's value, which is in the base file and not the dark file, is not a TOKEN-VALUE naming the dark value (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  printf ':root { --color-primary: #8FB4D4; --color-surface: #FAF8F3; }\n[data-theme="dark"] { --color-primary: #8FB4D4; }\n' > "$D/sheets/tokens.css"
+  _dm_commit "the base rule of the sheet holds dark's value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "#22577A"; } || cf "(a4b) :root holding dark's value, which is in the dark file and not the base file, is not a TOKEN-VALUE naming the base value (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_back
+  _dm_tokens '{"color":{"primary":{"$value":"#555555"}}}' app.wire.tokens.json
+  _dm_edit "$D/Main.dc.html" 's/--color-primary: #22577A;/--color-primary: #555555;/'
+  _dm_commit "Main's :root holds wire's value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "Main.dc.html" && _dm_has "$_dm_out" "#555555"; } || cf "(a5) a :root holding wire's value is not a TOKEN-VALUE (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_back
 
   # (b) D2: a new state is not a change of the pinned states

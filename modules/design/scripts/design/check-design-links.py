@@ -61,10 +61,12 @@ Reports (each line starts with its class)
                 `[decision: D-NN]` waiver the register confirms. Colour names (`red`) are not caught. The way out is a change
                 correction of the screen by the Designer with the artifact tools. A `var(--token, #hex)` whose #hex is the token's value is a token, not a literal; one whose #hex differs is a finding. A screen imported by a screen that has a registry row of its own is reported on that row only. A `superseded` row is not read for colours
   TOKEN-VALUE   a custom property named for a token (`--color-primary` for `color.primary`; the name has no prefix, as the design tool
-                compiles it) that a screen, a :root rule or a sheet it loads declares with a value no token file gives that token: the
-                :root block holds the token's value, so a different one is a second source of truth. A value written with var() or an
-                alias is not compared; a token whose value is not a string is not compared; a theme sheet holding another theme's value
-                matches the token file of that theme
+                compiles it) that a screen, a :root rule or a sheet it loads declares with a value its token file does not give: the
+                :root block holds the token's value, so a different one is a second source of truth. The file is read from the selector:
+                `:root` (and `:host`) is held to the base files (<ns>.tokens.json), `[data-theme="x"]` to <ns>.x.tokens.json (`light`, the
+                design tool's first theme, to the base files unless a light file exists); a theme file that lacks the token leaves it to the
+                base files; any other selector, `:not()` included, to any file. A value written with var() or an alias, and a token whose
+                value is not a string, are not compared
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
                 heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
@@ -72,6 +74,8 @@ Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
   UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
                 colours are not checked. Put the sheet under project/ as a file and link it by a relative path
+  UNCOMPARED    a `[data-theme="x"]` block that sets a token-named property when no <ns>.x.tokens.json holds that theme: nothing to compare it
+                with, said and not passed as clean
   SCRIPT-COLOUR a colour-looking string in the component script: a script cannot be read as CSS, so this is shown, never counted
   UNCLASSIFIED  a PRD with no `UI:` line in any story ("not design-classified"), or the stories of a PRD that has some and these
                 lack it. A story with no `UI:` line reads as none declared
@@ -97,7 +101,7 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 
 META = re.compile(r' data-stories="[^"]*"')
@@ -564,6 +568,23 @@ def token_table(root):
     return table
 
 
+def token_files(root):
+    """{token file name: {css var name: resolved value, or None}} of the token files on disk."""
+    d = Path(root) / DESIGN_REL / 'tokens'
+    blobs = {f.name: f.read_bytes() for f in sorted(d.glob('*.tokens.json')) if f.is_file()} if d.is_dir() else {}
+    found, _ = _token_core(blobs)
+    files = {}
+    for (f, name), v in found.items():
+        files.setdefault(f, {})[name] = None if v == UNRESOLVED else json.loads(v)
+    return files
+
+
+def file_theme(fname):
+    """The theme a token file holds: `<ns>.dark.tokens.json` is dark; `<ns>.tokens.json` is the base (None)."""
+    stem = fname[:-len('.tokens.json')]
+    return stem.rsplit('.', 1)[1].lower() if '.' in stem else None
+
+
 def token_names(root):
     return set(token_table(root))
 
@@ -589,6 +610,66 @@ def custom_decls(css):
     return out
 
 
+THEME_ATTR = re.compile(r'\[data-theme\s*=\s*["\']?([\w-]+)["\']?\s*\]', re.I)
+
+
+def rule_decls(css):
+    """[(selector, name, value)] of the custom-property declarations of CSS text; the selector is the innermost rule's ('' for a bare
+    declaration list), an at-rule such as @media being looked through."""
+    css = CSS_STRING.sub('""', CSS_URL.sub(' ', CSS_COMMENT.sub(' ', css)))
+    out, stack, cur = [], [], ''
+
+    def decl(text):
+        m = re.match(r'\s*--([\w-]+)\s*:\s*(.*)$', text, re.S)
+        if m:
+            sel = next((x for x in reversed(stack) if not x.startswith('@')), '')
+            out.append((sel, m.group(1), m.group(2)))
+    for ch in css:
+        if ch == '{':
+            stack.append(cur.strip())
+            cur = ''
+        elif ch == '}':
+            decl(cur)
+            cur = ''
+            if stack:
+                stack.pop()
+        elif ch == ';':
+            decl(cur)
+            cur = ''
+        else:
+            cur += ch
+    decl(cur)
+    return out
+
+
+def markup_rule_decls(markup):
+    h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', markup))
+    out = []
+    for m in STYLE_BLOCK.finditer(h):
+        out += rule_decls(m.group(1))
+    for tag, at in tags_of(h):
+        if 'style' in at:
+            out += [('', n, v) for n, v in custom_decls('a{' + at['style'] + '}')]
+    return out
+
+
+def selector_scope(sel):
+    """-> 'any', or the set of themes a selector holds (None is the base rule: `:root`, `:host`): `[data-theme="x"]` is x."""
+    if not sel or ':not(' in sel.lower():
+        return 'any'
+    scopes = set()
+    for part in sel.split(','):
+        part = part.strip()
+        m = THEME_ATTR.search(part)
+        if m:
+            scopes.add(m.group(1).lower())
+        elif re.fullmatch(r'(?i):root|:host|html', part):
+            scopes.add(None)
+        else:
+            return 'any'
+    return scopes
+
+
 def decls_of(markup):
     """The custom-property declarations of an artboard: style blocks and style attributes (a script is not CSS)."""
     h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', markup))
@@ -601,23 +682,41 @@ def decls_of(markup):
     return out
 
 
-def token_value_problems(markup, loaded, table):
-    """[text] for each token-named custom property that the artboard, or a sheet or screen it loads, declares with a value no token file
-    gives that token. A value with var() or an alias, and a token whose value is not a string, are not compared."""
-    out = []
-    pieces = [('', decls_of(markup))] + [(n, custom_decls(t) if n.lower().endswith('.css') else decls_of(t)) for n, t in loaded]
+def token_value_problems(markup, loaded, files):
+    """-> ([text] for each token-named custom property that the artboard, or a sheet or screen it loads, declares with a value its token
+    file does not give, [text] for each theme block with no token file of its theme). The file is read from the selector (selector_scope).
+    A value with var() or an alias, and a token whose value is not a string, are not compared."""
+    out, unc = [], []
+    base = {f: v for f, v in files.items() if file_theme(f) is None}
+    pieces = [('', markup_rule_decls(markup))] + [(n, rule_decls(t) if n.lower().endswith('.css') else markup_rule_decls(t)) for n, t in loaded]
     for where, decls in pieces:
-        for name, value in decls:
-            if name not in table or 'var(' in value.lower() or value.strip().startswith('{'):
+        for sel, name, value in decls:
+            if not any(name in v for v in files.values()) or 'var(' in value.lower() or value.strip().startswith('{'):
                 continue
-            vals = table[name]
-            if any(not isinstance(v, str) for v in vals):
-                continue
-            if _norm_value(value) not in {_norm_value(v) for v in vals}:
-                msg = f"--{name}: {value.strip()}" + (f' (in {where})' if where else '') + f" but the token is {' / '.join(sorted(set(vals)))}"
-                if msg not in out:
-                    out.append(msg)
-    return out
+            scope = selector_scope(sel)
+            want = []     # [(label, [values the token may hold there])]
+            if scope == 'any':
+                want = [('any token file', [v[name] for v in files.values() if name in v])]
+            else:
+                for th in sorted(scope, key=lambda x: x or ''):
+                    tf = [v for f, v in files.items() if file_theme(f) == th] if th else list(base.values())
+                    if th and not tf and th == 'light':
+                        tf = list(base.values())
+                    if th and not tf:
+                        msg = f'[data-theme="{th}"] sets --{name}{" in " + where if where else ""}, and no <ns>.{th}.tokens.json holds that theme'
+                        if msg not in unc:
+                            unc.append(msg)
+                        continue
+                    vals = [v[name] for v in tf if name in v] or [v[name] for v in base.values() if name in v] or [v[name] for v in files.values() if name in v]
+                    want.append(('the ' + (th + ' file' if th else 'base file'), vals))
+            for label, vals in want:
+                if any(not isinstance(v, str) for v in vals):
+                    continue
+                if _norm_value(value) not in {_norm_value(v) for v in vals}:
+                    msg = f"--{name}: {value.strip()}" + (f' (in {where})' if where else '') + f" but the token is {' / '.join(sorted(set(vals)))} ({label})"
+                    if msg not in out:
+                        out.append(msg)
+    return out, unc
 
 
 def used_vars(*htmls, sheets=()):
@@ -867,6 +966,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
     DESIGN_REL = (design or f'{requirements}/design').strip('/')
     dsn = root / DESIGN_REL
     ttable = token_table(root)
+    tfiles = token_files(root)
     tokens = ttable
     out, prds = [], find_prds(root, requirements)
     scans = {}
@@ -990,7 +1090,10 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             if not r['superseded']:
                 for u in unread:
                     out.append(line('UNREAD', f"{art.relative_to(root)}: {u}; its colours are not checked (info). Put the sheet under {PROJECT_SUBDIR}/ as a file and link it by a relative path"))
-                for tv in token_value_problems(html, loaded, ttable):
+                tvs, tuncs = token_value_problems(html, loaded, tfiles)
+                for tu in tuncs:
+                    out.append(line('UNCOMPARED', f"{art.relative_to(root)}: {tu}, so it is not compared (info)"))
+                for tv in tvs:
                     out.append(line('TOKEN-VALUE', f"{art.relative_to(root)}: {tv}; the Designer corrects the screen with the artifact tools (pull first), or the token if the token is what changed"))
             problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
             if r['waivers'] and problem:
