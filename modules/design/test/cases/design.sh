@@ -991,7 +991,7 @@ const copy = { label: "Order #1042" }; document.querySelector("#add"); location.
   _dm_has "$_dm_out" "the Designer corrects the screen with the artifact tools" || cf "(c) the line does not name the next act: the Designer corrects the screen with the artifact tools"
   _dm_has "$_dm_out" "change request" && cf "(c) the line still says to send a change request"
   grep -F 'never a colour literal' "$REAL_REPO_ROOT/modules/design/_claude/templates/design/CANVAS.template.md" >/dev/null || cf "(d) the Designer's spec template does not state the colour rule up front"
-  grep -F 'uncompared' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" >/dev/null && grep -F 'uncompared' "$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" >/dev/null || cf "(d) a release note does not name the verdict uncompared"
+  grep -F 'uncompared' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" >/dev/null && grep -F 'uncompared' "$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" "$REAL_REPO_ROOT/process/KIT-RELEASE-HISTORY.md" 2>/dev/null | grep . >/dev/null || cf "(d) a release note does not name the verdict uncompared"
   grep -iE 'colour literal.*(go red|fail|red)|(go red|fail).*colour' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" >/dev/null || cf "(d) the module's notes do not tell an upgrading project that screens with colour literals will go red"
   # the one escape: a recorded decision on the screen's registry row, which the register must hold with a current ruling
   _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" "s/| UX-003 | C.dc.html | t |/| UX-003 | C.dc.html | t [decision: $dn] |/"
