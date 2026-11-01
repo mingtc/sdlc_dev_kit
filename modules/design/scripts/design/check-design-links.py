@@ -63,8 +63,8 @@ Reports (each line starts with its class)
   TOKEN-VALUE   a custom property named for a token (`--color-primary` for `color.primary`; the name has no prefix, as the design tool
                 compiles it) that a screen, a :root rule or a sheet it loads declares with a value its token file does not give: the
                 :root block holds the token's value, so a different one is a second source of truth. The file is read from the selector:
-                `:root` (and `:host`) is held to the base files (<ns>.tokens.json), `[data-theme="x"]` to <ns>.x.tokens.json (`light`, the
-                design tool's first theme, to the base files unless a light file exists); a theme file that lacks the token leaves it to the
+                `:root` (and `:host`) is held to the base files (<ns>.tokens.json), `[data-theme="x"]` to <ns>.x.tokens.json (`light`, or a theme in a
+                rule with `:root` (the first theme, whatever it is named), to the base files unless it has a file of its own); a theme file that lacks the token leaves it to the
                 base files; any other selector, `:not()` included, to any file. A value written with var() or an alias, and a token whose
                 value is not a string, are not compared
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
@@ -706,8 +706,8 @@ def token_value_problems(markup, loaded, files):
             else:
                 for th in sorted(scope, key=lambda x: x or ''):
                     tf = [v for f, v in files.items() if file_theme(f) == th] if th else list(base.values())
-                    if th and not tf and th == 'light':
-                        tf = list(base.values())
+                    if th and not tf and (th == 'light' or None in scope):
+                        continue    # `light`, or a theme in a rule with :root, is the base: the :root half is compared with it
                     if th and not tf:
                         msg = f'[data-theme="{th}"] sets --{name}{" in " + where if where else ""}, and no <ns>.{th}.tokens.json holds that theme'
                         if msg not in unc:

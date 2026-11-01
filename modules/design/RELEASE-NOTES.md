@@ -13,10 +13,10 @@ any other heading are not read. Nothing here is read while the module is disable
   `./scripts/module.sh status design` says whether it holds, and `enable` refuses a project that lacks it. Without
   Python, the new pin-drift report prints a skip line and the gate row's command fails.
   Verify: python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'
-- **Screens that carry colour literals go red at the gate.** A project whose existing screens hold a colour literal
+- **Screens that carry colour literals, or token values, go red at the gate.** A project whose existing screens hold a colour literal
   (in a style, a style attribute, a presentation attribute, or a sheet or imported screen they load, other than as the value of a custom property
   named for a token, and other than as the `#hex` fallback of `var(--<token>, #hex)` equal to that token's value) fails
-  `check-design-links.py --strict` after the upgrade.
+  `check-design-links.py --strict` after the upgrade, and so does a custom property named for a token that holds another value than its token (`TOKEN-VALUE`).
   Run it first; for each finding the Designer corrects the screen with the artifact tools so it uses a token, or record a
   `[decision: D-NN]` in the screen's registry row (the entry must be in `requirements/DECISIONS.md` with a Ruling that is not WITHDRAWN).
 
@@ -41,7 +41,7 @@ any other heading are not read. Nothing here is read while the module is disable
   Upgrading replaces the block, or stages it for a merge if you edited it.
 - **The Designer authors the canvas itself.** It creates and updates the Claude Design canvas with the artifact tools, by the order in
   its role (list, compare shas, pull first, edit, send with `base_version`, read back by sha); no file or brief passes through a person.
-  A `warnings` entry on a publish is a stop. A plain comment on the canvas is invisible to the Designer: use Send to Claude. The
+  A `warnings` entry on a publish is a stop. A plain comment was invisible to the Designer on the claude-artifacts server (seen there only): use Send to Claude. The
   packaged `/design-pull` and `/design-publish` skills are not in this version. A colour literal's next act is the Designer
   correcting the screen; the Gate 1 wire review is a local render with `data-theme="wire"` or a separate board, since the page has no
   theme switch; no tool makes a PNG, so a human copies one (Copy as PNG, 2x) or an agent that holds the design runtime renders it.

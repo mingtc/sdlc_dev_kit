@@ -1266,6 +1266,17 @@ EOF
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "Main.dc.html" && _dm_has "$_dm_out" "#555555"; } || cf "(a5) a :root holding wire's value is not a TOKEN-VALUE (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_back
 
+  # a theme that shares a rule with :root is the base (the design tool's first theme can be named anything)
+  printf ':root, [data-theme="brand"] { --color-primary: #22577A; --color-surface: #FAF8F3; }\n' > "$D/sheets/tokens.css"
+  _dm_commit "the first theme is brand, in a rule with :root"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "UNCOMPARED"; } || cf "(a6) a theme sharing a rule with :root is called not compared although its :root half was (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  printf ':root, [data-theme="brand"] { --color-primary: #123456; --color-surface: #FAF8F3; }\n' > "$D/sheets/tokens.css"
+  _dm_commit "a wrong value in that rule"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^TOKEN-VALUE')" = 1 ] && _dm_has "$_dm_out" "#22577A"; } || cf "(a6b) a wrong value in a rule shared by :root and a first theme is not one TOKEN-VALUE against the base file (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_back
+
   # (b) D2: a new state is not a change of the pinned states
   _dm_settings 1 insert
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|Main.dc.html|list, empty|PRD-001-F1-S1|open|open' 'UX-002|Settings.dc.html|idle, paused|PRD-001-F1-S2|open|open' 'UX-003|Timer.dc.html|idle|PRD-001-F1-S1|open|open'
