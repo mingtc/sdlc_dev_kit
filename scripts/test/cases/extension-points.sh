@@ -245,7 +245,7 @@ case_the_movers_role_refusal_says_the_trunk_was_not_read_when_the_sync_was_offli
 #   (a) online, (b) offline, (c) once the role is on the trunk the same call is accepted.
 #   Each case sets the project's relative hooksPath, which is what makes the hook read the worktree.
 # =============================================================================
-_ru_n=0 _ru_rc=0 _ru_out="" _ru_id=""
+_ru_n=0 _ru_rc=0 _ru_out="" _ru_id="" _ru_role="Zebra"
 _ru_run() {  # <env/cmd...> -> _ru_rc, _ru_out; the refusal record is in $SB_TMP/ru-rec-N
   _ru_n=$((_ru_n + 1)); _ru_rc=0
   _ru_out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/ru-rec-$_ru_n" "$@" 2>&1 )" || _ru_rc=$?
@@ -332,7 +332,8 @@ case_subtask_move_refuses_a_role_only_the_checkout_declares_before_it_writes() {
   git -C "$SB_WORK" config core.hooksPath scripts/githooks >/dev/null 2>&1
   _ru_run ./scripts/subtask.sh new "$_ru_id" s1 slice --title "A slice"
   [ "$_ru_rc" -eq 0 ] || _fixture_die "case_subtask_move_refuses_a_role_only_the_checkout_declares_before_it_writes: minting the slice exited $_ru_rc: $_ru_out"
-  _ru_phases subtask.sh-move _ru_submove_untouched _ru_submove_done ./scripts/subtask.sh move "$_ru_id-s1" in_progress --role Zebra --note x
+  # The role is a variable: case_role_literals_are_declared reads `--role <Name>` literals as roles the sandbox declares.
+  _ru_phases subtask.sh-move _ru_submove_untouched _ru_submove_done ./scripts/subtask.sh move "$_ru_id-s1" in_progress --role "$_ru_role" --note x
   finish "$L"
   teardown
 }
