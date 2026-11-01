@@ -93,7 +93,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
   `history/`, each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (`[+design-drift]`; the last means
   something could not be compared, and the line says what: it is never `clean`). A state is compared by
-  its artboard and the tokens it uses, per state when the artboard marks its branches with `data-state`, else per file. A
+  its artboard, the tokens it uses and the local files it loads (stylesheets, scripts, images, through `@import`), per state when the
+  artboard marks its branches with `data-state`, else per file; the pinned state's branches and everything outside all branches must
+  be identical, or the line says `drift`. A
   `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
 - **A pinned card is never re-targeted.** A change to a pinned state needs a `D-NN`, which the Designer raises with
   `scripts/ask.sh` and then proceeds; a later design change is new work. An element added to a pinned state is a change; a
@@ -117,8 +119,10 @@ One artifact per screen; a `wire` token theme renders the same source as a greys
 screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
 carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
 token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
-in a screen's styles, presentation attributes or script, outside the `:root` block, is a `LITERAL-COLOUR` finding of the link check and
-fails the gate; the `:root` block is exempt. The way out is a change request through the brief, which the human carries to the design
+in a screen's style blocks, style attributes, presentation attributes or a local stylesheet it links, outside a `:root` rule, is a
+`LITERAL-COLOUR` finding of the link check and fails the gate; `:root` rules (also `:root[...]` and `:root, :host`) are exempt, and
+a sheet that only defines tokens in `:root` passes. A colour name (`red`) is not caught. A colour in the component script is shown
+as a `SCRIPT-COLOUR` line and never fails the gate: a script is code and copy and cannot be read as CSS. The way out is a change request through the brief, which the human carries to the design
 tool's agent; the screen is not edited by hand. The one exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
 row (its title cell), the same marker and the same register as a card's waiver on its `design:` line, the D-NN an entry of
 `requirements/DECISIONS.md` with a current ruling. A token change on a screen is a request the human carries to the design tool's agent.

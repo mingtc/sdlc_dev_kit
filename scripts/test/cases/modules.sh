@@ -770,6 +770,12 @@ case_the_manifest_keys_for_fragments_move_checks_and_cell_checks_place_and_refus
 # AND IT ENABLES AND DISABLES BACK TO THE BYTES IT FOUND.
 #   Derived from modules/*/module.manifest, so a module added later is judged without a case of its own for this.
 # =============================================================================
+# _md_tool_here <requirement id> — status 0 when the tool is on PATH; python3 also needs 3.9 or later (the floor the shipped modules ask), so an
+# older python behind the name counts as absent.
+_md_tool_here() {
+  command -v "$1" >/dev/null 2>&1 || return 1
+  [ "$1" != python3 ] || python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1
+}
 case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
   cf_reset
   local L="each module under modules/ has a manifest whose name is its directory, a row in modules/README.md (a row may outlive a deleted directory), and enables and disables in a sandbox to the bytes it found, with every recorded thing intact in between"
@@ -797,7 +803,7 @@ case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly() {
         # legitimate only when a tool the manifest requires (a `requires:` id) is really absent here; a check that fails with every tool present is the module's defect
         absent=""
         for id in $(sed -n -E 's/^requires:[[:space:]]*([a-z0-9][a-z0-9._-]*) \|.*\| required[[:space:]]*$/\1/p' "$REAL_REPO_ROOT/modules/$name/module.manifest"); do
-          command -v "$id" >/dev/null 2>&1 || absent="$absent $id"
+          _md_tool_here "$id" || absent="$absent $id"
         done
         if [ -n "$absent" ]; then skipped="${skipped}${skipped:+, }$name"; continue; fi
         cf "($name) enable refused a required requirement although every tool it names is present: its check fails on this machine"; continue

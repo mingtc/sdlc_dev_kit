@@ -13,6 +13,10 @@ any other heading are not read. Nothing here is read while the module is disable
   `./scripts/module.sh status design` says whether it holds, and `enable` refuses a project that lacks it. Without
   Python, the new pin-drift report prints a skip line and the gate row's command fails.
   Verify: python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'
+- **Screens that carry colour literals go red at the gate.** A project whose existing screens hold a colour literal outside a `:root` rule
+  (in a style, a style attribute, a presentation attribute or a local stylesheet) fails `check-design-links.py --strict` after the upgrade.
+  Run it first; for each finding send a change request through the brief so the design tool's agent uses a token, or record a
+  `[decision: D-NN]` in the screen's registry row (the entry must be in `requirements/DECISIONS.md` with a Ruling that is not WITHDRAWN).
 
 ### Added
 
@@ -20,14 +24,14 @@ any other heading are not read. Nothing here is read while the module is disable
   directions (an uncovered `(UI)` AC, an unresolved citation, a row citing no story, a stale `Design: pending`, a stale or
   sha-less approval, a card's malformed `design:` value) and, with `--leaving <card>`, what a card leaving `todo/` owes: a pin, a
   commit that resolves and holds the screen, an approved row that still holds, or a `[decision: D-NN]` waiver on its `design:`
-  line that `requirements/DECISIONS.md` confirms. A colour literal outside a screen's `:root` block is a finding unless the screen's registry row carries a `[decision: D-NN]` the register holds.
+  line that `requirements/DECISIONS.md` confirms. A colour literal outside a `:root` rule, in a style, a style attribute, a presentation attribute or a local stylesheet a screen links, is a finding unless the screen's registry row carries a `[decision: D-NN]` the register holds; a colour in the component script is a report line.
   It reads the PRD prefix from `scripts/config.sh` and refuses rather than report on no PRDs.
   `prd-view.py` lists the screens and states one PRD reaches, `flow-from-links.py` derives the screen-flow graph from the
   artboards' links, and `pin-drift.py` compares each pinned state with HEAD. A PRD or story with no `**UI:**` line reads as
   none declared and gets an info line, not a finding.
 - **The pin-drift report.** `check-board.sh` prints `[+design-drift]`: for every card past `todo/` and not landed or declined,
   each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (it could not tell, and says why: never
-  `clean`), by its artboard and the tokens it uses. It reports and decides nothing. A screen names a token's custom property by the token's path with hyphens for dots.
+  `clean`), by its artboard, the tokens it uses and the local files it loads (stylesheets, scripts, images, through `@import`); a missing local file, a `var()` naming no token or a mark the row does not list gives `uncompared`. It reports and decides nothing. A screen names a token's custom property by the token's path with hyphens for dots.
 
 ### Changed
 

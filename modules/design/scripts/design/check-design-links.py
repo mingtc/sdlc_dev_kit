@@ -53,20 +53,24 @@ Reports (each line starts with its class)
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
                 approved gate cell whose file is not there
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
-  LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style, a presentation attribute or its
-                component script, outside its :root block (where a screen holds its tokens' values, so it is exempt), unless the
-                screen's registry row carries a `[decision: D-NN]` waiver the register confirms. The way out is a change request
-                through the brief to the design tool's agent
-  WAIVER        a waiver citing a D-NN the register has no entry for, or that is WITHDRAWN, or no register to check
+  LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style block, a style attribute, a
+                presentation attribute or a local stylesheet it links (comments, strings and url() left out), outside a :root rule
+                (where a screen holds its tokens' values, so it is exempt), unless the screen's registry row carries a
+                `[decision: D-NN]` waiver the register confirms. Colour names (`red`) are not caught. The way out is a change
+                request through the brief to the design tool's agent. A `superseded` row is not read for colours
+  WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
+                heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
 Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
+  SCRIPT-COLOUR a colour-looking string in the component script: a script cannot be read as CSS, so this is shown, never counted
   UNCLASSIFIED  a PRD with no `UI:` line in any story ("not design-classified"), or the stories of a PRD that has some and these
                 lack it. A story with no `UI:` line reads as none declared
 Python 3 standard library only.
 """
-import argparse, re, subprocess, sys
+import argparse, html as htmllib, posixpath, re, subprocess, sys
 from pathlib import Path
+from urllib.parse import unquote
 
 PRD_PREFIX = 'PRD'
 CITE = re.compile(r'\[design:\s*([^\]]+)\]')
@@ -83,18 +87,27 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 
 META = re.compile(r' data-stories="[^"]*"')
-ROOT_BLOCK = re.compile(r':root\s*\{[^}]*\}')
+# a rule whose selectors are only :root or :host, with attribute selectors, in any case: where a screen holds its tokens' values
+ROOT_BLOCK = re.compile(r'(?i)(?<![\w-])(?::root|:host)(?:\s*\[[^\]]*\])*(?:\s*,\s*(?::root|:host)(?:\s*\[[^\]]*\])*)*\s*\{[^}]*\}')
 HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
 STYLE_BLOCK = re.compile(r'<style\b[^>]*>(.*?)</style>', re.S | re.I)
-STYLE_ATTR = re.compile(r'\bstyle\s*=\s*(["\'])(.*?)\1', re.S | re.I)
-PRES_ATTR = re.compile(r'\b(?:fill|stroke|stop-color|flood-color|lighting-color|color|bgcolor)\s*=\s*(["\'])(.*?)\1', re.S | re.I)
 SCRIPT_BLOCK = re.compile(r'<script\b.*?</script>', re.S | re.I)
+SCRIPT_BODY = re.compile(r'(<script\b[^>]*>).*?</script>', re.S | re.I)
+TAG = re.compile(r'<\s*([A-Za-z][\w:-]*)([^<>]*)>')
+ATTR = re.compile(r'(?<![\w:.-])([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+))')
+CSS_COMMENT = re.compile(r'/\*.*?\*/', re.S)
+CSS_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'')
+CSS_URL = re.compile(r'url\(\s*[^)]*\)', re.I)
+CSS_IMPORT = re.compile(r'@import\s+(?:url\(\s*)?(?:"([^"]*)"|\'([^\']*)\'|([^\s"\');]+))', re.I)
+CSS_URLREF = re.compile(r'url\(\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\')]+))\s*\)', re.I)
+PRESENTATION = ('fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color', 'bgcolor', 'background')
 COLOUR_FN = re.compile(r'(?<![\w.-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(', re.I)
-COLOUR_HEX = re.compile(r'(?<![\w&#])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])')
+COLOUR_HEX = re.compile(r'#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])')
+JS_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'|`[^`]*`')
 
 
 def line(cls, msg):
@@ -201,30 +214,121 @@ def approval_problems(root, r, gates=None):
     return out
 
 
-def colour_regions(html):
-    """The text of an artboard in which a colour literal is a colour: style blocks (their declarations), style attributes,
-    presentation attributes and scripts. Outside them `#1042` is copy. The :root block is dropped first: it is exempt."""
-    h = ROOT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', html))
-    regions = []
-    for m in STYLE_BLOCK.finditer(h):
-        regions += [b.group(1) for b in re.finditer(r'\{([^{}]*)\}', m.group(1))]
-    regions += [m.group(2) for m in STYLE_ATTR.finditer(h)]
-    regions += [m.group(2) for m in PRES_ATTR.finditer(h)]
-    regions += [m.group(0) for m in SCRIPT_BLOCK.finditer(h)]
-    return regions
+def tags_of(markup):
+    """[(tag name, {attribute: value})] of the start tags of markup, comments and script bodies left out, attributes in any quoting."""
+    h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
+    return [(m.group(1).lower(), {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(2))}) for m in TAG.finditer(h)]
 
 
-def literal_colours(html):
-    """The colour literals of an artboard outside its :root block, in order, once each. A `#name` after href=" or url( is a reference."""
-    found = []
-    for reg in colour_regions(html):
-        for m in list(COLOUR_FN.finditer(reg)) + list(COLOUR_HEX.finditer(reg)):
-            if reg[max(0, m.start() - 6):m.start()].endswith(('href="', "href='", 'url(', "url('", 'url("')):
-                continue
-            tok = m.group(0)
-            if tok not in found:
-                found.append(tok)
+def ref_path(href):
+    """The path part of a reference to a file, %-decoded, or None when it names none: empty, a fragment, a URL with a scheme or `//`
+    (remote, data:, mailto:). A remote reference is not a gap in a comparison: a changed one changes the artboard's own bytes."""
+    h = htmllib.unescape(href.strip()).split('#')[0].split('?')[0]
+    if not h or re.match(r'^([A-Za-z][A-Za-z0-9+.-]*:|//)', h):
+        return None
+    return unquote(h)
+
+
+def css_refs(css):
+    css = CSS_COMMENT.sub(' ', css)
+    return [next(g for g in m.groups() if g) for rx in (CSS_IMPORT, CSS_URLREF) for m in rx.finditer(css) if any(m.groups())]
+
+
+def refs_in(text, css=False):
+    """Every reference to a file that an artboard (or, with css, a stylesheet) makes: <link href>, <script src>, <img src> and the other
+    src tags, @import and url() in a style block, a style attribute or a sheet, in any quoting. One function for every reader."""
+    if css:
+        return css_refs(text)
+    out = []
+    for tag, at in tags_of(text):
+        if tag == 'link':
+            out.append(at.get('href', ''))
+        elif tag in ('image', 'use'):
+            out.append(at.get('href', '') or at.get('xlink:href', ''))
+        elif tag in ('script', 'img', 'source', 'video', 'audio', 'iframe', 'embed', 'track', 'input'):
+            out.append(at.get('src', ''))
+        out += css_refs(at.get('style', ''))
+    for m in STYLE_BLOCK.finditer(HTML_COMMENT.sub(' ', text)):
+        out += css_refs(m.group(1))
+    return [o for o in out if o]
+
+
+def css_values(css):
+    """The declaration text of CSS: selectors, comments, strings, url() and :root rules removed, so what is left can hold a colour."""
+    css = CSS_URL.sub(' ', ROOT_BLOCK.sub(' ', CSS_COMMENT.sub(' ', css)))
+    css = CSS_STRING.sub('""', css)
+    parts = re.split(r'([{};])', css)
+    return ' ; '.join(parts[i] for i in range(0, len(parts), 2) if (parts[i + 1] if i + 1 < len(parts) else '') != '{')
+
+
+def colours_in(text):
+    """The colour literals (#hex, rgb(), hsl(), oklch() ...) in declaration text; a function that reads var() is a token, not a literal.
+    Colour names (`red`) are not caught."""
+    found = [m.group(0) for m in COLOUR_HEX.finditer(text)]
+    for m in COLOUR_FN.finditer(text):
+        depth, j = 0, m.end() - 1
+        while j < len(text):
+            depth += (text[j] == '(') - (text[j] == ')')
+            if depth == 0:
+                break
+            j += 1
+        if 'var(' not in text[m.end():j].lower():
+            found.append(m.group(0))
     return found
+
+
+def markup_css(markup):
+    """The CSS declaration texts of an artboard: style blocks, style attributes, presentation attributes. A script is not CSS."""
+    h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', markup))
+    out = [css_values(m.group(1)) for m in STYLE_BLOCK.finditer(h)]
+    for tag, at in tags_of(h):
+        if 'style' in at:
+            out.append(css_values('a{' + at['style'] + '}'))
+        out += [css_values('a{' + k + ':' + at[k] + '}') for k in PRESENTATION if k in at]
+    return out
+
+
+def literal_colours(markup, sheets=()):
+    """The colour literals of an artboard outside its :root block, in order, once each: its styles and presentation attributes, then
+    the local sheets it links (`sheets` is [(name, css text)]), a literal there marked `(in <name>)`."""
+    found = []
+    for css in markup_css(markup):
+        found += [c for c in colours_in(css) if c not in found]
+    for name, text in sheets:
+        found += [f'{c} (in {name})' for c in colours_in(css_values(text)) if f'{c} (in {name})' not in found]
+    return found
+
+
+def script_colours(markup):
+    """Colour-looking strings in the component script. A script is code and copy, and cannot be read without a JavaScript parser, so this
+    is a report line and never a finding."""
+    out = []
+    for m in SCRIPT_BLOCK.finditer(HTML_COMMENT.sub(' ', markup)):
+        body = re.sub(r'(?m)/\*.*?\*/|(?<![:\w"\'])//[^\n]*', ' ', m.group(0), flags=re.S)
+        for lit in JS_STRING.findall(body):
+            out += [c for c in colours_in(lit) if c not in out]
+    return out
+
+
+def local_sheets(root, art, markup):
+    """[(name, css text)] of the local stylesheets an artboard links or @imports, through sheets that import sheets, as read on disk."""
+    seen, out, queue = set(), [], [(art.parent, h) for h in refs_in(markup)]
+    while queue and len(seen) < 40:
+        base, href = queue.pop(0)
+        rel = ref_path(href)
+        if rel is None or rel.startswith('/'):
+            continue
+        f = Path(posixpath.normpath(str(base / rel)))
+        if f in seen or not f.suffix.lower() == '.css' or not f.is_file():
+            continue
+        seen.add(f)
+        text = read(f)
+        try:
+            out.append((f.relative_to(root).as_posix(), text))
+        except ValueError:
+            continue
+        queue += [(f.parent, h) for h in css_refs(text)]
+    return out
 
 
 def split_row(ln):
@@ -279,7 +383,7 @@ def parse_registry(text, label, canvas):
     return rows, problems
 
 
-FENCE_OPEN = re.compile(r'^\s*(`{3,}|~{3,})')
+FENCE_OPEN = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
 
 
 def fence_scan(text):
@@ -289,11 +393,11 @@ def fence_scan(text):
     for n, ln in enumerate(text.splitlines(), 1):
         m = FENCE_OPEN.match(ln)
         if marker is None:
-            if m:
+            if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
                 marker, opened = m.group(1), n
             else:
                 out.append((n, ln))
-        elif m and m.group(1)[0] == marker[0] and len(m.group(1)) >= len(marker) and ln.strip() == m.group(1):
+        elif m and m.group(1)[0] == marker[0] and len(m.group(1)) >= len(marker) and not m.group(2).strip():
             marker, opened = None, None
     return out, opened
 
@@ -386,16 +490,24 @@ def design_value(text):
 
 
 def register_ids(root, requirements):
-    """{D-NN: has a current ruling} for the entries of <requirements>/DECISIONS.md (`### D-NN` headings; an entry whose Ruling
-    field opens WITHDRAWN has none), or None when there is no register."""
+    """{D-NN: has a current ruling} for the entries of <requirements>/DECISIONS.md, or None when there is no register. An entry is a
+    `### D-NN` heading with a `**Ruling.**` field, outside code fences and HTML comments; the field's head is read as the kit's
+    kit_ruling_state reads it (leading backticks, `*`, `_` and spaces skipped): WITHDRAWN there means no current ruling."""
     f = Path(root) / requirements / 'DECISIONS.md'
     if not f.is_file():
         return None
-    entries = {}
-    for part in re.split(r'(?m)^(?=#{2,3} )', read(f)):
-        m = re.match(r'### (D-\d+)', part)
-        if m:
-            entries[m.group(1)] = not re.search(r'(?m)^\*\*Ruling\.\*\*\s*WITHDRAWN\b', part)
+    lines = [ln for _, ln in fence_scan(HTML_COMMENT.sub(lambda m: '\n' * m.group(0).count('\n'), read(f)))[0]]
+    entries, cur, ruling = {}, None, None
+    for ln in lines + ['### END']:
+        m = re.match(r'### (D-\d+)\b', ln)
+        if m or ln.startswith('### ') or ln.startswith('## '):
+            if cur and ruling is not None:
+                entries[cur] = not re.sub(r'^[`*_ \t]*', '', ruling).startswith('WITHDRAWN')
+            cur, ruling = (m.group(1) if m else None), None
+        elif cur and ruling is None:
+            rm = re.match(r'\*\*Ruling\.\*\*(.*)$', ln)
+            if rm:
+                ruling = rm.group(1)
     return entries
 
 
@@ -525,13 +637,15 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-stories"))
             elif set(ms.group(1).split()) != set(r['stories']):
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(ms.group(1).split())} != registry {sorted(r['stories'])}"))
-            lits = literal_colours(html)
-            if lits:
-                problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
-                if problem:
-                    out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} outside :root; send a change request through the brief, do not edit the screen"))
-                    if r['waivers']:
-                        out.append(line('WAIVER', f"{r['where']}: {problem}"))
+            lits = [] if r['superseded'] else literal_colours(html, local_sheets(root, art, html))
+            problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
+            if r['waivers'] and problem:
+                out.append(line('WAIVER', f"{r['where']}: {problem}"))
+            if lits and problem:
+                out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} outside :root; send a change request through the brief, do not edit the screen"))
+            sc = script_colours(html)
+            if sc:
+                out.append(line('SCRIPT-COLOUR', f"{art.relative_to(root)}: {', '.join(sc[:4])}{' ...' if len(sc) > 4 else ''} in the component script (report only: a script cannot be read as CSS)"))
         elif any(v.startswith('approved') for v in r['gates'].values()):
             out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there"))
 
