@@ -55,7 +55,7 @@ makes the sign-in call (`list_artifacts`) first, and ends with a `Next:` when yo
 diff and to approve, and to carry nothing. The pull compares shas from one list, reads only what differs one path at a time and verifies each, runs
 `scripts/design/normalise-canvas.py` (a page save re-serialises `canvas.json` and a board's `data-props` without a value moving; it gives them the spelling an agent writes), resolves each
 sent comment's anchor with `scripts/design/resolve-anchor.py` against the whole board set, lays the pull over `project/` uncommitted so the link check reads the pulled files, shows its output and the diff and commits only on the go-ahead (a "no" puts `project/` back). The publish refuses a canvas that moved since the last pull, sends only
-what changed with the version the check used, stops on a `warnings` entry or a 409 over a person's edit, reads back by sha, and only then answers and resolves the threads.
+what changed with the version the check used, reads a `warnings` entry against the manifest and stops on an edit it never pulled or a 409 over a person's edit, reads back by sha, and only then answers and resolves the threads.
 
 ### Creating a canvas
 
@@ -75,7 +75,7 @@ what changed with the version the check used, stops on a `warnings` entry or a 4
 4. **Edit** the local files.
 5. **Send** with `base_version: V`, `mode: "patch"`, only the files you changed; `canvas.json` only when the layout changes, re-read
    right before. Steps 2 and 5 share `V`, so the server refuses a write that landed between them.
-6. **Read the result.** A `warnings` entry is a stop (§ Conflicts).
+6. **Read the result.** A `warnings` entry is read against the manifest (§ Conflicts): an edit you never pulled stops you.
 7. **Read back.** `list_files`: every sent file's sha equals yours, every unsent one's equals the manifest. Record the new
    `version` and manifest in `CANVAS.md`. An unsent file whose sha differs was changed by someone since step 1: pull it (step 3) and
    show the human the diff before anything else. After `edit_version` no local bytes exist: read the file back and compare it with
@@ -251,7 +251,7 @@ Today I need help with: <task>
    too. A size or font literal where a token exists is for you to catch: no tool checks it. Add the token, then correct the screen
    with the artifact tools. Only a `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour.
 9. **Pulls before it publishes, and reads back.** Every change follows § The canvas in order; a `warnings` entry on a publish
-   stops the work until the human has been told which files were replaced.
+   that names a file whose edit was never pulled stops the work until the human has been told which files were replaced.
 10. **Never moves a card or lands code.** Board moves are PM, Dev and QA.
 
 ## Taking the canvas in

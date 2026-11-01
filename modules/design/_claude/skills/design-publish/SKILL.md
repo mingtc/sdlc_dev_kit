@@ -1,6 +1,6 @@
 ---
 name: design-publish
-description: Use when the Designer must send repo changes to the Claude Design canvas — a new or changed screen, a sheet, canvas.json. Refuses unless the canvas still equals the last pull, sends only the files that changed with the version the check used, stops on any warning, reads back by sha, then answers and resolves the threads it addressed.
+description: Use when the Designer must send repo changes to the Claude Design canvas — a new or changed screen, a sheet, canvas.json. Refuses unless the canvas still equals the last pull, sends only the files that changed with the version the check used, reads a warning against the manifest and stops on an edit it never pulled, reads back by sha, then answers and resolves the threads it addressed.
 argument-hint: "<canvas folder under requirements/design/>"
 ---
 <!-- KIT-CLASS: KIT — the design module's publish skill: the Designer's order for sending to the canvas, with the guards that make a stale send impossible to miss. Placed by `scripts/module.sh enable design`. See process/EXTRACTION.md. -->
@@ -63,6 +63,7 @@ A: `publish_files <slug>` with `base_version: V` (the version from step 2, not a
   that save. Compare each file it names with what step 2 listed, and with the manifest.
   - **Its listed sha equals the manifest's canvas sha:** the person's edit was pulled before you sent, and your change sits on top of it. Tell the human exactly
     that, restore nothing, and go to step 6.
+  - **A file the human named to restore (step 2):** that is what they asked for. Say that you replaced the canvas's edit of it as they said, restore nothing, and go to step 6.
   - **Any other file, or one the manifest lacks: stop.** You replaced an edit you never pulled. Tell the human which files. The tool will not copy an earlier version
     back: if `CANVAS.md`'s `Last pull` commit holds the bytes, restore them and say so; if not, ask the human.
 - A third refusal: tell the human and stop.

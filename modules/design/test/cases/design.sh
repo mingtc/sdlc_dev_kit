@@ -3175,7 +3175,7 @@ case_the_design_skills_state_their_surface_and_carry_the_guards_and_are_placed_w
     done
   done
   f="$SB_WORK/.claude/skills/design-pull/SKILL.md"
-  for tok in 'list_files' 'sha256' 'shasum -a 256' 'one path a call' 'normalise-canvas.py' 'resolve-anchor.py' 'read_comments' 'Send to Claude' 'invisible' 'go-ahead' 'Last pull' 'canvas sha' 'repo sha' 'You publish nothing here' 'acknowledgement, not the change' 'proves nothing' 'a size proves nothing' 'git status --porcelain' 'rm -rf .cache/design/pull' 'limit: 1' 'Last publish' 'thread' 'plain `rm`'; do
+  for tok in 'list_files' 'sha256' 'shasum -a 256' 'one path a call' 'normalise-canvas.py' 'resolve-anchor.py' 'read_comments' 'Send to Claude' 'invisible' 'go-ahead' 'Last pull' 'canvas sha' 'repo sha' 'You publish nothing here' 'acknowledgement, not the change' 'proves nothing' 'a size proves nothing' 'git status --porcelain' 'rm -rf .cache/design/pull' 'limit: 1' 'Last publish' 'thread' 'plain `rm`' 'BOTH-SIDES' 'do not place' 'invisible to the link check' 'wait'; do
     grep -F -- "$tok" "$f" >/dev/null || cf "(d) design-pull does not carry '$tok'"
   done
   f="$SB_WORK/.claude/skills/design-publish/SKILL.md"
@@ -3241,17 +3241,12 @@ case_the_manifest_declares_the_claude_code_floor_and_the_login_and_the_skills_ma
 #   (the listing's path, project/<file>). The expected answers are fixed here: the sheet is normalised, the literal is a finding only once the files are in
 #   place, an unchanged board's anchor resolves, a changed board's anchor resolves, and "no" puts project/ back byte for byte.
 # =============================================================================
-_dm_fence() { awk -v l="$2" '$0 == "```sh " l { f = 1; next } f && /^```$/ { exit } f { print }' "$1"; }   # <skill> <label> — the lines of that block
-_dm_sh() { _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PYTHONDONTWRITEBYTECODE=1 bash -c "$1" 2>&1 </dev/null )" || _dm_rc=$?; }
-case_the_pull_skill_walked_over_a_real_pulls_shape_checks_the_pulled_files_resolves_anchors_on_the_whole_set_and_undoes() {
-  cf_reset
-  local L="the design-pull skill's own shell blocks, run over a real pull's shape, empty the pull folder, normalise project/canvas.json in it, find a colour literal only after the pull is laid over project/ (and not before), resolve the anchor of an unchanged board and of a changed one, and restore project/ byte for byte on a no"
-  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
-  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
-  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+# _dm_pull_fixture — the module enabled in a sandbox with a real pulled canvas (three boards, sheets, tokens, registry, PRD) committed as the last pull, its manifest in CANVAS.md;
+# $SB_TMP/Timer.before holds the last pull's Timer.
+_dm_pull_fixture() {
   _md_sandbox
   _md_mod enable design
-  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; return 1; }
   _dm_land "enable the design module"
   mkdir -p "$(dirname "$SB_WORK/requirements/design/steep/project/Main.dc.html")"
   cat > "$SB_WORK/requirements/design/steep/project/Main.dc.html" <<'EOF'
@@ -3626,13 +3621,27 @@ EOF
 | UX-002 | Timer.dc.html | Timer (phone) | phone | none | idle, done | PRD-001-F1-S2 | open | open |
 | UX-003 | Settings.dc.html | Settings (phone) | phone | none | default | PRD-001-F2-S1 | open | open |
 EOF
+  # the manifest the pull writes: one line per project file, canvas sha and repo sha (equal at a take-in)
+  ( cd "$SB_WORK/requirements/design/steep" && printf '\n## Manifest\n\n```\n' >> CANVAS.md && for f in $(find project -type f | sort); do
+      s="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$f")"; printf '%s %s %s\n' "$f" "$s" "$s" >> CANVAS.md; done; printf '```\n' >> CANVAS.md )
   _dm_commit "the last pull"
+  cp "$SB_WORK/requirements/design/steep/project/Timer.dc.html" "$SB_TMP/Timer.before"
+}
+
+_dm_fence() { awk -v l="$2" '$0 == "```sh " l { f = 1; next } f && /^```$/ { exit } f { print }' "$1"; }   # <skill> <label> — the lines of that block
+_dm_sh() { _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PYTHONDONTWRITEBYTECODE=1 bash -c "$1" 2>&1 </dev/null )" || _dm_rc=$?; }
+case_the_pull_skill_walked_over_a_real_pulls_shape_checks_the_pulled_files_resolves_anchors_on_the_whole_set_and_undoes() {
+  cf_reset
+  local L="the design-pull skill's own shell blocks, run over a real pull's shape, empty the pull folder, normalise project/canvas.json in it, find a colour literal only after the pull is laid over project/ (and not before), resolve the anchor of an unchanged board and of a changed one, and restore project/ byte for byte on a no"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
   local sk="$SB_WORK/.claude/skills/design-pull/SKILL.md" b pj="$SB_WORK/.cache/design/pull/project"
-  for b in start normalise place check anchor undo; do
+  for b in start normalise both row gone place check anchor drop undo; do
     [ -n "$(_dm_fence "$sk" "$b")" ] || cf "(a) design-pull has no fenced \`\`\`sh $b block"
   done
   blk() { _dm_fence "$sk" "$1" | sed "s|<canvas>|steep|g; s|<board>#<n>:<path>|${2:-}|g"; }   # <label> [<anchor>]
-  cp "$SB_WORK/requirements/design/steep/project/Timer.dc.html" "$SB_TMP/Timer.before"
   _dm_sh 'git status --porcelain requirements/design/steep'
   [ -z "$_dm_out" ] || cf "(prereq) the fixture is not committed: $_dm_out"
   # (b) step 4 starts from an empty pull folder, however full the last one was
@@ -3765,6 +3774,143 @@ EOF
   _dm_sh 'git status --porcelain requirements/design/steep'
   [ -z "$_dm_out" ] || cf "(f) the undo block leaves project/ changed: $_dm_out"
   cmp -s "$SB_TMP/Timer.before" "$SB_WORK/requirements/design/steep/project/Timer.dc.html" || cf "(f) Timer is not the last pull's after the undo"
+  finish "$L"
+  teardown
+}
+
+# _dm_pull_walk <label> [<sed expression>] — the design-pull skill's shell block of that label, <canvas> read as steep, then the expression.
+_dm_pull_walk() { _dm_fence "$SB_WORK/.claude/skills/design-pull/SKILL.md" "$1" | sed "s|<canvas>|steep|g${2:+; $2}"; }
+
+# =============================================================================
+# CASE — A DECLINED PULL THAT HELD A DELETION LEAVES THE MANIFEST AND THE TREE AS THEY WERE; AN ACCEPTED ONE DROPS THE LINE AT THE TAKE-IN.
+#   Operand: the pull skill's gone, undo and drop blocks over the real pulled project, Settings gone from the canvas. The expected answers are fixed
+#   here: the removal touches the board file only (not CANVAS.md), the undo returns a clean tree with the manifest line still there (so the next publish
+#   does not send the board back as repo-only), and the drop block removes exactly that line and leaves no backup file.
+# =============================================================================
+case_the_pull_skill_walked_with_a_deletion_declined_leaves_the_manifest_and_accepted_drops_its_line() {
+  cf_reset
+  local L="the design-pull skill's gone block removes the board file and leaves CANVAS.md alone, its undo block returns the tree and the manifest line exactly, and its drop block (after the go-ahead) removes that one manifest line and leaves no .bak"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local c="$SB_WORK/requirements/design/steep/CANVAS.md" n0 sub='s|<path>|project/Settings.dc.html|g'
+  n0="$(grep -c '^project/' "$c")"
+  grep -F 'project/Settings.dc.html ' "$c" >/dev/null || cf "(prereq) the fixture's manifest has no Settings line"
+  _dm_sh "$(_dm_pull_walk gone "$sub")"
+  [ "$_dm_rc" -eq 0 ] || cf "(a) the gone block failed (exit $_dm_rc): $_dm_out"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  { printf '%s\n' "$_dm_out" | grep -F 'Settings.dc.html' >/dev/null && ! printf '%s\n' "$_dm_out" | grep -F 'CANVAS.md' >/dev/null; } || cf "(a) the gone block does not change the board file alone: $_dm_out"
+  _dm_sh "$(_dm_pull_walk undo)"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(b) after the undo the tree is not as it was: $_dm_out"
+  { [ -f "$SB_WORK/requirements/design/steep/project/Settings.dc.html" ] && [ "$(grep -c '^project/' "$c")" = "$n0" ]; } || cf "(b) the undo did not bring back the board and keep every manifest line"
+  # the accepted path: after the go-ahead the line goes, and only that line
+  _dm_sh "$(_dm_pull_walk gone "$sub")"
+  _dm_sh "$(_dm_pull_walk drop "$sub")"
+  [ "$_dm_rc" -eq 0 ] || cf "(c) the drop block failed (exit $_dm_rc): $_dm_out"
+  { ! grep -F 'project/Settings.dc.html ' "$c" >/dev/null && [ "$(grep -c '^project/' "$c")" = "$((n0 - 1))" ]; } || cf "(c) the drop block did not remove exactly the Settings line"
+  [ ! -e "$c.bak" ] || cf "(c) the drop block left $c.bak"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A FILE CHANGED ON BOTH SIDES IS NAMED BEFORE THE PULL IS LAID OVER IT, AND BOTH CHANGES ARE SHOWN.
+#   Operand: the pull skill's both and showboth blocks over the real pulled project, after a repo commit to Timer that the canvas lacks, with a pulled Timer.
+#   The expected answers are fixed here: the both block names project/Timer.dc.html and no other file; for a pull whose file the repo did not change it
+#   names nothing; the showboth block shows the repo's change (the commit's marker line) and the canvas's.
+# =============================================================================
+case_the_pull_skill_walked_over_a_file_changed_on_both_sides_names_it_and_shows_both_changes() {
+  cf_reset
+  local L="the design-pull skill's both block names a pulled file whose repo copy changed since the manifest and no file the repo left alone, and its showboth block shows the repo's change and the canvas's"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local pj="$SB_WORK/.cache/design/pull/project" t="$SB_WORK/requirements/design/steep/project/Timer.dc.html" base
+  base="$(git -C "$SB_WORK" rev-parse HEAD)"
+  # a pull that brings Timer and Settings while the repo has changed Timer alone
+  _dm_edit "$t" 's|<title>Timer</title>|<title>Timer REPO SIDE</title>|'
+  _dm_commit "the Designer changes Timer in the repo"
+  _dm_sh "$(_dm_pull_walk start)"
+  sed 's|<title>Timer</title>|<title>Timer CANVAS SIDE</title>|' "$SB_TMP/Timer.before" > "$pj/Timer.dc.html"
+  cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
+  _dm_sh "$(_dm_pull_walk both)"
+  { printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/Timer.dc.html' >/dev/null && [ "$(printf '%s\n' "$_dm_out" | grep -c BOTH-SIDES)" = 1 ]; } || cf "(a) the both block does not name Timer alone (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(_dm_pull_walk showboth "s|<base>|$base|g; s|<path>|project/Timer.dc.html|g")"
+  { _dm_has "$_dm_out" "REPO SIDE" && _dm_has "$_dm_out" "CANVAS SIDE"; } || cf "(b) the showboth block does not show the repo's change and the canvas's: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # a pull of a file the repo did not touch is not on both sides
+  _dm_sh "$(_dm_pull_walk start)"
+  cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
+  _dm_sh "$(_dm_pull_walk both)"
+  { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) the both block names a file the repo did not change (exit $_dm_rc): $_dm_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A NEW BOARD IN A PULL IS GIVEN ITS REGISTRY ROW BEFORE THE LINK CHECK, SO THE VERDICT COVERS IT, AND THE ROW GOES WITH THE UNDO.
+#   Operand: the pull skill's row, place, check and undo blocks over the real pulled project, with a pulled New board that holds a colour literal.
+#   The expected answers are fixed here: without its row the check does not name the literal (the blindness the row closes); with the row it does;
+#   the undo returns the tree and CANVAS.md byte for byte.
+# =============================================================================
+case_the_pull_skill_walked_with_a_new_board_registers_it_before_the_check_and_the_undo_removes_the_row() {
+  cf_reset
+  local L="the design-pull skill's row block puts a new board in the registry so that the check run after place names its colour literal (without the row it does not), and the undo block removes the row and the board byte for byte"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local pj="$SB_WORK/.cache/design/pull/project" c="$SB_WORK/requirements/design/steep/CANVAS.md" sub
+  sub='s|<ux>|UX-004|g; s|<file>|New.dc.html|g; s|<title>|New (phone)|g; s|<platform>|phone|g; s|<states>|default|g; s|<stories>|PRD-001-F2-S1|g'
+  cp "$c" "$SB_TMP/CANVAS.before"
+  _dm_sh "$(_dm_pull_walk start)"
+  cat > "$pj/New.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div id="ux-004-root" data-ux="UX-004" data-stories="PRD-001-F2-S1" style="width: 390px; height: 844px; color: #00ff00">
+<p id="ux-004-note" data-state="default">New</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
+EOF
+  # (a) with no row the check cannot see the board: its verdict is silent about the literal
+  _dm_sh "$(_dm_pull_walk place)"
+  _dm_sh "$(_dm_pull_walk check)"
+  _dm_has "$_dm_out" "#00ff00" && cf "(a) the check names the colour of a board that has no registry row: the control for the row block is void"
+  _dm_sh "$(_dm_pull_walk undo)"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(a) the undo leaves the tree changed: $_dm_out"
+  # (b) with its row, before the check, the verdict covers it
+  _dm_sh "$(_dm_pull_walk row "$sub")"
+  { [ "$_dm_rc" -eq 0 ] && grep -F '| UX-004 | New.dc.html |' "$c" >/dev/null; } || cf "(b) the row block did not add the UX-004 row to the registry (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(_dm_pull_walk place)"
+  _dm_sh "$(_dm_pull_walk check)"
+  { _dm_has "$_dm_out" "LITERAL-COLOUR" && _dm_has "$_dm_out" "#00ff00" && _dm_has "$_dm_out" "New.dc.html"; } || cf "(b) with its row the check does not name the new board's colour literal: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (c) the undo takes the board and the row away
+  _dm_sh "$(_dm_pull_walk undo)"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(c) the undo leaves the tree changed: $_dm_out"
+  cmp -s "$SB_TMP/CANVAS.before" "$c" || cf "(c) CANVAS.md is not as it was after the undo"
   finish "$L"
   teardown
 }
