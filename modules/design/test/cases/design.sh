@@ -3779,7 +3779,7 @@ EOF
 }
 
 # _dm_pull_walk <label> [<sed expression>] — the design-pull skill's shell block of that label, <canvas> read as steep, then the expression.
-_dm_pull_walk() { _dm_fence "$SB_WORK/.claude/skills/design-pull/SKILL.md" "$1" | sed "s|<canvas>|steep|g${2:+; $2}"; }
+_dm_pull_walk() { _dm_fence "$SB_WORK/.claude/skills/design-pull/SKILL.md" "$1" | sed "s|<canvas>|steep|g; s|<gone>|${_DM_GONE:-}|g${2:+; $2}"; }
 
 # =============================================================================
 # CASE — A DECLINED PULL THAT HELD A DELETION LEAVES THE MANIFEST AND THE TREE AS THEY WERE; AN ACCEPTED ONE DROPS THE LINE AT THE TAKE-IN.
@@ -3845,6 +3845,51 @@ case_the_pull_skill_walked_over_a_file_changed_on_both_sides_names_it_and_shows_
   cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
   _dm_sh "$(_dm_pull_walk both)"
   { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) the both block names a file the repo did not change (exit $_dm_rc): $_dm_out"
+  # (d) Timer is gone from the canvas while the repo changed it: the pull holds nothing, and the block still names it
+  _dm_sh "$(_dm_pull_walk start)"
+  _dm_sh "$(_DM_GONE=project/Timer.dc.html _dm_pull_walk both)"
+  printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/Timer.dc.html' >/dev/null || cf "(d) a file gone from the canvas that the repo changed is not named (exit $_dm_rc): $_dm_out"
+  # (e) a host with sha256sum and no shasum gives the same answers (the harness admits such a host)
+  local bin t2
+  bin="$(mktemp -d)"
+  for t2 in bash awk find sort cut sed cat ls rm mkdir cp; do command -v "$t2" >/dev/null 2>&1 && ln -s "$(command -v "$t2")" "$bin/$t2"; done
+  printf '#!/bin/sh\nexec /usr/bin/shasum -a 256 "$@"\n' > "$bin/sha256sum"; chmod +x "$bin/sha256sum"
+  _dm_sh "$(_dm_pull_walk start)"
+  sed 's|<title>Timer</title>|<title>Timer CANVAS SIDE</title>|' "$SB_TMP/Timer.before" > "$pj/Timer.dc.html"
+  cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
+  _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PATH="$bin" "$bin/bash" -c "$(_dm_pull_walk both)" 2>&1 </dev/null )" || _dm_rc=$?
+  rm -rf "${bin:?}"
+  { printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/Timer.dc.html' >/dev/null && [ "$(printf '%s\n' "$_dm_out" | grep -c BOTH-SIDES)" = 1 ]; } || cf "(e) with sha256sum and no shasum the both block does not name Timer alone: $_dm_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE UNDO OF A FIRST PULL, WHEN project/ TRACKS NOTHING YET, LEAVES NO ROW AND NO PULLED FILE.
+#   Operand: the pull skill's row, place and undo blocks over the real pulled project's record with its project/ files removed from the repository.
+# =============================================================================
+case_the_pull_skill_walked_as_a_first_pull_undoes_what_it_laid_with_nothing_tracked() {
+  cf_reset
+  local L="the design-pull skill's undo block, run after a first pull that laid a board and a registry row where project/ tracks nothing, leaves a clean tree and CANVAS.md as it was"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local pj="$SB_WORK/.cache/design/pull/project" c="$SB_WORK/requirements/design/steep/CANVAS.md" sub
+  sub='s|<ux>|UX-004|g; s|<file>|New.dc.html|g; s|<title>|New (phone)|g; s|<platform>|phone|g; s|<states>|default|g; s|<stories>|PRD-001-F2-S1|g'
+  git -C "$SB_WORK" rm -r -q requirements/design/steep/project >/dev/null 2>&1
+  _dm_commit "a canvas record that has taken nothing in yet"
+  cp "$c" "$SB_TMP/CANVAS.before"
+  _dm_sh "$(_dm_pull_walk start)"
+  printf '<!doctype html><x-dc><div id="ux-004-root" data-ux="UX-004" data-stories="PRD-001-F2-S1"></div></x-dc>\n' > "$pj/New.dc.html"
+  _dm_sh "$(_dm_pull_walk row "$sub")"
+  _dm_sh "$(_dm_pull_walk place)"
+  [ -f "$SB_WORK/requirements/design/steep/project/New.dc.html" ] || cf "(a) the place block did not lay the board"
+  _dm_sh "$(_dm_pull_walk undo)"
+  _dm_sh 'git status --porcelain requirements/design/steep'
+  [ -z "$_dm_out" ] || cf "(b) the undo of a first pull leaves the tree changed: $_dm_out"
+  cmp -s "$SB_TMP/CANVAS.before" "$c" || cf "(b) CANVAS.md is not as it was after the undo"
+  [ ! -e "$SB_WORK/requirements/design/steep/project/New.dc.html" ] || cf "(b) the pulled board is still there"
   finish "$L"
   teardown
 }
@@ -3911,6 +3956,22 @@ EOF
   _dm_sh 'git status --porcelain requirements/design/steep'
   [ -z "$_dm_out" ] || cf "(c) the undo leaves the tree changed: $_dm_out"
   cmp -s "$SB_TMP/CANVAS.before" "$c" || cf "(c) CANVAS.md is not as it was after the undo"
+  # (d) a canvas made on the page has a registry with no row yet: the row goes under the header and the verdict covers the board
+  grep -v '^| UX-[0-9]' "$SB_TMP/CANVAS.before" > "$c"
+  _dm_commit "a registry with no row"
+  _dm_sh "$(_dm_pull_walk row "$sub")"
+  { [ "$_dm_rc" -eq 0 ] && grep -F '| UX-004 | New.dc.html |' "$c" >/dev/null; } || cf "(d) the row block adds nothing to an empty registry (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(_dm_pull_walk place)"
+  _dm_sh "$(_dm_pull_walk check)"
+  _dm_has "$_dm_out" "#00ff00" || cf "(d) with the row in an empty registry the check does not name the literal: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_sh "$(_dm_pull_walk undo)"
+  # (e) no registry table at all: the block stops, says why and changes nothing
+  grep -v '^|' "$SB_TMP/CANVAS.before" > "$c"
+  _dm_commit "no registry table"
+  cp "$c" "$SB_TMP/CANVAS.notable"
+  _dm_sh "$(_dm_pull_walk row "$sub")"
+  { [ "$_dm_rc" -ne 0 ] && _dm_has "$_dm_out" "NO-ROW"; } || cf "(e) a canvas record with no registry table is not refused with NO-ROW (exit $_dm_rc): $_dm_out"
+  cmp -s "$SB_TMP/CANVAS.notable" "$c" || cf "(e) the refused row block changed CANVAS.md"
   finish "$L"
   teardown
 }

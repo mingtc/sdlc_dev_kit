@@ -63,7 +63,7 @@ mkdir -p .cache/design/pull/project
 
 For each changed or new file, A: `read_file <slug> <path>` (one path a call; a bulk `paths` read is refused on a canvas). The text arrives in the
 transcript; **write it to the pull folder exactly**, at the listing's path (`project/Timer.dc.html` goes to `.cache/design/pull/project/Timer.dc.html`),
-then take its sha256 (`shasum -a 256`). It must equal the list's. A mismatch means you mistyped it: read the file again. After three, stop and tell the
+then take its sha256 (`shasum -a 256`, or `sha256sum`). It must equal the list's. A mismatch means you mistyped it: read the file again. After three, stop and tell the
 human which file. A file whose sha differs is never committed. A file that is not text cannot be read this way: tell the human, and do not pull it.
 **On B:** the files are already on disk with their shas verified by `read`.
 
@@ -83,15 +83,16 @@ A file it names `UNREAD` is not trusted: show the human and take it out of the p
 
 ## 6. Put the files in place, check them, diff, classify, ask
 
-First find a file changed on **both** sides: the repo holds a change to it that the canvas does not (its repo sha is not the manifest's) and the pull brings the canvas's.
-A file with no manifest line that is already in `project/` counts. This prints each one:
+First find a file changed on **both** sides: the repo holds a change to it that the canvas does not (its repo sha is not the manifest's) and the canvas brings its own, by a new
+version of the file or by deleting it. A file with no manifest line that is already in `project/` counts. This prints each one; put the path of every file **gone** from the canvas
+(step 3) where `<gone>` stands, or nothing:
 
 ```sh both
-for f in $(cd .cache/design/pull && find project -type f | sort); do
+for f in $(cd .cache/design/pull && find project -type f | sort) <gone>; do
   repo=requirements/design/<canvas>/$f
   [ -f "$repo" ] || continue
   want=$(awk -v p="$f" '$1 == p { print $3 }' requirements/design/<canvas>/CANVAS.md)
-  have=$(shasum -a 256 "$repo" | cut -d' ' -f1)
+  have=$( (shasum -a 256 "$repo" 2>/dev/null || sha256sum "$repo") | cut -d' ' -f1)
   [ "$want" = "$have" ] || echo "BOTH-SIDES $f"
 done
 ```
@@ -106,12 +107,17 @@ diff -u requirements/design/<canvas>/<path> .cache/design/pull/<path>
 
 On their go-ahead take the canvas's file in, then redo the repo's change on it with the role's order and publish it. On a "no", the pull is over.
 
+**To take one canvas edit and reject another**, answer yes to the pull, and when it is committed restore the rejected file from the base: `git checkout <base> -- requirements/design/<canvas>/<path>`,
+commit it (`[Designer] design: restore <path>`). The human has now named that file, so `/design-publish` sends the repo's bytes for it (its step 2) and every other file is left as it was taken in.
+
 A **new** board (a pulled `.dc.html` that no registry row names) is invisible to the link check until it has a row. Add its row to `CANVAS.md` before the check: the
 UX id and stories are its root's `data-ux` and `data-stories`, the states its `data-state` values; a board with no `data-ux` cannot be registered, so raise it to the human instead of pulling it.
-`<platform>` is `phone` or `web-desktop`:
+`<platform>` is `phone` or `web-desktop`. The row goes under the last registry row, or under the table's header when the registry is empty (a canvas made on the page has none yet);
+if `CANVAS.md` has no registry table at all, the block stops with `NO-ROW`: add the registry section from the template (`.claude/templates/design/CANVAS.template.md`) first.
 
 ```sh row
-awk -v row='| <ux> | <file> | <title> | <platform> | none | <states> | <stories> | open | open |' 'NR == FNR { if ($0 ~ /^\| UX-/) last = FNR; next } { print } FNR == last { print row }' requirements/design/<canvas>/CANVAS.md requirements/design/<canvas>/CANVAS.md > .cache/design/CANVAS.new
+awk -v row='| <ux> | <file> | <title> | <platform> | none | <states> | <stories> | open | open |' 'NR == FNR { if ($0 ~ /^\| UX-[0-9]/) last = FNR; else if ($0 ~ /^\|[ -]*---/ && !sep) sep = FNR; next } { print } FNR == (last ? last : sep) { print row }' requirements/design/<canvas>/CANVAS.md requirements/design/<canvas>/CANVAS.md > .cache/design/CANVAS.new
+grep -qF '| <ux> | <file> |' .cache/design/CANVAS.new || { rm -f .cache/design/CANVAS.new; echo 'NO-ROW: the registry has no table to put <file> in'; exit 1; }
 mv .cache/design/CANVAS.new requirements/design/<canvas>/CANVAS.md
 ```
 
@@ -147,9 +153,11 @@ one from **Custom** is a literal.
 Show the human the check's output and the diff and **ask**. Only on their go-ahead, continue. On a "no", put `project/` and `CANVAS.md` back, and the pull is over:
 
 ```sh undo
-git checkout -- requirements/design/<canvas>/project requirements/design/<canvas>/CANVAS.md
-git clean -fd requirements/design/<canvas>/project
+git checkout -- requirements/design/<canvas>/CANVAS.md
+git checkout -- requirements/design/<canvas>/project 2>/dev/null; git clean -fd requirements/design/<canvas>/project
 ```
+
+(On a first pull `project/` tracks nothing, so its checkout says so and the clean removes what the pull laid; that is why the two are not one command.)
 
 Their "no" is not an order to change the canvas. If they want a canvas edit rejected, they say which file; that is `/design-publish`'s step 2.
 
