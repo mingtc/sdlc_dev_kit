@@ -4,7 +4,7 @@ version: 0.2.0
 purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true.
 release-notes: RELEASE-NOTES.md
 requires: python3 | python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' | install Python 3.9 or later from your system's packages | required
-role: Designer   briefs the design tool's agent, takes the screens it makes into the repo, and keeps the design record true; commits as [Designer]
+role: Designer   authors the screens on the canvas with the artifact tools, takes them into the repo, and keeps the design record true; commits as [Designer]
 file: _claude/roles/designer.md -> .claude/roles/designer.md
 file: _claude/templates/design/CANVAS.template.md -> .claude/templates/design/CANVAS.template.md
 file: _claude/templates/design/COMMENTS.template.md -> .claude/templates/design/COMMENTS.template.md

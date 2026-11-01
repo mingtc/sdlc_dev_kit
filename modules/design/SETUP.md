@@ -12,13 +12,14 @@ What you do, once, before the Designer is useful. The checkers need Python 3.9 o
    must match it.
 4. **Fill the Designer's project duties** in `.claude/roles/designer.md`: the canvas and its owner, the design system you start
    from, the breakpoint. Write *"this project declares none"* where it is so.
-5. **If you use Claude Design:** sign in to claude.ai, create the project there, and put its URL in `CANVAS.md`. Comments reach
-   a session only for a canvas private to you or shared within your organisation. **Claude Design's agent makes the screens**, not you and not the
-   Designer: the Designer writes the brief in `CANVAS.md` § Brief (the UX id, states, element ids and tokens), you give it to that
-   agent, and you carry its files, a PNG export of each state, and its comments back to the Designer, with any change request
-   going the other way. You look and approve; you do not draw. Until `.claude/skills/design-pull/SKILL.md` is in your project
-   you are that conduit; creating and updating the artifact directly is the adapter's.
+5. **If you use Claude Design:** run the Designer in a Claude Code CLI or desktop session signed in with `/login` (artifacts are off by
+   default in the Agent SDK and with `-p`); the Designer creates the canvas and keeps `CANVAS.md` current. **The Designer authors the
+   screens** with the artifact tools and carries nothing to you: you look at the canvas, approve the gates and may change it by hand.
+   Two habits matter. To make the Designer act on a comment, use **Send to Claude**: a plain comment is invisible to it. To have a
+   PNG of a state, use **Copy as PNG** on the canvas (it is 2x); no tool exports one. Comments reach a session only for a canvas
+   private to you or shared within your organisation.
 
-The pull and publish commands, the card gate, the token generator and the other tools state their own
-requirements here once they are installed. While one is absent from your project, asking the Designer for it gets the answer
+The packaged pull and publish skills, the card gate, the token generator and the other tools state their own
+requirements here once they are installed. Until the skills are, the Designer follows the order in its role (list, compare shas,
+pull first, edit, send with `base_version`, read the result, read back). While one is absent from your project, asking the Designer for it gets the answer
 that it needs the next version of the kit, which brings it.

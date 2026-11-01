@@ -2,8 +2,8 @@
 # CANVAS — <canvas>
 
 - **Canvas:** <canvas title, named for the product, never a PRD id> — <URL, or "none yet"> (a canvas that takes comments is private to the owner or shared within the organisation; a public link cannot)
-- **Last pull:** none (then `<canvas version id> @ <repo commit>`, or `by hand (<date>) @ <repo commit>` when the human brought the files; the commit is the one that took them into `project/`)
-- **Last publish:** none (nothing is sent to the canvas as a file; a repo-side change goes to the design tool's agent as a request the human carries)
+- **Last pull:** none (then `<canvas version id> @ <repo commit>`: the commit that took the files into `project/`, with the manifest of their shas)
+- **Last publish:** none (then `<canvas version id> @ <repo commit>`, written after the read-back by sha)
 - **Pin-ready:** none (the last commit that touched the screen files and tokens a card cites, `CANVAS.md` bookkeeping excluded; set only when every row the card cites has `approved@<sha>` in `gate1`)
 - **Breakpoint:** <the width where phone becomes desktop>; widths covered: <phone width>, <desktop width>. A PRD covers the gap between them or says it is out of scope.
 - **PRDs served:** <PRD-NNN, PRD-NNN: listed for the reader; no screen belongs to one PRD>
@@ -24,25 +24,28 @@ same header each time.
 
 ## Brief
 
-One entry per screen and one per change request, for the human to give the design tool's agent. Only what is inside a fence
-is pasted; anything outside a fence is a note for the human or the Designer. Add the screen's registry row with its brief
-(`gate1` and `gate2` `open`), so its UX id is taken before the screen exists.
+One entry per screen and one per change: the Designer's own spec of what to author on the canvas. Add the screen's registry row
+with its brief (`gate1` and `gate2` `open`), so its UX id is taken before the screen exists.
 
 A screen:
 
 ```
-Make screen UX-001, "<title>", as <Screen>.dc.html, at <width> px.
+Author screen UX-001, "<title>", as <Screen>.dc.html, at <width> px. On a new canvas the first board is Main.dc.html.
 States: default, <state>. Each state's branch root carries data-state="<state>".
 Root: data-ux="UX-001" and data-stories="<PRD-NNN-F1-S1>".
 Elements, by id: ux-001-<name> (<what it is>), …
-Colours: never a colour literal (#hex, rgb(), hsl() ...) outside the :root block; everything else reads var(--<name>).
-Tokens: use only these, one custom property each in a :root block, named for the token's path with hyphens for dots (color.primary is --color-primary): --<name>: <value>, …
+Colours: never a colour literal (#hex, rgb(), hsl() ...) in a style, an attribute or a stylesheet; every colour reads var(--<name>), the colour of a link (a) and of a:hover included.
+Tokens: use only these, named for the token's path with hyphens for dots, no prefix (color.primary is --color-primary), each declared once in sheets/tokens.css, a stylesheet file under project/ that every screen links with <link rel="stylesheet" href="sheets/tokens.css">: --<name>: <value>, …
+Imported screens (dc-import): such a screen holds no style of its own but font links, @font-face and body{margin:0}; it reads the linked sheet.
+Any other stylesheet or script: a file under project/, linked by a relative path. Never an upload (a /_blob/ file cannot be read by the checks).
 Copy, per state: <the exact text of each element>
 Navigation: <element id> goes to <UX id>, as an <a href>.
-Export one PNG per state, named <Screen>-<state>.png.
 ```
 
-A change request:
+No tool makes a PNG: a human copies one per state from the canvas (Copy as PNG, 2x), named <Screen>-<state>.png, or an agent that
+holds the design runtime renders it locally; the Designer commits them under `renders/`.
+
+A change:
 
 ```
 On UX-001, state <state>: <the change, naming the element id>. Keep every other element and id as it is.

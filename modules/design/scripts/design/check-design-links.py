@@ -59,12 +59,19 @@ Reports (each line starts with its class)
                 presentation attribute, or in a local stylesheet or imported artboard it loads (comments, strings and url() left out),
                 except a custom property whose name is a token's (where a screen, a :root rule or a token sheet holds a token's value), unless the screen's registry row carries a
                 `[decision: D-NN]` waiver the register confirms. Colour names (`red`) are not caught. The way out is a change
-                request through the brief to the design tool's agent. A `superseded` row is not read for colours
+                correction of the screen by the Designer with the artifact tools. A `var(--token, #hex)` whose #hex is the token's value is a token, not a literal; one whose #hex differs is a finding. A screen imported by a screen that has a registry row of its own is reported on that row only. A `superseded` row is not read for colours
+  TOKEN-VALUE   a custom property named for a token (`--color-primary` for `color.primary`; the name has no prefix, as the design tool
+                compiles it) that a screen, a :root rule or a sheet it loads declares with a value no token file gives that token: the
+                :root block holds the token's value, so a different one is a second source of truth. A value written with var() or an
+                alias is not compared; a token whose value is not a string is not compared; a theme sheet holding another theme's value
+                matches the token file of that theme
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
                 heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
 Report lines, not findings (shown; never counted, never an exit status):
   UNCITED       a row no PRD cites
+  UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
+                colours are not checked. Put the sheet under project/ as a file and link it by a relative path
   SCRIPT-COLOUR a colour-looking string in the component script: a script cannot be read as CSS, so this is shown, never counted
   UNCLASSIFIED  a PRD with no `UI:` line in any story ("not design-classified"), or the stories of a PRD that has some and these
                 lack it. A story with no `UI:` line reads as none declared
@@ -90,7 +97,7 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 
 META = re.compile(r' data-stories="[^"]*"')
@@ -248,29 +255,63 @@ def ref_path(href):
 
 def css_refs(css):
     css = CSS_COMMENT.sub(' ', css)
-    return [next(g for g in m.groups() if g) for rx in (CSS_IMPORT, CSS_URLREF) for m in rx.finditer(css) if any(m.groups())]
+    return [(next(g for g in m.groups() if g), 'sheet' if rx is CSS_IMPORT else 'file')
+            for rx in (CSS_IMPORT, CSS_URLREF) for m in rx.finditer(css) if any(m.groups())]
 
 
-def refs_in(text, css=False):
-    """Every reference to a file that an artboard (or, with css, a stylesheet) makes: <link href>, <script src>, <img src> and the other
-    src tags, <dc-import name="N"> (the design tool's import of N.dc.html), @import and url() in a style block, a style attribute or a
-    sheet, in any quoting. One function for every reader."""
+def refs_kinds(text, css=False):
+    """[(reference, kind)] for every reference to a file that an artboard (or, with css, a stylesheet) makes: <link href>, <script src>,
+    <img src> and the other src tags, <dc-import name="N"> (the design tool's import of N.dc.html), @import and url() in a style block,
+    a style attribute or a sheet, in any quoting. kind is `sheet`, `script`, `artboard` or `file`. One function for every reader."""
     if css:
         return css_refs(text)
     out = []
     for tag, at in tags_of(text):
         if tag == 'link':
-            out.append(at.get('href', ''))
+            h = at.get('href', '')
+            out.append((h, 'sheet' if 'stylesheet' in at.get('rel', '').lower() or h.split('?')[0].lower().endswith('.css') else 'file'))
         elif tag == 'dc-import':
-            out.append(at['name'] + '.dc.html' if at.get('name') else '')
+            out.append((at['name'] + '.dc.html' if at.get('name') else '', 'artboard'))
         elif tag in ('image', 'use'):
-            out.append(at.get('href', '') or at.get('xlink:href', ''))
-        elif tag in ('script', 'img', 'source', 'video', 'audio', 'iframe', 'embed', 'track', 'input'):
-            out.append(at.get('src', ''))
+            out.append((at.get('href', '') or at.get('xlink:href', ''), 'file'))
+        elif tag == 'script':
+            out.append((at.get('src', ''), 'script'))
+        elif tag in ('img', 'source', 'video', 'audio', 'iframe', 'embed', 'track', 'input'):
+            out.append((at.get('src', ''), 'file'))
         out += css_refs(at.get('style', ''))
     for m in STYLE_BLOCK.finditer(HTML_COMMENT.sub(' ', text)):
         out += css_refs(m.group(1))
-    return [o for o in out if o]
+    return [o for o in out if o[0]]
+
+
+def refs_in(text, css=False):
+    return [h for h, _ in refs_kinds(text, css)]
+
+
+def strip_fallbacks(css, tokens):
+    """css with each `var(--<token>, <colour>)` whose colour is that token's value (any token file's, case and spaces aside) cut back
+    to `var(--<token>)`: the design page writes a picked token as `var(--color-on-surface, #1f2421)`, a token and not a literal. A
+    fallback that differs from the token's value stays, to be found."""
+    if not isinstance(tokens, dict):
+        return css
+    i = len(css)
+    while True:
+        i = css.lower().rfind('var(', 0, i)
+        if i < 0:
+            return css
+        depth, j = 0, i + 3
+        while j < len(css):
+            depth += (css[j] == '(') - (css[j] == ')')
+            if depth == 0:
+                break
+            j += 1
+        else:
+            continue
+        name, sep, fb = css[i + 4:j].partition(',')
+        name, fb = name.strip(), fb.strip()
+        if sep and name.startswith('--') and name[2:] in tokens and (COLOUR_HEX.fullmatch(fb) or (COLOUR_FN.match(fb) and fb.endswith(')'))):
+            if any(isinstance(v, str) and _norm_value(v) == _norm_value(fb) for v in tokens[name[2:]]):
+                css = css[:i] + f'var({name})' + css[j + 1:]
 
 
 def css_values(css, tokens=()):
@@ -279,6 +320,7 @@ def css_values(css, tokens=()):
     so what is left can hold a colour. A custom property that is no token's stays: it is a colour in a place no token covers."""
     css = CSS_URL.sub(' ', CSS_COMMENT.sub(' ', css))
     css = CSS_STRING.sub('""', css)
+    css = strip_fallbacks(css, tokens)
     parts = re.split(r'([{};])', css)
     keep = []
     for i in range(0, len(parts), 2):
@@ -342,22 +384,40 @@ def script_colours(markup):
     return out
 
 
-def closure(read, base, markup, limit=300):
+def project_top(rel):
+    """The directory a leading `/` names for the artboard at repository path rel: the canvas's project directory."""
+    i = rel.find('/' + PROJECT_SUBDIR + '/')
+    return rel[:i + len(PROJECT_SUBDIR) + 1] if i >= 0 else posixpath.dirname(rel)
+
+
+def closure(read, base, markup, limit=300, top=None):
     """-> ({path relative to the artboard's directory: bytes or None}, {path: text of the CSS sheets and imported artboards among them},
     [what could not be compared]) for every local file an artboard loads, directly or through the sheets and artboards it loads
-    (refs_in is the one list). `read(path)` returns the bytes of a repository path or None; `base` is the artboard's directory."""
+    (refs_kinds is the one list). `read(path)` returns the bytes of a repository path or None; `base` is the artboard's directory; a
+    reference with a leading `/` is read from `top`, the canvas's project directory (default `base`), as the design tool resolves it.
+    A sheet or script uploaded to the canvas (`/_blob/<id>`) cannot be read: it is named in the last list, never skipped silently."""
     files, texts, why = {}, {}, []
-    queue = [('', h) for h in refs_in(markup)]
+    queue = [('', h, k) for h, k in refs_kinds(markup)]
+    root_ = base if top is None else top
     while queue:
-        parent, href = queue.pop(0)
+        parent, href, kind = queue.pop(0)
+        if htmllib.unescape(href.strip()).startswith('/_blob/') and kind in ('sheet', 'script'):
+            msg = f'{href} is an uploaded {kind} and cannot be read'
+            if msg not in why:
+                why.append(msg)
+            continue
         path = ref_path(href)
         if path is None:
             continue
-        if path.startswith('/') or posixpath.normpath(posixpath.join(base, path)).startswith('..'):
-            files.setdefault(href, None)            # outside the repository: nothing to read
-            continue
-        key = posixpath.normpath(posixpath.join(posixpath.dirname(parent), path))
-        full_ = posixpath.normpath(posixpath.join(base, key))
+        if path.startswith('/'):
+            full_ = posixpath.normpath(posixpath.join(root_, path.lstrip('/')))
+            key = posixpath.relpath(full_, base or '.')
+        else:
+            if posixpath.normpath(posixpath.join(base, path)).startswith('..'):
+                files.setdefault(href, None)            # outside the repository: nothing to read
+                continue
+            key = posixpath.normpath(posixpath.join(posixpath.dirname(parent), path))
+            full_ = posixpath.normpath(posixpath.join(base, key))
         if full_.startswith('..'):
             files.setdefault(href, None)
             continue
@@ -372,10 +432,10 @@ def closure(read, base, markup, limit=300):
             low = key.lower()
             if low.endswith('.css'):
                 texts[key] = data.decode('utf-8', 'replace')
-                queue += [(key, h) for h in refs_in(texts[key], css=True)]
+                queue += [(key, h, k) for h, k in refs_kinds(texts[key], css=True)]
             elif low.endswith('.html'):
                 texts[key] = data.decode('utf-8', 'replace')
-                queue += [(key, h) for h in refs_in(texts[key])]
+                queue += [(key, h, k) for h, k in refs_kinds(texts[key])]
     return files, texts, why
 
 
@@ -400,13 +460,15 @@ def disk_reader(root):
 
 
 def loaded_files(root, art, markup):
-    """[(name, text)] of the local sheets and artboards an artboard loads, as read on disk, named by their path under the root."""
+    """-> ([(name, text)] of the local sheets and artboards an artboard loads, as read on disk, named by their path under the root,
+    [what could not be read])."""
     try:
         base = art.parent.relative_to(root).as_posix()
+        top = project_top(art.relative_to(root).as_posix())
     except ValueError:
-        return []
-    _, texts, _ = closure(disk_reader(root), base, markup)
-    return [(posixpath.normpath(posixpath.join(base, k)), t) for k, t in texts.items()]
+        return [], []
+    _, texts, why = closure(disk_reader(root), base, markup, top=top)
+    return [(posixpath.normpath(posixpath.join(base, k)), t) for k, t in texts.items()], why
 
 
 # ---- tokens, read at a revision: the DTCG files <design>/tokens/*.tokens.json (the one reader, for the gate, the approvals and pin-drift)
@@ -452,24 +514,18 @@ def _resolve(value, own, merged, seen=()):
 _tok_cache = {}
 
 
-def token_map(root, rev):
-    """-> ({(token file, css var name): resolved value, or UNRESOLVED}, [problem]) from every <design>/tokens/*.tokens.json at revision
-    rev. A file that is not a JSON object is a problem, not silence."""
-    ck = (str(root), rev, DESIGN_REL)
-    if ck in _tok_cache:
-        return _tok_cache[ck]
-    rc, out = git(root, 'ls-tree', '-r', '--name-only', '-z', rev, '--', f'{DESIGN_REL}/tokens')
+def _token_core(blobs):
+    """-> ({(token file, css var name): resolved value, or UNRESOLVED}, [problem]) from {file name: bytes}. A file that is not a JSON
+    object is a problem, not silence."""
     files, problems = {}, []
-    for p in sorted(x for x in out.decode('utf-8', 'replace').split('\0') if x):
-        if not p.endswith('.tokens.json') or Path(p).parent.as_posix() != f'{DESIGN_REL}/tokens':
-            continue
+    for name, raw in sorted(blobs.items()):
         try:
-            data = json.loads((git_bytes(root, rev, p) or b'').decode('utf-8'))
+            data = json.loads((raw or b'').decode('utf-8'))
             if not isinstance(data, dict):
                 raise ValueError('not an object')
-            files[Path(p).name] = _leaves(data)
+            files[name] = _leaves(data)
         except (ValueError, UnicodeDecodeError) as e:
-            problems.append(f'{Path(p).name} is not a JSON object of tokens ({e})')
+            problems.append(f'{name} is not a JSON object of tokens ({e})')
     merged = {}
     for name in sorted(files):
         for k, v in files[name].items():
@@ -479,20 +535,89 @@ def token_map(root, rev):
         for dotted, v in leaves.items():
             val, bad = _resolve(v, leaves, merged, (dotted,))
             found[(name, dotted.replace('.', '-'))] = UNRESOLVED if bad else json.dumps(val, sort_keys=True)
-    _tok_cache[ck] = (found, problems)
+    return found, problems
+
+
+def token_map(root, rev):
+    """-> ({(token file, css var name): resolved value, or UNRESOLVED}, [problem]) from every <design>/tokens/*.tokens.json at revision rev."""
+    ck = (str(root), rev, DESIGN_REL)
+    if ck in _tok_cache:
+        return _tok_cache[ck]
+    rc, out = git(root, 'ls-tree', '-r', '--name-only', '-z', rev, '--', f'{DESIGN_REL}/tokens')
+    blobs = {}
+    for p in sorted(x for x in out.decode('utf-8', 'replace').split('\0') if x):
+        if p.endswith('.tokens.json') and Path(p).parent.as_posix() == f'{DESIGN_REL}/tokens':
+            blobs[Path(p).name] = git_bytes(root, rev, p) or b''
+    _tok_cache[ck] = _token_core(blobs)
     return _tok_cache[ck]
 
 
-def token_names(root):
-    """The custom-property names the token files on disk define (`color.primary` is `color-primary`): the names that may carry a colour."""
-    names = set()
+def token_table(root):
+    """{css var name: [resolved values]} of the token files on disk (`color.primary` is `color-primary`): the names that may carry a
+    colour, and the values they may carry (one per token file: a theme file gives its own)."""
     d = Path(root) / DESIGN_REL / 'tokens'
-    for f in sorted(d.glob('*.tokens.json')) if d.is_dir() else ():
-        try:
-            names |= {k.replace('.', '-') for k in _leaves(json.loads(read(f)))}
-        except ValueError:
+    blobs = {f.name: f.read_bytes() for f in sorted(d.glob('*.tokens.json')) if f.is_file()} if d.is_dir() else {}
+    found, _ = _token_core(blobs)
+    table = {}
+    for (_, name), v in found.items():
+        table.setdefault(name, []).append(None if v == UNRESOLVED else json.loads(v))
+    return table
+
+
+def token_names(root):
+    return set(token_table(root))
+
+
+def _norm_value(v):
+    v = re.sub(r'\s*!important\s*$', '', v.strip(), flags=re.I)
+    v = re.sub(r'\s+', '', v).lower()
+    m = re.fullmatch(r'#([0-9a-f])([0-9a-f])([0-9a-f])', v)
+    return '#' + ''.join(c * 2 for c in m.groups()) if m else v
+
+
+def custom_decls(css):
+    """[(name, value)] of the custom-property declarations in CSS text (a style block, a style attribute body or a sheet)."""
+    css = CSS_COMMENT.sub(' ', css)
+    parts = re.split(r'([{};])', css)
+    out = []
+    for i in range(0, len(parts), 2):
+        if (parts[i + 1] if i + 1 < len(parts) else '') == '{':
             continue
-    return names
+        m = re.match(r'\s*--([\w-]+)\s*:\s*(.*)$', parts[i], re.S)
+        if m:
+            out.append((m.group(1), m.group(2)))
+    return out
+
+
+def decls_of(markup):
+    """The custom-property declarations of an artboard: style blocks and style attributes (a script is not CSS)."""
+    h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', markup))
+    out = []
+    for m in STYLE_BLOCK.finditer(h):
+        out += custom_decls(m.group(1))
+    for tag, at in tags_of(h):
+        if 'style' in at:
+            out += custom_decls('a{' + at['style'] + '}')
+    return out
+
+
+def token_value_problems(markup, loaded, table):
+    """[text] for each token-named custom property that the artboard, or a sheet or screen it loads, declares with a value no token file
+    gives that token. A value with var() or an alias, and a token whose value is not a string, are not compared."""
+    out = []
+    pieces = [('', decls_of(markup))] + [(n, custom_decls(t) if n.lower().endswith('.css') else decls_of(t)) for n, t in loaded]
+    for where, decls in pieces:
+        for name, value in decls:
+            if name not in table or 'var(' in value.lower() or value.strip().startswith('{'):
+                continue
+            vals = table[name]
+            if any(not isinstance(v, str) for v in vals):
+                continue
+            if _norm_value(value) not in {_norm_value(v) for v in vals}:
+                msg = f"--{name}: {value.strip()}" + (f' (in {where})' if where else '') + f" but the token is {' / '.join(sorted(set(vals)))}"
+                if msg not in out:
+                    out.append(msg)
+    return out
 
 
 def used_vars(*htmls, sheets=()):
@@ -514,12 +639,14 @@ def tokens_check(root, old_html, new_html, r_old, r_new, sheets=()):
     used = used_vars(old_html, new_html, sheets=sheets)
     (a, pa), (b, pb) = token_map(root, r_old), token_map(root, r_new)
     changed, why = [], []
+    declared = {n for t in (old_html, new_html, *sheets) for n, _ in (decls_of(t) if '<' in t else custom_decls(t))}
     if used and (pa or pb):
         why.append('tokens: ' + '; '.join(sorted(set(pa + pb))))
     for n in used:
         ea, eb = {k: v for k, v in a.items() if k[1] == n}, {k: v for k, v in b.items() if k[1] == n}
         if not ea and not eb:
-            why.append(f'--{n} names no token')
+            if n not in declared:        # a property the artboard or a sheet it loads declares is compared with that file's bytes
+                why.append(f'--{n} names no token')
         elif ea != eb:
             changed.append('--' + n)
         elif UNRESOLVED in ea.values():
@@ -530,9 +657,9 @@ def tokens_check(root, old_html, new_html, r_old, r_new, sheets=()):
 def loaded_stale(root, sha, rel, then, now):
     """What an approval did not cover that has changed since: a file the approved screen loads (a sheet, an imported screen, a script, an
     image), or a token it uses. A short description, or None."""
-    base = posixpath.dirname(rel)
-    fa, ta, _ = closure(lambda p: git_bytes(root, sha, p), base, then)
-    fb, tb, _ = closure(lambda p: git_bytes(root, HEAD_REV, p), base, now)
+    base, top = posixpath.dirname(rel), project_top(rel)
+    fa, ta, _ = closure(lambda p: git_bytes(root, sha, p), base, then, top=top)
+    fb, tb, _ = closure(lambda p: git_bytes(root, HEAD_REV, p), base, now, top=top)
     changed, _ = closure_diff(fa, fb)
     if changed:
         return ', '.join(changed[:3])
@@ -739,7 +866,8 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
     set_prd_prefix(root)
     DESIGN_REL = (design or f'{requirements}/design').strip('/')
     dsn = root / DESIGN_REL
-    tokens = token_names(root)
+    ttable = token_table(root)
+    tokens = ttable
     out, prds = [], find_prds(root, requirements)
     scans = {}
     for p in prds:
@@ -768,6 +896,13 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             reg_box.append(register_ids(root, requirements))
         return reg_box[0]
 
+    rowfiles = set()
+    for r in rows:
+        try:
+            if not r['superseded']:
+                rowfiles.add((r['canvas'] / PROJECT_SUBDIR / r['file']).relative_to(root).as_posix())
+        except ValueError:
+            pass
     cited, ncites = set(), 0
 
     def check_ref(where, ref):
@@ -849,12 +984,19 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-stories"))
             elif set(ms.group(1).split()) != set(r['stories']):
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(ms.group(1).split())} != registry {sorted(r['stories'])}"))
-            lits = [] if r['superseded'] else literal_colours(html, loaded_files(root, art, html), tokens)
+            loaded, unread = loaded_files(root, art, html)
+            loaded = [(n, t) for n, t in loaded if not (n.lower().endswith('.html') and n in rowfiles)]   # a screen with a row of its own is reported there
+            lits = [] if r['superseded'] else literal_colours(html, loaded, tokens)
+            if not r['superseded']:
+                for u in unread:
+                    out.append(line('UNREAD', f"{art.relative_to(root)}: {u}; its colours are not checked (info). Put the sheet under {PROJECT_SUBDIR}/ as a file and link it by a relative path"))
+                for tv in token_value_problems(html, loaded, ttable):
+                    out.append(line('TOKEN-VALUE', f"{art.relative_to(root)}: {tv}; the Designer corrects the screen with the artifact tools (pull first), or the token if the token is what changed"))
             problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
             if r['waivers'] and problem:
                 out.append(line('WAIVER', f"{r['where']}: {problem}"))
             if lits and problem:
-                out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} outside :root; send a change request through the brief, do not edit the screen"))
+                out.append(line('LITERAL-COLOUR', f"{art.relative_to(root)}: {', '.join(lits[:4])}{' ...' if len(lits) > 4 else ''} is a colour no token holds; the Designer corrects the screen with the artifact tools (pull first): add the token and read it as var(--color-name), a custom property named for a token with no prefix, or a var() fallback equal to the token's value"))
             sc = script_colours(html)
             if sc:
                 out.append(line('SCRIPT-COLOUR', f"{art.relative_to(root)}: {', '.join(sc[:4])}{' ...' if len(sc) > 4 else ''} in the component script (report only: a script cannot be read as CSS)"))

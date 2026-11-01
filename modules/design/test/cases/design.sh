@@ -272,13 +272,15 @@ DM_CAPS_EOF
   else
     grep -F 'N/A' "$m/gates.md" >/dev/null || cf "(d) the link check is not placed and the gate row carries no N/A with its reason"
   fi
-  # (e) the human never draws, edits or switches a screen: the design tool's agent does, and the human looks, decides and carries.
-  hits="$(find "$m" -type f -not -path "$m/test/*" -exec grep -niE 'human[^.]{0,60}[[:space:]](draws|edits|switches)|human (should|must|will|can|may) (draw|edit|switch)|you (draw|edit)[[:space:]]|who draws|drawn (on|by)|(switching|switches) (the|a) screen' {} + || true)"
-  [ -z "$hits" ] || cf "(e) design text attributes drawing, editing or switching a screen to a human: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-200)"
-  # (f) while the adapter is not placed, the role names create and update as the intended workflow that needs the next version.
-  if ! _dm_manifest_places "$m/module.manifest" file '^[.]claude/skills/design-pull/SKILL[.]md$'; then
-    printf '%s\n' "$lines" | grep -F 'Creating and updating' >/dev/null || cf "(f) the adapter is not placed and the Designer role has no 'Creating and updating … needs the next version of the kit' line"
-  fi
+  # (e) the Designer authors on the canvas itself and carries the sha check and the read-back; no text sends a human to carry files or a brief.
+  for tok in 'list_files' 'base_version' 'warnings' 'Send to Claude' 'read back'; do
+    grep -F -- "$tok" "$role" >/dev/null || cf "(e) the Designer role does not carry '$tok' (the pull-before-publish order, the sha check, the read-back, the stop on a warning, the comment route)"
+  done
+  hits="$(find "$m" -type f -not -path "$m/test/*" -exec grep -niE "conduit|design tool's agent|Claude Design's (own )?agent|change request|human (carries|draws|edits|switches)" {} + || true)"
+  [ -z "$hits" ] || cf "(e) design text still has the human carrying work to another agent, or no direct authoring: $(printf '%s' "$hits" | tr '\n' '|' | cut -c1-200)"
+  # (f) creating and updating the canvas is not on the needs-the-next-version list: the Designer does it with the artifact tools now.
+  printf '%s\n' "$lines" | grep -F 'Creating and updating' >/dev/null && cf "(f) the Designer role still lists creating and updating the canvas as needing the next version of the kit"
+  grep -F 'do not improvise' "$role" >/dev/null || cf "(f) the Designer role does not tell the agent not to improvise when neither artifact tool is present"
   finish "$L"
 }
 
@@ -983,8 +985,9 @@ const copy = { label: "Order #1042" }; document.querySelector("#add"); location.
   for t in 'oklch(' '#f00' '#0f0' '#ff0000 (in requirements/design/app/project/lit.css)'; do
     _dm_has "$_dm_out" "$t" || cf "(c) the line for the screen does not name $t"
   done
-  _dm_has "$_dm_out" "change request through the brief" || cf "(c) the line does not say to send a change request through the brief"
-  grep -F 'outside the :root block' "$REAL_REPO_ROOT/modules/design/_claude/templates/design/CANVAS.template.md" >/dev/null || cf "(d) the brief's text for the design tool's agent does not state the rule up front"
+  _dm_has "$_dm_out" "the Designer corrects the screen with the artifact tools" || cf "(c) the line does not name the next act: the Designer corrects the screen with the artifact tools"
+  _dm_has "$_dm_out" "change request" && cf "(c) the line still says to send a change request"
+  grep -F 'never a colour literal' "$REAL_REPO_ROOT/modules/design/_claude/templates/design/CANVAS.template.md" >/dev/null || cf "(d) the Designer's spec template does not state the colour rule up front"
   grep -F 'uncompared' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" >/dev/null && grep -F 'uncompared' "$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" >/dev/null || cf "(d) a release note does not name the verdict uncompared"
   grep -iE 'colour literal.*(go red|fail|red)|(go red|fail).*colour' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" >/dev/null || cf "(d) the module's notes do not tell an upgrading project that screens with colour literals will go red"
   # the one escape: a recorded decision on the screen's registry row, which the register must hold with a current ruling
@@ -1118,6 +1121,217 @@ case_an_approval_covers_what_the_approved_screen_loads_and_the_tokens_it_uses() 
   _dm_card 851 todo "design: [UX-001#default@$_DM_SHA]"
   _dm_leaving 851
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) --leaving lets a card pinned after an unapproved token change through (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE TOOLS READ WHAT A REAL PULL HOLDS: A :ROOT VALUE IS HELD TO ITS TOKEN, A NEW STATE IS NOT A CHANGE, A SHEET THE TOOLS
+#   CANNOT READ IS SAID, A ROOT-RELATIVE SHEET IS READ, A STATE LOADS WHAT ITS OWN MARKUP LOADS, A SHEET'S OWN PROPERTIES ARE NOT "NO TOKEN".
+#   Operand: scripts/design/check-design-links.py and scripts/design/pin-drift.py over a canvas shaped like a real export (a helmet with
+#   a fonts link and a :root block, a linked token sheet, data-props, <dc-import> inside one state's branch, support.js in no project).
+#   Each expected answer is written here. The shapes come from a live pull of a Claude Design canvas.
+# =============================================================================
+case_the_link_check_and_pin_drift_read_what_a_real_pull_holds() {
+  cf_reset
+  local L="a :root value that is not its token's is a finding (a theme sheet matching the other theme's token file is not), a new state with its flag in the script is clean for the pinned states, an uploaded sheet is said (the gate shows it, the pin reads uncompared), a root-relative sheet is read (its colour is a finding, its change is drift), a state loads only what its own branch loads, and a property a loaded sheet declares is no 'names no token'"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  _dm_land "enable the design module"
+  local D="$SB_WORK/requirements/design/app/project" P c p7 r
+  _dm_tokens '{"color":{"primary":{"$value":"#22577A"},"surface":{"$value":"#FAF8F3"},"on-surface":{"$value":"#1F2421"}}}'
+  mkdir -p "$D/sheets"
+  printf ':root { --color-primary: #22577A; --color-surface: #FAF8F3; }\n' > "$D/sheets/tokens.css"
+  cat > "$D/Timer.dc.html" <<'EOF'
+<x-dc>
+<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F1-S1" style="color: var(--color-primary)"><span id="ux-003-t">Idle</span></div>
+</x-dc>
+EOF
+  _dm_mainfile() { cat > "$D/Main.dc.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brews</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter&display=swap">
+<link rel="stylesheet" href="sheets/tokens.css">
+<style>
+body{margin:0}
+:root{
+  --color-primary: #22577A;
+  --color-surface: #FAF8F3;
+}
+</style>
+</helmet>
+<div id="ux-001-root" data-ux="UX-001" data-stories="PRD-001-F1-S1" style="background: var(--color-surface)">
+<sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+<div id="ux-001-list" data-state="list">
+<span id="ux-001-name" style="color: var(--color-primary)">Sencha</span>
+<dc-import name="Timer" view="idle" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<div id="ux-001-empty" data-state="empty"><p id="ux-001-empty-text">No brews yet</p></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"list","options":["list","empty"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'list';
+return { isList: v === 'list', isEmpty: v === 'empty' };
+}
+}
+</script>
+</body>
+</html>
+EOF
+  }
+  _dm_settings() {  # <1 when a paused state is added> <script variant: insert | change>
+    local branch='' opts='["idle"]' ret="return { isIdle: v === 'idle' };"
+    if [ "$1" = 1 ]; then
+      branch='<sc-if value="{{isPaused}}"><div id="ux-002-paused" data-state="paused"><span id="ux-002-p">Paused</span></div></sc-if>'
+      opts='["idle","paused"]'
+      [ "$2" = insert ] && ret="return { isIdle: v === 'idle', isPaused: v === 'paused' };"
+      [ "$2" = change ] && ret="return { isIdle: v !== 'idle', isPaused: v === 'paused' };"
+    fi
+    cat > "$D/Settings.dc.html" <<EOF
+<x-dc>
+<helmet><style>:root{ --color-primary: #22577A; }</style></helmet>
+<div id="ux-002-root" data-ux="UX-002" data-stories="PRD-001-F1-S2">
+<sc-if value="{{isIdle}}"><div id="ux-002-idle" data-state="idle"><span id="ux-002-t" style="color: var(--color-primary)">Settings</span></div></sc-if>
+$branch
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"idle","options":$opts}}'>
+class Component extends DCLogic {
+renderVals() {
+const v = this.props.view ?? 'idle';
+$ret
+}
+}
+</script>
+EOF
+  }
+  _dm_back() { git -C "$SB_WORK" rm -rfq --ignore-unmatch requirements/design >/dev/null 2>&1; git -C "$SB_WORK" checkout -q "$P" -- requirements/design >/dev/null 2>&1; }
+  _dm_mainfile; _dm_settings 0 insert
+  printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — Brews\n\n**UI:** list, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#list]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: (UI) the timer shows. [design: UX-003]\n\n##### F1-S2 — Settings\n\n**UI:** idle\n\n- [ ] AC1: (UI) settings show. [design: UX-002#idle]\n' > "$SB_WORK/requirements/PRD-001-app.md"
+  _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|Main.dc.html|list, empty|PRD-001-F1-S1|open|open' 'UX-002|Settings.dc.html|idle|PRD-001-F1-S2|open|open' 'UX-003|Timer.dc.html|idle|PRD-001-F1-S1|open|open'
+  _dm_commit "the pulled canvas"; P="$_DM_SHA"; p7="${P:0:7}"; c="$SB_PREFIX-861"; P0="$P"
+  _dm_card 861 in_progress "design: [UX-001#list@$P, UX-001#empty@$P, UX-002#idle@$P]"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(prereq) the pulled canvas is not clean for the gate (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#list@$p7")$(_dm_verdict "$_dm_out" "$c" "UX-001#empty@$p7")$(_dm_verdict "$_dm_out" "$c" "UX-002#idle@$p7")" = cleancleanclean ] || cf "(prereq) the pins are not clean straight after: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+
+  # (a) D1: a :root value that is not the token's
+  _dm_edit "$D/Main.dc.html" 's/--color-primary: #22577A;/--color-primary: #FF0000;/'
+  _dm_commit "the screen's :root holds another value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "--color-primary: #FF0000" && _dm_has "$_dm_out" "#22577A"; } || cf "(a) a :root value of --color-primary that is not the token's is not a TOKEN-VALUE finding naming both values (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_back
+  printf ':root { --color-primary: #22577A; --color-surface: #FAF8F3; }\n[data-theme="dark"] { --color-primary: #8FB4D4; }\n' > "$D/sheets/tokens.css"
+  _dm_commit "a theme block in the token sheet"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-VALUE" && _dm_has "$_dm_out" "sheets/tokens.css"; } || cf "(a2) a theme block whose value no token file gives is not a TOKEN-VALUE finding in the sheet (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_tokens '{"color":{"primary":{"$value":"#8FB4D4"}}}' dark.tokens.json
+  _dm_commit "the dark token file"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a3) a theme block matching the dark token file is a finding (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_back
+
+  # (b) D2: a new state is not a change of the pinned states
+  _dm_settings 1 insert
+  _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|Main.dc.html|list, empty|PRD-001-F1-S1|open|open' 'UX-002|Settings.dc.html|idle, paused|PRD-001-F1-S2|open|open' 'UX-003|Timer.dc.html|idle|PRD-001-F1-S1|open|open'
+  _dm_commit "a paused state, with its flag in the script"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$c" "UX-002#idle@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-002#idle@$p7")" = clean ] && _dm_has "$r" "a new state: paused"; } || cf "(b) UX-002#idle, whose screen only gained a paused state and its flag, does not read clean naming the new state: $r"
+  _dm_back; _dm_settings 1 insert
+  _dm_edit "$D/Settings.dc.html" 's/>Settings</>Settings two</'
+  _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|Main.dc.html|list, empty|PRD-001-F1-S1|open|open' 'UX-002|Settings.dc.html|idle, paused|PRD-001-F1-S2|open|open' 'UX-003|Timer.dc.html|idle|PRD-001-F1-S1|open|open'
+  _dm_commit "a paused state and idle's own text changed"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-002#idle@$p7")" = drift ] || cf "(b2) UX-002#idle, whose own text changed beside a new state, does not read drift: $(_dm_row "$_dm_out" "$c" "UX-002#idle@$p7")"
+  _dm_back; _dm_settings 1 change
+  _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|Main.dc.html|list, empty|PRD-001-F1-S1|open|open' 'UX-002|Settings.dc.html|idle, paused|PRD-001-F1-S2|open|open' 'UX-003|Timer.dc.html|idle|PRD-001-F1-S1|open|open'
+  _dm_commit "a paused state and the idle logic rewritten"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-002#idle@$p7")" = drift ] || cf "(b3) UX-002#idle, whose script logic was rewritten (not only added to) beside a new state, does not read drift: $(_dm_row "$_dm_out" "$c" "UX-002#idle@$p7")"
+  _dm_back
+
+  # (c) D6: a state loads what its own markup loads
+  printf '<x-dc>\n<div id="ux-003-root" data-ux="UX-003" data-stories="PRD-001-F1-S1" style="color: var(--color-primary)"><span id="ux-003-t">Idle two</span></div>\n</x-dc>\n' > "$D/Timer.dc.html"
+  _dm_commit "the imported Timer changes"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$c" "UX-001#list@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#list@$p7")" = drift ] && _dm_has "$r" "Timer.dc.html"; } || cf "(c) UX-001#list, which imports Timer in its branch, does not read drift naming Timer.dc.html when Timer changed: $r"
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#empty@$p7")" = clean ] || cf "(c) UX-001#empty, whose branch imports nothing, does not read clean when Timer changed: $(_dm_row "$_dm_out" "$c" "UX-001#empty@$p7")"
+  _dm_back
+
+  # (d) D3 and D4: an uploaded sheet is said; a root-relative sheet is read
+  _dm_edit "$D/Main.dc.html" 's#<link rel="stylesheet" href="sheets/tokens.css">#<link rel="stylesheet" href="sheets/tokens.css"><link rel="stylesheet" href="/_blob/9f2c1a">#'
+  _dm_commit "an uploaded sheet"; P="$_DM_SHA"; p7="${P:0:7}"
+  _dm_card 862 in_progress "design: [UX-001#empty@$P]"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "UNREAD" && _dm_has "$_dm_out" "/_blob/9f2c1a"; } || cf "(d) an uploaded sheet is not said by the gate as UNREAD, naming it, without failing it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$SB_PREFIX-862" "UX-001#empty@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-862" "UX-001#empty@$p7")" = uncompared ] && _dm_has "$r" "/_blob/9f2c1a"; } || cf "(d) a pin of a screen loading an uploaded sheet does not read uncompared naming it: $r"
+  _dm_back
+  mkdir -p "$D/sheets"; printf 'h1 { margin: 0 }\n' > "$D/sheets/extra.css"
+  _dm_edit "$D/Main.dc.html" 's#<link rel="stylesheet" href="sheets/tokens.css">#<link rel="stylesheet" href="sheets/tokens.css"><link rel="stylesheet" href="/sheets/extra.css">#'
+  _dm_commit "a root-relative sheet"; P="$_DM_SHA"; p7="${P:0:7}"
+  _dm_card 863 in_progress "design: [UX-001#empty@$P]"
+  printf 'h1 { margin: 0; color: #123456 }\n' > "$D/sheets/extra.css"
+  _dm_commit "the root-relative sheet gains a colour"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LITERAL-COLOUR" && _dm_has "$_dm_out" "#123456" && _dm_has "$_dm_out" "sheets/extra.css"; } || cf "(d2) a colour in a sheet linked by a root-relative path is not a LITERAL-COLOUR finding naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "outside :root" && cf "(d2) the colour message still says 'outside :root': $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$SB_PREFIX-863" "UX-001#empty@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-863" "UX-001#empty@$p7")" = drift ] && _dm_has "$r" "sheets/extra.css"; } || cf "(d2) a change to a sheet linked by a root-relative path does not read drift naming it: $r"
+  _dm_back
+
+  # (e) D5: a property a loaded sheet declares is covered by that sheet's bytes, not 'names no token'; the rule names the form
+  mkdir -p "$D/ds"; printf ':root { --plant-accent: #123456; }\n' > "$D/ds/plant.css"
+  _dm_edit "$D/Settings.dc.html" 's#<helmet><style>#<helmet><link rel="stylesheet" href="ds/plant.css"><style>#'
+  _dm_edit "$D/Settings.dc.html" 's#var(--color-primary)">Settings#var(--plant-accent)">Settings#'
+  _dm_commit "a prefixed sheet"; P="$_DM_SHA"; p7="${P:0:7}"
+  _dm_card 864 in_progress "design: [UX-002#idle@$P]"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$SB_PREFIX-864" "UX-002#idle@$p7")"
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-864" "UX-002#idle@$p7")" = clean ] || cf "(e) a pin whose var() is declared in the sheet it loads does not read clean: $r"
+  _dm_has "$r" "names no token" && cf "(e) a var() its loaded sheet declares is called 'names no token': $r"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "#123456" && _dm_has "$_dm_out" "named for a token" && _dm_has "$_dm_out" "no prefix"; } || cf "(e) the prefixed sheet's colour is not a LITERAL-COLOUR finding stating the naming rule (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+
+  # (f) D9: the colour the design page writes with a picked token, background-color: var(--color-on-surface, #1f2421), is a token
+  git -C "$SB_WORK" rm -rfq --ignore-unmatch requirements/design >/dev/null 2>&1; git -C "$SB_WORK" checkout -q "$P0" -- requirements/design >/dev/null 2>&1
+  _dm_edit "$D/Settings.dc.html" 's#</sc-if>#</sc-if><button id="ux-002-start" type="button" style="height: 48px; color: var(--color-on-primary); font-size: 16px; background-color: var(--color-on-surface, \#1f2421)">Get Started</button>#'
+  _dm_commit "a token picked on the page"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(f) background-color: var(--color-on-surface, #1f2421), the token's own value as the fallback, is a finding (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_edit "$D/Settings.dc.html" 's#\#1f2421)#\#1f2422)#'
+  _dm_commit "the fallback is no longer the token's value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "LITERAL-COLOUR" && _dm_has "$_dm_out" "#1f2422"; } || cf "(f2) a var() fallback that is not the token's value is not a LITERAL-COLOUR finding (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (g) a colour in a screen that has a registry row of its own, imported by another, is reported on its own row once
+  git -C "$SB_WORK" rm -rfq --ignore-unmatch requirements/design >/dev/null 2>&1; git -C "$SB_WORK" checkout -q "$P0" -- requirements/design >/dev/null 2>&1
+  _dm_edit "$D/Timer.dc.html" 's#style="color: var(--color-primary)"#style="color: var(--color-primary); background-color: \#123456"#'
+  _dm_commit "a literal in the imported Timer"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^LITERAL-COLOUR')" = 1 ] && _dm_has "$_dm_out" "Timer.dc.html: #123456"; } || cf "(g) a literal in a screen with its own row, imported by another, is not reported once on its own row (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }

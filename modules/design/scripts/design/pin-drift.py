@@ -24,7 +24,11 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      declares it in its :root block. A token value changed or removed is drift; a token added is not. A local file the
      artboard loads (<link href>, <script src>, <img src>, <dc-import name="N"> as N.dc.html, @import and url() in a style or a
      sheet, through sheets that import sheets and artboards that import artboards: check-design-links.py's `closure`, the one
-     list the gate and the approvals use too) is compared by bytes: changed is drift. A file neither revision holds cannot have
+     list the gate and the approvals use too; a leading `/` is read from the canvas's project directory) is compared by bytes:
+     changed is drift. For a state of an artboard with data-state marks the closure and the tokens are those of the markup the
+     state shows: its own branches and the markup outside every branch, so a screen imported only in another state's branch is no
+     drift for this one. A sheet or script uploaded to the canvas (`/_blob/<id>`) cannot be read: `uncompared`, said on the line;
+     put the sheet under project/ as a file. A file neither revision holds cannot have
      changed, so it is no gap (support.js is supplied by the host and is in no project; /_blob/ paths and {{template}} values
      are not files); check-design-links.py's MISSING_IS_A_GAP, one line, makes each of them `uncompared` instead. A remote or
      data: reference is not a gap either (a changed one changes the artboard's own bytes). A var() read in a file it loads
@@ -44,8 +48,10 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      does not list the pinned state is set aside (`scoped_out` in --json; the verdict reads `clean`, noted). Shared
      markup, the component `<script>` and tokens count for every state. The comparison is simple: the pinned state's branches
      (serialized whole, children in order) must be identical, and so must everything outside every branch (its position kept);
-     only then is a difference under other states set aside as `clean`. A branch that carries a mark naming a state the row
-     does not list is `uncompared` if it differs. An artboard with no `data-state` mark keeps the per-file verdict
+     only then is a difference under other states set aside as `clean`. A new state is such a difference: a branch whose
+     state the artboard did not have at the pin is set aside, and so is a change of the component script (and of its
+     data-props) that only inserts text, the new state's flag and option; the line says `a new state`. A branch that carries a
+     mark naming a state the row does not list is `uncompared` if it differs. An artboard with no `data-state` mark keeps the per-file verdict
      (`granularity: file`); the state cannot be derived from the markup alone, because a variant is computed by the
      component script. When in doubt it says `drift`.
        gone    the registry at --head has no row for the UX id, or the file is missing
@@ -61,7 +67,7 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      state does not show, or is not visual (an attribute), and the reader decides.
 Python 3 standard library only; reads git, writes nothing. Exit 0 once it has read the revision, 1 when --head is not a commit.
 """
-import hashlib, importlib.util, json, posixpath, re, subprocess, sys
+import difflib, hashlib, importlib.util, json, posixpath, re, subprocess, sys
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -268,11 +274,16 @@ def _global_in(n, out):
             _global_in(c, out)
 
 
+SCRIPT_MARK = '\x00component-script\x00'
+
+
 def project(root, state, known):
-    """The artboard as four lists for one pinned state: `outside` (everything outside every data-state branch, in order, a
-    placeholder where each branch sits, and the style, link and script elements inside other branches, which are global), `pinned`
-    (the whole branches that list the state), `unknown` (branches naming a state the row does not list) and `others`."""
-    pinned, unknown, others, glob = [], [], [], []
+    """The artboard as lists for one pinned state: `outside` (everything outside every data-state branch, in order, a placeholder
+    where the pinned branch sits, and the style, link and script elements inside other branches, which are global), `pinned`
+    (the whole branches that list the state), `unknown` (branches naming a state the row does not list), `others`, and `names`
+    (every state any branch names). An other state's branch leaves no placeholder: a state added or removed is not a change of
+    the pinned one. The component script is kept whole, marked, so a check can tell an insertion from a change."""
+    pinned, unknown, others, glob, names_all = [], [], [], [], set()
 
     def walk(n, out):
         for c in n.kids:
@@ -282,16 +293,18 @@ def project(root, state, known):
             ds = c.get('data-state')
             if ds:
                 names = _states(ds)
+                names_all.update(names)
                 if state in names:
                     out.append('<PINNED/>')
                     pinned.append(ser(c))
                 else:
                     bad = any(x not in known for x in names)
-                    out.append('<UNKNOWN/>' if bad else '<OTHER/>')
                     (unknown if bad else others).append(ser(c))
                     if c.tag in ('style', 'link', 'script'):
                         glob.append(ser(c))
                     _global_in(c, glob)
+            elif c.tag == 'script' and 'text/x-dc' in (c.get('type') or ''):
+                out.append(SCRIPT_MARK + ser(c))
             else:
                 out.append('<%s%s>' % (c.tag, ''.join(f' {k}={v}' for k, v in c.attrs)))
                 walk(c, out)
@@ -299,7 +312,62 @@ def project(root, state, known):
 
     out = []
     walk(root, out)
-    return {'outside': out + glob, 'pinned': pinned, 'unknown': unknown, 'others': others}
+    return {'outside': out + glob, 'pinned': pinned, 'unknown': unknown, 'others': others, 'names': names_all}
+
+
+def insert_only(a, b):
+    """True when b is a with text inserted and nothing removed or changed."""
+    if len(a) + len(b) > 400000:
+        return False
+    return all(op[0] in ('equal', 'insert') for op in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes())
+
+
+def outside_same(a, b, grew):
+    """The markup outside every branch is the same; with `grew` (a state was added) the component script may also differ by
+    insertions alone (its renderVals() flag and the option in its data-props)."""
+    if a == b:
+        return True
+    if not grew or len(a) != len(b):
+        return False
+    return all(x == y or (x.startswith(SCRIPT_MARK) and y.startswith(SCRIPT_MARK) and insert_only(x, y)) for x, y in zip(a, b))
+
+
+def qser(n):
+    """HTML for a node, attributes quoted: what the reference reader expects."""
+    if isinstance(n, str):
+        return n
+    attrs = ''.join(f' {k}="{v.replace(chr(34), "&quot;")}"' for k, v in n.attrs)
+    return f'<{n.tag}{attrs}>' + ('' if n.tag in VOID else ''.join(qser(c) for c in n.kids) + f'</{n.tag}>')
+
+
+def _globals(n):
+    for c in n.kids:
+        if not isinstance(c, str):
+            if c.tag in ('style', 'link', 'script'):
+                yield c
+            else:
+                yield from _globals(c)
+
+
+def view_html(n, state, known):
+    """The artboard as markup showing one state: the branches that list it and everything outside every branch; another state's
+    branch is left out, but for the style, link and script elements in it, which are global. For the closure and the tokens a state
+    uses (a screen imported only in another state's branch is not one this state loads)."""
+    out = []
+    for c in n.kids:
+        if isinstance(c, str):
+            out.append(c)
+            continue
+        ds = c.get('data-state')
+        if ds and state not in _states(ds) and all(x in known for x in _states(ds)):
+            out += [qser(g) for g in _globals(c)] if c.tag not in ('style', 'link', 'script') else [qser(c)]
+            continue
+        attrs = ''.join(f' {k}="{v.replace(chr(34), "&quot;")}"' for k, v in c.attrs)
+        out.append(f'<{c.tag}{attrs}>')
+        if c.tag not in VOID:
+            out.append(view_html(c, state, known))
+            out.append(f'</{c.tag}>')
+    return ''.join(out)
 
 
 def has_marks(n):
@@ -309,8 +377,8 @@ def has_marks(n):
 def refs_check(old_html, new_html, full, head, path_p, path_h):
     """-> ([files the artboard loads whose bytes differ between the revisions], [what could not be compared], [texts of the sheets and
     artboards it loads]). The closure is cdl.closure, the one list shared with the gate and the approvals."""
-    fp, tp, wp = cdl.closure(lambda p: show(full, p), posixpath.dirname(path_p), old_html)
-    fh, th, wh = cdl.closure(lambda p: show(head, p), posixpath.dirname(path_h), new_html)
+    fp, tp, wp = cdl.closure(lambda p: show(full, p), posixpath.dirname(path_p), old_html, top=cdl.project_top(path_p))
+    fh, th, wh = cdl.closure(lambda p: show(head, p), posixpath.dirname(path_h), new_html, top=cdl.project_top(path_h))
     changed, missing = cdl.closure_diff(fp, fh)
     why = sorted(set(wp + wh)) + ([f'{k} is in neither revision' for k in missing] if cdl.MISSING_IS_A_GAP else [])
     return changed, why, list(tp.values()) + list(th.values())
@@ -357,24 +425,27 @@ def check(card_id, ux, state, pin, head):
     if new is None:
         return {**base, 'verdict': 'gone', 'why': f'{path_h} is not in HEAD', 'path_pin': path_p}
     old_html, new_html = old.decode('utf-8', 'replace'), new.decode('utf-8', 'replace')
-    refs, why, sheet_texts = refs_check(old_html, new_html, full, head, path_p, path_h)
-    toks, twhy = cdl.tokens_check(ROOT, old_html, new_html, full, head, sheet_texts)
+    known = row_p['states'] | row_h['states']
+    tp, th = tree_of(old_html), tree_of(new_html)
+    scoped = has_marks(tp) or has_marks(th)
+    # a state of a marked artboard loads what its own markup loads: another state's branch is not read for files or tokens
+    vo, vn = (view_html(tp, state, known), view_html(th, state, known)) if state and scoped else (old_html, new_html)
+    refs, why, sheet_texts = refs_check(vo, vn, full, head, path_p, path_h)
+    toks, twhy = cdl.tokens_check(ROOT, vo, vn, full, head, sheet_texts)
     why = why + twhy
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
     meta_only = False
     if not same_bytes and META.sub('', old_html) == META.sub('', new_html):
         same_bytes, meta_only = True, True      # only data-stories differs: registry bookkeeping, not the design
-    known = row_p['states'] | row_h['states']
-    tp, th = tree_of(old_html), tree_of(new_html)
-    scoped = has_marks(tp) or has_marks(th)
     ids_all = [] if same_bytes else changed_ids(old_html, new_html)
-    drift_art, aside = False, []
+    drift_art, aside, added = False, [], []
     if not same_bytes:
         if not (state and scoped):
             drift_art = True
         else:
             P, H = project(tp, state, known), project(th, state, known)
-            if P['outside'] != H['outside'] or P['pinned'] != H['pinned']:
+            added = sorted(H['names'] - P['names'])
+            if not outside_same(P['outside'], H['outside'], bool(added)) or P['pinned'] != H['pinned']:
                 drift_art = True
             elif P['unknown'] != H['unknown']:
                 why.append('a branch under a data-state naming no state of the row (' + ', '.join(ids_all[:4]) + ') differs and cannot be set aside')
@@ -404,7 +475,7 @@ def check(card_id, ux, state, pin, head):
         rc, out = git('log', '--follow', '--format=%h %s', f'{full}..{head}', '--', path_h)
         commits = [l[:90] for l in out.decode().splitlines()]
     res = {**base, 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
-           'ids': ids_all if drift_art else [], 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'tokens': toks, 'refs': refs, 'render': render,
+           'ids': ids_all if drift_art else [], 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'new_states': added if aside else [], 'tokens': toks, 'refs': refs, 'render': render,
            'uncompared': why}
     if verdict == 'uncompared':
         res['why'] = '; '.join(why)
@@ -476,7 +547,7 @@ def main(argv):
             if r.get('commits'):
                 extra += ' | since the pin: ' + ' / '.join(c.split(' ', 1)[0] for c in r['commits'])
         elif r['verdict'] == 'clean' and r.get('scoped_out'):
-            extra = f" (changed only under other states: {' '.join(r['scoped_out'][:6])})"
+            extra = f" (changed only under other states: {' '.join(r['scoped_out'][:6])})" + (f" - a new state: {' '.join(r['new_states'])}" if r.get('new_states') else '')
         elif r['verdict'] == 'clean' and r.get('meta_only'):
             extra = ' (only data-stories differs: registry bookkeeping)'
         elif r['verdict'] == 'moved':

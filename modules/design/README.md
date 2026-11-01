@@ -4,7 +4,7 @@
 Projects with a UI need designs that are as evergreen, reviewable and versioned as their PRDs. This module keeps them in the
 repo beside the PRDs, ties each screen to the stories it serves and to the card that built it, and lets a canvas tool (Claude
 Design is the first) be the working surface without ever being the authority: the repo is the record, and a canvas edit
-reaches it only through a human.
+reaches it only when the Designer pulls it, shows the diff and commits it.
 
 It is **off until enabled** ([`process/MODULES.md`](../../process/MODULES.md)).
 
@@ -29,12 +29,12 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 
 ## What this version has
 
-Available now: the layout, the Designer role, the rules, token files written by hand, and Claude Design used through the human
-(the human carries the Designer's brief to Claude Design's agent, and its files, PNG exports and comments back). Creating and
-updating the artifact from the kit's own agent is the intended workflow and part of what follows. The checkers are installed: the
+Available now: the layout, the Designer role, the rules, token files written by hand, and the Designer creating and updating the
+Claude Design canvas itself with the artifact tools, by the order in its role (list, compare shas, pull first, edit, send with
+`base_version`, read back); the human carries nothing. The checkers are installed: the
 link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the
 pin-drift report that `check-board.sh` prints. While a capability the Designer role
-lists (the pull and publish commands, the card gate, the token generator and the colour utility, the
+lists (the packaged pull and publish skills, the card gate, the token generator and the colour utility, the
 renderer and audits) is absent from your project, asking for it gets the answer that
 it needs the next version of the kit, which brings it.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.

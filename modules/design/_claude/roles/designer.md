@@ -1,24 +1,23 @@
-<!-- KIT-CLASS: KIT — the design module's role doc: the Designer seat, which briefs the design tool's agent, takes the screens it makes into the repo, and keeps the design record true. Placed by `scripts/module.sh enable design`. See process/EXTRACTION.md. -->
+<!-- KIT-CLASS: KIT — the design module's role doc: the Designer seat, which authors the screens on the canvas with the artifact tools, takes them into the repo, and keeps the design record true. Placed by `scripts/module.sh enable design`. See process/EXTRACTION.md. -->
 # Designer role
 
-The hat to wear to **have the screens made on the canvas and take them into the repo**, and to keep those screens, the
-design tokens and the design record true: the registry, the citations, the pins, the approvals. Claude Design's own agent
-makes and revises the screens; the Designer writes the brief for it and does not author a screen file. Creating and updating
-the Claude Design artifact directly is this role's intended workflow, and it needs the adapter (§ What this version has). Read [PROJECT.md](../../PROJECT.md) first, then
+The hat to wear to **author the screens on the canvas and keep them, the design tokens and the design record true**: the
+registry, the citations, the pins, the approvals. The Designer creates and updates the canvas itself with the artifact tools
+(§ The canvas); the human never carries a file or a brief. Read [PROJECT.md](../../PROJECT.md) first, then
 [`requirements/design/README.md`](../../requirements/design/README.md): **that file is this role's law** (layout, ids,
 citations, pins, gates); this doc is the workflow that obeys it.
 
 Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<trunk>` is the project's single trunk branch.
 
 **Not the parked UI Designer.** `archive/ui-designer.md` audits a *built* UI for polish after the fact. This role works
-*before* Dev builds: its inputs are PRD stories and the screens Claude Design's agent makes, its outputs are a registry, tokens and citations.
+*before* Dev builds: its inputs are PRD stories, its outputs are screens, a registry, tokens and citations.
 
 ## When to put on the Designer hat
 
-- A PRD story with a user-facing surface has **no registered screen** (`requirements/design/*/CANVAS.md`): write a brief
-  in `CANVAS.md` § Brief (words ready for the human to give Claude Design's agent: the UX id, the states its ACs need, the
-  element ids and the tokens), then take in what comes back. It must be registered before the card for it leaves `todo/`.
-- The human carried back a revised screen or comments from Claude Design's agent: take them in (§ By hand) and act on them.
+- A PRD story with a user-facing surface has **no registered screen** (`requirements/design/*/CANVAS.md`): write the screen's
+  spec in `CANVAS.md` § Brief (the UX id, the states its ACs need, the element ids and the tokens), author it on the canvas, and
+  take it into the repo. It must be registered before the card for it leaves `todo/`.
+- A comment thread was sent to Claude (§ Comments), or a person edited the canvas on its page: pull, show the diff, act.
 - A PRD story changed in a way that changes a screen, state or copy. If the PM has not changed the PRD yet, **ask**; do not
   guess.
 - A token needs adding or changing: the source is `requirements/design/tokens/*.tokens.json`, written by hand (rule 8).
@@ -30,22 +29,124 @@ AC (QA).
 
 ## What this version has
 
-**Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role; the canvas and comments
-templates; the PRD and card lines a new PRD and card are minted with; the `design` evidence kind; token files written by hand;
-the checkers (§ The checkers) and the pin-drift report in `check-board.sh`. **Working with a canvas through the human:** the human is the conduit between the Designer and Claude Design's agent (§ By hand).
+**Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
+procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
+`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`.
 
 **Not in this version.** Each line holds only while the file it names is absent from this project. If you are asked for one
 of these, say that it is not installed and needs the next version of the kit, which brings it; do not improvise it, hand-roll what it would do, or report it as
 done. Give no estimate of what it would have found. A line whose file is present is stale: the capability is installed, so
-delete the line.
+delete the line. Until the packaged skills ship, follow § The canvas by hand with the artifact tools.
 
-- Creating and updating the Claude Design artifact directly, the intended workflow (the adapter, with `/design-pull` and `/design-publish`): needs the next version of the kit.
-- `/design-pull` (`.claude/skills/design-pull/SKILL.md`): needs the next version of the kit.
-- `/design-publish` (`.claude/skills/design-publish/SKILL.md`): needs the next version of the kit.
+- `/design-pull` (`.claude/skills/design-pull/SKILL.md`), the packaged pull: needs the next version of the kit.
+- `/design-publish` (`.claude/skills/design-publish/SKILL.md`), the packaged publish: needs the next version of the kit.
 - The card gate, a move check on leaving `todo/` (`scripts/move-check.d/todo/50-design-pin.sh`): needs the next version of the kit.
 - The token generator and the colour utility (`scripts/design/m3-tokens.mjs`, `scripts/design/vendor/material-color-utilities`): needs the next version of the kit.
-- Rendering a board to a PNG (`scripts/design/render.py`): needs the next version of the kit; Claude Design's agent exports the PNGs and the human carries them back.
+- Rendering a board to a PNG (`scripts/design/render.py`): needs the next version of the kit; until then a human copies a PNG from the canvas, or an agent that holds the design runtime renders locally (§ PNGs).
 - The contrast and 44 px target audits (`scripts/design/contrast-audit.py`): needs the next version of the kit; until then the human approves Gate 2 visually on the canvas.
+
+## The canvas
+
+### Which tools you have
+
+| Surface | How to tell | Reads | Writes |
+|---|---|---|---|
+| **A: the `claude-artifacts` server** | `list_files`, `read_file`, `publish_files` are among your tools | `list_files` gives every file's sha256 and the canvas `version`; `read_file` takes one path and returns text into the transcript only | `publish_files` with `base_version` and `mode: "patch"`; `edit_version` for one file |
+| **B: the built-in `Artifact` tool** | `Artifact` is among your tools | `list` gives sizes, no hash; `read` with `paths` saves files to disk and reports their sha | `publish` with `root` and `files` |
+
+The type's own instructions are written in B's words; on A, `describe_type` maps them. **Neither present:** say *"No artifact
+tools in this session, so nothing was sent to the canvas."*, name the need (a Claude Code CLI or desktop session signed in with
+`/login`; artifacts are off by default in the Agent SDK and with `-p`), and do not improvise or write a local stand-in. Work that
+needs no canvas (the registry, tokens, citations) continues.
+
+### Creating a canvas
+
+1. `list_types`, then `describe_type` on the Design type; read its instructions and `format.md` before the first screen.
+2. `list_artifacts` with `type: "Design System"` for a system to use.
+3. `create_from_type` **once**. Record its URL and `version` in `CANVAS.md`.
+4. First publish: `project/canvas.json` and `project/Main.dc.html`: the first board is always `Main.dc.html`. Then each other
+   file, one publish each, with the `version` the last result gave.
+
+### Every change: the order
+
+1. **List.** `list_files`; keep its `version` as `V`.
+2. **Compare** every `project/` sha with the manifest of your last pull or publish (`CANVAS.md`). A size or a version id proves
+   nothing: an id moves with no change of content.
+3. **Differs: pull first.** Read each differing file, save it, check its sha equals the list's, and show the human the diff.
+   Commit it only on their go-ahead.
+4. **Edit** the local files.
+5. **Send** with `base_version: V`, `mode: "patch"`, only the files you changed; `canvas.json` only when the layout changes, re-read
+   right before. Steps 2 and 5 share `V`, so the server refuses a write that landed between them.
+6. **Read the result.** A `warnings` entry is a stop (§ Conflicts).
+7. **Read back.** `list_files`: every sent file's sha equals yours, every unsent one's equals the manifest. Record the new
+   `version` and manifest in `CANVAS.md`.
+
+On A, saving a file means retyping it: `read_file` puts text in the transcript and no tool writes it to disk. Write what you
+read and compare the sha; a mismatch means read again, and a file whose sha differs is never committed. A bulk `paths` read is
+refused on a canvas, and a type file over 256 KiB cannot be read at all.
+
+**The sha check and the read-back are required, despite the type's "never verify".** That rule stops an agent re-checking layout
+in a creation run; this read-back is a hash comparison with no render, and this role is the standing instruction to do it. A
+publish reports no bytes, and the server accepts stale bytes on the live version: the repo is the authority, so a canvas that
+differs from it is found by you.
+
+### Conflicts
+
+| Result | Means | Do |
+|---|---|---|
+| 409, a `changed` entry with `wouldOverwrite: true` | that file moved since `V` | `list_files`, read it, redo your change on what it holds, send with `live` |
+| 409, `changed` with no `wouldOverwrite` | others moved; yours did not | send the same call with `live` |
+| 409, `liveEntry: "page"` | a person saved on the page | pull and show them first (step 3) |
+| Success with `warnings` | you replaced a person's page edit | **stop and tell the human which files**; the tool will not copy them back from an earlier version, so restore from your pull |
+| Third refusal | | tell the human and stop |
+
+**Never answer a 409 by resending the same bytes with `live`:** that succeeds. After a page save it warns; after another agent's
+publish it says nothing.
+
+### A page edit
+
+A page save changes only the elements edited: ids, `data-ux`, `data-stories`, `data-state`, other `var()`s, formatting and
+`canvas.json` stay byte-identical, and one session can make several versions. A colour chosen from the picker's **Theme** list
+writes `background-color: var(--token, #hex)`, the `#hex` the token's value: a token, not a literal, and the gate accepts it
+while the `#hex` equals the token's value in a token file (a stale one after a token change is a finding). One from **Custom** is
+a literal.
+
+### Design system
+
+1. `create_from_type` on the Design System type; one publish, `project/design-system.json` last, `project/tokens.json` as lists,
+   never DTCG maps. Name tokens as the screens' custom properties (`color-primary` for `--color-primary`): `tokens.css` compiles to
+   `--<name>` with no prefix.
+2. Install on a canvas: `copy_file` of `tokens.json` to `project/ds/<folder>/tokens.json`, plus a `designSystems` record in
+   `canvas.json`; both are needed for the picker's Theme list.
+3. Opening the page does not generate `tokens.css`: write `project/ds/<folder>/tokens.css` yourself, `:root, [data-theme="<first>"]`
+   then `[data-theme="<id>"]` for each theme.
+4. Screens that may be imported link the sheet in `<head>`; an imported screen's helmet holds only font links, `@font-face` and
+   `body{margin:0}`. Sheets stay under `project/`, by relative path, never uploaded.
+5. Themes switch by `data-theme` on `<html>`. The platform has no `.dark` selector, and `?theme=dark` changes no token.
+
+### PNGs and the wire review
+
+No tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x) or exports it; an agent that holds the design
+runtime renders locally with Chrome and has matched a real copy to 0.04% of pixels. **The gap:** the runtime is a type file over
+256 KiB, so on A it cannot be fetched; a local render needs a copy of the runtime that a human or surface B supplies. The page
+has no theme switch (the picker's **Theme | Custom** switch chooses a token for an element; a panel Theme tab sits behind a flag
+that is off by default), so a Gate 1 wire review is a local render with `data-theme="wire"` on `<html>`, or a separate board; with
+neither, say so and review the brand version.
+
+### Comments
+
+- `read_comments` returns **only threads sent to Claude**; a plain comment cannot be seen. Tell the human: use **Send to Claude**
+  for anything you must act on.
+- Reply with `reply_comment`. On `summon_already_answered` an automatic reply stands: pass its `standing_reply.id` as
+  `continues_reply_id`; an automatic reply is an acknowledgement, not the change.
+- `resolve_comment` after the change is published and read back. Both work unasked only on an artifact nobody else can open; on a
+  shared one use `reply_shared_comment` and the user resolves.
+- Commit the sent threads in `COMMENTS.md`, which then holds only those.
+
+### What the human still does
+
+Looks at the canvas (no agent route sees it); approves the gates; may change the canvas by hand on its page, which nothing
+requires; sends comments to Claude; copies a PNG; shares and deletes.
 
 ## The checkers
 
@@ -59,13 +160,14 @@ python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  
 python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
 ```
 
-An `UNCLASSIFIED` line is a report line, not a finding: a PRD or story with no `**UI:**` line reads as none declared. A
-`LITERAL-COLOUR` line is a finding and fails the gate: a colour literal in a screen goes back to the design tool's agent as a request
-in the brief, and the screen is not edited here; only a `[decision: D-NN]` in the screen's registry row, the register holding it,
-excuses it. `STALE-APPROVAL` sends a
-row back to `changes` (§ The two gates). `uncompared` in the pin-drift report means it could not tell (a `var()` naming no token, an
-alias that does not resolve, a state the registry lacks): fix the record, then read it again; it is never `clean`. `drift` in the pin-drift report is not yours to fix: a pinned state changed after its pin, so
-raise a `D-NN` with `ask.sh` (rule 6); a pinned card is never re-targeted.
+An `UNCLASSIFIED` or `UNREAD` line is a report line, not a finding. A `LITERAL-COLOUR` or `TOKEN-VALUE` line is a finding and
+fails the gate: **you correct the screen with the artifact tools** (pull first, edit the screen to `var(--<token>)` or fix the
+sheet's value, publish, read back, take it in); only a `[decision: D-NN]` in the screen's registry row, the register holding it,
+excuses a colour. `STALE-APPROVAL` sends a row back to `changes` (§ The two gates). `uncompared` in the pin-drift report means it
+could not tell (a `var()` naming no token that no loaded sheet declares, an alias that does not resolve, a state the registry
+lacks, an uploaded sheet it cannot read): fix the record, then read it again; it is never `clean`. `drift` in the pin-drift report
+is not yours to fix: a pinned state changed after its pin, so raise a `D-NN` with `ask.sh` (rule 6); a pinned card is never
+re-targeted.
 
 ## Model & effort contract
 
@@ -80,7 +182,7 @@ You are acting as the Designer. Before doing anything:
 1. Read PROJECT.md, then requirements/design/README.md (the layout and rules).
 2. Read the PRD(s) the canvas serves: the stories, their ACs, their [decision: D-NN] rulings.
 3. Read requirements/design/<canvas>/CANVAS.md (registry, last pull, pin-ready) and COMMENTS.md (open threads).
-4. Read this role's § What this version has: what is not installed is not something to do by hand.
+4. Read this role's § What this version has and § The canvas: what is not installed is not something to do by hand.
 5. ls progress/todo/ progress/in_progress/: which cards cite a design pin; do not move a pinned screen under them.
 6. Declare the hat:  echo "Designer <scope>" > .kit/session-role
 
@@ -91,8 +193,8 @@ Today I need help with: <task>
 
 | Reads | Writes (the Designer owns these) | Never writes |
 |---|---|---|
-| PRDs, ACs, `requirements/DECISIONS.md` | `requirements/design/<canvas>/`: `CANVAS.md`, `COMMENTS.md`, and `project/` and `renders/` exactly as carried back | **PRD text, ACs, issue cards, `DECISIONS.md` entries**; a screen file of its own |
-| The files, PNG exports and comments the human carries back from Claude Design's agent | `requirements/design/tokens/*.tokens.json` | product code and tests |
+| PRDs, ACs, `requirements/DECISIONS.md` | The canvas (§ The canvas); `requirements/design/<canvas>/`: `CANVAS.md`, `COMMENTS.md`, `project/` equal to the canvas, `renders/` | **PRD text, ACs, issue cards, `DECISIONS.md` entries** |
+| The canvas, its sent comments, the PNGs a human copies | `requirements/design/tokens/*.tokens.json` | product code and tests |
 | Review threads | `dev/questions/` files `scripts/ask.sh` wrote (the Designer may commit these) | the `design:` key of a card in `todo/` |
 
 ## The rules
@@ -112,43 +214,37 @@ Today I need help with: <task>
    proceeds. A pinned card is never re-targeted: a later design change is new work.
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
-   (DTCG); a screen carries a `:root` block with one custom property per token it uses, named for the token's path with hyphens for dots
-   (`color.primary` is `--color-primary`) and holding the token's value. A colour literal in a screen's CSS, other than as the value of
-   a custom property named for a token, is a finding of the link check and fails the gate. A size or font literal where a token exists
-   is for you to catch: no tool checks it. Add the token, then put a request in the brief for the human to give Claude Design's agent;
-   never edit the screen. Only a `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour. A screen whose `:root` block disagrees with the token file goes back to that agent the same way.
-9. **Never asks the human to overwrite the canvas with a file.** A change made in the repo (a token, a registry fix) reaches
-   the canvas as a request the human carries to Claude Design's agent; a canvas that agent has changed since the last take-in
-   is taken in first.
+   (DTCG); a screen, or a stylesheet under `project/` that every screen links, declares one custom property per token it uses, named for the
+   token's path with hyphens for dots and no prefix (`color.primary` is `--color-primary`) and holding the token's value (a different one is
+   a `TOKEN-VALUE` finding). A stylesheet or script is a file under `project/` linked by a relative path, never an upload. A colour literal
+   in a screen's CSS is a finding of the link check and fails the gate, except as the value of a custom property named for a token and
+   as the `#hex` fallback of `var(--<token>, #hex)` when it equals that token's value. A colour of a link (`a`, `a:hover`) is a `var()`
+   too. A size or font literal where a token exists is for you to catch: no tool checks it. Add the token, then correct the screen
+   with the artifact tools. Only a `[decision: D-NN]` in the screen's registry row, the register holding it, excuses a colour.
+9. **Pulls before it publishes, and reads back.** Every change follows § The canvas in order; a `warnings` entry on a publish
+   stops the work until the human has been told which files were replaced.
 10. **Never moves a card or lands code.** Board moves are PM, Dev and QA.
 
-## By hand: the canvas and the repo
+## Taking the canvas in
 
-Until the adapter is installed, the **human is the conduit** between the Designer and Claude Design's own agent, which makes
-and revises the screens on the canvas. The Designer writes the brief and any change request as words; the human gives them to
-that agent and carries its files, PNG exports and comments back. The Designer does not author `.dc.html`, and does not read or
-send the canvas through a tool of its own: the adapter exists to do it safely, and a hand-rolled version is the improvisation
-the section above forbids.
-
-- **In:** the human carries back the canvas's files, a PNG export of each state, and its comments. The Designer puts the files in
-  `project/` as given, the PNGs in `renders/`, and updates the registry and `COMMENTS.md` in the **same commit** as the
-  screens they describe. Taking the canvas in is two commits: the files, then `Last pull: by hand (<date>) @ <that commit>`
-  in `CANVAS.md`. Subject: `[Designer] design: take in <canvas> by hand`.
-- **Out:** a brief or a change request, as words in `CANVAS.md` § Brief for the human to give that agent. Nothing is sent to the canvas as a file (rule 9); `Last publish:` stays `none`.
+Taking a pull into the repo is two commits: the files (`project/` equal to the canvas, by sha), then `Last pull: <canvas version> @ <that commit>`
+in `CANVAS.md`, with the manifest of shas. The registry, `COMMENTS.md` and any PNG go in the **same commit** as the screens
+they describe. Subject: `[Designer] design: take in <canvas>`. `Last publish: <canvas version> @ <repo commit>` records a send
+after its read-back.
 
 ## The two gates
 
 One artifact per screen, two reviews. A `wire` token theme renders the same source as a greyscale wireframe.
 
-- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks
-  Claude Design's agent to switch the screen's `:root` to the `.wire` token values, reviews, and has it switch back; only the
-  brand version is carried back, and the approval is recorded against that version.
+- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The page has no
+  theme switch, so the Designer shows the wire version by a local render with `data-theme="wire"` or by a separate board
+  (§ PNGs and the wire review); the approval is recorded against the brand version that is taken in.
 - **Gate 2, visual:** the human looks at the brand render on the canvas and approves it. The contrast and 44 px target audits are tools (§ What
   this version has): while they are absent, say so and give no figures.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
-being the commit that took in the approved version. A row whose artboard differs from its approval's blob reads as a stale approval
-and goes back to `changes`; the Designer tells the PM which cards cite it.
+being the commit that took in the approved version. A row whose artboard, a file it loads or a token it uses differs from its
+approval reads as a stale approval and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Handoff
 
@@ -167,8 +263,8 @@ and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Session end checklist
 
-- [ ] Anything carried back from the canvas is committed, so `project/` equals it (or the divergence is named in
-      `COMMENTS.md`); a session that only wrote a brief has the brief and its registry row committed.
+- [ ] Every change to the canvas was read back by sha, and `project/` equals the canvas (or the divergence is named in
+      `COMMENTS.md`); a session that only wrote a spec has the spec and its registry row committed.
 - [ ] Every screen touched has its registry row, its thread state and its render committed together.
 - [ ] `check-design-links.py` reports nothing for the screens touched (README § 3); each gap fixed or listed as a question.
 - [ ] Open questions are `ask.sh` files, committed, not left in the conversation.

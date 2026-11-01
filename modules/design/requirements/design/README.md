@@ -2,13 +2,13 @@
 # `requirements/design/` — screens, flows and tokens, beside the PRDs
 
 Design is **evergreen corpus**, like the PRDs: it describes what the product looks like *now*, and git is its version
-store. A design tool's canvas is the *working surface*, where the tool's own agent makes and revises the screens; this directory is
-the *record* and the authority. The Designer briefs that agent and takes the result in; creating and updating the artifact
-directly needs the next version of the kit, and until then the human carries the brief and the result between them.
+store. A design tool's canvas is the *working surface*, where the Designer authors and revises the screens with the artifact tools; this
+directory is the *record* and the authority. The human looks, approves and may change the canvas by hand; nobody carries files.
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this by hand.** Each capability that section lists as needing the next
-version of the kit is not installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
+version of the kit (the packaged pull and publish skills, the card gate, the token generator, the renderer, the audits) is not
+installed: do not improvise it, and say that it needs the next version of the kit, which brings it. This binds
 every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
 
 ## 1. Layout
@@ -18,7 +18,7 @@ requirements/design/<canvas>/        one canvas per PRODUCT, or per platform or 
   project/                           the canvas's files exactly as taken in: artboards and whatever else the tool holds
   CANVAS.md                          canvas URL, last pull, pin-ready, breakpoint, the SCREEN REGISTRY, the brief, proposed citations
   COMMENTS.md                        every review thread, as last pulled
-  renders/<Screen>-<state>.png       committed renders (the canvas's PNG exports): the human-readable record
+  renders/<Screen>-<state>.png       committed renders (a PNG a human copies from the canvas, or a local render): the human-readable record
 requirements/design/views/PRD-NNN.md GENERATED, never hand-edited
 requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of truth; generated outputs are never hand-edited
 ```
@@ -99,11 +99,11 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   `drift` line says `ruling pending` when a question file or `DECISIONS.md` names the card and the screen, and `owed` when not.
 - **A pinned card is never re-targeted.** A change to a pinned state needs a `D-NN`, which the Designer raises with
   `scripts/ask.sh` and then proceeds; a later design change is new work. An element added to a pinned state is a change; a
-  new state on a pinned screen is not. The pin includes the tokens.
+  new state on a pinned screen is not (its branch, its flag in the component script and its option in the script's props, added and nothing else changed). The pin includes the tokens.
 - **A pin is a commit; a path is not.** A screen may move. Where a card or a QA record must show a path, qualify it with the
   commit it was true at.
-- `CANVAS.md` records `Last pull: <canvas version> @ <repo commit>`, or `by hand (<date>) @ <repo commit>` when the human
-  brought the files. Taking the canvas in is two commits: the files, then the record of the first one's sha.
+- `CANVAS.md` records `Last pull: <canvas version> @ <repo commit>` and `Last publish: <canvas version> @ <repo commit>` (after the
+  read-back by sha). Taking the canvas in is two commits: the files, then the record of the first one's sha.
 
 ## 5. Scope and evidence
 
@@ -116,22 +116,33 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 ## 6. Fidelity: one artifact, two gates
 
 One artifact per screen; a `wire` token theme renders the same source as a greyscale wireframe, so **a literal colour in a
-screen is not allowed outside its `:root` block**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
-carries a `:root` block with one custom property per token it uses, holding the token's value. The property is named for the
-token's path with hyphens for dots (`color.primary` is `--color-primary`). A colour literal (`#hex`, `rgb()`, `hsl()`, `oklch()` ...)
-in a screen's style blocks, style attributes, presentation attributes or a local stylesheet it links, outside a `:root` rule, is a
+screen is not allowed outside a token's value**. Tokens are written by hand in the DTCG files until a token generator is installed, and a screen
+(or a stylesheet under `project/` that every screen links, which is how an imported screen reads them, since its own style is limited to font links,
+`@font-face` and `body{margin:0}`) declares one custom property per token it uses, holding the token's value. The property is named for the
+token's path with hyphens for dots, **with no prefix** (`color.primary` is `--color-primary`): that is how the design tool compiles a design system's
+tokens, and a prefix cannot be told from a stray name, so a prefixed sheet is a finding until the tokens are named without one. Its value is the
+token's: a different one is a `TOKEN-VALUE` finding (a theme block of a sheet matches the token file of that theme, `<theme>.tokens.json`).
+Stylesheets and scripts are files under `project/` linked by a relative path (or by a leading `/`, read from `project/`); one uploaded to the canvas
+(`/_blob/<id>`) cannot be read, and is shown as an `UNREAD` line by the link check and as `uncompared` by the pin report. A colour literal
+(`#hex`, `rgb()`, `hsl()`, `oklch()` ...) in a screen's style blocks, style attributes, presentation attributes or a stylesheet or screen it loads, is a
 `LITERAL-COLOUR` finding of the link check and fails the gate, wherever it sits, `:root` rules included, except as the value of a custom
 property named for a token (`--color-primary` for `color.primary`): that is how a screen's `:root` rule, and a theme selector of a token
-sheet, hold a token's value, so a sheet that only defines tokens passes. A custom property that is no token's, or a colour in a
-non-custom property of `:root`, is a finding. A colour name (`red`) is not caught. A colour in the component script is shown
-as a `SCRIPT-COLOUR` line and never fails the gate: a script is code and copy and cannot be read as CSS. The way out is a change request through the brief, which the human carries to the design
-tool's agent; the screen is not edited by hand. The one exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
+sheet, hold a token's value, so a sheet that only defines tokens passes. The `#hex` fallback of `var(--<token>, #hex)` is no finding
+when it equals that token's value in a token file (it is what the canvas's colour picker writes for a token), and is one when it
+differs, which also catches a fallback left stale by a token change. A custom property that is no token's, or a colour in a
+non-custom property of `:root`, is a finding. A screen that has its own registry row reports its colours on its own row only, not
+again on a screen that imports it. A colour name (`red`) is not caught. A colour in the component script is shown
+as a `SCRIPT-COLOUR` line and never fails the gate: a script is code and copy and cannot be read as CSS. The way out is for the
+Designer to correct the screen with the artifact tools (pull first, edit it to `var(--<token>)`, publish, read back). The one
+exception is a recorded decision: a `[decision: D-NN]` in the screen's registry
 row (its title cell), the same marker and the same register as a card's waiver on its `design:` line, the D-NN an entry of
-`requirements/DECISIONS.md` with a current ruling. A token change on a screen is a request the human carries to the design tool's agent.
+`requirements/DECISIONS.md` with a current ruling.
 
-- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The human asks
-  the design tool's agent to switch the screen's `:root` to the `.wire` token values, reviews, and has it switch back; only
-  the brand version is carried back, and the approval is recorded against that version.
+- **Gate 1, structure:** the flow and every state in wire: content, information architecture, states, copy. The canvas's page has
+  no theme switch (its colour picker's Theme | Custom switch chooses a token for an element), so the wire version is a local
+  render with `data-theme="wire"` on `<html>`, which needs the design runtime (a gap the role states), or a separate board. The
+  platform has no `.dark` selector, and `?theme=dark` changes no token: themes are `data-theme` blocks. The approval is recorded
+  against the brand version that is taken in.
 - **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit. The human approves the render on the
   canvas; the audits are tools, and while they are not installed no figure is given for them.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
@@ -150,4 +161,4 @@ Every navigation is an `<a href>`, so `scripts/design/flow-from-links.py` derive
 | **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
 | **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
 | **QA** | Verifies each (UI) AC; the design cell compares the build with the pinned render. |
-| **The human** | Carries the brief and change requests to the design tool's agent, and its files, PNGs and comments back; looks at the result and approves the gates. |
+| **The human** | Looks at the canvas and approves the gates; sends the comments the Designer must act on with Send to Claude (a plain comment is invisible to it); copies a PNG; may change the canvas by hand. Carries nothing. |
