@@ -1389,6 +1389,213 @@ case_finish_pr_runs_only_the_trunks_copy() {
 }
 
 # =============================================================================
+# THE LANDING TOOL IS THE TRUNK'S COMMITTED COPY, LIBRARIES INCLUDED. A branch, or a local edit,
+# that rewrites a library finish-pr.sh sources judges its own landing, so the comparison against
+# the trunk runs before any library is sourced and covers every file the tool runs.
+#
+# The sandbox card carries a FAIL_AC row, so the true answer to every landing below is a refusal
+# on that row. A tool that lands it has been rewritten.
+# =============================================================================
+
+# _held_fpr_setup <n> — card <PREFIX>-<n> in dev_complete/ with a FAIL_AC row, its branch pushed
+# and checked out at $SB_TMP/wt. Sets HELD_ID and HELD_WT.
+_held_fpr_setup() {
+  local n="$1" f br
+  make_sandbox
+  HELD_ID="$SB_PREFIX-$n"; HELD_WT="$SB_TMP/wt"
+  seed_issue dev_complete "$HELD_ID" held chore "The landing tool under test" "feature/$HELD_ID-work"
+  f="$SB_WORK/progress/dev_complete/$HELD_ID-held.md"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  grep -qF 'FAIL_AC' "$f" || _fixture_die "_held_fpr_setup: the FAIL_AC row was not planted"
+  publish_sandbox
+  seed_branch "$HELD_ID" work "CHANGE$n.txt"
+  br="feature/$HELD_ID-work"
+  git -C "$SB_WORK" worktree add "$HELD_WT" "$br" --quiet >/dev/null 2>&1 \
+    || _fixture_die "_held_fpr_setup: could not create the branch's worktree."
+}
+
+# _held_edit <file under scripts/> <line> [commit] — append a line to the branch checkout's copy;
+# with a third argument, commit and push it on the branch as well.
+_held_edit() {
+  local rel="$1" line="$2"
+  printf '\n%s\n' "$line" >> "$HELD_WT/scripts/$rel"
+  bash -n "$HELD_WT/scripts/$rel" || _fixture_die "_held_edit: $rel no longer parses after the plant"
+  if [ -n "${3:-}" ]; then
+    git -C "$HELD_WT" add "scripts/$rel" >/dev/null 2>&1
+    MSG_OK=1 git -C "$HELD_WT" commit -q -m "[Dev] $HELD_ID: change $rel" >/dev/null 2>&1 \
+      && git -C "$HELD_WT" push -q origin HEAD >/dev/null 2>&1 \
+      || _fixture_die "_held_edit: could not commit $rel on the branch"
+  fi
+}
+
+# _held_land <dir> — finish-pr.sh as that checkout's own copy, gating that checkout. Sets out, rc.
+_held_land() {
+  rc=0; out="$( cd "$1" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$1/scripts/finish-pr.sh" "$HELD_ID" --worktree "$1" 2>&1 )" || rc=$?
+}
+
+# _held_refused <label> <expected file> — the assertions every refused landing shares.
+_held_refused() {
+  local lab="$1" file="$2"
+  [ "$rc" -eq 1 ] || cf "$lab exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "$lab the refusal does not say the tool is not the trunk's copy: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "$file" >/dev/null || cf "$lab the refusal does not name $file"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "$lab the refusal names no next action"
+  assert_landing_untouched "$lab" "$HELD_ID" held "feature/$HELD_ID-work" "CHANGE${HELD_ID##*-}.txt"
+}
+
+case_finish_pr_control_fail_row_refuses_on_an_unchanged_tool() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 804
+  _held_land "$HELD_WT"
+  [ "$rc" -ne 0 ] || cf "(control) a FAIL row on an unchanged tool — finish-pr.sh exited 0"
+  if printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null; then
+    cf "(control) an unchanged tool was refused as not the trunk's copy"
+  fi
+  grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(control) the FAIL row was not what refused: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  finish "finish-pr.sh from the branch's checkout, nothing changed: the FAIL row refuses the landing (the control the next rows measure against)"
+  teardown
+}
+
+case_finish_pr_refuses_a_library_gutted_on_the_branch() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 805
+  _held_edit lib/qa-gate.sh 'kit_qa_verdict_check() { :; }' commit
+  _held_land "$HELD_WT"
+  _held_refused "(committed gut)" lib/qa-gate.sh
+  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(committed gut) no progress record carries refusal=lander-not-trunk-copy"
+  finish "finish-pr.sh refuses to land from a checkout whose lib/qa-gate.sh the branch gutted, naming the file, with nothing landed"
+  teardown
+}
+
+case_finish_pr_refuses_a_library_gutted_uncommitted() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 806
+  _held_edit lib/qa-gate.sh 'kit_qa_verdict_check() { :; }'
+  _held_land "$HELD_WT"
+  _held_refused "(uncommitted gut)" lib/qa-gate.sh
+  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(uncommitted gut) no progress record carries refusal=lander-not-trunk-copy"
+  finish "finish-pr.sh refuses to land from a checkout holding an uncommitted edit of lib/qa-gate.sh, naming the file, with nothing landed"
+  teardown
+}
+
+case_finish_pr_refuses_when_the_refusal_helper_is_gutted_too() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 807
+  _held_edit lib/refuse.sh 'kit_refuse() { return 0; }' commit
+  _held_edit finish-pr.sh '# the branch edits the tool that lands it' commit
+  _held_land "$HELD_WT"
+  _held_refused "(refuse.sh gutted)" lib/refuse.sh
+  finish "finish-pr.sh refuses a checkout whose refusal helper is gutted and whose finish-pr.sh is edited: the comparison does not lean on a library it has not yet checked, and the exit is still 1"
+  teardown
+}
+
+case_finish_pr_lands_a_library_change_through_the_trunks_copy() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 808
+  # An honest card (no FAIL row) and, as the branch's change, a comment in a library.
+  perl -i -pe 's/FAIL_AC/PASS/' "$SB_WORK/progress/dev_complete/$HELD_ID-held.md"
+  git -C "$SB_WORK" add progress >/dev/null 2>&1
+  sbcommit -q -m "[PM] honest card" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_finish_pr_lands_a_library_change_through_the_trunks_copy: could not publish the honest card"
+  git -C "$HELD_WT" merge -q --no-edit "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_lands_a_library_change_through_the_trunks_copy: could not bring the branch up to the trunk"
+  _held_edit lib/qa-gate.sh '# a comment the branch adds to a library' commit
+  # (a) the branch's own checkout is refused; (b) the trunk's copy, from the main checkout, gating the branch, lands.
+  _held_land "$HELD_WT"
+  [ "$rc" -eq 1 ] || cf "(a) the branch's own tool exited $rc, expected the refusal 1"
+  rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the trunk's copy did not land a branch that changes a library (exit $rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  origin_file_contains "scripts/lib/qa-gate.sh" "a comment the branch adds to a library" \
+    || cf "(b) the landed trunk does not carry the branch's library change"
+  finish "a library change lands through the trunk's copy run from the main checkout with --worktree; the branch's own checkout is refused"
+  teardown
+}
+
+# =============================================================================
+# THE HELD LIST IS DERIVED FROM WHAT IS SOURCED, TRANSITIVELY. A file a held script (or the mover it
+# runs) sources, directly or through a library, that the script's own list does not name can be
+# rewritten unseen. PASS/FAIL: the operand is the real tree, and a planted control (a new library
+# sourced directly, one sourced only through another library) has a known answer.
+# =============================================================================
+
+# _held_derive <scripts dir> <root>… — the files the roots run: the roots, and every file a source
+# command on a non-comment line names (a variable it sources is followed to its assignment), followed
+# through lib/ only. One `x.sh` or `lib/x.sh` per line.
+_held_derive() {
+  local dir="$1" roots f n p body vars v todo seen=""
+  shift
+  roots=" $* "; todo="$*"
+  while [ -n "$todo" ]; do
+    set -- $todo; f="$1"; shift; todo="$*"
+    case " $seen " in *" $f "*) continue ;; esac
+    seen="$seen $f"
+    case "$f" in lib/*) : ;; *) case "$roots" in *" $f "*) : ;; *) continue ;; esac ;; esac
+    [ -f "$dir/$f" ] || continue
+    body="$(grep -v '^[[:space:]]*#' "$dir/$f")"
+    vars="$(printf '%s\n' "$body" | grep -oE '(^|[;&|!({]|then|else|do)[[:space:]]*(\.|source)[[:space:]]+"?\$\{?[A-Za-z_][A-Za-z0-9_]*' | grep -oE '[A-Za-z_][A-Za-z0-9_]*$' | sort -u || true)"
+    {
+      printf '%s\n' "$body" | grep -E '(^|[;&|!({]|then|else|do)[[:space:]]*(\.|source)[[:space:]]+' | grep -oE '[A-Za-z0-9_-]+\.sh' || true
+      for v in $vars; do printf '%s\n' "$body" | grep -E "^[[:space:]]*(local[[:space:]]+)?$v=" | grep -oE '[A-Za-z0-9_-]+\.sh' || true; done
+    } | sort -u > "$dir/.derive.tmp"
+    while IFS= read -r n; do
+      p=""; [ -f "$dir/lib/$n" ] && p="lib/$n"; [ -z "$p" ] && [ -f "$dir/$n" ] && p="$n"
+      [ -n "$p" ] && todo="$todo $p"
+    done < "$dir/.derive.tmp"
+  done
+  rm -f "$dir/.derive.tmp"
+  printf '%s\n' $seen | sort -u
+}
+
+# _held_listed <script> — the files the script's own list names, one per line; nothing when it has none.
+_held_listed() {
+  awk '/^_held_files="$/ { on = 1; next } on && /^"$/ { exit } on { print }' "$1" | sort -u
+}
+
+# _held_missing <scripts dir> <script> <root>… — what the roots run that the script's list does not name.
+_held_missing() {
+  local dir="$1" script="$2"; shift 2
+  _held_derive "$dir" "$@" > "$dir/.d.tmp"; _held_listed "$dir/$script" > "$dir/.l.tmp"
+  comm -23 "$dir/.d.tmp" "$dir/.l.tmp"
+  rm -f "$dir/.d.tmp" "$dir/.l.tmp"
+}
+
+case_the_held_list_names_every_file_the_landing_and_slice_tools_source() {
+  cf_reset
+  local d miss n s
+  if ! has_issue_template; then skp "every file the landing and slice tools source is on their held list" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  d="$(mktemp -d)"; cp -R "$REAL_SCRIPTS" "$d/scripts"; rm -rf "$d/scripts/test"
+  grep -q '^_held_files="$' "$d/scripts/finish-pr.sh" || cf "scripts/finish-pr.sh carries no _held_files list"
+  grep -q '^_held_files="$' "$d/scripts/subtask.sh" || cf "scripts/subtask.sh carries no _held_files list"
+  miss="$(_held_missing "$d/scripts" finish-pr.sh finish-pr.sh move-issue.sh)"
+  [ -z "$miss" ] || cf "finish-pr.sh runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
+  miss="$(_held_missing "$d/scripts" subtask.sh subtask.sh)"
+  [ -z "$miss" ] || cf "subtask.sh runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
+  for s in finish-pr.sh subtask.sh; do
+    while IFS= read -r n; do
+      [ -z "$n" ] || [ -f "$d/scripts/$n" ] || cf "$s lists $n, which is not a file under scripts/"
+    done <<< "$(_held_listed "$d/scripts/$s")"
+  done
+  # THE CONTROL: a library sourced directly, and one sourced only through another library.
+  printf '%s\n' ':' > "$d/scripts/lib/zz-direct.sh"; printf '%s\n' ':' > "$d/scripts/lib/zz-deep.sh"
+  printf '%s\n' '. "$SCRIPT_DIR/lib/zz-direct.sh"' >> "$d/scripts/finish-pr.sh"
+  printf '%s\n' '. "$(dirname "${BASH_SOURCE[0]}")/zz-deep.sh" || return 1' >> "$d/scripts/lib/usage.sh"
+  miss="$(_held_missing "$d/scripts" finish-pr.sh finish-pr.sh move-issue.sh | tr '\n' ' ')"
+  case "$miss" in *lib/zz-direct.sh*) : ;; *) cf "(control) a library sourced directly was not found: [$miss]" ;; esac
+  case "$miss" in *lib/zz-deep.sh*) : ;; *) cf "(control) a library sourced through another library was not found: [$miss]" ;; esac
+  rm -rf "$d"
+  finish "every file finish-pr.sh (with the mover it runs) and subtask.sh source, directly or through a library, is named in that script's _held_files list; a planted new library, direct or transitive, turns the check red"
+}
+
+# =============================================================================
 # CASE — THE GATE-EXECUTABLE HARDENING. One case, four legs:
 #   (a) a caller-supplied FINISH_PR_PREMERGE_CMD is REFUSED on the production
 #       path (no marker) before ANY destructive step;

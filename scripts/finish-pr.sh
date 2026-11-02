@@ -80,10 +80,10 @@
 #
 # The gate checkout (the main one, or --worktree's) must be at the branch's tip; a decomposed
 # issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/ or declined/; and this
-# script must be byte-identical to <trunk>'s committed copy, with no override (a branch that
-# changes it, or was forked before <trunk>'s copy last changed, lands from the main checkout on
-# <trunk>, with --worktree). Otherwise this refuses
-# before anything moves.
+# script, the mover it runs and every library either sources must be byte-identical to <trunk>'s
+# committed copy (the list is `_held_files` below), with no override (a branch that changes one, or
+# was forked before <trunk>'s copy last changed, lands from the main checkout on <trunk>, with
+# --worktree). Otherwise this refuses before anything moves.
 #
 # Examples:
 #   ./scripts/finish-pr.sh <PREFIX>-001
@@ -94,6 +94,77 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# THE LANDING TOOL IS THE TRUNK'S COMMITTED COPY. A branch, or a local edit, may not change the
+# script that lands it, nor a library or script it runs: one that could would judge its own landing.
+# No override: a change to the tool lands when the trunk's copy lands it, and anything else is the
+# human's call. The comparison is plain shell and runs BEFORE any file below is sourced, so it
+# leans on none of them; the trunk is resolved as lib/kanban-worktree.sh's kwt_resolve does.
+# THE LIST IS DERIVED, never counted: every file this script, or the mover it runs, sources, directly
+# or through a library, plus the scripts it runs or reads a declaration from. The self-test fails
+# when a sourced file is missing from it.
+_held_files="
+check-board.sh
+finish-pr.sh
+lib/addon-check.sh
+lib/agent-record.sh
+lib/attrib-trailer.sh
+lib/board-properties.sh
+lib/branch-rev.sh
+lib/card-field.sh
+lib/decision-register.sh
+lib/exit-trap.sh
+lib/glob-array.sh
+lib/kanban-worktree.sh
+lib/progress-record.sh
+lib/push-retry.sh
+lib/qa-gate.sh
+lib/refuse.sh
+lib/role-set.sh
+lib/status-folders.sh
+lib/usage.sh
+move-issue.sh
+"
+_held_help=false
+for _a in "$@"; do case "$_a" in -h|--help) _held_help=true ;; esac; done   # a usage request always succeeds
+_held_rem="${KWT_REMOTE:-origin}"
+_held_trunk="$(git -C "$SCRIPT_DIR" symbolic-ref --short "refs/remotes/$_held_rem/HEAD" 2>/dev/null || true)"
+_held_trunk="${_held_trunk#"$_held_rem"/}"
+[ -n "$_held_trunk" ] || _held_trunk="$(git -C "$SCRIPT_DIR" config --get init.defaultBranch 2>/dev/null || true)"
+[ -n "$_held_trunk" ] || _held_trunk="${KWT_TRUNK_LAST_RESORT:-main}"
+# Its own fetch: the comparison cannot wait for kwt_sync. A failed fetch (offline) compares against
+# the last one's ref, as kwt_sync goes on with local state.
+[ "$_held_help" = true ] || git -C "$SCRIPT_DIR" fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
+_held_off=""
+if [ "$_held_help" != true ] && git -C "$SCRIPT_DIR" rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
+  for _f in $_held_files; do
+    [ -e "$SCRIPT_DIR/$_f" ] || continue   # a file that is gone is the script's own refusal to name, not a rewrite
+    if git -C "$SCRIPT_DIR" cat-file -e "$_held_rem/$_held_trunk:./$_f" 2>/dev/null; then
+      git -C "$SCRIPT_DIR" show "$_held_rem/$_held_trunk:./$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
+        || _held_off="$_held_off scripts/$_f"
+    else   # here, and not on the trunk
+      _held_off="$_held_off scripts/$_f"
+    fi
+  done
+fi
+if [ -n "$_held_off" ]; then
+  _held_err="Error: the landing tool here is not ${_held_trunk}'s committed copy — these differ from
+       ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
+      ${_held_off}
+       A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED."
+  _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
+       branch's checkout with --worktree:
+         git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>
+       If the trunk's copy cannot land this change, ask the human: there is no override."
+  # kit_refuse writes the countable record when its library loads; a library that does not load, or
+  # does not exit, must not decide whether this refuses, so the exit below stands on its own.
+  [ ! -r "$SCRIPT_DIR/lib/refuse.sh" ] || . "$SCRIPT_DIR/lib/refuse.sh" 2>/dev/null || true
+  if command -v kit_refuse >/dev/null 2>&1; then kit_refuse 1 lander-not-trunk-copy "$_held_err" "$_held_next"; fi
+  printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
+  exit 1   # exit-class: fallback
+fi
+unset _held_files _held_help _held_rem _held_trunk _held_off _a _f
+
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
@@ -225,22 +296,6 @@ kwt_bootstrap
 kwt_sync
 # THE SQUASH COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
 kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
-
-# THE LANDER IS THE TRUNK'S COMMITTED COPY. A branch, or a local edit, may not change the script
-# that lands it — the same rule that makes the trunk's verify.sh the judge. No override: a change to
-# this script lands when the trunk's copy lands it, and anything else is the human's call.
-if git -C "$KWT" cat-file -e HEAD:scripts/finish-pr.sh 2>/dev/null \
-   && ! git -C "$KWT" show HEAD:scripts/finish-pr.sh | cmp -s - "${BASH_SOURCE[0]}"; then
-  kit_refuse 1 lander-not-trunk-copy \
-    "Error: this scripts/finish-pr.sh is not ${DEFAULT_BRANCH}'s committed copy — it differs from" \
-    "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh (changed on this branch or locally, or older" \
-    "       than the trunk's). A branch or a local edit may not change the script that lands it." \
-    "       NOTHING WAS CHANGED." \
-    "Next: run the trunk's copy, from the main checkout on ${DEFAULT_BRANCH}, freshly pulled; gate the" \
-    "       branch's checkout with --worktree:" \
-    "         git switch ${DEFAULT_BRANCH} && git pull --ff-only && ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <branch checkout>" \
-    "       If the trunk's copy cannot land this change, ask the human: there is no override."
-fi
 
 # Find the issue file in dev_complete/ inside the kanban worktree.
 SRC=""

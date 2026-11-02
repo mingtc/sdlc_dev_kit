@@ -336,3 +336,44 @@ case_subtask_qa_verdict_token_invalid_refuses() {
   finish "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is FAILED, with a refusal=qa-verdict-token-invalid record"
   teardown
 }
+
+# =============================================================================
+# CASE — A SLICE IS NOT REVIEWED BY A TOOL THE CHECKOUT HAS REWRITTEN. The comparison against the
+# trunk's committed copy that finish-pr.sh makes, before any library is sourced: a gutted
+# lib/qa-gate.sh in the checkout (here uncommitted) refuses the move instead of passing a FAIL row.
+# =============================================================================
+case_subtask_refuses_a_gutted_qa_gate_library() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh refuses to run with a lib/qa-gate.sh that is not the trunk's committed copy" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+
+  local p="$SB_PREFIX-809"
+  _seed_parent "$p"
+  local f; f="$(_seed_subtask "$p" s1 dev_complete gut "A FAIL row behind a gutted check")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  grep -qF 'FAIL_AC' "$f" || _fixture_die "case_subtask_refuses_a_gutted_qa_gate_library: the FAIL_AC row was not planted"
+  publish_sandbox
+
+  local out rc
+  # (control) the unchanged tool refuses the FAIL row.
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec0" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) a FAIL row on an unchanged tool — subtask.sh move exited 0"
+  grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec0"/*.tsv 2>/dev/null \
+    || cf "(control) the FAIL row was not what refused: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+
+  # (a) the same move after the check is gutted in this checkout, uncommitted.
+  printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$SB_WORK/scripts/lib/qa-gate.sh"
+  bash -n "$SB_WORK/scripts/lib/qa-gate.sh" || _fixture_die "case_subtask_refuses_a_gutted_qa_gate_library: the gutted library no longer parses"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(a) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "(a) the refusal does not say the tool is not the trunk's copy: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'lib/qa-gate.sh' >/dev/null || cf "(a) the refusal does not name lib/qa-gate.sh"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(a) the refusal names no next action"
+  origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-gut.md" && cf "(a) the slice advanced past a FAIL row behind a gutted check"
+  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=lander-not-trunk-copy"
+
+  finish "subtask.sh move <id> qa_complete refuses to run from a checkout whose lib/qa-gate.sh differs from the trunk's committed copy, naming the file, with the slice unmoved"
+  teardown
+}

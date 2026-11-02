@@ -2493,6 +2493,9 @@ case_subtask_builds_beside_and_publishes_whole() {
   # FAILURE after the first write: the re-head stub records where the card is being built,
   # leaves its scratch file, and fails.
   { cat "$SB_TMP/card-head.real"; printf 'kit_rehead_card() { dirname "$1" > %q; : > "$1.rehead"; return 1; }\n' "$seen"; } > "$lib"
+  # The stub is committed and published: subtask.sh runs only the trunk's copy of its libraries.
+  _sb_publish_lib() { git -C "$SB_WORK" add scripts/lib/card-head.sh >/dev/null 2>&1 && sbcommit -q -m "[PM] stub card-head" >/dev/null 2>&1 && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1; }
+  _sb_publish_lib || _fixture_die "case_subtask_builds_beside_and_publishes_whole: could not publish the stubbed card-head.sh"
   : > "$seen"
   rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 failed --title t 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "subtask.sh new exited 0 with a failing re-head"
@@ -2508,6 +2511,7 @@ case_subtask_builds_beside_and_publishes_whole() {
 
   # SUCCESS, with --plan so every rewrite runs.
   cp "$SB_TMP/card-head.real" "$lib"
+  _sb_publish_lib || _fixture_die "case_subtask_builds_beside_and_publishes_whole: could not publish the restored card-head.sh"
   rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/subtask.sh new "$SB_PREFIX-014" s2 made --title t --plan dev/p.md 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "subtask.sh new failed with the real re-head (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
   mode="$(ls -l "$dir/$SB_PREFIX-014-s2-made.md" 2>/dev/null | cut -c1-10)"

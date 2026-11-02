@@ -284,6 +284,7 @@ CASES=(
   case_subtask_qa_verdict_missing_table_refuses
   case_subtask_qa_verdict_fail_in_backticks_refuses
   case_subtask_qa_verdict_token_invalid_refuses
+  case_subtask_refuses_a_gutted_qa_gate_library
   case_subtask_forks_missing_refuses
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
@@ -495,6 +496,12 @@ CASES=(
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_relative_worktree
   case_finish_pr_runs_only_the_trunks_copy
+  case_finish_pr_control_fail_row_refuses_on_an_unchanged_tool
+  case_finish_pr_refuses_a_library_gutted_on_the_branch
+  case_finish_pr_refuses_a_library_gutted_uncommitted
+  case_finish_pr_refuses_when_the_refusal_helper_is_gutted_too
+  case_finish_pr_lands_a_library_change_through_the_trunks_copy
+  case_the_held_list_names_every_file_the_landing_and_slice_tools_source
   case_finish_pr_gate_revision
   case_finish_pr_trunk_gate_judges_the_branch
   case_finish_pr_stacked_branch_unlanded_base_refuses

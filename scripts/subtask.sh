@@ -49,6 +49,75 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# THE TOOL THAT REVIEWS A SLICE IS THE TRUNK'S COMMITTED COPY, as finish-pr.sh's is for a landing: a
+# branch, or a local edit, may not rewrite the checks that judge it. The comparison is plain shell and
+# runs BEFORE any file below is sourced, so it leans on none of them; the trunk is resolved as
+# lib/kanban-worktree.sh's kwt_resolve does. THE LIST IS DERIVED, never counted: every file this script
+# sources, directly or through a library, plus the script it reads a declaration from. The self-test
+# fails when a sourced file is missing from it.
+_held_files="
+check-board.sh
+config.sh
+lib/addon-check.sh
+lib/agent-record.sh
+lib/attrib-trailer.sh
+lib/board-properties.sh
+lib/branch-rev.sh
+lib/card-field.sh
+lib/card-head.sh
+lib/decision-register.sh
+lib/exit-trap.sh
+lib/glob-array.sh
+lib/kanban-worktree.sh
+lib/progress-record.sh
+lib/push-retry.sh
+lib/qa-gate.sh
+lib/refuse.sh
+lib/role-set.sh
+lib/status-folders.sh
+lib/usage.sh
+subtask.sh
+"
+_held_help=false
+for _a in "$@"; do case "$_a" in -h|--help) _held_help=true ;; esac; done   # a usage request always succeeds
+_held_rem="${KWT_REMOTE:-origin}"
+_held_trunk="$(git -C "$SCRIPT_DIR" symbolic-ref --short "refs/remotes/$_held_rem/HEAD" 2>/dev/null || true)"
+_held_trunk="${_held_trunk#"$_held_rem"/}"
+[ -n "$_held_trunk" ] || _held_trunk="$(git -C "$SCRIPT_DIR" config --get init.defaultBranch 2>/dev/null || true)"
+[ -n "$_held_trunk" ] || _held_trunk="${KWT_TRUNK_LAST_RESORT:-main}"
+# Its own fetch: the comparison cannot wait for kwt_sync. A failed fetch (offline) compares against
+# the last one's ref, as kwt_sync goes on with local state.
+[ "$_held_help" = true ] || git -C "$SCRIPT_DIR" fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
+_held_off=""
+if [ "$_held_help" != true ] && git -C "$SCRIPT_DIR" rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
+  for _f in $_held_files; do
+    [ -e "$SCRIPT_DIR/$_f" ] || continue   # a file that is gone is the script's own refusal to name, not a rewrite
+    if git -C "$SCRIPT_DIR" cat-file -e "$_held_rem/$_held_trunk:./$_f" 2>/dev/null; then
+      git -C "$SCRIPT_DIR" show "$_held_rem/$_held_trunk:./$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
+        || _held_off="$_held_off scripts/$_f"
+    else   # here, and not on the trunk
+      _held_off="$_held_off scripts/$_f"
+    fi
+  done
+fi
+if [ -n "$_held_off" ]; then
+  _held_err="Error: the tool that reviews a slice here is not ${_held_trunk}'s committed copy — these differ from
+       ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
+      ${_held_off}
+       A branch or a local edit may not change the tool that judges it. NOTHING WAS CHANGED."
+  _held_next="Next: run the trunk's copy of this command, from the main checkout on ${_held_trunk}, freshly pulled:
+         git switch ${_held_trunk} && git pull --ff-only && ./scripts/subtask.sh <the same arguments>
+       If the trunk's copy cannot do this, ask the human: there is no override."
+  # kit_refuse writes the countable record when its library loads; a library that does not load, or
+  # does not exit, must not decide whether this refuses, so the exit below stands on its own.
+  [ ! -r "$SCRIPT_DIR/lib/refuse.sh" ] || . "$SCRIPT_DIR/lib/refuse.sh" 2>/dev/null || true
+  if command -v kit_refuse >/dev/null 2>&1; then kit_refuse 1 lander-not-trunk-copy "$_held_err" "$_held_next"; fi
+  printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
+  exit 1   # exit-class: fallback
+fi
+unset _held_files _held_help _held_rem _held_trunk _held_off _a _f
+
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
