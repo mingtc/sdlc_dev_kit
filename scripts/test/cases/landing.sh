@@ -1629,6 +1629,49 @@ case_the_tools_hold_a_copy_of_scripts_outside_the_repository() {
   teardown
 }
 
+# With no trunk ref to compare with (offline, the tracking ref gone), the tools refuse before the board
+# worktree is touched. Left to run, a gutted check makes its move as a commit there, and the next
+# run's recovery text offers to publish it.
+case_the_tools_leave_the_board_worktree_alone_when_there_is_no_trunk_ref() {
+  cf_reset
+  if ! has_issue_template; then skp "the tools refuse, leaving the board worktree untouched, when no trunk ref can be read" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local out rc id sid head0 head1 wt
+  make_sandbox
+  id="$SB_PREFIX-828"; sid="$SB_PREFIX-829"
+  seed_issue dev_complete "$id" offline chore "A FAIL row behind an offline gut" "feature/$id-work"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$SB_WORK/progress/dev_complete/$id-offline.md"
+  grep -qF 'FAIL_AC' "$SB_WORK/progress/dev_complete/$id-offline.md" || _fixture_die "case_the_tools_leave_the_board_worktree_alone_when_there_is_no_trunk_ref: the FAIL_AC row was not planted"
+  seed_issue todo "$SB_PREFIX-830" warm chore "A card that makes the board worktree stand"
+  _seed_parent "$sid"
+  local sl; sl="$(_seed_subtask "$sid" s1 dev_complete offline "A FAIL slice behind an offline gut")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$sl"
+  publish_sandbox
+  seed_branch "$id" work CHANGE828.txt
+  # The board worktree stands: one ordinary move creates it.
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-830" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "case_the_tools_leave_the_board_worktree_alone_when_there_is_no_trunk_ref: the warm-up move failed"
+  wt="$SB_WORK/.kanban-wt"
+  # Offline, the tracking ref gone, the gate library gutted.
+  git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
+  printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$SB_WORK/scripts/lib/qa-gate.sh"
+  head0="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  head1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"
+  [ "$rc" -eq 1 ] || cf "(mover) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  [ "$head0" = "$head1" ] || cf "(mover) the board worktree gained a commit ($head0 -> $head1): the gutted check made its move there"
+  printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "(mover) the refusal does not say there was no origin/$SB_TRUNK ref to compare with: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(mover) the refusal names no next action"
+  head0="$head1"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/subtask.sh" move "${sid}-s1" qa_complete 2>&1 )" || rc=$?
+  head1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"
+  [ "$rc" -eq 1 ] || cf "(subtask) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  [ "$head0" = "$head1" ] || cf "(subtask) the board worktree gained a commit: the gutted check made its move there"
+  printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "(subtask) the refusal does not say there was no ref to compare with"
+  finish "with no trunk ref to compare with, move-issue.sh and subtask.sh refuse, naming the missing ref and a next action, and leave the board worktree without a new commit"
+  teardown
+}
+
 # A listed file that is gone here but on the trunk is a difference: a deleted progress-record.sh would
 # otherwise leave every refusal uncounted.
 case_the_mover_refuses_a_deleted_progress_record_library() {

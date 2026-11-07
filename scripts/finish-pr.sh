@@ -136,11 +136,13 @@ _held_trunk="${_held_trunk#"$_held_rem"/}"
 # copy of scripts/ sits in. Its own fetch: the comparison cannot wait for kwt_sync. A failed fetch
 # (offline) compares against the last one's ref.
 [ "$_held_help" = true ] || git fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
-_held_off=""
-# With no trunk ref to read there is nothing to compare with and nothing that can publish: the fetch
-# failed, so the push will, and the board worktree's bootstrap refuses without the ref (usage errors
-# still answer first, as the contract says).
-if [ "$_held_help" != true ] && git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
+_held_off=""; _held_noref=false
+# With no trunk ref to read there is nothing to compare with, and that is not a pass: the tool refuses,
+# at the second check below, once its arguments are parsed and its board worktree stands, so a usage
+# error still exits 2 and an empty repository still gets the bootstrap's own refusal first.
+if [ "$_held_help" = true ]; then
+  :
+elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
   for _f in $_held_files; do
     if git cat-file -e "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null; then
       [ -e "$SCRIPT_DIR/$_f" ] && git show "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
@@ -149,6 +151,8 @@ if [ "$_held_help" != true ] && git rev-parse --verify --quiet "$_held_rem/$_hel
       _held_off="$_held_off scripts/$_f"
     fi
   done
+else
+  _held_noref=true
 fi
 if [ -n "$_held_off" ]; then
   _held_err="Error: the landing tool here is not ${_held_trunk}'s committed copy — these differ from
@@ -157,13 +161,19 @@ if [ -n "$_held_off" ]; then
        A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
   _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
        branch's checkout with --worktree (a branch cut before the trunk's last change to one of these needs
-       rebasing on ${_held_trunk} first):
+       no rebase for that; it is rebased only to run this tool from its own checkout):
          git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>
        If the trunk's copy cannot land this change, ask the human: there is no override."
   # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison
   # could redefine `exit`. So the refusal is printed in plain shell, and its progress record is not written.
   printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
   exit 1   # exit-class: internal
+fi
+if [ "$_held_noref" = true ]; then
+  _held_nerr="Error: cannot tell whether the landing tool here is ${_held_trunk}'s committed copy: no ${_held_rem}/${_held_trunk} ref could be read
+       (the fetch failed, or this directory is not a clone of the project). NOTHING WAS CHANGED. (lander-not-trunk-copy)"
+  _held_nnext="Next: fetch the trunk (git fetch ${_held_rem} ${_held_trunk}); if ${_held_trunk} is not your trunk, set it with
+       git remote set-head ${_held_rem} <your-trunk>; then re-run."
 fi
 unset _held_files _held_help _held_rem _held_trunk _held_off _a _f
 
@@ -295,6 +305,13 @@ fi
 # the issue file, so the branch read sees the current trunk state.
 kwt_lock
 kwt_bootstrap
+# The comparison at the top found no trunk ref to read, so it compared nothing: refuse here, with the
+# board worktree standing and nothing yet written to it, rather than let a check that cannot be shown to
+# be the trunk's make a commit there. Plain shell, nothing sourced.
+if [ "$_held_noref" = true ]; then
+  printf '%s\n%s\n' "$_held_nerr" "$_held_nnext" >&2
+  exit 1   # exit-class: internal
+fi
 kwt_sync
 # THE SQUASH COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
 kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"

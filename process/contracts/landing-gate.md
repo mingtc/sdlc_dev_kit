@@ -73,7 +73,10 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   every file it sources, directly or through another library, the mover it hands the card to, and the
   script it reads its declarations from. A checks library the tool sources is the tool: a branch that
   rewrites it passes its own landing. The trunk's own copy, run with `--worktree`, judges a branch
-  completely; a branch's own copy is compared too, but cannot be trusted to compare itself. In the
+  completely; a branch's own copy is compared too, but cannot be trusted to compare itself. The
+  hold covers the files the tool runs, not the caller's environment (`PATH`, `BASH_ENV`, exported
+  functions): `git` and `cmp` run as the shell finds them. With no trunk ref to compare with, the tool
+  refuses before its board worktree is written. In the
   reference implementation the comparison is plain shell that sources nothing, run before any of those
   files is sourced; the list is `_held_files` in `scripts/finish-pr.sh`, derived from what that script
   and the mover source, and the self-test fails when a sourced file is not on it. The card mover and
