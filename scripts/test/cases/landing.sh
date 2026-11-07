@@ -1731,6 +1731,52 @@ case_a_library_cannot_defeat_the_no_trunk_ref_refusal() {
   teardown
 }
 
+# Deleting the local trunk branch as well as its tracking ref is not "an empty repository": the repository
+# still holds commits and a standing board worktree, so each tool still refuses and none commits there.
+case_the_tools_refuse_when_the_local_trunk_is_deleted_too() {
+  cf_reset
+  if ! has_issue_template; then skp "the tools refuse when the local trunk and its tracking ref are both gone" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local out rc mid sid sl wt h0 h1 o0 o1 gate tool
+  _held_fpr_setup 835
+  mid="$SB_PREFIX-836"; sid="$SB_PREFIX-838"
+  seed_issue dev_complete "$mid" mover chore "A FAIL card for the mover" "feature/$mid-work"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$SB_WORK/progress/dev_complete/$mid-mover.md"
+  seed_issue todo "$SB_PREFIX-837" warm chore "A card that makes the board worktree stand"
+  _seed_parent "$sid"
+  sl="$(_seed_subtask "$sid" s1 dev_complete deleted "A FAIL slice")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$sl"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] seed cards" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_the_tools_refuse_when_the_local_trunk_is_deleted_too: could not publish the cards"
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-837" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "case_the_tools_refuse_when_the_local_trunk_is_deleted_too: the warm-up move failed"
+  wt="$SB_WORK/.kanban-wt"
+  # Offline, HEAD detached, the local trunk and its tracking ref both deleted, the gate library gutted.
+  git -C "$SB_WORK" checkout -q --detach >/dev/null 2>&1
+  git -C "$SB_WORK" branch -D "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_the_tools_refuse_when_the_local_trunk_is_deleted_too: could not delete the local trunk"
+  git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
+  gate="$SB_WORK/scripts/lib/qa-gate.sh"
+  printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$gate"
+  bash -n "$gate" || _fixture_die "case_the_tools_refuse_when_the_local_trunk_is_deleted_too: the gutted library no longer parses"
+  for tool in finish-pr mover subtask; do
+    h0="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+    rc=0
+    case "$tool" in
+      finish-pr) out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$? ;;
+      mover)     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$mid" qa_complete --role QA --note review 2>&1 )" || rc=$? ;;
+      subtask)   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/subtask.sh" move "${sid}-s1" qa_complete 2>&1 )" || rc=$? ;;
+    esac
+    h1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+    [ "$rc" -eq 1 ] || cf "($tool) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+    printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "($tool) the refusal does not say there was no origin/$SB_TRUNK ref"
+    [ "$h0" = "$h1" ] || cf "($tool) the board worktree gained a commit"
+    [ "$o0" = "$o1" ] || cf "($tool) the trunk moved"
+    git -C "$wt" reset -q --hard "$h0" >/dev/null 2>&1
+  done
+  finish "with the local trunk and its tracking ref both deleted and the remote unreachable, finish-pr.sh, move-issue.sh and subtask.sh still refuse, naming the missing ref, and no commit reaches the board worktree"
+  teardown
+}
+
 # A listed file that is gone here but on the trunk is a difference: a deleted progress-record.sh would
 # otherwise leave every refusal uncounted.
 case_the_mover_refuses_a_deleted_progress_record_library() {

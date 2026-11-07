@@ -164,9 +164,8 @@ _held_trunk="${_held_trunk#"$_held_rem"/}"
 [ "$_held_help" = true ] || git fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
 _held_off=""; _held_noref=false
 # With no trunk ref to read there is nothing to compare with, and that is not a pass: it is decided
-# here, before anything is sourced, so nothing sourced can change it. It is a refusal when the trunk
-# exists as a local branch (a clone that lost, or never fetched, its tracking ref); with neither there is
-# an empty repository, whose bootstrap refuses it by name.
+# here, before anything is sourced, so nothing sourced can change it. It is a refusal whenever the
+# repository holds a commit; with no commit at all, an empty repository, the bootstrap refuses it by name.
 if [ "$_held_help" = true ]; then
   :
 elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
@@ -178,7 +177,7 @@ elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/nul
       _held_off="$_held_off scripts/$_f"
     fi
   done
-elif [ -n "$(git branch --list "$_held_trunk" 2>/dev/null)" ]; then
+elif [ -n "$(git rev-list -n 1 --all 2>/dev/null)" ]; then
   _held_noref=true
 fi
 if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
