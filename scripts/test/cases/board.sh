@@ -1208,19 +1208,18 @@ case_move_issue_probe() {
   origin_has_path "progress/in_progress/$SB_PREFIX-101-elsewhere.md" \
     || cf "(c) the move did not land on the trunk"
 
-  # (d) A PROBE THAT CANNOT ANSWER FALLS THROUGH — and the provenance line is the
+  # (d) A CONFIRMING FETCH THAT CANNOT ANSWER FALLS THROUGH — and the provenance line is the
   #     only thing that can tell the two reads apart, which is why it is asserted.
   kwt_clear
-  git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
-  # The mover's own fetch (it compares its files with the trunk's first) would restore the ref, so the
-  # remote is made unreachable too: the ref stays unreadable, as the arm's premise says.
+  # The tracking ref stays (the mover compares its own files with it before anything else and refuses
+  # without one); the remote is made unreachable, so the confirming fetch cannot answer.
   git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-998" in_progress --role Dev --note x 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "(d) the mover accepted a nonexistent card with no tracking ref"
+  [ "$rc" -ne 0 ] || cf "(d) the mover accepted a nonexistent card with an unreachable remote"
   printf '%s\n' "$out" | grep 'no file matching' >/dev/null \
     || cf "(d) the fall-through refusal changed shape: $out"
   printf '%s\n' "$out" | grep 'inside the kanban worktree' >/dev/null \
-    || cf "(d) with an unreadable tracking ref the probe did not fall through to the worktree read: $out"
+    || cf "(d) with a fetch that cannot answer the probe did not fall through to the worktree read: $out"
 
   finish "move-issue.sh: a not-found refusal creates no worktree (ablation-proven), never refuses a card the trunk actually carries, and falls through when it cannot read the ref"
   teardown

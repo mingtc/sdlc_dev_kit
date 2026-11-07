@@ -371,8 +371,6 @@ case_subtask_refuses_a_gutted_qa_gate_library() {
   printf '%s\n' "$out" | grep -F 'lib/qa-gate.sh' >/dev/null || cf "(a) the refusal does not name lib/qa-gate.sh"
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(a) the refusal names no next action"
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-gut.md" && cf "(a) the slice advanced past a FAIL row behind a gutted check"
-  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
-    || cf "(a) no progress record carries refusal=lander-not-trunk-copy"
 
   finish "subtask.sh move <id> qa_complete refuses to run from a checkout whose lib/qa-gate.sh differs from the trunk's committed copy, naming the file, with the slice unmoved"
   teardown

@@ -71,6 +71,11 @@ to change and making every change self-recording.
   "Clean it up and proceed" is a data-loss default that succeeds silently, and the operator who
   loses the work is never the one who chose the default. Waiting costs a re-run; discarding costs
   someone else's session.
+- **The mover runs only as the trunk's committed copy, libraries included.** A mover or a library it
+  sources that differs from the trunk's refuses before anything moves, naming the files and the
+  trunk's copy to run
+  ([landing-gate.md](landing-gate.md) § 3).
+  *Why:* a mover that can be rewritten from the checkout judges its own moves.
 - **The mover reads the PUBLISHED board, so an item that has not reached the trunk does not
   exist to it.** An item created in the operator's own workspace is invisible until it is
   published; the mover must therefore state this as the likely cause when it cannot find a named

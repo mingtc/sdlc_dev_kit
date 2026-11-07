@@ -1466,8 +1466,6 @@ case_finish_pr_refuses_a_library_gutted_on_the_branch() {
   _held_edit lib/qa-gate.sh 'kit_qa_verdict_check() { :; }' commit
   _held_land "$HELD_WT"
   _held_refused "(committed gut)" lib/qa-gate.sh
-  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
-    || cf "(committed gut) no progress record carries refusal=lander-not-trunk-copy"
   finish "finish-pr.sh refuses to land from a checkout whose lib/qa-gate.sh the branch gutted, naming the file, with nothing landed"
   teardown
 }
@@ -1479,8 +1477,6 @@ case_finish_pr_refuses_a_library_gutted_uncommitted() {
   _held_edit lib/qa-gate.sh 'kit_qa_verdict_check() { :; }'
   _held_land "$HELD_WT"
   _held_refused "(uncommitted gut)" lib/qa-gate.sh
-  grep -q 'refusal=lander-not-trunk-copy' "$SB_TMP/rec"/*.tsv 2>/dev/null \
-    || cf "(uncommitted gut) no progress record carries refusal=lander-not-trunk-copy"
   finish "finish-pr.sh refuses to land from a checkout holding an uncommitted edit of lib/qa-gate.sh, naming the file, with nothing landed"
   teardown
 }
@@ -1558,6 +1554,124 @@ case_move_issue_refuses_its_own_edited_call() {
   origin_has_path "progress/dev_complete/$id-mover.md" || cf "(a) the FAIL card left dev_complete/"
 
   finish "move-issue.sh refuses to run once its own call to the QA Verdict check is replaced (uncommitted), naming scripts/move-issue.sh, with the FAIL card unmoved; unchanged, it refuses the FAIL row and moves an honest card"
+  teardown
+}
+
+# The refusal itself sources nothing: a checkout whose refusal helper redefines `exit` (and whose gate
+# library is gutted) is still refused, through the landing script and through the mover.
+_held_exit_shadow='if [ -n "${_held_off:-}" ]; then exit() { _xn=$(( ${_xn:-0} + 1 )); [ "$_xn" -ge 2 ] && unset -f exit; return 0; }; fi'
+
+case_finish_pr_refuses_when_a_library_redefines_exit() {
+  cf_reset
+  local out rc
+  _held_fpr_setup 821
+  _held_edit lib/qa-gate.sh 'kit_qa_verdict_check() { :; }' commit
+  _held_edit lib/refuse.sh "$_held_exit_shadow" commit
+  _held_land "$HELD_WT"
+  _held_refused "(exit shadow)" lib/qa-gate.sh
+  finish "finish-pr.sh refuses a checkout whose refuse.sh redefines exit and whose qa-gate.sh is gutted: the refusal sources nothing, so nothing it judged runs, and nothing is landed"
+  teardown
+}
+
+case_move_issue_refuses_when_a_library_redefines_exit() {
+  cf_reset
+  local out rc id f
+  make_sandbox
+  id="$SB_PREFIX-822"
+  seed_issue dev_complete "$id" shadow chore "A FAIL row behind an exit shadow" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-shadow.md"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  grep -qF 'FAIL_AC' "$f" || _fixture_die "case_move_issue_refuses_when_a_library_redefines_exit: the FAIL_AC row was not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE822.txt
+  printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$SB_WORK/scripts/lib/qa-gate.sh"
+  printf '\n%s\n' "$_held_exit_shadow" >> "$SB_WORK/scripts/lib/refuse.sh"
+  bash -n "$SB_WORK/scripts/lib/refuse.sh" || _fixture_die "case_move_issue_refuses_when_a_library_redefines_exit: the shadowed library no longer parses"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null || cf "the refusal does not say the tool is not the trunk's copy"
+  origin_has_path "progress/qa_complete/$id-shadow.md" && cf "the FAIL card was published to qa_complete/"
+  finish "move-issue.sh refuses a checkout whose refuse.sh redefines exit and whose qa-gate.sh is gutted, with the FAIL card unmoved"
+  teardown
+}
+
+# A copy of scripts/ outside the repository, run with the working directory in the project, acts on the
+# project's board: it is compared with the project's trunk, whatever repository the copy sits in.
+case_the_tools_hold_a_copy_of_scripts_outside_the_repository() {
+  cf_reset
+  local out rc oot id f
+  _held_fpr_setup 823
+  oot="$SB_TMP/oot"; mkdir -p "$oot"; cp -R "$SB_WORK/scripts" "$oot/scripts"
+  # (a) finish-pr.sh with its verdict call removed.
+  perl -i -pe 's/^(\s*)kit_qa_verdict_check "\$SRC".*$/$1:/' "$oot/scripts/finish-pr.sh"
+  ! grep -F 'kit_qa_verdict_check "$SRC"' "$oot/scripts/finish-pr.sh" >/dev/null \
+    || _fixture_die "case_the_tools_hold_a_copy_of_scripts_outside_the_repository: the call was not removed"
+  rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$oot/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$?
+  _held_refused "(outside copy, edited finish-pr.sh)" scripts/finish-pr.sh
+  # (b) a pristine finish-pr.sh with qa-gate.sh gutted.
+  rm -rf "$oot/scripts"; cp -R "$SB_WORK/scripts" "$oot/scripts"
+  printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$oot/scripts/lib/qa-gate.sh"
+  rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$oot/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$?
+  _held_refused "(outside copy, gutted qa-gate.sh)" lib/qa-gate.sh
+  # (c) the mover, its own call removed, on a FAIL card.
+  id="$SB_PREFIX-824"
+  seed_issue dev_complete "$id" oot chore "A FAIL row behind an outside mover" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-oot.md"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  git -C "$SB_WORK" add progress >/dev/null 2>&1; sbcommit -q -m "[PM] seed oot card" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_the_tools_hold_a_copy_of_scripts_outside_the_repository: could not publish the card"
+  rm -rf "$oot/scripts"; cp -R "$SB_WORK/scripts" "$oot/scripts"
+  perl -i -pe 's/^(\s*)kit_qa_verdict_check "\$SRC".*$/$1:/' "$oot/scripts/move-issue.sh"
+  rc=0; out="$( cd "$SB_WORK" && "$oot/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(outside mover) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$id-oot.md" && cf "(outside mover) the FAIL card was published to qa_complete/"
+  finish "a copy of scripts/ outside the repository, run from the project, is held to the project's trunk: an edited finish-pr.sh, a gutted qa-gate.sh and an edited move-issue.sh are each refused with nothing landed or published"
+  teardown
+}
+
+# A listed file that is gone here but on the trunk is a difference: a deleted progress-record.sh would
+# otherwise leave every refusal uncounted.
+case_the_mover_refuses_a_deleted_progress_record_library() {
+  cf_reset
+  local out rc id
+  make_sandbox
+  id="$SB_PREFIX-826"
+  seed_issue dev_complete "$id" gone chore "A card behind a deleted library" "feature/$id-work"
+  publish_sandbox
+  seed_branch "$id" work CHANGE826.txt
+  rm -f "$SB_WORK/scripts/lib/progress-record.sh"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'lib/progress-record.sh' >/dev/null || cf "the refusal does not name lib/progress-record.sh"
+  origin_has_path "progress/qa_complete/$id-gone.md" && cf "the card moved with progress-record.sh deleted"
+  finish "move-issue.sh refuses a checkout from which lib/progress-record.sh is deleted, naming it, with the card unmoved"
+  teardown
+}
+
+# A landing that changes a held file from a main checkout that cannot be fast-forwarded ends exit 3, and
+# the recovery line it prints leads to a finished board: it carries the switch and the pull.
+case_finish_pr_recovery_line_works_from_a_dirty_main_checkout() {
+  cf_reset
+  local out rc line
+  _held_fpr_setup 827
+  perl -i -pe 's/FAIL_AC/PASS/' "$SB_WORK/progress/dev_complete/$HELD_ID-held.md"
+  git -C "$SB_WORK" add progress >/dev/null 2>&1
+  sbcommit -q -m "[PM] honest card" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_finish_pr_recovery_line_works_from_a_dirty_main_checkout: could not publish the honest card"
+  git -C "$HELD_WT" merge -q --no-edit "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_recovery_line_works_from_a_dirty_main_checkout: could not bring the branch up to the trunk"
+  _held_edit lib/qa-gate.sh '# a comment the branch adds to a library' commit
+  printf '\nlocal change\n' >> "$SB_WORK/ARCHIVE.md"
+  rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$?
+  [ "$rc" -eq 3 ] || cf "(premise) exit $rc, expected 3 (landed, not finished): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  line="$(printf '%s\n' "$out" | grep -F 'git pull --ff-only && ' | grep -F 'move-issue.sh' | tail -1 | sed 's/^[[:space:]]*//')"
+  [ -n "$line" ] || cf "the recovery line printed after a failed board advance does not begin with the switch and the pull: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  if [ -n "$line" ]; then
+    rc=0; ( cd "$SB_WORK" && bash -c "$line" ) >/dev/null 2>&1 || rc=$?
+    [ "$rc" -eq 0 ] || cf "the printed recovery line exited $rc"
+    origin_has_path "progress/qa_complete/$HELD_ID-held.md" || cf "the card is not in qa_complete/ after the printed recovery"
+  fi
+  finish "a landing that changes a held file from a dirty main checkout ends exit 3, and the recovery line it prints (switch, pull, then the move) finishes the board"
   teardown
 }
 

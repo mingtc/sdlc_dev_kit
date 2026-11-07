@@ -128,21 +128,24 @@ move-issue.sh
 _held_help=false
 for _a in "$@"; do case "$_a" in -h|--help) _held_help=true ;; esac; done   # a usage request always succeeds
 _held_rem="${KWT_REMOTE:-origin}"
-_held_trunk="$(git -C "$SCRIPT_DIR" symbolic-ref --short "refs/remotes/$_held_rem/HEAD" 2>/dev/null || true)"
+_held_trunk="$(git symbolic-ref --short "refs/remotes/$_held_rem/HEAD" 2>/dev/null || true)"
 _held_trunk="${_held_trunk#"$_held_rem"/}"
-[ -n "$_held_trunk" ] || _held_trunk="$(git -C "$SCRIPT_DIR" config --get init.defaultBranch 2>/dev/null || true)"
+[ -n "$_held_trunk" ] || _held_trunk="$(git config --get init.defaultBranch 2>/dev/null || true)"
 [ -n "$_held_trunk" ] || _held_trunk="${KWT_TRUNK_LAST_RESORT:-main}"
-# Its own fetch: the comparison cannot wait for kwt_sync. A failed fetch (offline) compares against
-# the last one's ref, as kwt_sync goes on with local state.
-[ "$_held_help" = true ] || git -C "$SCRIPT_DIR" fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
+# git runs from the working directory, the repository this tool goes on to change, not the one this
+# copy of scripts/ sits in. Its own fetch: the comparison cannot wait for kwt_sync. A failed fetch
+# (offline) compares against the last one's ref.
+[ "$_held_help" = true ] || git fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
 _held_off=""
-if [ "$_held_help" != true ] && git -C "$SCRIPT_DIR" rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
+# With no trunk ref to read there is nothing to compare with and nothing that can publish: the fetch
+# failed, so the push will, and the board worktree's bootstrap refuses without the ref (usage errors
+# still answer first, as the contract says).
+if [ "$_held_help" != true ] && git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
   for _f in $_held_files; do
-    [ -e "$SCRIPT_DIR/$_f" ] || continue   # a file that is gone is the script's own refusal to name, not a rewrite
-    if git -C "$SCRIPT_DIR" cat-file -e "$_held_rem/$_held_trunk:./$_f" 2>/dev/null; then
-      git -C "$SCRIPT_DIR" show "$_held_rem/$_held_trunk:./$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
+    if git cat-file -e "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null; then
+      [ -e "$SCRIPT_DIR/$_f" ] && git show "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
         || _held_off="$_held_off scripts/$_f"
-    else   # here, and not on the trunk
+    elif [ -e "$SCRIPT_DIR/$_f" ]; then   # here, and not on the trunk
       _held_off="$_held_off scripts/$_f"
     fi
   done
@@ -151,17 +154,16 @@ if [ -n "$_held_off" ]; then
   _held_err="Error: the landing tool here is not ${_held_trunk}'s committed copy — these differ from
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
-       A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED."
+       A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
   _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
-       branch's checkout with --worktree:
+       branch's checkout with --worktree (a branch cut before the trunk's last change to one of these needs
+       rebasing on ${_held_trunk} first):
          git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>
        If the trunk's copy cannot land this change, ask the human: there is no override."
-  # kit_refuse writes the countable record when its library loads; a library that does not load, or
-  # does not exit, must not decide whether this refuses, so the exit below stands on its own.
-  [ ! -r "$SCRIPT_DIR/lib/refuse.sh" ] || . "$SCRIPT_DIR/lib/refuse.sh" 2>/dev/null || true
-  if command -v kit_refuse >/dev/null 2>&1; then kit_refuse 1 lander-not-trunk-copy "$_held_err" "$_held_next"; fi
+  # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison
+  # could redefine `exit`. So the refusal is printed in plain shell, and its progress record is not written.
   printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
-  exit 1   # exit-class: fallback
+  exit 1   # exit-class: internal
 fi
 unset _held_files _held_help _held_rem _held_trunk _held_off _a _f
 
@@ -526,7 +528,8 @@ if [ "$ALLOW_STUB" != "true" ]; then
       _gate_next="Next: land ${ISSUE_ID} one of two conforming ways:
     • gate against a worktree that has it:
         ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>
-    • or check the branch out here, if its scripts/finish-pr.sh is still ${DEFAULT_BRANCH}'s:
+    • or check the branch out here, if every file in this script's _held_files list is still ${DEFAULT_BRANCH}'s
+      (else rebase the branch on ${DEFAULT_BRANCH} first):
         git -C '$MAIN_ROOT' checkout '$BRANCH'
   Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate
   checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted
@@ -883,8 +886,9 @@ if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
     echo "         The squash is on ${KWT_REMOTE}/${DEFAULT_BRANCH}; what did not happen is the"
     echo "         dev_complete/ → qa_complete/ move, so the board still shows it in review."
     echo "         DO NOT re-run this script: the branch is merged and the squash would have"
-    echo "         nothing to do. Finish with just the move:"
-    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --landed-at ${KWT_LANDED_SHA:-<the published sha>} --note '<what the review found>'"
+    echo "         nothing to do. Finish with just the move (the mover runs only as the trunk's copy, so"
+    echo "         bring this checkout to the trunk first):"
+    echo "           git switch ${DEFAULT_BRANCH} && git pull --ff-only && $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --landed-at ${KWT_LANDED_SHA:-<the published sha>} --note '<what the review found>'"
   } >&2
 fi
 
