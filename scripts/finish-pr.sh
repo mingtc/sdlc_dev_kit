@@ -137,9 +137,10 @@ _held_trunk="${_held_trunk#"$_held_rem"/}"
 # (offline) compares against the last one's ref.
 [ "$_held_help" = true ] || git fetch "$_held_rem" "$_held_trunk" --quiet >/dev/null 2>&1 || true
 _held_off=""; _held_noref=false
-# With no trunk ref to read there is nothing to compare with, and that is not a pass: the tool refuses,
-# at the second check below, once its arguments are parsed and its board worktree stands, so a usage
-# error still exits 2 and an empty repository still gets the bootstrap's own refusal first.
+# With no trunk ref to read there is nothing to compare with, and that is not a pass: it is decided
+# here, before anything is sourced, so nothing sourced can change it. It is a refusal when the trunk
+# exists as a local branch (a clone that lost, or never fetched, its tracking ref); with neither there is
+# an empty repository, whose bootstrap refuses it by name.
 if [ "$_held_help" = true ]; then
   :
 elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
@@ -151,31 +152,32 @@ elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/nul
       _held_off="$_held_off scripts/$_f"
     fi
   done
-else
+elif [ -n "$(git branch --list "$_held_trunk" 2>/dev/null)" ]; then
   _held_noref=true
 fi
-if [ -n "$_held_off" ]; then
-  _held_err="Error: the landing tool here is not ${_held_trunk}'s committed copy — these differ from
+if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
+  if [ "$_held_noref" = true ]; then
+    _held_err="Error: cannot tell whether the landing tool here is ${_held_trunk}'s committed copy: no ${_held_rem}/${_held_trunk} ref could be read
+       (the fetch failed, or this directory is not a clone of the project). NOTHING WAS CHANGED. (lander-not-trunk-copy)"
+    _held_next="Next: fetch the trunk (git fetch ${_held_rem} ${_held_trunk}); if ${_held_trunk} is not your trunk, set it with
+       git remote set-head ${_held_rem} <your-trunk>; then re-run."
+  else
+    _held_err="Error: the landing tool here is not ${_held_trunk}'s committed copy — these differ from
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
-  _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
+    _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
        branch's checkout with --worktree (a branch cut before the trunk's last change to one of these needs
        no rebase for that; it is rebased only to run this tool from its own checkout):
          git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>
        If the trunk's copy cannot land this change, ask the human: there is no override."
+  fi
   # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison
   # could redefine `exit`. So the refusal is printed in plain shell, and its progress record is not written.
   printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
   exit 1   # exit-class: internal
 fi
-if [ "$_held_noref" = true ]; then
-  _held_nerr="Error: cannot tell whether the landing tool here is ${_held_trunk}'s committed copy: no ${_held_rem}/${_held_trunk} ref could be read
-       (the fetch failed, or this directory is not a clone of the project). NOTHING WAS CHANGED. (lander-not-trunk-copy)"
-  _held_nnext="Next: fetch the trunk (git fetch ${_held_rem} ${_held_trunk}); if ${_held_trunk} is not your trunk, set it with
-       git remote set-head ${_held_rem} <your-trunk>; then re-run."
-fi
-unset _held_files _held_help _held_rem _held_trunk _held_off _a _f
+unset _held_files _held_help _held_rem _held_trunk _held_off _held_noref _a _f
 
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
@@ -305,13 +307,6 @@ fi
 # the issue file, so the branch read sees the current trunk state.
 kwt_lock
 kwt_bootstrap
-# The comparison at the top found no trunk ref to read, so it compared nothing: refuse here, with the
-# board worktree standing and nothing yet written to it, rather than let a check that cannot be shown to
-# be the trunk's make a commit there. Plain shell, nothing sourced.
-if [ "$_held_noref" = true ]; then
-  printf '%s\n%s\n' "$_held_nerr" "$_held_nnext" >&2
-  exit 1   # exit-class: internal
-fi
 kwt_sync
 # THE SQUASH COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
 kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"

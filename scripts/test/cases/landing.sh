@@ -1672,6 +1672,65 @@ case_the_tools_leave_the_board_worktree_alone_when_there_is_no_trunk_ref() {
   teardown
 }
 
+# The no-trunk-ref refusal is decided before any library is sourced, so a gutted library that knows about
+# it cannot undo it: one that resets the flag, and one that redefines `exit` once the flag is set, through
+# each of the three tools.
+case_a_library_cannot_defeat_the_no_trunk_ref_refusal() {
+  cf_reset
+  if ! has_issue_template; then skp "a gutted library cannot defeat the no-trunk-ref refusal" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local out rc mid sid sl wt h0 h1 hinit o0 o1 gate variant vname tool
+  _held_fpr_setup 831
+  mid="$SB_PREFIX-832"; sid="$SB_PREFIX-834"
+  seed_issue dev_complete "$mid" mover chore "A FAIL card for the mover" "feature/$mid-work"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$SB_WORK/progress/dev_complete/$mid-mover.md"
+  seed_issue todo "$SB_PREFIX-833" warm chore "A card that makes the board worktree stand"
+  _seed_parent "$sid"
+  sl="$(_seed_subtask "$sid" s1 dev_complete variant "A FAIL slice")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$sl"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] seed cards" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_a_library_cannot_defeat_the_no_trunk_ref_refusal: could not publish the cards"
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-833" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "case_a_library_cannot_defeat_the_no_trunk_ref_refusal: the warm-up move failed"
+  wt="$SB_WORK/.kanban-wt"
+  git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
+  gate="$SB_WORK/scripts/lib/qa-gate.sh"; cp "$gate" "$SB_TMP/qa-gate.real"
+  hinit="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"
+  for vname in reset shadow; do
+    git -C "$wt" reset -q --hard "$hinit" >/dev/null 2>&1   # a run that did commit must not mask the next
+    cp "$SB_TMP/qa-gate.real" "$gate"
+    case "$vname" in
+      reset)  variant='_held_noref=false' ;;
+      shadow) variant='if [ "${_held_noref:-}" = true ]; then exit() { unset -f exit; return 0; }; fi' ;;
+    esac
+    printf '\n%s\n%s\n' 'kit_qa_verdict_check() { :; }' "$variant" >> "$gate"
+    bash -n "$gate" || _fixture_die "case_a_library_cannot_defeat_the_no_trunk_ref_refusal: the $vname library no longer parses"
+    for tool in finish-pr mover subtask; do
+      h0="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+      rc=0
+      case "$tool" in
+        finish-pr) out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$? ;;
+        mover)     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$mid" qa_complete --role QA --note review 2>&1 )" || rc=$? ;;
+        subtask)   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/subtask.sh" move "${sid}-s1" qa_complete 2>&1 )" || rc=$? ;;
+      esac
+      h1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+      [ "$rc" -eq 1 ] || cf "($vname/$tool) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+      printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "($vname/$tool) the refusal does not say there was no origin/$SB_TRUNK ref"
+      [ "$h0" = "$h1" ] || cf "($vname/$tool) the board worktree gained a commit"
+      [ "$o0" = "$o1" ] || cf "($vname/$tool) the trunk moved"
+    done
+  done
+  # With no board worktree standing, the refusal does not create one either.
+  git -C "$SB_WORK" worktree remove --force "$wt" >/dev/null 2>&1; rm -rf "$wt"; git -C "$SB_WORK" worktree prune >/dev/null 2>&1
+  cp "$SB_TMP/qa-gate.real" "$gate"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$mid" qa_complete --role QA --note review 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(no worktree) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "(no worktree) the refusal does not say there was no ref"
+  [ ! -e "$wt" ] || cf "(no worktree) the refusal created the board worktree"
+  finish "with no trunk ref to compare with, finish-pr.sh, move-issue.sh and subtask.sh refuse before any library is sourced, so a gutted qa-gate.sh that resets the flag or redefines exit cannot get past it, and no commit reaches the board worktree"
+  teardown
+}
+
 # A listed file that is gone here but on the trunk is a difference: a deleted progress-record.sh would
 # otherwise leave every refusal uncounted.
 case_the_mover_refuses_a_deleted_progress_record_library() {
