@@ -177,7 +177,7 @@ elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/nul
       _held_off="$_held_off scripts/$_f"
     fi
   done
-elif [ -n "$(git rev-list -n 1 --all 2>/dev/null)" ]; then
+elif ! _held_rl="$(git rev-list -n 1 --all 2>/dev/null)" || [ -n "$_held_rl" ]; then   # a failing rev-list is not an empty one
   _held_noref=true
 fi
 if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
@@ -202,7 +202,7 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
   printf '%s\n%s\n' "$_held_err" "$_held_next" >&2
   exit 1   # exit-class: internal
 fi
-unset _held_files _held_help _held_rem _held_trunk _held_off _held_noref _a _f
+unset _held_files _held_help _held_rem _held_trunk _held_off _held_noref _held_rl _a _f
 
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"

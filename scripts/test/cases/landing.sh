@@ -1736,7 +1736,7 @@ case_a_library_cannot_defeat_the_no_trunk_ref_refusal() {
 case_the_tools_refuse_when_the_local_trunk_is_deleted_too() {
   cf_reset
   if ! has_issue_template; then skp "the tools refuse when the local trunk and its tracking ref are both gone" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  local out rc mid sid sl wt h0 h1 o0 o1 gate tool
+  local out rc mid sid sl wt h0 h1 o0 o1 gate tool vname
   _held_fpr_setup 835
   mid="$SB_PREFIX-836"; sid="$SB_PREFIX-838"
   seed_issue dev_complete "$mid" mover chore "A FAIL card for the mover" "feature/$mid-work"
@@ -1758,22 +1758,26 @@ case_the_tools_refuse_when_the_local_trunk_is_deleted_too() {
   gate="$SB_WORK/scripts/lib/qa-gate.sh"
   printf '\n%s\n' 'kit_qa_verdict_check() { :; }' >> "$gate"
   bash -n "$gate" || _fixture_die "case_the_tools_refuse_when_the_local_trunk_is_deleted_too: the gutted library no longer parses"
-  for tool in finish-pr mover subtask; do
-    h0="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
-    rc=0
-    case "$tool" in
-      finish-pr) out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$? ;;
-      mover)     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$mid" qa_complete --role QA --note review 2>&1 )" || rc=$? ;;
-      subtask)   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/subtask.sh" move "${sid}-s1" qa_complete 2>&1 )" || rc=$? ;;
-    esac
-    h1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
-    [ "$rc" -eq 1 ] || cf "($tool) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
-    printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "($tool) the refusal does not say there was no origin/$SB_TRUNK ref"
-    [ "$h0" = "$h1" ] || cf "($tool) the board worktree gained a commit"
-    [ "$o0" = "$o1" ] || cf "($tool) the trunk moved"
-    git -C "$wt" reset -q --hard "$h0" >/dev/null 2>&1
+  # Twice: as it stands, then with one corrupt loose ref added, which makes `git rev-list --all` fail.
+  for vname in plain garbage; do
+    [ "$vname" != garbage ] || printf 'garbage\n' > "$SB_WORK/.git/refs/heads/zz"
+    for tool in finish-pr mover subtask; do
+      h0="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+      rc=0
+      case "$tool" in
+        finish-pr) out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$HELD_ID" --worktree "$HELD_WT" 2>&1 )" || rc=$? ;;
+        mover)     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$mid" qa_complete --role QA --note review 2>&1 )" || rc=$? ;;
+        subtask)   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/subtask.sh" move "${sid}-s1" qa_complete 2>&1 )" || rc=$? ;;
+      esac
+      h1="$(git -C "$wt" rev-parse HEAD 2>/dev/null)"; o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+      [ "$rc" -eq 1 ] || cf "($vname/$tool) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+      printf '%s\n' "$out" | grep -F "no origin/$SB_TRUNK ref" >/dev/null || cf "($vname/$tool) the refusal does not say there was no origin/$SB_TRUNK ref"
+      [ "$h0" = "$h1" ] || cf "($vname/$tool) the board worktree gained a commit"
+      [ "$o0" = "$o1" ] || cf "($vname/$tool) the trunk moved"
+      git -C "$wt" reset -q --hard "$h0" >/dev/null 2>&1
+    done
   done
-  finish "with the local trunk and its tracking ref both deleted and the remote unreachable, finish-pr.sh, move-issue.sh and subtask.sh still refuse, naming the missing ref, and no commit reaches the board worktree"
+  finish "with the local trunk and its tracking ref both deleted and the remote unreachable, and again with a corrupt loose ref, finish-pr.sh, move-issue.sh and subtask.sh still refuse, naming the missing ref, and no commit reaches the board worktree"
   teardown
 }
 

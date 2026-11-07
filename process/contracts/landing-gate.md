@@ -75,7 +75,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   rewrites it passes its own landing. The trunk's own copy, run with `--worktree`, judges a branch
   completely; a branch's own copy is compared too, but cannot be trusted to compare itself. The
   hold covers the files the tool runs, not the caller's environment (`PATH`, `BASH_ENV`, exported
-  functions): `git` and `cmp` run as the shell finds them. With no trunk ref to compare with, the tool
+  functions, `GIT_DIR`, `GIT_WORK_TREE`): `git` and `cmp` run as the shell finds them, and git sets the
+  last two itself inside a hook. With no trunk ref to compare with, the tool
   refuses before its board worktree is written. In the
   reference implementation the comparison is plain shell that sources nothing, run before any of those
   files is sourced; the list is `_held_files` in `scripts/finish-pr.sh`, derived from what that script
