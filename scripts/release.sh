@@ -950,6 +950,11 @@ _release_restore_bumped() {
 _release_mutate_abort() {
   [ "$_MUTATE_ARMED" = true ] || return 0
   _MUTATE_ARMED=false
+  # A signal is acted on only when the command it interrupted returns, so the commit may exist.
+  if [ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" != "$_PRE_RELEASE_HEAD" ]; then
+    _release_commit_exists_note
+    return 0
+  fi
   {
     echo ""
     echo "release.sh: ABORTED between the version bump and the release commit."
@@ -962,8 +967,31 @@ _release_mutate_abort() {
   } >&2
   _release_restore_bumped
 }
+_release_commit_exists_note() {
+  {
+    echo ""
+    echo "release.sh: STOPPED by a signal; the release commit exists in THIS clone and is not undone."
+    echo "            Nothing past it is certain: check 'git status', 'git tag -l $TAG' and"
+    echo "            'git ls-remote $REMOTE'. Next: to finish the cut run, as needed,"
+    echo "              git tag -a $TAG -m $TAG"
+    echo "              git push $REMOTE HEAD:$DEFAULT_BRANCH"
+    echo "              git push $REMOTE $TAG"
+    echo "            To abandon it while nothing is pushed: git tag -d $TAG; git reset --hard HEAD~1"
+  } >&2
+}
+# A handler that RETURNS lets bash resume the next command, so a signalled cut would go on to commit,
+# tag and push. This one exits: the abort, then the status the shell would have reported.
+_release_signalled() {  # <exit status>
+  if [ "$_MUTATE_ARMED" != true ] && [ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" != "$_PRE_RELEASE_HEAD" ]; then
+    _release_commit_exists_note
+  fi
+  _release_mutate_abort
+  exit "$1"   # exit-class: internal
+}
+_PRE_RELEASE_HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"
 kit_on_exit '_release_mutate_abort'
-trap '_release_mutate_abort' INT TERM
+trap '_release_signalled 130' INT
+trap '_release_signalled 143' TERM
 bump_one() {  # <path> <line-prefix> <quote>
   local f="$REPO_ROOT/$1" prefix="$2" q="$3" tmp expr
   [ -f "$f" ] || { echo "release.sh: VERSION_FILES names '$1', which does not exist." >&2; return 1; }
