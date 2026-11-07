@@ -1167,11 +1167,15 @@ case_move_issue_probe() {
   perl -i -pe 's/^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$/if false \&\& [ "\$PROBE_ID_IS_GLOB" -eq 0 ] \\/' "$mi"
   grep -q '^if false && \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
     || _fixture_die "case_move_issue_probe(b): the ablation did not take."
+  # The mover runs only as the trunk's committed copy, so the ablated script is published.
+  _mi_publish() { git -C "$SB_WORK" add scripts/move-issue.sh >/dev/null 2>&1 && sbcommit -q -m "[PM] mover copy" >/dev/null 2>&1 && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1; }
+  _mi_publish || _fixture_die "case_move_issue_probe(b): could not publish the ablated mover."
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-999" in_progress --role Dev --note x 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) the ablated mover accepted a nonexistent card"
   kwt_registered \
     || cf "(control) with the probe disabled the refusal STILL left no worktree — arm (a) is not measuring the probe: $out"
   cp "$SB_TMP/move-issue.neutral" "$mi"   # restore the NEUTRALIZED script for (c) and (d)
+  _mi_publish || _fixture_die "case_move_issue_probe(b): could not publish the restored mover."
   grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
     || _fixture_die "case_move_issue_probe: the restore did not put the un-ablated script back, so arms (c) and (d) would run against the disabled probe."
 
@@ -1208,6 +1212,9 @@ case_move_issue_probe() {
   #     only thing that can tell the two reads apart, which is why it is asserted.
   kwt_clear
   git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
+  # The mover's own fetch (it compares its files with the trunk's first) would restore the ref, so the
+  # remote is made unreachable too: the ref stays unreadable, as the arm's premise says.
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-998" in_progress --role Dev --note x 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) the mover accepted a nonexistent card with no tracking ref"
   printf '%s\n' "$out" | grep 'no file matching' >/dev/null \

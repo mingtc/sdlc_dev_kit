@@ -75,7 +75,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   rewrites it passes its own landing. The comparison runs first, in plain shell, before any of those
   files is sourced, so no file it judges is used to judge it. In the reference implementation the list
   is `_held_files` in `scripts/finish-pr.sh`, derived from what that script and the mover source; the
-  self-test fails when a sourced file is not on it. The slice mover holds the same rule over its own list.
+  self-test fails when a sourced file is not on it. The card mover and the slice mover hold the same rule over their own lists, each ahead of its first source: a tool that is not held can have its own call to the check replaced.
 - The gate is red ⇒ refuse; report the failure, mutate nothing.
 - The branch **introduces** a finding in a board property it touches — a card id, a dependency
   declaration, a register citation, a corpus or register change (`check-board.sh`'s arms `[d]` `[i]`

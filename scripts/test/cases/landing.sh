@@ -1520,6 +1520,47 @@ case_finish_pr_lands_a_library_change_through_the_trunks_copy() {
   teardown
 }
 
+# The mover holds itself and its libraries the same way: its own call to the QA Verdict check
+# replaced by a no-op, uncommitted, must not publish a FAIL card to qa_complete/. (control) the
+# unchanged mover refuses the FAIL row; (green) a mover run from the clean checkout moves an honest card.
+case_move_issue_refuses_its_own_edited_call() {
+  cf_reset
+  local out rc id f
+  make_sandbox
+  id="$SB_PREFIX-811"
+  seed_issue dev_complete "$id" mover chore "A FAIL row behind an edited mover" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-mover.md"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  grep -qF 'FAIL_AC' "$f" || _fixture_die "case_move_issue_refuses_its_own_edited_call: the FAIL_AC row was not planted"
+  seed_issue dev_complete "$SB_PREFIX-812" honest chore "An honest card" "feature/$SB_PREFIX-812-work"
+  publish_sandbox
+
+  # (control) the unchanged mover refuses the FAIL row.
+  rc=0; out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec0" "$SB_WORK/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) a FAIL row on an unchanged mover — exit 0"
+  grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec0"/*.tsv 2>/dev/null \
+    || cf "(control) the FAIL row was not what refused: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  # (green) the clean checkout moves an honest card.
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-812" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(green) a mover run from the clean trunk checkout refused an honest card (exit $rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+
+  # (a) its own call replaced, uncommitted.
+  perl -i -pe 's/^(\s*)kit_qa_verdict_check "\$SRC".*$/$1:/' "$SB_WORK/scripts/move-issue.sh"
+  ! grep -F 'kit_qa_verdict_check "$SRC"' "$SB_WORK/scripts/move-issue.sh" >/dev/null \
+    || _fixture_die "case_move_issue_refuses_its_own_edited_call: the call was not replaced"
+  bash -n "$SB_WORK/scripts/move-issue.sh" || _fixture_die "case_move_issue_refuses_its_own_edited_call: the edited script no longer parses"
+  rc=0; out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(a) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "(a) the refusal does not say the tool is not the trunk's copy: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'scripts/move-issue.sh' >/dev/null || cf "(a) the refusal does not name scripts/move-issue.sh"
+  origin_has_path "progress/qa_complete/$id-mover.md" && cf "(a) the FAIL card was published to qa_complete/"
+  origin_has_path "progress/dev_complete/$id-mover.md" || cf "(a) the FAIL card left dev_complete/"
+
+  finish "move-issue.sh refuses to run once its own call to the QA Verdict check is replaced (uncommitted), naming scripts/move-issue.sh, with the FAIL card unmoved; unchanged, it refuses the FAIL row and moves an honest card"
+  teardown
+}
+
 # =============================================================================
 # THE HELD LIST IS DERIVED FROM WHAT IS SOURCED, TRANSITIVELY. A file a held script (or the mover it
 # runs) sources, directly or through a library, that the script's own list does not name can be
@@ -1570,29 +1611,34 @@ _held_missing() {
 
 case_the_held_list_names_every_file_the_landing_and_slice_tools_source() {
   cf_reset
-  local d miss n s
-  if ! has_issue_template; then skp "every file the landing and slice tools source is on their held list" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local d miss n s roots
+  if ! has_issue_template; then skp "every file the landing, mover and slice tools source is on their held list" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   d="$(mktemp -d)"; cp -R "$REAL_SCRIPTS" "$d/scripts"; rm -rf "$d/scripts/test"
-  grep -q '^_held_files="$' "$d/scripts/finish-pr.sh" || cf "scripts/finish-pr.sh carries no _held_files list"
-  grep -q '^_held_files="$' "$d/scripts/subtask.sh" || cf "scripts/subtask.sh carries no _held_files list"
-  miss="$(_held_missing "$d/scripts" finish-pr.sh finish-pr.sh move-issue.sh)"
-  [ -z "$miss" ] || cf "finish-pr.sh runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
-  miss="$(_held_missing "$d/scripts" subtask.sh subtask.sh)"
-  [ -z "$miss" ] || cf "subtask.sh runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
-  for s in finish-pr.sh subtask.sh; do
+  # Each tool and the files it runs: the landing script also runs the mover, which is a root of its own.
+  # <script>:<roots, space-separated>
+  local rows="finish-pr.sh:finish-pr.sh,move-issue.sh move-issue.sh:move-issue.sh subtask.sh:subtask.sh" row
+  for row in $rows; do
+    s="${row%%:*}"; roots="${row#*:}"; roots="${roots//,/ }"
+    grep -q '^_held_files="$' "$d/scripts/$s" || cf "scripts/$s carries no _held_files list"
+    miss="$(_held_missing "$d/scripts" "$s" $roots)"
+    [ -z "$miss" ] || cf "$s runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
     while IFS= read -r n; do
       [ -z "$n" ] || [ -f "$d/scripts/$n" ] || cf "$s lists $n, which is not a file under scripts/"
     done <<< "$(_held_listed "$d/scripts/$s")"
   done
-  # THE CONTROL: a library sourced directly, and one sourced only through another library.
-  printf '%s\n' ':' > "$d/scripts/lib/zz-direct.sh"; printf '%s\n' ':' > "$d/scripts/lib/zz-deep.sh"
-  printf '%s\n' '. "$SCRIPT_DIR/lib/zz-direct.sh"' >> "$d/scripts/finish-pr.sh"
+  # THE CONTROL: a library sourced directly by each tool, and one sourced only through another library.
+  printf '%s\n' ':' > "$d/scripts/lib/zz-deep.sh"
   printf '%s\n' '. "$(dirname "${BASH_SOURCE[0]}")/zz-deep.sh" || return 1' >> "$d/scripts/lib/usage.sh"
-  miss="$(_held_missing "$d/scripts" finish-pr.sh finish-pr.sh move-issue.sh | tr '\n' ' ')"
-  case "$miss" in *lib/zz-direct.sh*) : ;; *) cf "(control) a library sourced directly was not found: [$miss]" ;; esac
-  case "$miss" in *lib/zz-deep.sh*) : ;; *) cf "(control) a library sourced through another library was not found: [$miss]" ;; esac
+  for row in $rows; do
+    s="${row%%:*}"; roots="${row#*:}"; roots="${roots//,/ }"
+    printf '%s\n' ':' > "$d/scripts/lib/zz-direct-${s%.sh}.sh"
+    printf '%s\n' ". \"\$SCRIPT_DIR/lib/zz-direct-${s%.sh}.sh\"" >> "$d/scripts/$s"
+    miss="$(_held_missing "$d/scripts" "$s" $roots | tr '\n' ' ')"
+    case "$miss" in *lib/zz-direct-${s%.sh}.sh*) : ;; *) cf "(control) $s: a library it sources directly was not found: [$miss]" ;; esac
+    case "$miss" in *lib/zz-deep.sh*) : ;; *) cf "(control) $s: a library sourced through another library was not found: [$miss]" ;; esac
+  done
   rm -rf "$d"
-  finish "every file finish-pr.sh (with the mover it runs) and subtask.sh source, directly or through a library, is named in that script's _held_files list; a planted new library, direct or transitive, turns the check red"
+  finish "every file finish-pr.sh (with the mover it runs), move-issue.sh as a root of its own and subtask.sh source, directly or through a library, is named in that script's _held_files list; a planted new library, direct or transitive, turns the check red for each"
 }
 
 # =============================================================================

@@ -377,3 +377,36 @@ case_subtask_refuses_a_gutted_qa_gate_library() {
   finish "subtask.sh move <id> qa_complete refuses to run from a checkout whose lib/qa-gate.sh differs from the trunk's committed copy, naming the file, with the slice unmoved"
   teardown
 }
+
+# =============================================================================
+# CASE — THE TOOL HOLDS ITSELF TOO. subtask.sh's own call to the QA Verdict check replaced by a no-op,
+# uncommitted: the slice's FAIL row must still refuse the move, and nothing is published.
+# =============================================================================
+case_subtask_refuses_its_own_edited_call() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh refuses to run when its own call to the QA Verdict check is replaced" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+
+  local p="$SB_PREFIX-810"
+  _seed_parent "$p"
+  local f; f="$(_seed_subtask "$p" s1 dev_complete self "A FAIL row behind an edited mover")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
+  grep -qF 'FAIL_AC' "$f" || _fixture_die "case_subtask_refuses_its_own_edited_call: the FAIL_AC row was not planted"
+  publish_sandbox
+
+  perl -i -pe 's/^(\s*)kit_qa_verdict_check "\$SRC".*$/$1:/' "$SB_WORK/scripts/subtask.sh"
+  ! grep -F 'kit_qa_verdict_check "$SRC"' "$SB_WORK/scripts/subtask.sh" >/dev/null \
+    || _fixture_die "case_subtask_refuses_its_own_edited_call: the call was not replaced"
+  bash -n "$SB_WORK/scripts/subtask.sh" || _fixture_die "case_subtask_refuses_its_own_edited_call: the edited script no longer parses"
+
+  local out rc
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "the refusal does not say the tool is not the trunk's copy: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'scripts/subtask.sh' >/dev/null || cf "the refusal does not name scripts/subtask.sh"
+  origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-self.md" && cf "the slice was published to qa_complete/ past a FAIL row"
+
+  finish "subtask.sh move <id> qa_complete refuses to run once its own call to the QA Verdict check is replaced (uncommitted), naming scripts/subtask.sh, with nothing published"
+  teardown
+}
