@@ -168,5 +168,5 @@ Every navigation is an `<a href>`, so `scripts/design/flow-from-links.py` derive
 | **PM** | PRDs and ACs; answers the Designer's questions; mints cards and writes the pin. |
 | **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
 | **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
-| **QA** | Verifies each (UI) AC; the design cell compares the build with the pinned render. |
+| **QA** | Verifies each (UI) AC; cites the images by sha and records in the design cell the result of the comparison a human or the orchestrator made. |
 | **The human** | Looks at the canvas and approves the gates; sends the comments the Designer must act on with Send to Claude (a plain comment was invisible to the agent on the claude-artifacts server); copies a PNG; may change the canvas by hand. Carries nothing. |

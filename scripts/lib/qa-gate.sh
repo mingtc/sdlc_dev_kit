@@ -251,11 +251,13 @@ _qav_squeeze() {
 # (`"a" "b"`, `"a"; "b"`). `\"` inside a quote is a double quote of the quoted text. Any other
 # double-quoted string is prose and is not read. A quote belongs to
 # the pointer before it; one before every pointer is kept, for the caller to refuse.
-# A test named in place of a line, `path:"name"` (the quote right after the colon), is one pointer: the
-# name must occur once in the file (_qav_name_lines). It is read as `P path:"name" OK <n> <n>` then
-# `Q name`, so the quote checks run on it as on any other.
+# In a `test` row (<kind>), a test named in place of a line, `path:"name"` (the quote right after the
+# colon), is one pointer when it opens the cell or follows a `;`: the name must occur once in the file
+# (_qav_name_lines). It is read as `P path:"name" OK <n> <n>` then `Q name`, so the quote checks run on
+# it as on any other. In every other row, and anywhere else in a test row, `word:"` is prose as before.
 _qav_cell_events() {
-  local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines _name _tk _count _first
+  local repo="$1" rev="$2" cell="$3" kind="${4:-}" _nm=0 _kind _tok _path _range _lo _hi _nlines _name _tk _count _first
+  [ "$kind" != test ] || _nm=1
   while IFS=' ' read -r _kind _tok; do
     [ -n "$_kind" ] || continue
     if [ "$_kind" = Q ]; then
@@ -266,7 +268,7 @@ _qav_cell_events() {
       _path="${_tok%% *}"; _name="$(_qav_squeeze "${_tok#* }")"
       _tk="${_name// /$'\001'}"   # the token carries no space; the reader of the event puts them back
       if ! git -C "$repo" cat-file -e "${rev}:${_path}" 2>/dev/null; then
-        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "does not exist at ${rev}"
+        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "the test name's file does not exist at ${rev}"
         continue
       fi
       read -r _count _first <<< "$(_qav_name_lines "$repo" "$rev" "$_path" "$_name")"
@@ -297,7 +299,7 @@ _qav_cell_events() {
     else
       printf 'P %s OK %s %s\n' "$_tok" "$_lo" "$_hi"
     fi
-  done <<< "$(printf '%s\n' "$cell" | awk '{
+  done <<< "$(printf '%s\n' "$cell" | awk -v nm="$_nm" '{
     gsub(/\\"/, "\001")
     n = split($0, part, "\"")
     ptr = 0; state = "fresh"; pend = ""
@@ -315,7 +317,10 @@ _qav_cell_events() {
           s = substr(s, RSTART + RLENGTH)
           found = 1
         }
-        if (i + 1 < n && match(s, /[^[:space:]`"(),]+:$/)) { pend = substr(s, RSTART, RLENGTH - 1); found = 1 }
+        if (nm && i + 1 < n && match(s, /[^[:space:]`"(),]+:$/)) {
+          pre = substr(s, 1, RSTART - 1)
+          if (pre ~ /;[ \t]*$/ || (i == 1 && !found && pre ~ /^[ \t]*$/)) { pend = substr(s, RSTART, RLENGTH - 1); found = 1 }
+        }
         if (found) { ptr = 1; state = "fresh" }
         else if (state == "quoted" && part[i] !~ /^[ \t;]*$/) state = "prose"
       }
@@ -556,7 +561,7 @@ kit_qa_verdict_check() {
       case "$_qkind" in
         file:line|test) _qav_wants_quote=1; _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;
       esac
-      _qav_events="$(_qav_cell_events "$repo" "$rev" "$_qptr_stripped")"
+      _qav_events="$(_qav_cell_events "$repo" "$rev" "$_qptr_stripped" "$_qkind")"
       while IFS= read -r _qav_ev; do
         [ -n "$_qav_ev" ] || continue
         _qav_ev_kind="${_qav_ev%% *}"
@@ -685,7 +690,7 @@ kit_qa_verdict_check() {
     local _qav_artifact_next=""
     [ -z "$_qav_artifact_bad" ] || _qav_artifact_next="For an artifact row, commit the artefact on the trunk first (./scripts/register-commit.sh --role QA --message \"<message>\" <path>), then paste its blob sha from git rev-parse origin/<trunk>:<path>, all forty characters. "
     local _qav_name_next=""
-    [ -z "$_qav_name_bad" ] || _qav_name_next="For a test named in a pointer (path:\"name\"), quote the name as the file spells it, enough of it that it occurs exactly once in the file, or cite its line as path:line. "
+    [ -z "$_qav_name_bad" ] || _qav_name_next="For a test named in a pointer (path:\"name\"), quote the name as the file spells it, enough of it that it occurs exactly once in the file, or cite its line as path:line; in a test row, prose that opens the cell or follows a ';' as word:\"...\" is read as a test name, so put a space after the colon. "
     kit_refuse 2 qa-verdict-pointer-unresolved \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \

@@ -1523,8 +1523,8 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
   ! grep -q "evidence directory" "$r/.claude/roles/dev.md" \
     || cf "dev.md still says 'the evidence directory', whose referent is now dev/evidence/"
   [ -f "$r/dev/evidence/README.md" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no dev/evidence/README.md in the published kit at $r"
-  grep -q 'primary checkout (not the Dev.s worktree), after' "$r/.claude/roles/qa.md" \
-    || cf "qa.md step 4 does not say the verdict table is committed from the primary checkout"
+  grep -q 'from a checkout at the trunk tip, such as the primary checkout' "$r/.claude/roles/qa.md" \
+    || cf "qa.md step 4 does not say the verdict table is committed from a checkout at the trunk tip"
   ! grep -q 'register-commit.sh --role QA --message "<message>" dev/evidence' "$r/.claude/roles/qa.md" \
     || cf "qa.md still has QA commit the image it cites; dev/evidence/README.md says who commits"
   grep -q 'QA cites an image by its blob sha and never takes or reads one' "$r/dev/evidence/README.md" \
@@ -1534,7 +1534,6 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
 
 # =============================================================================
 # CASE — AN `artifact` ROW THAT CANNOT BE PARSED NAMES THE ROW, THE CELL AND THE TOKEN.
-# A note typed after the pair, `(the error state)`, used to be refused with the generic form only.
 #   (a) a note after a good pair                 -> refused naming AC2, its pointer cell and the token `error`;
 #   (b) a path with no sha after it              -> refused naming AC2 and the path that has none;
 #   (c) a note in double quotes after a good pair -> LANDS (the Next: says a note goes in quotes, so it must be true).
@@ -1591,14 +1590,14 @@ case_finish_pr_qa_verdict_test_named_in_the_pointer() {
   cf_reset
   make_sandbox
 
-  local name='AC3 (D-98): shows the error state'
+  local name='AC3 (D-NN): shows the error state'
   local ida="$SB_PREFIX-950" idb="$SB_PREFIX-951" idc="$SB_PREFIX-952" idd="$SB_PREFIX-953" ide="$SB_PREFIX-954" idf="$SB_PREFIX-955" idg="$SB_PREFIX-956" x
 
   _qvp_land "$ida" named "| AC1 | PASS | test | @EV@:\"$name\" |" "it(\"$name\", () => {})"
   [ "$_QVP_RC" -eq 0 ] || cf "(a) a test named once — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -5 | tr '\n' '|' | cut -c1-400)"
   origin_has_path "progress/qa_complete/$ida-named.md" || cf "(a) the card did not advance to qa_complete/"
 
-  _qvp_land "$idb" beside "| AC1 | PASS | file:line | @CHG@:1 \"a real change\"; @EV@:\"$name\" |" "it(\"$name\", () => {})"
+  _qvp_land "$idb" beside "| AC1 | PASS | test | @CHG@:1 \"a real change\"; @EV@:\"$name\" |" "it(\"$name\", () => {})"
   [ "$_QVP_RC" -eq 0 ] || cf "(b) a named test beside a path:line pointer — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -5 | tr '\n' '|' | cut -c1-400)"
   origin_has_path "progress/qa_complete/$idb-beside.md" || cf "(b) the card did not advance to qa_complete/"
 
@@ -1625,5 +1624,43 @@ case_finish_pr_qa_verdict_test_named_in_the_pointer() {
   case "$_QVP_OUT" in *"it is at"*) cf "(g) the refusal names a line for a quote that occurs twice: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
 
   finish "a test named in the pointer, path:\"name\", resolves to the one line holding the name and lands (a), beside a path:line pointer too (b); a name not in the file (c), in it twice (d) or in a file that is not there (e) is refused saying which; a quote that moved is refused naming the line it is at now (f), and no line when it is in several (g)"
+  teardown
+}
+
+# =============================================================================
+# CASE — `word:"…"` IN PROSE READS AS IT ALWAYS DID; ONLY A TEST ROW'S POINTER CAN BE A NAME.
+# A test name is `path:"name"` opening a `test` row's cell or following a `;`. Anywhere else it is the
+# prose it was before the kind existed, so a row that landed before still lands:
+#   (a) a gate-diff row with `note:"…"` in its text   -> LANDS;
+#   (b) a gate-diff row with `host:"8080"`            -> LANDS;
+#   (c) a fixture-diff row with `out.txt:"x"`         -> LANDS;
+#   (d) a file:line row with `note:"x y z"` after its quote -> LANDS;
+#   (e) a test row with `AC3:"…"` after its quoted line     -> LANDS.
+# =============================================================================
+case_finish_pr_qa_verdict_prose_colon_quote_is_not_a_test_name() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-940" idb="$SB_PREFIX-941" idc="$SB_PREFIX-942" idd="$SB_PREFIX-943" ide="$SB_PREFIX-944" id out rc
+  for id in "$ida" "$idb" "$idc" "$idd"; do seed_issue dev_complete "$id" card chore "prose row $id" "feature/$id-work"; done
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$ida-card.md" gate-diff 'verify.sh green note:"the error state"'
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idb-card.md" gate-diff 'ran at host:"8080" fine'
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idc-card.md" fixture-diff 'out.txt:"x" matched'
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idd-card.md" file:line 'ARCHIVE.md:1 "condensed index of completed issues" (also see note:"x y z")'
+  publish_sandbox
+  for id in "$ida" "$idb" "$idc" "$idd"; do seed_branch "$id" work "CHANGE$id.txt"; done
+  local label
+  for label in a b c d; do
+    case "$label" in a) id="$ida" ;; b) id="$idb" ;; c) id="$idc" ;; d) id="$idd" ;; esac
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$label" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "($label) a row with word:\"...\" in its prose — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-400)"
+    origin_has_path "progress/qa_complete/$id-card.md" || cf "($label) the card did not advance to qa_complete/"
+  done
+
+  _qvp_land "$ide" testprose '| AC1 | PASS | test | @EV@:@L@ "seeded behaviour holds" — see AC3:"shows the error" in the PRD |'
+  [ "$_QVP_RC" -eq 0 ] || cf "(e) a test row with AC3:\"...\" after its quoted line — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -5 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$ide-testprose.md" || cf "(e) the card did not advance to qa_complete/"
+
+  finish "word:\"...\" in the prose of a gate-diff (a, b), fixture-diff (c) or file:line (d) row, or after a test row's quoted line (e), is not a test name: each row lands as it did before the name pointer existed"
   teardown
 }
