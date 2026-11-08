@@ -1664,3 +1664,27 @@ case_finish_pr_qa_verdict_prose_colon_quote_is_not_a_test_name() {
   finish "word:\"...\" in the prose of a gate-diff (a, b), fixture-diff (c) or file:line (d) row, or after a test row's quoted line (e), is not a test name: each row lands as it did before the name pointer existed"
   teardown
 }
+
+# =============================================================================
+# CASE — A DIRECTORY IS NOT A POINTER. `git cat-file -e` and `git show` accept a tree, so a pointer to a
+# directory with a quote from its listing once resolved. (a) `progress:1 "dev_complete"`, the quote a line
+# of the directory's listing; (b) the name pointer `progress:"dev_complete"`. Both are refused, naming the
+# directory, with a Next: that says to cite the file inside it.
+# =============================================================================
+case_finish_pr_qa_verdict_directory_is_not_a_pointer() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-930" idb="$SB_PREFIX-931"
+  _qvp_land "$ida" dirline '| AC1 | PASS | test | progress:1 "dev_complete" |'
+  _qvp_refused "(a) a directory cited by line" "$ida" dirline qa-verdict-pointer-unresolved
+  case "$_QVP_OUT" in *"progress is a directory"*) : ;; *) cf "(a) the refusal does not name the directory: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_QVP_OUT" in *"not a directory"*) : ;; *) cf "(a) the Next: does not say to cite a file: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$idb" dirname '| AC1 | PASS | test | progress:"dev_complete" |'
+  _qvp_refused "(b) a directory cited by name" "$idb" dirname qa-verdict-pointer-unresolved
+  case "$_QVP_OUT" in *"is a directory"*) : ;; *) cf "(b) the refusal does not say the path is a directory: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  finish "a directory cited by line (a) or by name (b) is refused as not a file, naming it, with a Next: that says to cite the file inside it"
+  teardown
+}

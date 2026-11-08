@@ -271,6 +271,10 @@ _qav_cell_events() {
         printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "the test name's file does not exist at ${rev}"
         continue
       fi
+      if [ "$(git -C "$repo" cat-file -t "${rev}:${_path}" 2>/dev/null)" != blob ]; then
+        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "the test name's path is a directory, not a file, at ${rev}"
+        continue
+      fi
       read -r _count _first <<< "$(_qav_name_lines "$repo" "$rev" "$_path" "$_name")"
       if [ "$_count" -eq 1 ]; then
         printf 'P %s:"%s" OK %s %s\nQ %s\n' "$_path" "$_tk" "$_first" "$_first" "$_name"
@@ -289,6 +293,10 @@ _qav_cell_events() {
     esac
     if ! git -C "$repo" cat-file -e "${rev}:${_path}" 2>/dev/null; then
       printf 'P %s BAD %s\n' "$_tok" "does not exist at ${rev}"
+      continue
+    fi
+    if [ "$(git -C "$repo" cat-file -t "${rev}:${_path}" 2>/dev/null)" != blob ]; then
+      printf 'P %s BAD %s\n' "$_tok" "${_path} is a directory, not a file, at ${rev}"
       continue
     fi
     _nlines="$(git -C "$repo" show "${rev}:${_path}" 2>/dev/null | wc -l | tr -d ' ')"
@@ -479,7 +487,7 @@ CELL_EOF
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>] ──────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
-  local _qav_artifact_bad="" _qav_artifact_malformed="" _qav_name_bad="" _qav_kinds
+  local _qav_artifact_bad="" _qav_artifact_malformed="" _qav_name_bad="" _qav_dir_bad="" _qav_kinds
   local _qav_body _qav_ac_ids _qav_rows
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
@@ -589,7 +597,7 @@ kit_qa_verdict_check() {
               _qav_cur_hi="${_qav_ev_detail#* }"
             else
               _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_ev_detail}: ${_qav_cur})"
-              case "$_qav_ev_detail" in "the test name"*) _qav_name_bad=1 ;; esac
+              case "$_qav_ev_detail" in *"is a directory"*) _qav_dir_bad=1 ;; "the test name"*) _qav_name_bad=1 ;; esac
             fi
             ;;
           Q)
@@ -689,14 +697,15 @@ kit_qa_verdict_check() {
   if [ -n "$_qav_unresolved" ]; then
     local _qav_artifact_next=""
     [ -z "$_qav_artifact_bad" ] || _qav_artifact_next="For an artifact row, commit the artefact on the trunk first (./scripts/register-commit.sh --role QA --message \"<message>\" <path>), then paste its blob sha from git rev-parse origin/<trunk>:<path>, all forty characters. "
-    local _qav_name_next=""
+    local _qav_name_next="" _qav_dir_next=""
+    [ -z "$_qav_dir_bad" ] || _qav_dir_next="A pointer names a file, not a directory: cite the file inside it that shows the claim. "
     [ -z "$_qav_name_bad" ] || _qav_name_next="For a test named in a pointer (path:\"name\"), quote the name as the file spells it, enough of it that it occurs exactly once in the file, or cite its line as path:line; in a test row, prose that opens the cell or follows a ';' as word:\"...\" is read as a test name, so put a space after the colon. "
     kit_refuse 2 qa-verdict-pointer-unresolved \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \
       "       landed, at a line (or range) within its length, or a path:\"name\" whose name occurs once in the file; an artifact row's '<path> <full blob sha>'" \
       "       must name a file that exists on the trunk with exactly that blob sha. (.claude/roles/qa.md step 4.)" \
-      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. ${_qav_artifact_next}${_qav_name_next}Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. ${_qav_artifact_next}${_qav_dir_next}${_qav_name_next}Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
