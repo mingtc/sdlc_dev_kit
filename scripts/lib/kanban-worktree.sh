@@ -25,8 +25,9 @@
 #   # must show:  …/.kanban-wt   <sha>  (detached HEAD)
 #
 # Public API (all operate on the globals exported by kwt_resolve):
-#   kwt_hold_output        → call first in a script that commits here: its stdout and stderr then
-#                            survive a caller that closes its pipe (`op | head -1`)
+#   kwt_hold_output        → call in a script that commits here, before its first write that follows
+#                            a commit or the lock (a refusal-only preamble may come first): its stdout
+#                            and stderr then survive a caller that closes its pipe (`op | head -1`)
 #   kwt_resolve            → sets MAIN_ROOT, KWT, KWT_LOCK, DEFAULT_BRANCH
 #   kwt_lock               → acquire the mkdir-atomic lock (timeout + liveness-aware
 #                            serialized reap of an abandoned lock)
@@ -126,20 +127,30 @@ fi
 # writes must not fail. A script that commits here calls kwt_hold_output before its first write: its
 # stdout and stderr then go through a drain that copies to the caller until the caller's pipe
 # closes and reads and discards after that. What the caller never read is not shown.
-# Only a pipe is drained (a terminal or a file does not close under its writer). Stdout and stderr
-# that are one pipe (`2>&1`) share one drain, which keeps their order. The drain runs with `set +e`:
-# it inherits the caller's, and the copying `cat` dies of the closed pipe, which would end the drain.
+# Only a pipe or a socket is drained (a terminal or a file does not close under its writer); a stream
+# closed outright (`>&-`) is pointed at /dev/null. Stdout and stderr that are one pipe (`2>&1`) share
+# one drain, which keeps their order. The drain runs with `set +e`: it inherits the caller's, and the
+# copying `cat` dies of the closed pipe, which would end the drain. It ignores TERM and HUP: a signal
+# to the whole process group would otherwise take it down with the op, and the op's exit trap would
+# then write to a closed pipe.
 # ---------------------------------------------------------------------------
 kwt_hold_output() {
-  if [ -p /dev/stdout ] && [ -p /dev/stderr ] && [ /dev/stdout -ef /dev/stderr ]; then
-    exec > >(set +e; cat 2>/dev/null; cat >/dev/null 2>&1) 2>&1
+  # A stream closed outright (`>&-`) fails every write with EBADF, which no drain can serve: send it
+  # to /dev/null. A pipe or a socket is what a reader closes under the writer.
+  [ -e /dev/fd/1 ] || exec >/dev/null
+  [ -e /dev/fd/2 ] || exec 2>/dev/null
+  local out=false err=false
+  { [ -p /dev/stdout ] || [ -S /dev/stdout ]; } && out=true
+  { [ -p /dev/stderr ] || [ -S /dev/stderr ]; } && err=true
+  if [ "$out" = true ] && [ "$err" = true ] && [ /dev/stdout -ef /dev/stderr ]; then
+    exec > >(trap '' TERM HUP; set +e; cat 2>/dev/null; cat >/dev/null 2>&1) 2>&1
     return 0
   fi
-  if [ -p /dev/stdout ]; then
-    exec > >(set +e; cat 2>/dev/null; cat >/dev/null 2>&1)
+  if [ "$out" = true ]; then
+    exec > >(trap '' TERM HUP; set +e; cat 2>/dev/null; cat >/dev/null 2>&1)
   fi
-  if [ -p /dev/stderr ]; then
-    exec 2> >(set +e; cat >&2 2>/dev/null; cat >/dev/null 2>&1)
+  if [ "$err" = true ]; then
+    exec 2> >(trap '' TERM HUP; set +e; cat >&2 2>/dev/null; cat >/dev/null 2>&1)
   fi
   return 0
 }

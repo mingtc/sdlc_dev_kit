@@ -68,9 +68,10 @@ guard can see a commit the operator makes by hand.
   Silent conflict resolution on the trunk is worse than the race; an orphaned commit that is
   *reported* costs a minute, and one discovered weeks later costs a day.
 - **A caller that stops reading the operation's output does not stop the operation.** Output goes
-  through a drain that keeps reading after the caller's pipe has closed (`kwt_hold_output`), for
-  stdout and stderr alike, so a later write cannot end the operation between its commit and its
-  publication.
+  through a drain that keeps reading after the caller's pipe or socket has closed, for stdout and
+  stderr alike, and a stream closed outright is pointed at nowhere, so a later write cannot end
+  the operation between its commit and its publication; a signal to the operation's whole process
+  group does not take the drain down first.
   *Why:* an agent that reads `<op> | head -1` closes the pipe after one line; ignoring the broken-pipe
   signal is not enough, because the next write then fails and `set -e` ends the script at the same
   place, with the move committed in the board worktree and not published.

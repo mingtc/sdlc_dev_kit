@@ -71,6 +71,8 @@ fi
 
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
+# A reader that closes our output (`| head -1`) must not stop us between the commit and the push.
+kwt_hold_output
 
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"

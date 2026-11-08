@@ -2897,10 +2897,12 @@ case_push_retry_unreachable_remote_names_the_unlanded_commits() {
 # An agent that reads `<op> | head -1` closes the op's stdout after one line. The op's later writes
 # then fail, and under `set -e` that ends it with the move committed in the board worktree and not
 # pushed; the next op is refused over the unpushed commit. Each of the four ops that commit to the
-# board worktree is piped into `head -1` and must publish its move and leave nothing unpushed.
-# Ignoring SIGPIPE alone does not hold it: the `echo` to a closed pipe then fails with EPIPE and
-# `set -e` ends the script on the same line, so the last rows close stdout alone and stderr alone
-# on a stub that is not the op, to keep the two streams' guards apart.
+# board worktree (the four movers and archive.sh) is piped into `head -1` and must publish its move
+# and leave nothing unpushed. Ignoring SIGPIPE alone does not hold it: the `echo` to a closed pipe
+# then fails with EPIPE and `set -e` ends the script on the same line, so the last rows close stdout
+# alone and stderr alone on a stub that is not the op, to keep the two streams' guards apart. Three
+# more shapes of caller: a signal to the whole process group (the drain dies with the op), a stdout
+# that was closed outright (`>&-`), and a socket in place of a pipe (a Node harness's stdio).
 # =============================================================================
 case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
   cf_reset
@@ -2911,6 +2913,9 @@ case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
   seed_issue todo "$SB_PREFIX-342" sandbox chore "Closed pipe two"
   seed_issue todo "$SB_PREFIX-343" sandbox chore "Closed pipe three"
   seed_issue dev_complete "$SB_PREFIX-344" sandbox chore "Closed pipe landing" "feature/$SB_PREFIX-344-work"
+  seed_issue qa_complete "$SB_PREFIX-346" sweep chore "Closed pipe sweep"
+  seed_issue todo "$SB_PREFIX-347" sandbox chore "Closed pipe stdout closed"
+  seed_issue todo "$SB_PREFIX-348" sandbox chore "Closed pipe socket"
   if has_issue_template; then
     _seed_parent "$p"
     _seed_subtask "$p" s1 todo slice "A slice under the closed pipe" >/dev/null
@@ -2954,6 +2959,10 @@ case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
     _row "d subtask" "progress/subtasks/${p}/in_progress/${p}-s1-slice.md"
   fi
 
+  # (g) archive.sh: it commits the sweep in the board worktree and pushes it.
+  ( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 | head -1 ) >/dev/null 2>&1 || true
+  _row "g archive" "progress/done/$SB_PREFIX-346-sweep.md"
+
   # (e) finish-pr.sh: the squash is on the trunk, so the card must follow it.
   ( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-344" 2>&1 | head -1 ) >/dev/null 2>&1 || true
   _row "e finish-pr" "progress/qa_complete/$SB_PREFIX-344-sandbox.md"
@@ -2976,7 +2985,54 @@ case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
   out="$(/bin/bash "$stub" "$mark" 2>&1)" || true
   [ "$out" = "$(printf 'first\nsecond\nthird\nfourth\nfifth\nsixth')" ] || cf "(f4) an open pipe's output is not whole and in order: $(printf '%s' "$out" | tr '\n' '|')"
 
-  finish "each board op piped into head -1 publishes its move and leaves nothing unpushed, the next move is not refused, and a write to a closed stdout or stderr cannot end an op"
+  # (h) a signal to the whole process group takes the drain with the op. The op must still end of
+  # that signal, with its exit trap's output written, not of a SIGPIPE on that output. The driver
+  # runs the op in its own group, reads one line, then signals the group and keeps reading.
+  local drv="$SB_TMP/closed-pipe-driver.pl" stub2="$SB_TMP/closed-pipe-stub2.sh"
+  cat > "$drv" <<'PERL_EOF'
+use strict; use warnings; use Socket;
+my ($mode, $kind, $dir, @cmd) = @ARGV;   # mode: close1 | groupterm ; kind: pipe | socket
+my ($r, $w);
+if ($kind eq 'socket') { socketpair($r, $w, AF_UNIX, SOCK_STREAM, PF_UNSPEC) or die "socketpair: $!"; }
+else { pipe($r, $w) or die "pipe: $!"; }
+my $pid = fork(); die "fork: $!" unless defined $pid;
+if (!$pid) {
+  setpgrp(0, 0) if $mode eq 'groupterm';
+  close $r;
+  open(STDOUT, '>&', $w) or die; open(STDERR, '>&', $w) or die;
+  close $w;
+  chdir $dir or die "chdir: $!";
+  exec @cmd or die "exec: $!";
+}
+close $w;
+my $first = <$r>;
+if ($mode eq 'close1') { close $r; }
+else { select(undef, undef, undef, 1.0); kill 'TERM', -$pid; 1 while defined(<$r>); close $r; }
+waitpid($pid, 0);
+my $st = $?;
+print(($st & 127) ? "signal " . ($st & 127) . "\n" : "exit " . ($st >> 8) . "\n");
+PERL_EOF
+  {
+    printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' "cd '$SB_WORK' || exit 1" ". scripts/lib/exit-trap.sh" ". scripts/lib/kanban-worktree.sh" "kwt_hold_output" \
+      "kit_on_exit 'sleep 0.3; echo cleanup; : > \"$mark\"'" "echo first" "sleep 5" "echo never"
+  } > "$stub2"
+  rm -f "$mark"; out="$(perl "$drv" groupterm pipe "$SB_WORK" /bin/bash "$stub2" "$mark" 2>&1)" || true
+  [ "$out" = "signal 15" ] || cf "(h1) a TERM to the op's whole process group ended it as '$out', want 'signal 15' (the drain died with it, and the op's next write was a SIGPIPE)"
+  [ -f "$mark" ] || cf "(h2) a TERM to the op's whole process group stopped its exit trap before its output was written"
+
+  # (i) a stdout closed outright (`>&-`) is not a pipe: the write fails with EBADF, not EPIPE.
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-347" in_progress --role Dev --note closed >&- ) >/dev/null 2>&1 || true
+  _row "i move-issue, stdout closed" "progress/in_progress/$SB_PREFIX-347-sandbox.md"
+  rm -f "$mark"; /bin/bash "$stub" "$mark" >&- 2>&- || true
+  [ -f "$mark" ] || cf "(i2) a stub run with stdout and stderr both closed outright was ended by a later write"
+
+  # (j) a socket in place of a pipe, as a Node harness gives a child's stdio; the reader closes it
+  # after one line.
+  out="$(perl "$drv" close1 socket "$SB_WORK" ./scripts/move-issue.sh "$SB_PREFIX-348" in_progress --role Dev --note socket 2>&1)" || true
+  [ "$out" = "exit 0" ] || cf "(j control) a move whose stdio is a socket ended as '$out', want 'exit 0'"
+  _row "j move-issue, socket stdio" "progress/in_progress/$SB_PREFIX-348-sandbox.md"
+
+  finish "each board op piped into head -1 publishes its move and leaves nothing unpushed, the next move is not refused, and a write to a closed stdout or stderr, a stdout that was closed outright, a socket, or a signal to the whole process group cannot end an op"
   teardown
 }
 
