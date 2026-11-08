@@ -2844,8 +2844,51 @@ case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it() {
   printf '%s\n' "$nxt" | grep -F "git log origin/$SB_TRUNK..$SB_TRUNK" >/dev/null || cf "(a) the Next: does not name 'git log origin/$SB_TRUNK..$SB_TRUNK' as the way to recognise local trunk work"
   printf '%s\n' "$nxt" | grep -F 'main checkout' >/dev/null || cf "(a) the Next: does not name the main checkout"
   printf '%s\n' "$nxt" | grep -F 'never through this worktree' >/dev/null || cf "(a) the Next: does not say local trunk work is not published through the worktree"
+  # The local-work sentence is conditional: the tool does not publish it, its maker does when ready,
+  # and anyone else asks. A hand-made card move sits in the same list, and "publish it" published one.
+  printf '%s\n' "$nxt" | grep -F "not this tool's to publish" >/dev/null || cf "(c) the Next: does not say local trunk work is not this tool's to publish"
+  printf '%s\n' "$nxt" | grep -F 'when it is ready' >/dev/null || cf "(c) the Next: does not leave the timing to the person who made it"
+  printf '%s\n' "$nxt" | grep -F 'publish it from the main checkout' >/dev/null && cf "(c) the Next: still tells the reader, unconditionally, to publish it from the main checkout"
+  printf '%s\n' "$nxt" | grep -F 'main checkout' | grep -F -- '--default "leave them and stop"' >/dev/null \
+    || cf "(c) the local-work sentence carries no ask for a reader who did not make the commit: $(printf '%s' "$nxt" | grep -F 'main checkout' | tr '\n' '|' | cut -c1-300)"
   [ "$o0" = "$o1" ] || cf "(b) the refused move reached the trunk"
   finish "a board worktree built from an unpushed local-trunk commit is refused with the commit listed, the command that lists it in the main checkout, and a send-it-from-the-main-checkout instruction; nothing reaches the trunk"
+  teardown
+}
+
+# =============================================================================
+# CASE — A PUSH THAT FAILS ON AN UNREACHABLE REMOTE NAMES THE COMMITS THAT DID NOT LAND, AND SAYS
+# SO WHEN IT CANNOT LIST THEM.
+# git_push_with_retry fetches first and stops when the fetch fails. The board's refusal over
+# unpushed commits tells a reader to publish only what a failed op named, so that failure must carry
+# the list; where the remote ref is missing the list cannot be computed and an empty list would read
+# as "none".
+# =============================================================================
+case_push_retry_unreachable_remote_names_the_unlanded_commits() {
+  cf_reset
+  make_sandbox
+  local out rc me="case_push_retry_unreachable_remote_names_the_unlanded_commits"
+  _pr() { ( cd "$SB_WORK" && bash -c '. scripts/lib/push-retry.sh; git_push_with_retry "$PWD" origin "$1"' _ "$SB_TRUNK" 2>&1 ); }
+
+  # (a) the remote answers but has no such branch: the list cannot be computed.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[PM] seed" >/dev/null 2>&1 || _fixture_die "$me: could not make the seed commit"
+  git -C "$SB_WORK" remote add origin "$SB_ORIGIN" >/dev/null 2>&1
+  rc=0; out="$(_pr)" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(a control) exit $rc, expected 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Commits that did NOT land' >/dev/null || cf "(a control) the failure carries no 'Commits that did NOT land' header: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F "(cannot list: no origin/$SB_TRUNK ref)" >/dev/null \
+    || cf "(a) a list that cannot be computed is printed as an empty one: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (b) the remote ref is known, the remote is then unreachable: the list names the commit.
+  git -C "$SB_WORK" push -q -u origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "$me: could not publish the seed"
+  MSG_OK=1 git -C "$SB_WORK" commit -q --allow-empty -m "[Dev] offline try" >/dev/null 2>&1 || _fixture_die "$me: could not make the commit"
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
+  rc=0; out="$(_pr)" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b control) exit $rc, expected 1"
+  printf '%s\n' "$out" | sed -n '/Commits that did NOT land/,$p' | grep -F '[Dev] offline try' >/dev/null \
+    || cf "(b) the unreachable-remote failure does not name the commit that did not land: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  finish "git_push_with_retry's unreachable-remote failure lists the commits that did not land, and says so when the remote ref is missing and the list cannot be computed"
   teardown
 }
 

@@ -82,8 +82,9 @@ guard can see a commit the operator makes by hand.
   author and subject. There is no opt-out: discarding a commit is a deliberate hand command. The
   `Next:` says that publishing puts every one of them on the trunk unchecked, offers it only for
   commits the reader saw a failed op name among those that did not land (an author is no test: a
-  hand commit carries the same one), sends local trunk work to be published from the main checkout,
-  and otherwise asks. On an attached branch no op commits, so that refusal asks.
+  hand commit carries the same one), says local trunk work is not the tool's to publish (the person
+  who made it publishes it from the main checkout when it is ready, never through this worktree, and
+  anyone else asks), and otherwise asks. On an attached branch no op commits, so that refusal asks.
   *Why:* the commits can be the reader's own hand-made work, which no op judged, and a refusal that
   called publishing the usual answer sent that work to the trunk.
 - The auxiliary checkout cannot be created or synchronised ⇒ refuse; do **not** fall back to the

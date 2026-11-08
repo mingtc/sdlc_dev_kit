@@ -556,7 +556,7 @@ kwt_sync() {
       "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list. The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
       "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
       "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
-      "      A commit that  git log $KWT_REMOTE/$DEFAULT_BRANCH..$DEFAULT_BRANCH  run in your main checkout also lists is your local work, which this worktree was built from: publish it from the main checkout, never through this worktree." \
+      "      A commit that  git log $KWT_REMOTE/$DEFAULT_BRANCH..$DEFAULT_BRANCH  run in your main checkout also lists is local work of the main checkout, which this worktree was built from. It is not this tool's to publish: the person who made it publishes it from the main checkout when it is ready, never through this worktree. If you did not make it, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \
       "      Any other commit — made by hand, or another author's — publish none of them and discard none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
   fi
 

@@ -30,7 +30,7 @@ GIT_PUSH_RETRY_MAX="${GIT_PUSH_RETRY_MAX:-5}"   # the bound — override only fo
 
 git_push_with_retry() {
   local repo="$1" remote="$2" branch="$3" max="${4:-$GIT_PUSH_RETRY_MAX}"
-  local attempt=0 pre_head
+  local attempt=0 pre_head _unlanded
 
   pre_head="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || {
     echo "Error: git_push_with_retry: '$repo' is not a valid git checkout." >&2
@@ -43,7 +43,11 @@ git_push_with_retry() {
     {
       echo "Error: git_push_with_retry: fetch of $remote/$branch failed — remote unreachable or offline."
       echo "       Commits that did NOT land:"
-      git -C "$repo" log --oneline "$remote/$branch..HEAD" 2>/dev/null | sed 's/^/         /'
+      if _unlanded="$(git -C "$repo" log --oneline "$remote/$branch..HEAD" 2>/dev/null)"; then
+        [ -z "$_unlanded" ] || printf '%s\n' "$_unlanded" | sed 's/^/         /'
+      else
+        echo "         (cannot list: no $remote/$branch ref)"
+      fi
     } >&2
     return 1   # return-class: internal
   fi
