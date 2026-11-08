@@ -2896,8 +2896,9 @@ case_push_retry_unreachable_remote_names_the_unlanded_commits() {
 # CASE — A CLOSED OUTPUT PIPE DOES NOT STOP A BOARD OP BETWEEN ITS COMMIT AND ITS PUSH.
 # An agent that reads `<op> | head -1` closes the op's stdout after one line. The op's later writes
 # then fail, and under `set -e` that ends it with the move committed in the board worktree and not
-# pushed; the next op is refused over the unpushed commit. Each of the four ops that commit to the
-# board worktree (the four movers and archive.sh) is piped into `head -1` and must publish its move
+# pushed; the next op is refused over the unpushed commit. Each of the five ops that commit to the
+# board worktree (the four movers and archive.sh) is piped into a reader that closes (`head -1`; for
+# archive.sh one that closes just before its commit) and must publish its move
 # and leave nothing unpushed. Ignoring SIGPIPE alone does not hold it: the `echo` to a closed pipe
 # then fails with EPIPE and `set -e` ends the script on the same line, so the last rows close stdout
 # alone and stderr alone on a stub that is not the op, to keep the two streams' guards apart. Three
@@ -2959,8 +2960,12 @@ case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
     _row "d subtask" "progress/subtasks/${p}/in_progress/${p}-s1-slice.md"
   fi
 
-  # (g) archive.sh: it commits the sweep in the board worktree and pushes it.
-  ( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 | head -1 ) >/dev/null 2>&1 || true
+  # (g) archive.sh: it commits the sweep in the board worktree and pushes it. Its preview ends at
+  # "And move …", after which nothing is written until the commit, so a reader that closes there
+  # (not one that counts lines, which closes inside the preview) kills it between commit and push.
+  out="$( cd "$SB_WORK" && ./scripts/archive.sh --dry-run 2>&1 )" || true
+  grep '^And move' <<<"$out" >/dev/null || cf "(g control) the dry-run preview has no 'And move' line, so the reader below would never close and the row proves nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  ( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 | sed '/^And move/q' ) >/dev/null 2>&1 || true
   _row "g archive" "progress/done/$SB_PREFIX-346-sweep.md"
 
   # (e) finish-pr.sh: the squash is on the trunk, so the card must follow it.
