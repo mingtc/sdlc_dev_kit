@@ -25,6 +25,8 @@
 #   # must show:  …/.kanban-wt   <sha>  (detached HEAD)
 #
 # Public API (all operate on the globals exported by kwt_resolve):
+#   kwt_hold_output        → call first in a script that commits here: its stdout and stderr then
+#                            survive a caller that closes its pipe (`op | head -1`)
 #   kwt_resolve            → sets MAIN_ROOT, KWT, KWT_LOCK, DEFAULT_BRANCH
 #   kwt_lock               → acquire the mkdir-atomic lock (timeout + liveness-aware
 #                            serialized reap of an abandoned lock)
@@ -115,6 +117,32 @@ if ! command -v git_push_with_retry >/dev/null 2>&1 \
   } >&2
   return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
+
+# ---------------------------------------------------------------------------
+# A CLOSED OUTPUT PIPE MUST NOT STOP AN OP BETWEEN ITS COMMIT AND ITS PUSH. A caller that reads
+# `<op> | head -1` closes the pipe after one line, and the op's next write then fails: SIGPIPE
+# kills it, and with that signal ignored the write returns EPIPE and `set -e` exits on the same
+# line. Either way the commit made in $KWT is never pushed. So ignoring the signal is no cure; the
+# writes must not fail. A script that commits here calls kwt_hold_output before its first write: its
+# stdout and stderr then go through a drain that copies to the caller until the caller's pipe
+# closes and reads and discards after that. What the caller never read is not shown.
+# Only a pipe is drained (a terminal or a file does not close under its writer). Stdout and stderr
+# that are one pipe (`2>&1`) share one drain, which keeps their order. The drain runs with `set +e`:
+# it inherits the caller's, and the copying `cat` dies of the closed pipe, which would end the drain.
+# ---------------------------------------------------------------------------
+kwt_hold_output() {
+  if [ -p /dev/stdout ] && [ -p /dev/stderr ] && [ /dev/stdout -ef /dev/stderr ]; then
+    exec > >(set +e; cat 2>/dev/null; cat >/dev/null 2>&1) 2>&1
+    return 0
+  fi
+  if [ -p /dev/stdout ]; then
+    exec > >(set +e; cat 2>/dev/null; cat >/dev/null 2>&1)
+  fi
+  if [ -p /dev/stderr ]; then
+    exec 2> >(set +e; cat >&2 2>/dev/null; cat >/dev/null 2>&1)
+  fi
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Root + trunk resolution, from the main worktree, a feature worktree or .kanban-wt: the common

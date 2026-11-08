@@ -72,6 +72,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
+# A reader that closes our output (`| head -1`) must not stop us between the commit and the push.
+kwt_hold_output
 
 # --help renders this file's header block; scripts/lib/usage.sh states the window rule.
 # shellcheck source=lib/usage.sh

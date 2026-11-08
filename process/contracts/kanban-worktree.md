@@ -67,6 +67,13 @@ guard can see a commit the operator makes by hand.
   *Why:* two lanes publishing board changes will collide, and a single bare push loses silently.
   Silent conflict resolution on the trunk is worse than the race; an orphaned commit that is
   *reported* costs a minute, and one discovered weeks later costs a day.
+- **A caller that stops reading the operation's output does not stop the operation.** Output goes
+  through a drain that keeps reading after the caller's pipe has closed (`kwt_hold_output`), for
+  stdout and stderr alike, so a later write cannot end the operation between its commit and its
+  publication.
+  *Why:* an agent that reads `<op> | head -1` closes the pipe after one line; ignoring the broken-pipe
+  signal is not enough, because the next write then fails and `set -e` ends the script at the same
+  place, with the move committed in the board worktree and not published.
 
 ## 3. REFUSAL CONDITIONS
 

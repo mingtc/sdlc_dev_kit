@@ -2893,6 +2893,94 @@ case_push_retry_unreachable_remote_names_the_unlanded_commits() {
 }
 
 # =============================================================================
+# CASE — A CLOSED OUTPUT PIPE DOES NOT STOP A BOARD OP BETWEEN ITS COMMIT AND ITS PUSH.
+# An agent that reads `<op> | head -1` closes the op's stdout after one line. The op's later writes
+# then fail, and under `set -e` that ends it with the move committed in the board worktree and not
+# pushed; the next op is refused over the unpushed commit. Each of the four ops that commit to the
+# board worktree is piped into `head -1` and must publish its move and leave nothing unpushed.
+# Ignoring SIGPIPE alone does not hold it: the `echo` to a closed pipe then fails with EPIPE and
+# `set -e` ends the script on the same line, so the last rows close stdout alone and stderr alone
+# on a stub that is not the op, to keep the two streams' guards apart.
+# =============================================================================
+case_a_board_op_whose_output_pipe_closes_still_publishes_its_move() {
+  cf_reset
+  make_sandbox
+  local p="$SB_PREFIX-340" me="case_a_board_op_whose_output_pipe_closes_still_publishes_its_move"
+  local wt="$SB_WORK/.kanban-wt" out rc subtasks=1 unpushed errf="$SB_TMP/closed-pipe.err"
+  seed_issue todo "$SB_PREFIX-341" sandbox chore "Closed pipe one"
+  seed_issue todo "$SB_PREFIX-342" sandbox chore "Closed pipe two"
+  seed_issue todo "$SB_PREFIX-343" sandbox chore "Closed pipe three"
+  seed_issue dev_complete "$SB_PREFIX-344" sandbox chore "Closed pipe landing" "feature/$SB_PREFIX-344-work"
+  if has_issue_template; then
+    _seed_parent "$p"
+    _seed_subtask "$p" s1 todo slice "A slice under the closed pipe" >/dev/null
+  else
+    subtasks=0
+  fi
+  publish_sandbox
+  seed_branch "$SB_PREFIX-344" work CHANGE.txt
+  _unpushed() {  # what the board worktree holds that origin does not
+    [ -d "$wt" ] || { printf ''; return 0; }
+    git -C "$wt" fetch -q origin >/dev/null 2>&1 || true
+    git -C "$wt" log "origin/$SB_TRUNK..HEAD" --format=%s 2>/dev/null || true
+  }
+  _row() {  # <label> <path the op puts on origin>
+    unpushed="$(_unpushed)"
+    [ -z "$unpushed" ] || cf "($1) the op left a commit in the board worktree that origin does not have: $(printf '%s' "$unpushed" | tr '\n' '|' | cut -c1-200)"
+    origin_has_path "$2" || cf "($1) the op's move is not on origin ($2)"
+  }
+
+  # (a) move-issue.sh, stdout and stderr joined, read by `head -1` (an agent's usual shape).
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-341" in_progress --role Dev --note piped 2>&1 | head -1 ) >/dev/null 2>&1 || true
+  _row "a move-issue" "progress/in_progress/$SB_PREFIX-341-sandbox.md"
+  # (a2) and the next move is not refused over an unpushed commit.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-342" in_progress --role Dev --note after 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a2 the next move) exit $rc, expected 0: $(printf '%s' "$out" | tail -3 | tr '\n' '|' | cut -c1-300)"
+  _row "a2 the next move" "progress/in_progress/$SB_PREFIX-342-sandbox.md"
+
+  # (b) move-issue.sh with stdout alone read by `head -1` and stderr kept in a file.
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-343" in_progress --role Dev --note piped 2>"$errf" | head -1 ) >/dev/null 2>&1 || true
+  _row "b move-issue, stdout only" "progress/in_progress/$SB_PREFIX-343-sandbox.md"
+
+  # (c) register-commit.sh.
+  mkdir -p "$SB_WORK/progress/todo"
+  printf 'a new card\n' > "$SB_WORK/progress/todo/$SB_PREFIX-345-closed-pipe.md"
+  ( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$SB_PREFIX-345: mint" "progress/todo/$SB_PREFIX-345-closed-pipe.md" 2>&1 | head -1 ) >/dev/null 2>&1 || true
+  _row "c register-commit" "progress/todo/$SB_PREFIX-345-closed-pipe.md"
+
+  # (d) subtask.sh.
+  if [ "$subtasks" = 1 ]; then
+    ( cd "$SB_WORK" && ./scripts/subtask.sh move "${p}-s1" in_progress --role Dev --note piped 2>&1 | head -1 ) >/dev/null 2>&1 || true
+    _row "d subtask" "progress/subtasks/${p}/in_progress/${p}-s1-slice.md"
+  fi
+
+  # (e) finish-pr.sh: the squash is on the trunk, so the card must follow it.
+  ( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-344" 2>&1 | head -1 ) >/dev/null 2>&1 || true
+  _row "e finish-pr" "progress/qa_complete/$SB_PREFIX-344-sandbox.md"
+
+  # (f) the guard itself, on a stub that writes after its pipe closes: stdout alone, stderr alone,
+  # then both. The stub reaches its last line only if no write ended it.
+  local stub="$SB_TMP/closed-pipe-stub.sh" mark="$SB_TMP/closed-pipe.reached" o2="$SB_TMP/closed-pipe.out"
+  {
+    printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' "cd '$SB_WORK' || exit 1"
+    printf '%s\n' ". scripts/lib/kanban-worktree.sh" "kwt_hold_output" \
+      "echo first" "sleep 1" "echo second" "echo third >&2" "sleep 1" "echo fourth" "echo fifth >&2" "sleep 1" "echo sixth" ": > \"\$1\""
+  } > "$stub"
+  rm -f "$mark"; /bin/bash "$stub" "$mark" 2>"$errf" | head -1 >/dev/null 2>&1 || true
+  [ -f "$mark" ] || cf "(f1) a stub whose stdout closed after one line was ended by a later write"
+  rm -f "$mark"; /bin/bash "$stub" "$mark" 2> >(head -c 1 >/dev/null 2>&1) >"$o2" || true
+  [ -f "$mark" ] || cf "(f2) a stub whose stderr closed after one byte was ended by a later write"
+  rm -f "$mark"; /bin/bash "$stub" "$mark" 2>&1 | head -1 >/dev/null 2>&1 || true
+  [ -f "$mark" ] || cf "(f3) a stub whose joined stdout and stderr closed after one line was ended by a later write"
+  # The stub's output still arrives whole and in order when nothing closes.
+  out="$(/bin/bash "$stub" "$mark" 2>&1)" || true
+  [ "$out" = "$(printf 'first\nsecond\nthird\nfourth\nfifth\nsixth')" ] || cf "(f4) an open pipe's output is not whole and in order: $(printf '%s' "$out" | tr '\n' '|')"
+
+  finish "each board op piped into head -1 publishes its move and leaves nothing unpushed, the next move is not refused, and a write to a closed stdout or stderr cannot end an op"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE OTHER BOARD-WORKTREE REFUSALS HOLD THE LINE: UNCOMMITTED CHANGES ASK BEFORE THEY OFFER
 # THE PUSH, AND THE NO-REMOTE LISTING NAMES AUTHORS.
 # A board op leaves uncommitted changes in the board worktree only when it failed mid-write, so the

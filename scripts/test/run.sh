@@ -573,6 +573,7 @@ CASES=(
   case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it
   case_dirty_and_no_remote_refusals_ask_first_and_name_authors
   case_push_retry_unreachable_remote_names_the_unlanded_commits
+  case_a_board_op_whose_output_pipe_closes_still_publishes_its_move
   case_trunk_fallback_warns
   case_bootstrap_failure_next_names_the_trunk_not_set_head_a
   case_archive_progress_sections

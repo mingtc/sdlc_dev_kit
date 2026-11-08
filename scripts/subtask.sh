@@ -136,6 +136,8 @@ unset _held_files _held_help _held_rem _held_trunk _held_off _held_noref _held_r
 
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
+# A reader that closes our output (`| head -1`) must not stop us between the commit and the push.
+kwt_hold_output
 
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
