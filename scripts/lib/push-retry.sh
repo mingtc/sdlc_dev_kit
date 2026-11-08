@@ -40,7 +40,11 @@ git_push_with_retry() {
   # Initial fetch: if the remote is flat-out unreachable, no amount of retrying
   # fixes that — fail fast rather than burning the bound on a dead network.
   if ! git -C "$repo" fetch "$remote" "$branch" --quiet; then
-    echo "Error: git_push_with_retry: fetch of $remote/$branch failed — remote unreachable or offline." >&2
+    {
+      echo "Error: git_push_with_retry: fetch of $remote/$branch failed — remote unreachable or offline."
+      echo "       Commits that did NOT land:"
+      git -C "$repo" log --oneline "$remote/$branch..HEAD" 2>/dev/null | sed 's/^/         /'
+    } >&2
     return 1   # return-class: internal
   fi
 

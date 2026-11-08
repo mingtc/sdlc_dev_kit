@@ -2705,9 +2705,10 @@ case_push_failure() {
 # CASE — THE UNPUSHED-COMMIT REFUSAL NAMES EACH COMMIT AND DOES NOT CALL THEM AN OP'S.
 # The board worktree can hold a commit that no op made (a commit of the user's own, or another
 # author's), and publishing it through the board puts it on the trunk unchecked. The refusal must
-# list each commit with its author and subject, say what publishing does, make publishing
-# conditional on an op of the reader's own having made every commit, and name a way out that does
-# not default to publishing.
+# list each commit with its author and subject, say what publishing does, offer publishing only for
+# commits a failed op named as not landed (an author is no test, and a hand commit can carry a
+# move's subject), send local trunk work to the main checkout, and name a way out that does not
+# default to publishing.
 # =============================================================================
 case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops() {
   cf_reset
@@ -2724,6 +2725,10 @@ case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops() {
     || _fixture_die "$me: could not make the first commit"
   MSG_OK=1 git -C "$wt" commit -q --allow-empty --author="Some Other Person <other@sandbox.invalid>" -m "[Dev] a stranger's commit" >/dev/null 2>&1 \
     || _fixture_die "$me: could not make the second commit"
+  # A hand commit in a move's own shape, by the configured author: the commit no check on author or
+  # subject can tell from an op's.
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty -m "[QA] $SB_PREFIX-320 → qa_complete: pass" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the third commit"
   rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-321" in_progress --role Dev --note second 2>&1 )" || rc=$?
   [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
   printf '%s\n' "$out" | grep -F 'NOT on origin' >/dev/null || cf "(control) the unpushed-commit refusal did not fire, so its Next: is unread: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
@@ -2742,18 +2747,26 @@ case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops() {
   printf '%s\n' "$nxt" | grep -F 'for everyone' >/dev/null || cf "(c) the Next: does not say what publishing a commit does"
   printf '%s\n' "$nxt" | grep -F 'push origin HEAD:' >/dev/null || cf "(c) the Next: names no publish command"
   printf '%s\n' "$nxt" | grep -F 'ask.sh' >/dev/null || cf "(c) the Next: names no ask for a commit that is not the reader's op's"
+  # The test for publishing is a failed op's own list, never the author or the subject's shape.
+  printf '%s\n' "$nxt" | grep -F 'its author is you' >/dev/null && cf "(e) the Next: offers the author as the test for publishing"
+  printf '%s\n' "$nxt" | grep -F 'announced' >/dev/null && cf "(e) the Next: offers the subject's shape as the test for publishing"
+  printf '%s\n' "$nxt" | grep -F 'Commits that did NOT land' >/dev/null || cf "(e) the Next: does not name a failed op's 'Commits that did NOT land' list as the test"
+  printf '%s\n' "$nxt" | grep -F 'carries the same author' >/dev/null || cf "(e) the Next: does not say a hand commit carries the same author"
+  # Local trunk work is recognised by one command and published from the main checkout.
+  printf '%s\n' "$nxt" | grep -F "git log origin/$SB_TRUNK..$SB_TRUNK" >/dev/null || cf "(f) the Next: does not name 'git log origin/$SB_TRUNK..$SB_TRUNK' as the test for local trunk work"
+  printf '%s\n' "$nxt" | grep -F 'never through this worktree' >/dev/null || cf "(f) the Next: does not send local trunk work to the main checkout"
   # Nothing was published or reset.
-  [ "$(git -C "$wt" log "origin/$SB_TRUNK..HEAD" --format=%s | wc -l | tr -d ' ')" = 2 ] || cf "(d) the refused move changed what the board worktree holds"
-  finish "the unpushed-commit refusal lists each commit with its author and subject, says what publishing does, does not call a commit an op's or publishing almost always right, and its ask does not default to publishing"
+  [ "$(git -C "$wt" log "origin/$SB_TRUNK..HEAD" --format=%s | wc -l | tr -d ' ')" = 3 ] || cf "(d) the refused move changed what the board worktree holds"
+  finish "the unpushed-commit refusal lists each commit with its author and subject, says what publishing does, offers publishing only for commits a failed op named as not landed (never an author or a subject's shape), sends local trunk work to the main checkout, does not call publishing almost always right, and its ask does not default to publishing"
   teardown
 }
 
 # =============================================================================
 # CASE — THE ATTACHED-BRANCH REFUSAL HOLDS THE SAME LINE AS THE UNPUSHED-COMMIT ONE.
 # A board worktree attached to a branch that carries commits its remote counterpart lacks is refused
-# before it is detached. The Next: must list each commit with its author and subject, say what
-# publishing does, make publishing conditional on an op of the reader's own having made every
-# commit, and carry an ask whose default is to leave them, never to publish them.
+# before it is detached. The Next: must list each commit with its author and subject, say that no
+# board op commits on an attached branch so the commits were made by hand, ask before it offers the
+# push, say what the push publishes, and carry an ask whose default is to leave them.
 # =============================================================================
 case_attached_branch_refusal_names_each_commit_and_does_not_default_to_publishing() {
   cf_reset
@@ -2787,8 +2800,110 @@ case_attached_branch_refusal_names_each_commit_and_does_not_default_to_publishin
   printf '%s\n' "$nxt" | grep -F 'by hand' >/dev/null || cf "(b) the Next: does not name a commit made by hand as a way to get here"
   printf '%s\n' "$nxt" | grep -F 'for everyone' >/dev/null || cf "(c) the Next: does not say what publishing does"
   printf '%s\n' "$nxt" | grep -F 'push origin' >/dev/null || cf "(c) the Next: names no publish command"
+  # No op commits on an attached branch, so no failed op can name these: the Next asks first.
+  printf '%s\n' "$nxt" | grep -F 'never commits on an attached branch' >/dev/null || cf "(e) the Next: does not say a board op never commits on an attached branch"
+  printf '%s\n' "$nxt" | grep -F 'Publish only if every one is a commit an op' >/dev/null && cf "(e) the Next: still offers publishing for an op's commit, which no op makes on an attached branch"
+  printf '%s\n' "$nxt" | grep -F 'its author is you' >/dev/null && cf "(e) the Next: offers the author as the test for publishing"
+  [ "$(printf '%s\n' "$nxt" | awk '/ask\.sh/{print NR; exit}')" -lt "$(printf '%s\n' "$nxt" | awk '/push origin/{print NR; exit}')" ] 2>/dev/null \
+    || cf "(e) the ask does not come before the push command"
   [ "$(git -C "$wt" log "origin/side-board..side-board" --format=%s | wc -l | tr -d ' ')" = 2 ] || cf "(d) the refused move changed what the branch holds"
-  finish "the attached-branch refusal lists each unpublished commit with its author and subject, says what publishing does, makes it conditional on every commit being an op's of the reader's own, and its ask defaults to leaving them"
+  finish "the attached-branch refusal lists each unpublished commit with its author and subject, says no board op commits on an attached branch, asks before it offers the push, says what the push publishes, and its ask defaults to leaving them"
+  teardown
+}
+
+# =============================================================================
+# CASE — A BOARD WORKTREE BUILT FROM LOCAL TRUNK WORK IS REFUSED WITH THE WAY TO RECOGNISE IT.
+# With no board worktree, the next op builds one from the LOCAL trunk. A commit the user made there
+# and has not pushed is then in the worktree's unpushed list. The Next: must give the one command
+# that lists the same commit in the main checkout, and send that work to be published from there.
+# =============================================================================
+case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-324" sandbox chore "Local trunk work"
+  seed_issue todo "$SB_PREFIX-325" sandbox chore "Local trunk work second"
+  publish_sandbox
+  local out rc wt nxt o0 o1 me="case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it"
+  wt="$SB_WORK/.kanban-wt"
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-324" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "$me: the warm-up move failed"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge -q --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "$me: could not bring the main checkout up to the trunk"
+  git -C "$SB_WORK" worktree remove --force "$wt" >/dev/null 2>&1 || _fixture_die "$me: could not remove the board worktree"
+  printf 'local\n' > "$SB_WORK/LOCALWORK.txt"
+  git -C "$SB_WORK" add LOCALWORK.txt >/dev/null 2>&1
+  sbcommit -q -m "[Dev] local unpushed" >/dev/null 2>&1 || _fixture_die "$me: could not make the local trunk commit"
+  o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-325" in_progress --role Dev --note second 2>&1 )" || rc=$?
+  o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
+  [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'Sandbox Test [Dev] local unpushed' >/dev/null || cf "(control) the board worktree built from local trunk work did not list the commit: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-400)"
+  git -C "$SB_WORK" log "origin/$SB_TRUNK..$SB_TRUNK" --format=%s | grep -Fx '[Dev] local unpushed' >/dev/null \
+    || cf "(control) the command the Next: should name does not list the commit in the main checkout"
+  nxt="$(printf '%s\n' "$out" | sed -n '/^Next:/,$p')"
+  printf '%s\n' "$nxt" | grep -F "git log origin/$SB_TRUNK..$SB_TRUNK" >/dev/null || cf "(a) the Next: does not name 'git log origin/$SB_TRUNK..$SB_TRUNK' as the way to recognise local trunk work"
+  printf '%s\n' "$nxt" | grep -F 'main checkout' >/dev/null || cf "(a) the Next: does not name the main checkout"
+  printf '%s\n' "$nxt" | grep -F 'never through this worktree' >/dev/null || cf "(a) the Next: does not say local trunk work is not published through the worktree"
+  [ "$o0" = "$o1" ] || cf "(b) the refused move reached the trunk"
+  finish "a board worktree built from an unpushed local-trunk commit is refused with the commit listed, the command that lists it in the main checkout, and a send-it-from-the-main-checkout instruction; nothing reaches the trunk"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE OTHER BOARD-WORKTREE REFUSALS HOLD THE LINE: UNCOMMITTED CHANGES ASK BEFORE THEY OFFER
+# THE PUSH, AND THE NO-REMOTE LISTING NAMES AUTHORS.
+# A board op leaves uncommitted changes in the board worktree only when it failed mid-write, so the
+# refusal over them (detached, and attached) says that and asks first; "keep them — commit and push"
+# is conditional and says it publishes unchecked. An attached branch with no remote counterpart lists
+# its last commits with their authors.
+# =============================================================================
+case_dirty_and_no_remote_refusals_ask_first_and_name_authors() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-326" sandbox chore "Dirty refusals"
+  seed_issue todo "$SB_PREFIX-327" sandbox chore "Dirty refusals second"
+  publish_sandbox
+  local out rc wt nxt aline pline me="case_dirty_and_no_remote_refusals_ask_first_and_name_authors" card
+  wt="$SB_WORK/.kanban-wt"
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-326" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "$me: the warm-up move failed"
+  card="$wt/progress/in_progress/$SB_PREFIX-326-sandbox.md"
+  [ -f "$card" ] || _fixture_die "$me: the warmed card is not where the dirty edit goes"
+  _next() { rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-327" in_progress --role Dev --note second 2>&1 )" || rc=$?; nxt="$(printf '%s\n' "$out" | sed -n '/^Next:/,$p')"; }
+  _dirty_rows() {
+    [ "$rc" -eq 1 ] || cf "($1) exit $rc, expected 1: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+    printf '%s\n' "$nxt" | grep -F 'failed mid-write' >/dev/null || cf "($1) the Next: does not say an op leaves uncommitted changes only when it failed mid-write: $(printf '%s' "$nxt" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$nxt" | grep -F 'unchecked' >/dev/null || cf "($1) the Next: does not say that keeping them publishes unchecked"
+    aline="$(printf '%s\n' "$nxt" | awk '/ask\.sh/{print NR; exit}')"; pline="$(printf '%s\n' "$nxt" | awk '/commit -m/{print NR; exit}')"
+    [ -n "$aline" ] && [ -n "$pline" ] && [ "$aline" -lt "$pline" ] || cf "($1) the ask (line '${aline:-none}') does not come before the commit-and-push command (line '${pline:-none}')"
+    printf '%s\n' "$nxt" | grep -F -- '--default "leave them and stop"' >/dev/null || cf "($1) the ask does not default to leaving them"
+  }
+
+  # (a) detached, a tracked file edited.
+  printf '\nstray edit\n' >> "$card"
+  _next
+  printf '%s\n' "$out" | grep -F 'uncommitted tracked changes — refusing to sync' >/dev/null || cf "(a control) not the detached dirty refusal: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  _dirty_rows "a sync-dirty"
+  git -C "$wt" checkout -q -- . >/dev/null 2>&1
+
+  # (b) attached, a tracked file edited.
+  git -C "$wt" switch -q -c side-dirty >/dev/null 2>&1 || _fixture_die "$me: could not attach the board worktree"
+  printf '\nstray edit\n' >> "$card"
+  _next
+  printf '%s\n' "$out" | grep -F 'ATTACHED to' >/dev/null || cf "(b control) not the attached dirty refusal: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  _dirty_rows "b attached-dirty"
+  git -C "$wt" checkout -q -- . >/dev/null 2>&1
+  git -C "$wt" switch -q --detach >/dev/null 2>&1; git -C "$wt" branch -q -D side-dirty >/dev/null 2>&1
+
+  # (c) attached to a branch with no remote counterpart: the last commits carry their authors.
+  git -C "$wt" switch -q -c side-lonely >/dev/null 2>&1 || _fixture_die "$me: could not attach the board worktree to a lonely branch"
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty --author="Some Other Person <other@sandbox.invalid>" -m "[Dev] a stranger's commit" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the commit on the lonely branch"
+  _next
+  printf '%s\n' "$out" | grep -F 'CANNOT BE DETERMINED' >/dev/null || cf "(c control) not the no-remote refusal: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "Some Other Person [Dev] a stranger's commit" >/dev/null \
+    || cf "(c) the listing does not give the last commit's author and subject: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  finish "the refusals over uncommitted changes, detached and attached, say an op leaves them only when it failed mid-write, ask before they offer commit-and-push, and say keeping them publishes unchecked; the no-remote refusal lists its last commits with their authors"
   teardown
 }
 

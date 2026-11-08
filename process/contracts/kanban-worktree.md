@@ -63,7 +63,7 @@ guard can see a commit the operator makes by hand.
 - **A publication that loses a race is RETRIED against the new tip, within a stated bound — and a
   conflict STOPS.** Fetch, rebase onto the remote tip, retry; a conflicted rebase restores the
   pre-attempt state and says what a human must do. The bound is stated in the implementation, and
-  the final failure **names the commits that did not land**.
+  the final failure, and an unreachable remote, **name the commits that did not land**.
   *Why:* two lanes publishing board changes will collide, and a single bare push loses silently.
   Silent conflict resolution on the trunk is worse than the race; an orphaned commit that is
   *reported* costs a minute, and one discovered weeks later costs a day.
@@ -75,11 +75,15 @@ guard can see a commit the operator makes by hand.
 - The lock cannot be acquired within its bound, and the holder is alive ⇒ refuse with the holder
   named. Waiting forever and stealing the lock are both worse.
 - The auxiliary checkout holds uncommitted tracked changes ⇒ refuse, naming them, unless the caller
-  explicitly asked for them to be discarded.
+  explicitly asked for them to be discarded. The `Next:` asks first: an op leaves such changes only
+  when it failed mid-write, and keeping them (commit and push) is offered only for that, as a
+  publication of unchecked work.
 - The auxiliary checkout holds commits not on the published trunk ⇒ refuse, naming each with its
   author and subject. There is no opt-out: discarding a commit is a deliberate hand command. The
   `Next:` says that publishing puts every one of them on the trunk unchecked, offers it only for
-  commits an op of the reader's own made whose publication did not land, and otherwise asks.
+  commits the reader saw a failed op name among those that did not land (an author is no test: a
+  hand commit carries the same one), sends local trunk work to be published from the main checkout,
+  and otherwise asks. On an attached branch no op commits, so that refusal asks.
   *Why:* the commits can be the reader's own hand-made work, which no op judged, and a refusal that
   called publishing the usual answer sent that work to the trunk.
 - The auxiliary checkout cannot be created or synchronised ⇒ refuse; do **not** fall back to the

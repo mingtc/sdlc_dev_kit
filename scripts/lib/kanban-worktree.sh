@@ -406,12 +406,13 @@ kwt__ensure_detached() {
     kit_refuse 1 kanban-wt-attached-dirty \
       "Error: the kanban worktree ($KWT) is ATTACHED to '$branch' (not detached) AND holds" \
       "$detail" \
-      "Next: resolve by hand, then re-run — keep the changes (commit AND push) or discard them:" \
+      "Next: read the changes above first. A board op leaves uncommitted changes here only when it failed mid-write, so changes you did not see an op fail on are not an op's: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \
+      "      If you saw an op fail mid-write and these are its changes, resolve by hand, then re-run. Keep them — commit AND push, which publishes them to $KWT_REMOTE/$branch for everyone, unchecked:" \
       "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$branch" \
       "        (SCOPED TO progress/ ON PURPOSE. This worktree sits ON the trunk and pushes TO the" \
       "         trunk, so 'add -A' here commits everything in it, including anything you or a" \
       "         command materialised in it, straight to $branch with nothing in between.)" \
-      "        or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push. If they are not yours to keep or set aside, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
+      "      Or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push"
   fi
 
   # ── BEFORE DETACHING: commits on the attached branch that the remote lacks would be left
@@ -425,8 +426,8 @@ kwt__ensure_detached() {
       echo "       'nothing else changed' on a state it could not read."
       echo "       Worktree: $KWT"
       echo ""
-      echo "  Its last commits, for you to judge:"
-      git -C "$KWT" log --oneline -n 5 "refs/heads/$branch" 2>/dev/null | sed 's/^/    /'
+      echo "  Its last commits (commit, author, subject), for you to judge:"
+      git -C "$KWT" log --format='%h %an %s' -n 5 "refs/heads/$branch" 2>/dev/null | sed 's/^/    /'
     )"
     kit_refuse 1 kanban-wt-attached-no-remote \
       "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and $KWT_REMOTE/$branch does" \
@@ -451,10 +452,9 @@ kwt__ensure_detached() {
     kit_refuse 1 kanban-wt-attached-unpublished \
       "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and '$branch' carries commit(s)" \
       "$detail" \
-      "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$branch for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
-      "      Publish only if every one is a commit an op of yours made and whose push did not land: its author is you, and its subject is the move or landing that op announced. Then re-run:" \
-      "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch" \
-      "      A commit can also be here because you made it by hand, or because another author's work reached this branch. If any commit above is one of those, publish none of them and abandon none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
+      "Next: read each commit above first. A board op detaches this worktree before it commits and never commits on an attached branch, so these commits were made by hand, or another author's work reached this branch: publish none of them and abandon none of them, and ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \
+      "      If the person who made them says to publish, the push below publishes ALL of them to $KWT_REMOTE/$branch for everyone, as they were made, with none of the checks the tool that makes such a commit runs; then re-run:" \
+      "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch"
   fi
 
   # With no target, `git switch --detach` detaches at the current commit: it moves no commits
@@ -503,12 +503,12 @@ kwt_sync() {
       kit_refuse 1 kanban-sync-dirty \
         "Error: the kanban worktree has uncommitted tracked changes — refusing to sync." \
         "$detail" \
-        "Next: resolve one of two ways, then re-run. Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands):" \
+        "Next: read the changes above first. A board op leaves uncommitted changes here only when it failed mid-write, so changes you did not see an op fail on are not an op's: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \
+        "      If you saw an op fail mid-write and these are its changes, resolve one of two ways, then re-run. Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands), which publishes them to $KWT_REMOTE/$DEFAULT_BRANCH for everyone, unchecked:" \
         "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
         "        (SCOPED TO progress/ ON PURPOSE — 'add -A' in this worktree commits everything in" \
         "         it straight to $DEFAULT_BRANCH, with no branch and no gate in between.)" \
-        "      Or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push" \
-        "      If they are not yours to keep or set aside, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
+        "      Or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push"
     fi
   fi
 
@@ -553,10 +553,11 @@ kwt_sync() {
       "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync." \
       "$detail" \
       "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$DEFAULT_BRANCH for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
-      "      Publish only if every one is a commit an op of yours made and whose push did not land: its author is you, and its subject is the move or landing that op announced. Then re-run:" \
+      "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list. The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
       "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
       "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
-      "      A commit can also be here because you made it by hand, because another author's work reached this worktree, or because the worktree was created from a commit of your local $DEFAULT_BRANCH. If any commit above is one of those, publish none of them and discard none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
+      "      A commit that  git log $KWT_REMOTE/$DEFAULT_BRANCH..$DEFAULT_BRANCH  run in your main checkout also lists is your local work, which this worktree was built from: publish it from the main checkout, never through this worktree." \
+      "      Any other commit — made by hand, or another author's — publish none of them and discard none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
   fi
 
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet
