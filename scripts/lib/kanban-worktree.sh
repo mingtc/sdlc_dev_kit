@@ -437,7 +437,7 @@ kwt__ensure_detached() {
   fi
 
   local unpub
-  unpub="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$branch..refs/heads/$branch" 2>/dev/null || true)"
+  unpub="$(git -C "$KWT" log --format='%h %an %s' "$KWT_REMOTE/$branch..refs/heads/$branch" 2>/dev/null || true)"
   if [ -n "$unpub" ]; then
     detail="$(
       echo "       that $KWT_REMOTE does not have. Detaching would leave them reachable only from a"
@@ -445,15 +445,16 @@ kwt__ensure_detached() {
       echo "       the orphaned-sibling state, recoverable afterwards only from 'git reflog --all'."
       echo "       Worktree: $KWT"
       echo ""
-      echo "  Unpublished on '$branch':"
+      echo "  Unpublished on '$branch' (commit, author, subject):"
       echo "$unpub" | sed 's/^/    /'
     )"
     kit_refuse 1 kanban-wt-attached-unpublished \
       "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and '$branch' carries commit(s)" \
       "$detail" \
-      "Next: publish them first (this is almost always what you want), then re-run:" \
+      "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$branch for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
+      "      Publish only if every one is a commit an op of yours made and whose push did not land: its author is you, and its subject is the move or landing that op announced. Then re-run:" \
       "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch" \
-      "      If they should be abandoned, that is not yours to decide alone: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"publish them\")."
+      "      A commit can also be here because you made it by hand, or because another author's work reached this branch. If any commit above is one of those, publish none of them and abandon none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
   fi
 
   # With no target, `git switch --detach` detaches at the current commit: it moves no commits

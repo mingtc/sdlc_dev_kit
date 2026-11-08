@@ -2749,6 +2749,50 @@ case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops() {
 }
 
 # =============================================================================
+# CASE — THE ATTACHED-BRANCH REFUSAL HOLDS THE SAME LINE AS THE UNPUSHED-COMMIT ONE.
+# A board worktree attached to a branch that carries commits its remote counterpart lacks is refused
+# before it is detached. The Next: must list each commit with its author and subject, say what
+# publishing does, make publishing conditional on an op of the reader's own having made every
+# commit, and carry an ask whose default is to leave them, never to publish them.
+# =============================================================================
+case_attached_branch_refusal_names_each_commit_and_does_not_default_to_publishing() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-322" sandbox chore "Attached refusal"
+  seed_issue todo "$SB_PREFIX-323" sandbox chore "Attached refusal second"
+  publish_sandbox
+  local out rc wt nxt me="case_attached_branch_refusal_names_each_commit_and_does_not_default_to_publishing"
+  wt="$SB_WORK/.kanban-wt"
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-322" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "$me: the warm-up move failed"
+  [ -d "$wt" ] || _fixture_die "$me: no board worktree after the warm-up move"
+  git -C "$wt" switch -q -c side-board >/dev/null 2>&1 || _fixture_die "$me: could not attach the board worktree to a branch"
+  git -C "$wt" push -q origin side-board >/dev/null 2>&1 || _fixture_die "$me: could not give the branch a remote counterpart"
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty -m "[Dev] my own unpublished work" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the first commit"
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty --author="Some Other Person <other@sandbox.invalid>" -m "[Dev] a stranger's commit" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the second commit"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-323" in_progress --role Dev --note second 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'ATTACHED to' >/dev/null || cf "(control) the attached-branch refusal did not fire, so its Next: is unread: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'Unpublished on' >/dev/null || cf "(control) it is not the unpublished-commits refusal: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  nxt="$(printf '%s\n' "$out" | sed -n '/^Next:/,$p')"
+  printf '%s\n' "$out" | grep -F 'Sandbox Test [Dev] my own unpublished work' >/dev/null \
+    || cf "(a) the listing does not give the first commit's author and subject: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  printf '%s\n' "$out" | grep -F "Some Other Person [Dev] a stranger's commit" >/dev/null \
+    || cf "(a) the listing does not give the second commit's author and subject"
+  printf '%s\n' "$nxt" | grep -F 'almost always' >/dev/null && cf "(b) the Next: still says publishing is almost always what you want"
+  printf '%s\n' "$nxt" | grep -F -- '--default "publish them"' >/dev/null && cf "(b) the ask the Next: names defaults to publishing"
+  printf '%s\n' "$nxt" | grep -F -- '--default "leave them and stop"' >/dev/null || cf "(b) the ask the Next: names does not default to leaving them: $(printf '%s' "$nxt" | tr '\n' '|')"
+  printf '%s\n' "$nxt" | grep -F 'by hand' >/dev/null || cf "(b) the Next: does not name a commit made by hand as a way to get here"
+  printf '%s\n' "$nxt" | grep -F 'for everyone' >/dev/null || cf "(c) the Next: does not say what publishing does"
+  printf '%s\n' "$nxt" | grep -F 'push origin' >/dev/null || cf "(c) the Next: names no publish command"
+  [ "$(git -C "$wt" log "origin/side-board..side-board" --format=%s | wc -l | tr -d ' ')" = 2 ] || cf "(d) the refused move changed what the branch holds"
+  finish "the attached-branch refusal lists each unpublished commit with its author and subject, says what publishing does, makes it conditional on every commit being an op's of the reader's own, and its ask defaults to leaving them"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE BOOTSTRAP REFUSAL'S Next: NAMES THE TRUNK, NEVER `set-head -a`.
 # `-a` asks the remote to guess its own default branch, which is the guess the kit teaches against
 # everywhere else it names a trunk. A repository with no commit and no remote cannot create the
