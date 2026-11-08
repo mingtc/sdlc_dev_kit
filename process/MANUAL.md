@@ -630,6 +630,12 @@ hold that branch at a time, the checkout that gives it up can simply be detached
 to a branch of its own — though not while a leg is working from that checkout (§ The kanban
 worktree).
 
+**A path the suite reads is code, whatever it holds.** A test that reads a board file, a spec or a design
+canvas runs against what the trunk holds, and a metadata commit runs no gate, so one can turn the trunk
+red unseen. List every such path in `CODE_GLOBS`: a change to it is then made on a card's branch and
+gated. Declaring it locks nothing: the pre-commit hook refuses only a metadata-only commit made off the
+trunk, and no script refuses a code path committed on it.
+
 **A linked worktree on a branch of its own — not the trunk ref — is a different shape, and needs
 a route rather than a detach.** Tooling that creates a linked worktree commonly puts it on a
 fresh branch by default, not the trunk: a metadata edit made there has nowhere direct to go, and a

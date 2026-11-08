@@ -61,6 +61,9 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 # Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, so a trailing `/*` is a
 # directory prefix and an exact string is one file. A path matching no glob here is metadata.
 #
+# A PATH ANY TEST READS IS CODE: add a test that reads a board file, a spec or a design canvas, and
+# add that path here in the same change, or a metadata commit to it reddens the trunk with no gate run.
+#
 # LEAVING IT EMPTY ON PURPOSE (not "not yet filled"): add one whole comment line inside the
 # parens, `# DECLARED EMPTY — <why>`, e.g. because this project has no branch-gated code path.
 # [g] then reports it as declared rather than unfilled; the hook's own behaviour does not change

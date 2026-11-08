@@ -102,6 +102,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   new state on a pinned screen is not (its branch, its flag in the component script and its option in the script's props, added and nothing else changed). The pin includes the tokens.
 - **A pin is a commit; a path is not.** A screen may move. Where a card or a QA record must show a path, qualify it with the
   commit it was true at.
+  A test reads the canvas at the card's pin (`git show <pin>:<path>`), never at HEAD: the canvas is committed to the trunk
+  without a gate, so a test that reads it there fails on the Designer's next round. A test that must read it at HEAD makes
+  that path code (`scripts/config.sh`'s `CODE_GLOBS`).
 - `CANVAS.md` records `Last pull: <canvas version> @ <repo commit>` and `Last publish: <canvas version> @ <repo commit>` (after the
   read-back by sha). Taking the canvas in is two commits: the files, then the record of the first one's sha.
 
