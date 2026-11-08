@@ -704,6 +704,7 @@ _forks_drift_land() {
   local sb="$1" id="$2" slug="$3" ac2="$4" newac="$5" extra="$6" forksv="$7" caller="${8:-finish}"
   local rel f
   make_sandbox "$sb"
+  [ -z "${_FDL_HOOK:-}" ] || "$_FDL_HOOK"
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   seed_issue todo "$id" "$slug" chore "AC rewritten after pickup" "feature/$id-work"
   f="$SB_WORK/progress/todo/$id-$slug.md"
@@ -840,9 +841,8 @@ case_forks_check_exempts_a_citation_on_an_unchanged_ac_bullet() {
 
   id="$SB_PREFIX-744"
   _forks_drift_land work-e "$id" activity-cite 1 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
-  [ "$_FDL_RC" -ne 0 ] || cf "(e) an Activity [decision: D-01] under 'forks: none' moved to dev_complete"
-  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(e) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
-  case "$_FDL_OUT" in *"without brackets"*) : ;; *) cf "(e) the Next: does not name the bracketless exit: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  [ "$_FDL_RC" -eq 0 ] || cf "(e) an Activity [decision: D-01] of a ruling live before pickup was refused under 'forks: none' (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-activity-cite.md" || cf "(e) the card did not reach dev_complete/"
   teardown
 
   id="$SB_PREFIX-745"
@@ -851,7 +851,87 @@ case_forks_check_exempts_a_citation_on_an_unchanged_ac_bullet() {
   origin_has_path "progress/dev_complete/$id-bare.md" || cf "(f) the card did not reach dev_complete/"
   teardown
 
-  finish "forks: counts what the card resolved: an unchanged AC bullet citing a ruling no longer forces it into 'forks:' (finish-pr.sh and move-issue.sh dev_complete agree); a bullet edited or added after todo/, or an Activity [decision: D-01], still does, and a bare D-01 in the Activity is the exit the Next: names"
+  finish "forks: counts what the card resolved: an unchanged AC bullet citing a ruling no longer forces it into 'forks:' (finish-pr.sh and move-issue.sh dev_complete agree); a bullet edited or added after todo/ still does, an Activity [decision: D-01] of a ruling live before pickup does not, and a bare D-01 in the Activity stays legal"
+}
+
+# _forks_ablate_live_citations — the hook for the ablation row: the sandbox's qa-gate.sh reads no
+# ruling as live, so every Activity or Out of Scope citation counts again.
+_forks_ablate_live_citations() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q '"$_forks_live_before")"$' "$lib" || _control_did_not_run "find the live-citation read (the _forks_live_before argument) in lib/qa-gate.sh"
+  sed -i.bak 's/"\$_forks_live_before")"$/"")"/' "$lib" && rm -f "$lib.bak"
+  grep -qF '"")"' "$lib" || _control_did_not_run "plant the live-citation ablation in lib/qa-gate.sh"
+}
+
+# =============================================================================
+# CASE — A '[decision: D-NN]' CITATION IN THE ACTIVITY OR OUT OF SCOPE OF A RULING ALREADY LIVE
+# WHEN THE CARD LEFT 'todo/' APPLIES IT, AND IS NOT A FORK. The card template's own Activity shape
+# is '[decision: D-NN]', so the check must not refuse the shape the template teaches.
+#   (a) Activity cites live D-01, 'forks: none', move-issue.sh dev_complete:   lands
+#   (b) Out of Scope cites live D-01:                                          lands
+#   (c) live D-01 cited in the Activity AND in the Problem prose:              still refused
+#   (d) an entry added on the trunk after pickup, cited in the Activity:       still refused
+#   (e) finish-pr.sh agrees with (a):                                          lands
+#   (f) the live-citation read made empty (ablation): (a) is refused again.
+# RED FIRST: (a), (b), (e) fail on a check that counts every bracketed citation outside an unchanged AC.
+# =============================================================================
+case_forks_check_skips_a_citation_of_a_live_ruling_in_activity_and_out_of_scope() {
+  cf_reset
+  local id ac1="- [ ] AC1 — the sandbox's seeded behaviour holds." out rc
+
+  id="$SB_PREFIX-760"
+  _forks_drift_land work-a "$id" act-live 0 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(a) an Activity [decision: D-01] of a live ruling under 'forks: none' was refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-act-live.md" || cf "(a) the card did not reach dev_complete/"
+  teardown
+
+  id="$SB_PREFIX-761"
+  _forks_drift_land work-b "$id" oos-live 0 "$ac1" "$(printf '%s\n\n%s' '## Out of Scope' '- Re-deciding the matter: out, per [decision: D-01].')" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(b) an Out of Scope [decision: D-01] of a live ruling under 'forks: none' was refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-oos-live.md" || cf "(b) the card did not reach dev_complete/"
+  teardown
+
+  id="$SB_PREFIX-762"
+  _forks_drift_land work-c "$id" prose-live 0 "$ac1" "$(printf '%s\n\n%s\n\n%s\n\n%s' '## Problem' 'The matter is settled by [decision: D-01].' '## Activity' '- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]')" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(c) a live D-01 cited in the Problem prose was exempted along with the Activity citation"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(c) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-763"
+  _forks_drift_land work-e "$id" act-live-fin 0 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" finish
+  [ "$_FDL_RC" -eq 0 ] || cf "(e) finish-pr.sh refused an Activity [decision: D-01] of a live ruling under 'forks: none' (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-act-live-fin.md" || cf "(e) the card did not advance to qa_complete/"
+  teardown
+
+  # (d) the entry is added on the trunk AFTER pickup, by another card, and this card's Activity cites it.
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local idd="$SB_PREFIX-764" other="$SB_PREFIX-769"
+  seed_issue todo "$idd" newcite chore "Cites an entry another card registers after pickup" "feature/$idd-work"
+  seed_issue todo "$other" owner chore "Owns the new entry" "feature/$other-work"
+  publish_sandbox
+  _forks_pickup "$idd" newcite
+  _forks_add_entry D-02 "Product owner message, 2026-10-16; $other." "[PM] $other: record D-02"
+  seed_branch "$idd" work CHANGE764.txt
+  git -C "$SB_WORK" checkout -q "feature/$idd-work" >/dev/null 2>&1
+  printf '%s\n' '- 2026-10-16 [Dev] Built to the ruling. [decision: D-02]' >> "$SB_WORK/progress/in_progress/$idd-newcite.md"
+  git -C "$SB_WORK" add "progress/in_progress/$idd-newcite.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] $idd: cite D-02 on the card" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "feature/$idd-work" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-d" ./scripts/move-issue.sh "$idd" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) an Activity [decision: D-02] of an entry added after pickup moved to dev_complete under 'forks: none' (exit 0)"
+  case "$out" in *"does not name: D-02"*) : ;; *) cf "(d) the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Next:"*) : ;; *) cf "(d) the refusal carries no Next: line" ;; esac
+  teardown
+
+  # (f) ABLATION
+  id="$SB_PREFIX-765"
+  _FDL_HOOK=_forks_ablate_live_citations _forks_drift_land work-f "$id" act-live-abl 0 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "ABLATION FAILED — with the live-citation read emptied, an Activity [decision: D-01] still landed, so (a)'s pass is not attributable to it"
+  teardown
+
+  finish "forks: skips a '[decision: D-NN]' citation in the Activity or Out of Scope of a ruling already live when the card left todo/ (move-issue.sh and finish-pr.sh agree), still counts one cited elsewhere on the card or of an entry added after pickup, and the live-citation read is ablation-proven"
 }
 
 # _forks_pad_card <file> — append the template boilerplate real cards share (a long fixed section),

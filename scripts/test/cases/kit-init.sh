@@ -3114,8 +3114,19 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qE '§ F1 § S|F1-S1' "$c" && cf "new-issue.sh: the card names the template's example stories: $(grep -nE '§ F1 § S|F1-S1' "$c" | tr '\n' '|')"
   grep -qF "dev/plans/YYYY-MM-DD-$SB_PREFIX-741-<slug>.md" "$c" || cf "new-issue.sh: the Plan line does not carry the card's id: $(grep -m1 'dev/plans/' "$c")"
   grep -q 'dev/plans/.*-NNN-' "$c" && cf "new-issue.sh: the Plan line still carries an -NNN id"
-  grep -qF 'stories <story ids>.' "$td/$SB_PREFIX-742-untold.md" \
-    || cf "new-issue.sh: with no --stories the seed entry does not keep the <story ids> blank: $(grep -m1 'Created in' "$td/$SB_PREFIX-742-untold.md")"
+  c="$td/$SB_PREFIX-742-untold.md"
+  grep -q '^stories: \[\]' "$c" || cf "new-issue.sh: with no --stories the frontmatter does not say stories: []: $(grep -m1 '^stories:' "$c")"
+  grep -qE 'F1-S1|<story ids>|stories <' "$c" \
+    && cf "new-issue.sh: with no --stories the card keeps a story placeholder: $(grep -nE 'F1-S1|<story ids>|stories <' "$c" | tr '\n' '|')"
+  grep -qF -- ' — stories' "$c" && cf "new-issue.sh: with no --stories the References line still names stories: $(grep -m1 'PRD:\*\*' "$c")"
+  # ABLATION: the no-stories rewrite taken out of the sandbox's copy of the creator, the placeholder is back.
+  grep -q '^kit_drop_story_blank ' "$SB_WORK/scripts/new-issue.sh" \
+    || _control_did_not_run "find the kit_drop_story_blank call in scripts/new-issue.sh"
+  sed -i.bak 's/^kit_drop_story_blank .*$/:/' "$SB_WORK/scripts/new-issue.sh"; rm -f "$SB_WORK/scripts/new-issue.sh.bak"
+  ( cd "$SB_WORK" && ./scripts/new-issue.sh ablated --id "$SB_PREFIX-745" ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: the ablated creator refused a legal mint."
+  grep -qE 'F1-S1|<story ids>' "$td/$SB_PREFIX-745-ablated.md" \
+    || cf "ABLATION FAILED — with the no-stories rewrite removed the card still carries no story placeholder, so the absence above is not attributable to it"
 
   c="$td/$SB_PREFIX-743-bugged.md"
   grep -q '^severity: <' "$c" || cf "new-bug.sh: with no --severity the card claims one: $(grep -m1 '^severity:' "$c")"
@@ -3183,8 +3194,8 @@ case_minted_prd_free_card_names_no_prd() {
   # CONTROL: a card minted without the flag keeps its blank, so the absence above is the lite path's doing.
   ( cd "$SB_WORK" && ./scripts/new-issue.sh plain --id "$SB_PREFIX-783" ) >/dev/null 2>&1 \
     || _fixture_die "case_minted_prd_free_card_names_no_prd: the control mint refused."
-  grep -qF '<story ids>' "$td/$SB_PREFIX-783-plain.md" \
-    || cf "(control) a card minted without --prd lost its story blank — the assertion above would not distinguish the lite path"
+  grep -qF 'PRD-NNN' "$td/$SB_PREFIX-783-plain.md" \
+    || cf "(control) a card minted without --prd lost its PRD blank — the assertion above would not distinguish the lite path"
   publish_sandbox
 
   local out rc=0

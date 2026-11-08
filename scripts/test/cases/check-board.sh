@@ -4681,6 +4681,94 @@ EOT
 }
 
 # =============================================================================
+# CASE — arm [q]: an edit that only adds (or removes) the CROSS_CUTTING_MARKER at the head of a
+# Ruling is not a Ruling change. The marker sits in the Ruling field, so the comparison strips it
+# from both sides first; a real text change still names the entry, with or without the marker.
+#   D-01 marker added, nothing else          -> clean
+#   D-02 marker removed, nothing else        -> clean
+#   D-03 marker added AND the text changed   -> NAMED
+#   D-04 text changed, marker already there  -> NAMED (the control: the strip is not a blanket pass)
+# RED FIRST: on a comparison that reads the marker as text, D-01 and D-02 are named.
+# =============================================================================
+case_check_board_cross_cutting_marker_edit_is_not_a_ruling_change() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark reg="" out q lib
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || _fixture_die "case_check_board_cross_cutting_marker_edit_is_not_a_ruling_change: could not derive REGISTERS from the defaults block."
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  reg="$SB_WORK/$reg_path"
+  [ -f "$SB_WORK/scripts/githooks/commit-msg" ] \
+    || _fixture_die "case_check_board_cross_cutting_marker_edit_is_not_a_ruling_change: the sandbox ships no commit-msg hook, so there is no epoch."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+
+  mkdir -p "$(dirname "$reg")"
+  cat > "$reg" <<EOT
+# DECISIONS
+## A. Bucket
+${reg_mark}D-01 — first
+**Ruling.** Alpha holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-02 — second
+**Ruling.** [cross-cutting] Beta holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-03 — third
+**Ruling.** Gamma holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-04 — fourth
+**Ruling.** [cross-cutting] Delta holds.
+**Why.** Reasons.
+**Provenance.** PM.
+EOT
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[PM] register v1" >/dev/null 2>&1
+
+  sed -i.bak 's/^\*\*Ruling\.\*\* Alpha holds\./**Ruling.** [cross-cutting] Alpha holds./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-01 marked cross-cutting" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* \[cross-cutting\] Beta holds\./**Ruling.** Beta holds./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-02 no longer cross-cutting" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* Gamma holds\./**Ruling.** [cross-cutting] Gamma holds, except one case./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-03 marked and reworded" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* \[cross-cutting\] Delta holds\./**Ruling.** [cross-cutting] Delta holds twice./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-04 reworded" >/dev/null 2>&1
+  publish_sandbox
+
+  grep -qF '[cross-cutting] Alpha holds.' "$reg" && grep -qF '** Beta holds.' "$reg" && grep -qF 'Gamma holds, except' "$reg" && grep -qF 'Delta holds twice' "$reg" \
+    || _fixture_die "case_check_board_cross_cutting_marker_edit_is_not_a_ruling_change: the planted edits are not all in the register."
+
+  out="$(cb_run)"
+  q="$(printf '%s\n' "$out" | _cb_q_section)"
+  printf '%s\n' "$q" | grep 'Ruling text changed' | grep -E 'D-01' >/dev/null \
+    && cf "D-01, which only gained the cross-cutting marker, was named as a Ruling change: $q"
+  printf '%s\n' "$q" | grep 'Ruling text changed' | grep -E 'D-02' >/dev/null \
+    && cf "D-02, which only lost the cross-cutting marker, was named as a Ruling change: $q"
+  printf '%s\n' "$q" | grep -E "⚠ .* D-03 — its Ruling text changed" >/dev/null \
+    || cf "D-03 (marker added AND the text changed) was NOT named: $q"
+  printf '%s\n' "$q" | grep -E "⚠ .* D-04 — its Ruling text changed" >/dev/null \
+    || cf "D-04 (text changed under an existing marker) was NOT named: $q"
+
+  # ABLATION: the strip made a no-op, and D-01 and D-02 are named again.
+  lib="$SB_WORK/scripts/lib/board-properties.sh"
+  grep -q '| _bp_strip_marker |' "$lib" \
+    || _control_did_not_run "find the marker strip (_bp_strip_marker) in lib/board-properties.sh"
+  sed -i.bak 's/| _bp_strip_marker |/| cat |/' "$lib"; rm -f "$lib.bak"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_q_section | grep 'Ruling text changed' | grep -E 'D-01' >/dev/null \
+    || cf "ABLATION FAILED — with the marker strip removed D-01 was still not named, so its silence is not attributable to the strip"
+
+  finish "arm [q]: adding or removing only the cross-cutting marker at the head of a Ruling is not a Ruling change, while a text change still is (with the marker added, or under one already there), and the strip is ablation-proven"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm [e] reads EVERY commit since the rule's epoch, not a fixed 20.
 #
 # The epoch commit, then ONE unprefixed commit that bypassed the hook, then more prefixed
