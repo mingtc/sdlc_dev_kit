@@ -479,8 +479,9 @@ publish_dist() {
   local work tagtree distdir artifact rec src dst _pd_list
   publish_configured || return 1
   work="$(mktemp -d)" || { echo "release.sh: could not create a temp dir for the publish step." >&2; return 1; }
+  _PUBLISH_WORK="$work"
   # shellcheck disable=SC2064
-  trap "rm -rf '$work'; git -C '$REPO_ROOT' worktree prune >/dev/null 2>&1 || true" RETURN
+  trap "rm -rf '$work'; _PUBLISH_WORK=''; git -C '$REPO_ROOT' worktree prune >/dev/null 2>&1 || true" RETURN
 
   # Build AT THE TAG, never from the working tree. A detached worktree gets the
   # tag's tree without moving the operator's checkout.
@@ -976,20 +977,36 @@ _release_commit_exists_note() {
     echo "              git tag -a $TAG -m $TAG"
     echo "              git push $REMOTE HEAD:$DEFAULT_BRANCH"
     echo "              git push $REMOTE $TAG"
+    if [ "$RELEASE_PUBLISH" = "true" ]; then
+      echo "              ./scripts/release.sh $NUM --publish-only     (the $DIST_BRANCH copy, once both are pushed)"
+    fi
     echo "            To abandon it while nothing is pushed: git tag -d $TAG; git reset --hard HEAD~1"
   } >&2
 }
 # A handler that RETURNS lets bash resume the next command, so a signalled cut would go on to commit,
 # tag and push. This one exits: the abort, then the status the shell would have reported.
 _release_signalled() {  # <exit status>
-  if [ "$_MUTATE_ARMED" != true ] && [ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" != "$_PRE_RELEASE_HEAD" ]; then
-    _release_commit_exists_note
+  if [ "$_MUTATE_ARMED" != true ]; then
+    if [ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" != "$_PRE_RELEASE_HEAD" ]; then
+      _release_commit_exists_note
+    elif [ "${#BUMPED[@]}" -gt 0 ] || [ -n "${v_path:-}" ]; then
+      # Still in the bump loop: the file in flight is not in BUMPED yet.
+      _release_restore_bumped
+      [ -z "${v_path:-}" ] || git -C "$REPO_ROOT" checkout -- "$v_path" >/dev/null 2>&1 || true
+      echo "release.sh: STOPPED by a signal during the version bump; every file this run rewrote was restored and nothing was committed, tagged or pushed. Next: re-run ./scripts/release.sh $NUM." >&2
+    fi
+  fi
+  # An exit inside publish_dist skips its RETURN trap, so its temp worktree is removed here.
+  if [ -n "${_PUBLISH_WORK:-}" ]; then
+    rm -rf "$_PUBLISH_WORK"
+    git -C "$REPO_ROOT" worktree prune >/dev/null 2>&1 || true
   fi
   _release_mutate_abort
   exit "$1"   # exit-class: internal
 }
 _PRE_RELEASE_HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"
 kit_on_exit '_release_mutate_abort'
+trap '_release_signalled 129' HUP
 trap '_release_signalled 130' INT
 trap '_release_signalled 143' TERM
 bump_one() {  # <path> <line-prefix> <quote>

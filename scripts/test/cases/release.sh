@@ -1540,51 +1540,67 @@ case_release_all_gates_green_follows_the_last_gate() {
 # =============================================================================
 # CASE — A SIGNALLED CUT STOPS.
 #
-# A TERM to release.sh's own pid, past the point where it installs its handler, must end the
+# A signal to release.sh's own pid, past the point where it installs its handlers, must end the
 # run non-zero with no tag on the remote: bash defers a trap until the foreground command it
 # is waiting on returns, so the handler has to EXIT, or the cut resumes and pushes. The delay
-# is a PATH shim around git (no hook, no tree edit); the signal goes to the EXACT pid, never
-# by pattern, and every push goes to the sandbox's bare repository.
+# is a PATH shim around git or mv (no hook, no tree edit); the signal goes to the EXACT pid,
+# never by pattern, and every push goes to the sandbox's bare repository.
 #   (commit)  TERM during the release commit: the commit lands, the tag and both pushes do
 #             not, and the account says the commit exists, not "nothing was committed";
+#   (hup)     the same with HUP, which exits 129 and, untrapped, left the commit to land after
+#             an account that said nothing was committed;
 #   (restore) TERM during a commit that then fails: the bump is restored, nothing staged;
-#   (push)    TERM during the first push: the tag never reaches the remote.
-# The signal is TERM: a background job ignores INT, so INT's status is read, not run.
+#   (bump)    TERM while the second version file (VERSION) is being rewritten: both files are restored;
+#   (push)    TERM during the first push: the tag never reaches the remote;
+#   (publish) TERM during the distribution push (RELEASE_PUBLISH=true): the account carries the
+#             --publish-only command and no temp worktree is left registered.
+# INT is not run: a background job ignores it, so its status is read, not run.
 # =============================================================================
 case_release_a_signalled_cut_stops() {
   cf_reset
   if ! has_release; then skp "a signalled release.sh stops" "scripts/release.sh absent"; return; fi
-  local leg out rc pid i shimdir mark real_git verb after
-  real_git="$(command -v git)"
-  for leg in commit restore push; do
-    make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  local leg out rc pid i shimdir mark real_git real_mv tool match after sig
+  real_git="$(command -v git)"; real_mv="$(command -v mv)"
+  for leg in commit hup restore bump push publish; do
+    make_sandbox; seed_release_files 1.1.0
+    [ "$leg" = publish ] && enable_publish
+    publish_sandbox
     write_board_stub "$SB_TMP/board-clean.sh" clean
+    write_build_stub "$SB_TMP/build-stub.sh"
     shimdir="$SB_TMP/shim"; mark="$SB_TMP/shim.mark"; mkdir -p "$shimdir"
-    verb=commit; [ "$leg" = push ] && verb=push
-    after=":"; [ "$leg" = restore ] && after="exit 1"
-    # The shim delays the FIRST matching git call, then runs it (or, for `restore`, fails it).
+    tool=git; match='"$1" = commit'; after=":"; sig=TERM
+    case "$leg" in
+      hup)     sig=HUP ;;
+      restore) after="exit 1" ;;
+      bump)    tool=mv; match='"${2##*/}" = VERSION' ;;
+      push)    match='"$1" = push' ;;
+      publish) match='"$3" = push' ;;   # git -C <dir> push …: the first push through `-C` is the dist one
+    esac
+    # The shim delays the FIRST matching call, then runs it (or, for `restore`, fails it).
     printf '%s\n' '#!/bin/sh' \
-      "if [ \"\$1\" = $verb ] && [ ! -e \"$mark\" ]; then : > \"$mark\"; sleep 3; $after; fi" \
-      "exec \"$real_git\" \"\$@\"" > "$shimdir/git"
-    chmod +x "$shimdir/git"
+      "if [ $match ] && [ ! -e \"$mark\" ]; then : > \"$mark\"; sleep 3; $after; fi" \
+      "exec \"$([ "$tool" = git ] && echo "$real_git" || echo "$real_mv")\" \"\$@\"" > "$shimdir/$tool"
+    chmod +x "$shimdir/$tool"
     ( cd "$SB_WORK" && exec env PATH="$shimdir:$PATH" RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
-        RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 ) > "$SB_TMP/out.txt" 2>&1 &
+        RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
+        "$SB_WORK/scripts/release.sh" 1.1.0 ) > "$SB_TMP/out.txt" 2>&1 &
     pid=$!
     for i in $(seq 1 150); do [ -e "$mark" ] && break; sleep 0.2; done
-    [ -e "$mark" ] || cf "($leg) the shim never saw git $verb, so the run did not reach the signal point: $(tr '\n' '|' < "$SB_TMP/out.txt" | cut -c1-200)"
-    kill -TERM "$pid" 2>/dev/null
+    [ -e "$mark" ] || cf "($leg) the shim never saw $tool $match, so the run did not reach the signal point: $(tr '\n' '|' < "$SB_TMP/out.txt" | cut -c1-200)"
+    kill -"$sig" "$pid" 2>/dev/null
     rc=0; wait "$pid" || rc=$?
     out="$(cat "$SB_TMP/out.txt")"
-    [ "$rc" -ne 0 ] || cf "($leg) release.sh exited 0 after a TERM to its pid, so the cut went on: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-    [ -z "$(git -C "$SB_ORIGIN" tag -l v1.1.0)" ] \
+    [ "$rc" -ne 0 ] || cf "($leg) release.sh exited 0 after a $sig to its pid, so the cut went on: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    [ "$leg" != hup ] || [ "$rc" -eq 129 ] || cf "(hup) release.sh exited $rc, not 129"
+    [ "$leg" = publish ] || [ -z "$(git -C "$SB_ORIGIN" tag -l v1.1.0)" ] \
       || cf "($leg) the tag v1.1.0 is on the remote after the signal"
     case "$leg" in
-      commit)
+      commit|hup)
         printf '%s' "$out" | grep 'NOTHING was committed' >/dev/null \
-          && cf "(commit) the account says nothing was committed, but the release commit exists"
+          && cf "($leg) the account says nothing was committed, but the release commit exists"
         printf '%s' "$out" | grep 'release commit exists' >/dev/null \
-          || cf "(commit) the account does not say the release commit exists: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
-        [ -z "$(git -C "$SB_WORK" tag -l v1.1.0)" ] || cf "(commit) a local tag was made after the signal"
+          || cf "($leg) the account does not say the release commit exists: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+        [ -z "$(git -C "$SB_WORK" tag -l v1.1.0)" ] || cf "($leg) a local tag was made after the signal"
         ;;
       restore)
         grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(restore) VERSION was left bumped"
@@ -1592,12 +1608,25 @@ case_release_a_signalled_cut_stops() {
         printf '%s' "$out" | grep 'ABORTED between the version bump' >/dev/null \
           || cf "(restore) the abort is not announced"
         ;;
+      bump)
+        grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(bump) VERSION, the file in flight, was left bumped"
+        grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" || cf "(bump) pkg.conf, bumped before the signal, was left bumped"
+        [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(bump) the tree is not clean after the signal: $(git -C "$SB_WORK" status --porcelain | tr '\n' ' ')"
+        printf '%s' "$out" | grep 'STOPPED by a signal during the version bump' >/dev/null \
+          || cf "(bump) the stop is not announced: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+        ;;
       push)
         printf '%s' "$out" | grep 'release commit exists' >/dev/null \
           || cf "(push) the account does not say the release commit exists: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
         ;;
+      publish)
+        printf '%s' "$out" | grep -e '--publish-only' | grep 'once both are pushed' >/dev/null \
+          || cf "(publish) the account does not carry the --publish-only command: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+        [ "$(git -C "$SB_WORK" worktree list | awk 'END { print NR }')" -eq 1 ] \
+          || cf "(publish) a temp worktree is still registered: $(git -C "$SB_WORK" worktree list | tr '\n' '|')"
+        ;;
     esac
     teardown
   done
-  finish "a TERM to release.sh's own pid ends the cut non-zero with no tag on the remote: during the release commit (and the account says the commit exists), during a commit that fails (the bump is restored), and during the first push"
+  finish "a signal to release.sh's own pid (TERM, and HUP) ends the cut non-zero with no tag on the remote: during the release commit (and the account says the commit exists), during a commit that fails (the bump is restored), while a version file is rewritten (every file is restored), during the first push, and during the distribution push (the account carries the publish command and no worktree is left)"
 }
