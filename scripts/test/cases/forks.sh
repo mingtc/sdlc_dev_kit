@@ -912,13 +912,11 @@ case_forks_check_skips_a_citation_of_a_live_ruling_in_activity_and_out_of_scope(
   publish_sandbox
   _forks_pickup "$idd" newcite
   _forks_add_entry D-02 "Product owner message, 2026-10-16; $other." "[PM] $other: record D-02"
-  seed_branch "$idd" work CHANGE764.txt
-  git -C "$SB_WORK" checkout -q "feature/$idd-work" >/dev/null 2>&1
   printf '%s\n' '- 2026-10-16 [Dev] Built to the ruling. [decision: D-02]' >> "$SB_WORK/progress/in_progress/$idd-newcite.md"
   git -C "$SB_WORK" add "progress/in_progress/$idd-newcite.md" >/dev/null 2>&1
   sbcommit -m "[Dev] $idd: cite D-02 on the card" --quiet >/dev/null 2>&1
-  git -C "$SB_WORK" push -q origin "feature/$idd-work" >/dev/null 2>&1
-  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "(d) the card's citation was not published"
+  seed_branch "$idd" work CHANGE764.txt
   out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-d" ./scripts/move-issue.sh "$idd" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) an Activity [decision: D-02] of an entry added after pickup moved to dev_complete under 'forks: none' (exit 0)"
   case "$out" in *"does not name: D-02"*) : ;; *) cf "(d) the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
