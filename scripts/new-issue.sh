@@ -6,6 +6,7 @@
 #
 # Usage:   ./scripts/new-issue.sh <slug> --id <PREFIX>-NNN [--prd PRD-NNN|n/a] [--stories ID1,ID2,...]
 #   --prd n/a is the lite path: no PRD, stories: [] unless --stories is given, and prd_reason: is yours to fill.
+#   Without --stories the card says stories: [] and names no story anywhere; fill them in when the PRD's are known.
 # Example: ID=$(./scripts/next-id.sh) && ./scripts/new-issue.sh reader-config-flag \
 #            --id "$ID" --prd PRD-001 --stories PRD-001-F1-S1,PRD-001-F1-S2
 #
@@ -167,13 +168,16 @@ rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1   # exit-class: internal
 # What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD, the
-# stories and the plan's id (lib/card-head.sh). An absent flag leaves its blank for the author.
+# stories and the plan's id (lib/card-head.sh). An absent flag leaves its blank for the author,
+# except --stories, which leaves `stories: []`.
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
 # --prd n/a is the lite path: the card names no PRD and no stories, and the PRD fills below skip.
 if [ "$PRD" = "n/a" ]; then
   kit_prd_free_card "$WORK" "$STORIES" || exit 1   # exit-class: internal
   PRD=""
 fi
+# No --stories: the card names none (`stories: []`), not the template's example id.
+kit_drop_story_blank "$WORK" "$STORIES" || exit 1   # exit-class: internal
 PRD_FILE=""
 if [ -n "$PRD" ]; then
   for f in "$ROOT/requirements/$PRD"-*.md; do

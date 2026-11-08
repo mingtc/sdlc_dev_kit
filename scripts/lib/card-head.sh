@@ -210,6 +210,16 @@ kit_card_fragments() {
   return 0
 }
 
+# kit_drop_story_blank <card-file> <stories-given> — a card minted with no `--stories` names no
+# story: write `stories: []` and drop the template's ` — stories <story ids>` from the References
+# line and `, stories <story ids>` from the seed entry, so no example id stands where a real one
+# was owed. A caller that named stories (<stories-given> non-empty) is left alone.
+kit_drop_story_blank() {
+  [ -z "${2:-}" ] || return 0
+  sed -i.bak -e 's|^stories: .*|stories: []|' -e 's| — stories <story ids>||' -e 's|, stories <story ids>||' "$1" \
+    && rm -f "$1.bak"
+}
+
 # kit_prd_free_card <card-file> <stories-given> — a card minted with `--prd n/a` is on the lite
 # path: no PRD, no stories. Rewrite the PRD-shaped lines the template ships (the issue's References
 # line and seed entry, the bug's Expected and Related PRD lines) to say so, and set `stories: []`

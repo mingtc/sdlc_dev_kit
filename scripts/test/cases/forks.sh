@@ -929,6 +929,8 @@ case_forks_check_skips_a_citation_of_a_live_ruling_in_activity_and_out_of_scope(
   id="$SB_PREFIX-765"
   _FDL_HOOK=_forks_ablate_live_citations _forks_drift_land work-f "$id" act-live-abl 0 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
   [ "$_FDL_RC" -ne 0 ] || cf "ABLATION FAILED — with the live-citation read emptied, an Activity [decision: D-01] still landed, so (a)'s pass is not attributable to it"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "ABLATION INVALID — the ablated landing was refused, but not as forks-contradicted, so the refusal is not the citation read's: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
   finish "forks: skips a '[decision: D-NN]' citation in the Activity or Out of Scope of a ruling already live when the card left todo/ (move-issue.sh and finish-pr.sh agree), still counts one cited elsewhere on the card or of an entry added after pickup, and the live-citation read is ablation-proven"

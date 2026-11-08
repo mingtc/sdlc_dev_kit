@@ -49,8 +49,9 @@
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
 #     branch resolved, or 'none'. A '[decision: D-NN]' citation counts as a fork resolved when it
-#     is anywhere on the card except on an AC bullet unchanged since the card left 'todo/';
-#     one on such a bullet applies a ruling made elsewhere and does not. With no
+#     is anywhere on the card except on an AC bullet unchanged since the card left 'todo/', or in
+#     the '## Activity' or '## Out of Scope' section and of an entry the register already held
+#     then; one of those applies a ruling made elsewhere and does not. With no
 #     'todo/' departure the whole card is read. <old-rev>/<new-rev> bound the diff a resolved-but-uncited fork
 #     is derived from (finish-pr.sh: the trunk and the feature branch); <card-file> is read for
 #     the field itself and is <new-rev>'s own copy.
@@ -1004,16 +1005,21 @@ kit_ac_drift_check() {
   fi
 }
 
-# ── _forks_cited_ids <card-file> <repo> <leave-commit> <leave-path> <id-shape> ─────────────────
+# ── _forks_cited_ids <card-file> <repo> <leave-commit> <leave-path> <id-shape> [<live-ids>] ────
 #   The D-NN ids the card CITES, for the 'forks:' derivation: every '[decision: D-NN]' in the card
 #   except those on an AC bullet unchanged since the card left 'todo/' — an AC that cites a ruling
-#   made elsewhere applies it, it does not resolve it. A citation in the Activity, in other prose,
-#   on a bullet changed or added after 'todo/', counts. With no leave-todo commit (or none of its
-#   bullets readable) nothing is exempt. The bullet reader is kit_ac_drift_check's, and so is the
-#   citation reader (kit_decisions_cited), over a scratch copy minus the unchanged bullet lines.
+#   made elsewhere applies it, it does not resolve it — and, in the '## Activity' and '## Out of
+#   Scope' sections, those of a ruling in <live-ids> (the entries the register held before the card
+#   left 'todo/', one per line): the card template's own Activity shape is '[decision: D-NN]', a
+#   citation of a ruling already made. A citation in other prose, on a bullet changed or added after
+#   'todo/', or of an id not in <live-ids>, counts. With no leave-todo commit (or none of its bullets
+#   readable) nothing is exempt. The bullet reader is kit_ac_drift_check's, and so is the citation
+#   reader (kit_decisions_cited), over scratch copies: the card minus the unchanged bullet lines and
+#   the two sections, and the two sections alone.
 _forks_cited_ids() {
-  local src="$1" repo="$2" leave_commit="$3" leave_path="$4" id_shape="$5"
+  local src="$1" repo="$2" leave_commit="$3" leave_path="$4" id_shape="$5" live="${6:-}"
   local new_body old_body ac ac_old ac_new unchanged="" scratch line ids seen="" in_body=1
+  local sec_scratch="" in_sec=0 sec_id core_ids sec_ids kept=""
   if [ -n "$leave_commit" ]; then
     new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
     old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
@@ -1028,14 +1034,23 @@ _forks_cited_ids() {
   # A scratch copy it cannot make is a card read whole: every bullet counts, so the check refuses
   # more, never less.
   scratch=""
-  [ -z "$unchanged" ] || scratch="$(mktemp "${TMPDIR:-/tmp}/forks-cited.XXXXXX")" || scratch=""
-  if [ -z "$scratch" ]; then
+  if [ -n "$unchanged" ] || [ -n "$live" ]; then
+    scratch="$(mktemp "${TMPDIR:-/tmp}/forks-cited.XXXXXX")" || scratch=""
+    sec_scratch="$(mktemp "${TMPDIR:-/tmp}/forks-cited-sec.XXXXXX")" || sec_scratch=""
+  fi
+  if [ -z "$scratch" ] || [ -z "$sec_scratch" ]; then
+    rm -f "$scratch" "$sec_scratch"
     kit_decisions_cited "$src" "$id_shape" | sort -u || true
     return 0
   fi
-  : > "$scratch"
+  : > "$scratch"; : > "$sec_scratch"
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in "## QA Verdict"*) in_body=0 ;; esac
+    case "$line" in
+      "## Activity"|"## Activity "*|"## Out of Scope"|"## Out of Scope "*) in_sec=1 ;;
+      "## "*) in_sec=0 ;;
+    esac
+    if [ "$in_sec" = 1 ]; then printf '%s\n' "$line" >> "$sec_scratch"; continue; fi
     if [ "$in_body" = 1 ]; then
       ids="$(_qav_ac_ids "$line")"
       if [ -n "$ids" ] && ! grep -qx -- "$ids" <<< "$seen"; then
@@ -1045,8 +1060,14 @@ _forks_cited_ids() {
     fi
     printf '%s\n' "$line" >> "$scratch"
   done < "$src"
-  kit_decisions_cited "$scratch" "$id_shape" | sort -u || true
-  rm -f "$scratch"
+  core_ids="$(kit_decisions_cited "$scratch" "$id_shape" | sort -u || true)"
+  sec_ids="$(kit_decisions_cited "$sec_scratch" "$id_shape" | sort -u || true)"
+  rm -f "$scratch" "$sec_scratch"
+  while IFS= read -r sec_id; do
+    [ -n "$sec_id" ] || continue
+    grep -qx -- "$sec_id" <<< "$live" || kept="${kept}${sec_id}"$'\n'
+  done <<< "$sec_ids"
+  printf '%s\n%s\n' "$core_ids" "$kept" | grep -E "^${id_shape}\$" | sort -u || true
 }
 
 # ── kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path> ────────
@@ -1056,7 +1077,7 @@ kit_forks_check() {
   local _forks_declared _forks_regs _forks_cited _forks_id_shape
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
-  local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
+  local _forks_bad="" _fid _forks_derived _forks_missing_ids="" _forks_live_before=""
   local _forks_leave_commit="" _forks_leave_path="" _forks_excl
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
   local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
@@ -1123,7 +1144,16 @@ kit_forks_check() {
   IFS=$'\t' read -r _forks_leave_commit _forks_leave_path <<< "$(kit_card_leave_todo "$issue_id" "$repo" "$old_rev")"
   _forks_excl="$(_forks_sub_excl_for "$issue_id")"
   [ -z "$_forks_excl" ] || _forks_sub_excl=("$_forks_excl")
-  _forks_cited="$(_forks_cited_ids "$src" "$repo" "$_forks_leave_commit" "$_forks_leave_path" "$_forks_id_shape")"
+  # The rulings already made when the card left 'todo/': a bracketed citation of one in the Activity or
+  # Out of Scope applies it, so _forks_cited_ids does not count it. Nothing is live with no leave commit.
+  _forks_live_before=""
+  if [ -n "$_forks_leave_commit" ]; then
+    while IFS='|' read -r _freg_path _freg_mark _freg_shape; do
+      [ -n "$_freg_path" ] || continue
+      _forks_live_before="${_forks_live_before}$(_forks_entry_ids "$repo" "${_forks_leave_commit}^" "$_freg_path" "$_freg_mark" "$_freg_shape")"$'\n'
+    done <<< "$(printf '%s\n' "$_forks_regs")"
+  fi
+  _forks_cited="$(_forks_cited_ids "$src" "$repo" "$_forks_leave_commit" "$_forks_leave_path" "$_forks_id_shape" "$_forks_live_before")"
 
   # THE REGISTER WINDOW'S END. A register entry is metadata, so it is committed to the trunk and
   # published BEFORE the branch is cut: it is in <old-rev> already, and the branch diff above shows
@@ -1209,9 +1239,9 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   if [ -n "$_forks_missing_ids" ]; then
     kit_refuse 2 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
-      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/', or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
+      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/' or, in the Activity or Out of Scope, of a ruling the register held then, or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
       "       'forks: ${_forks_line}' does not account for them." \
-      "Next: if ${issue_id} made the ruling, add the id(s) to 'forks:' on the card and commit it. If it only APPLIES a ruling made elsewhere, do not list it: leave an AC's existing citation as it is, and in the Activity write the id without brackets (a bracketless mention is not a citation) — 'forks:' is for rulings this card made. Then re-run the command that refused." \
+      "Next: if ${issue_id} made the ruling, add the id(s) to 'forks:' on the card and commit it. If it only APPLIES a ruling made elsewhere, do not list it: leave an AC's existing citation as it is; a bracketed citation in the Activity or Out of Scope of a ruling in the register before the card left 'todo/' is already skipped, so write the id without brackets where it still stands (a bracketless mention is not a citation) — 'forks:' is for rulings this card made. Then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

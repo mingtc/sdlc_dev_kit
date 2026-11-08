@@ -681,9 +681,21 @@ _bp_rulings() {
   ' "$2" "$1"
 }
 
+# _bp_strip_marker — a filter over _bp_rulings' lines: removes CROSS_CUTTING_MARKER from the head of
+# a Ruling field (right after `**Ruling.**`, where arm [r] reads it), so adding or removing the
+# marker alone is not a change of the ruling. Passes the lines through when the marker is not declared.
+_bp_strip_marker() {
+  if [ -n "${CROSS_CUTTING_MARKER:-}" ]; then
+    sed -E "s#(\*\*Ruling\.\*\*)[[:space:]]*${CROSS_CUTTING_MARKER}[[:space:]]*#\1 #"
+  else
+    cat
+  fi
+}
+
 # _bp_ruling_history <register-path> <heading-mark> <id-shape> — over KIT_BP_HIST_RANGE, every
 # non-merge commit that touched the register: for each entry present before and after, a changed
 # Ruling field with no stamp among the lines the commit ADDED to that entry is one finding.
+# The marker is not part of the ruling (_bp_strip_marker); a ruling that gained it AND changed its text is still one finding.
 # Adds the commits read to _BP_HIST_N and prints each finding through _bp_note.
 _bp_ruling_history() {
   local rpath="$1" rmark="$2" rshape="$3" scratch sha par n=0 subj
@@ -701,8 +713,8 @@ _bp_ruling_history() {
     # Each entry's Ruling field, one line per id, from the SAME spans; only ids whose line differs
     # between the two versions are examined further.
     printf '%s\n' "$ospans" > "$scratch/old.s"; printf '%s\n' "$nspans" > "$scratch/new.s"
-    _bp_rulings "$oldf" "$scratch/old.s" | sort > "$scratch/old.r"
-    _bp_rulings "$newf" "$scratch/new.s" | sort > "$scratch/new.r"
+    _bp_rulings "$oldf" "$scratch/old.s" | _bp_strip_marker | sort > "$scratch/old.r"
+    _bp_rulings "$newf" "$scratch/new.s" | _bp_strip_marker | sort > "$scratch/new.r"
     while read -r id; do
       [ -n "$id" ] || continue
       os=""; oe=""; ns=""; ne=""
