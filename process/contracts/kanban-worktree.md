@@ -76,8 +76,12 @@ guard can see a commit the operator makes by hand.
   named. Waiting forever and stealing the lock are both worse.
 - The auxiliary checkout holds uncommitted tracked changes ⇒ refuse, naming them, unless the caller
   explicitly asked for them to be discarded.
-- The auxiliary checkout holds commits not on the published trunk ⇒ refuse, naming them. There is no
-  opt-out: discarding a commit is a deliberate hand command.
+- The auxiliary checkout holds commits not on the published trunk ⇒ refuse, naming each with its
+  author and subject. There is no opt-out: discarding a commit is a deliberate hand command. The
+  `Next:` says that publishing puts every one of them on the trunk unchecked, offers it only for
+  commits an op of the reader's own made whose publication did not land, and otherwise asks.
+  *Why:* the commits can be the reader's own hand-made work, which no op judged, and a refusal that
+  called publishing the usual answer sent that work to the trunk.
 - The auxiliary checkout cannot be created or synchronised ⇒ refuse; do **not** fall back to the
   operator's workspace. The fallback is the one behaviour this contract exists to forbid.
 - The publication of a committed change fails, or the retry bound is exhausted, or a rebase

@@ -568,6 +568,7 @@ CASES=(
   case_register_commit_refusal_leaves_the_kanban_worktree_clean
   case_register_commit_tags_the_subject_once
   case_push_failure
+  case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops
   case_trunk_fallback_warns
   case_bootstrap_failure_next_names_the_trunk_not_set_head_a
   case_archive_progress_sections

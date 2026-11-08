@@ -537,7 +537,7 @@ kwt_sync() {
   #    ops, and an unattended run never pauses there.
   #    NO OPT-OUT FLAG: discarding a commit should cost a deliberate hand command.
   local unpushed
-  unpushed="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || true)"
+  unpushed="$(git -C "$KWT" log --format='%h %an %s' "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || true)"
   if [ -n "$unpushed" ]; then
     detail="$(
       echo "       Syncing would 'git reset --hard $KWT_REMOTE/$DEFAULT_BRANCH' and make them UNREACHABLE"
@@ -545,16 +545,17 @@ kwt_sync() {
       echo "       check-board.sh once that has happened."
       echo "       Worktree: $KWT"
       echo ""
-      echo "  Unpushed:"
+      echo "  Unpushed (commit, author, subject):"
       echo "$unpushed" | sed 's/^/    /'
     )"
     kit_refuse 1 kanban-sync-unpushed \
       "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync." \
       "$detail" \
-      "Next: publish them (almost always right — an op made them and its push did not land), then re-run:" \
+      "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$DEFAULT_BRANCH for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
+      "      Publish only if every one is a commit an op of yours made and whose push did not land: its author is you, and its subject is the move or landing that op announced. Then re-run:" \
       "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
       "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
-      "      If they should not be published, do not discard them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"publish them\")."
+      "      A commit can also be here because you made it by hand, because another author's work reached this worktree, or because the worktree was created from a commit of your local $DEFAULT_BRANCH. If any commit above is one of those, publish none of them and discard none of them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
   fi
 
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet

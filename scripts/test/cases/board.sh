@@ -2702,6 +2702,53 @@ case_push_failure() {
 }
 
 # =============================================================================
+# CASE — THE UNPUSHED-COMMIT REFUSAL NAMES EACH COMMIT AND DOES NOT CALL THEM AN OP'S.
+# The board worktree can hold a commit that no op made (a commit of the user's own, or another
+# author's), and publishing it through the board puts it on the trunk unchecked. The refusal must
+# list each commit with its author and subject, say what publishing does, make publishing
+# conditional on an op of the reader's own having made every commit, and name a way out that does
+# not default to publishing.
+# =============================================================================
+case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-320" sandbox chore "Unpushed refusal"
+  seed_issue todo "$SB_PREFIX-321" sandbox chore "Unpushed refusal second"
+  publish_sandbox
+  local out rc wt nxt me="case_unpushed_commit_refusal_names_each_commit_and_does_not_call_them_an_ops"
+  wt="$SB_WORK/.kanban-wt"
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-320" in_progress --role Dev --note warm ) >/dev/null 2>&1 \
+    || _fixture_die "$me: the warm-up move failed"
+  [ -d "$wt" ] || _fixture_die "$me: no board worktree after the warm-up move"
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty -m "[Dev] my own unpushed work" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the first commit"
+  MSG_OK=1 git -C "$wt" commit -q --allow-empty --author="Some Other Person <other@sandbox.invalid>" -m "[Dev] a stranger's commit" >/dev/null 2>&1 \
+    || _fixture_die "$me: could not make the second commit"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-321" in_progress --role Dev --note second 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'NOT on origin' >/dev/null || cf "(control) the unpushed-commit refusal did not fire, so its Next: is unread: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  nxt="$(printf '%s\n' "$out" | sed -n '/^Next:/,$p')"
+  # Each commit is named with its author and its subject.
+  printf '%s\n' "$out" | grep -F 'Sandbox Test [Dev] my own unpushed work' >/dev/null \
+    || cf "(a) the listing does not give the first commit's author and subject: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  printf '%s\n' "$out" | grep -F "Some Other Person [Dev] a stranger's commit" >/dev/null \
+    || cf "(a) the listing does not give the second commit's author and subject"
+  # The user's own commit is not described as an op's, and publishing is not the default.
+  printf '%s\n' "$nxt" | grep -F 'almost always right' >/dev/null && cf "(b) the Next: still calls publishing almost always right"
+  printf '%s\n' "$nxt" | grep -F 'an op made them' >/dev/null && cf "(b) the Next: still says an op made them"
+  printf '%s\n' "$nxt" | grep -F -- '--default "publish them"' >/dev/null && cf "(b) the ask the Next: names still defaults to publishing"
+  printf '%s\n' "$nxt" | grep -F 'by hand' >/dev/null || cf "(b) the Next: does not name a commit made by hand as a way to get here: $(printf '%s' "$nxt" | tr '\n' '|')"
+  # It still names what publishing does and the commands, so the refusal names its way out.
+  printf '%s\n' "$nxt" | grep -F 'for everyone' >/dev/null || cf "(c) the Next: does not say what publishing a commit does"
+  printf '%s\n' "$nxt" | grep -F 'push origin HEAD:' >/dev/null || cf "(c) the Next: names no publish command"
+  printf '%s\n' "$nxt" | grep -F 'ask.sh' >/dev/null || cf "(c) the Next: names no ask for a commit that is not the reader's op's"
+  # Nothing was published or reset.
+  [ "$(git -C "$wt" log "origin/$SB_TRUNK..HEAD" --format=%s | wc -l | tr -d ' ')" = 2 ] || cf "(d) the refused move changed what the board worktree holds"
+  finish "the unpushed-commit refusal lists each commit with its author and subject, says what publishing does, does not call a commit an op's or publishing almost always right, and its ask does not default to publishing"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE BOOTSTRAP REFUSAL'S Next: NAMES THE TRUNK, NEVER `set-head -a`.
 # `-a` asks the remote to guess its own default branch, which is the guess the kit teaches against
 # everywhere else it names a trunk. A repository with no commit and no remote cannot create the
