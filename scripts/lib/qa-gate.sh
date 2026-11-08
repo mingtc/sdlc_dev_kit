@@ -14,13 +14,14 @@
 #     FAIL_AC/FAIL_REGRESSION, the table's AC ids match the card's own '- [ ] <id> —'/'- [ ] <id> -'/'- [ ] <id>:' checklist bullets one for one, and
 #     the fixed 'shadow-check' row is present and filled. <rev> is the revision being landed (read
 #     in <repo> with `git cat-file`/`git show`) — every evidence pointer is checked against IT, not
-#     the caller's working tree. An `artifact` row names a file QA committed on the trunk, so its
+#     the caller's working tree. An `artifact` row names a file committed on the trunk, so its
 #     pointer (`<path> <full blob sha>`) resolves at <trunk-rev> instead, which defaults to <rev>:
 #     a caller that lands a branch passes the trunk, because the branch's author controls the branch.
 #     The evidence kinds are read at <trunk-rev> for the same reason (kit_qa_evidence_kinds).
 #     A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
-#     at that line, whitespace-normalised; every other kind in kit_qa_evidence_kinds is exempt from the
+#     at that line, whitespace-normalised (`path:"test name"` stands for `path:line` when the name occurs
+#     once in the file: the line is found, not written); every other kind in kit_qa_evidence_kinds is exempt from the
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
@@ -250,12 +251,32 @@ _qav_squeeze() {
 # (`"a" "b"`, `"a"; "b"`). `\"` inside a quote is a double quote of the quoted text. Any other
 # double-quoted string is prose and is not read. A quote belongs to
 # the pointer before it; one before every pointer is kept, for the caller to refuse.
+# A test named in place of a line, `path:"name"` (the quote right after the colon), is one pointer: the
+# name must occur once in the file (_qav_name_lines). It is read as `P path:"name" OK <n> <n>` then
+# `Q name`, so the quote checks run on it as on any other.
 _qav_cell_events() {
-  local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines
+  local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines _name _tk _count _first
   while IFS=' ' read -r _kind _tok; do
     [ -n "$_kind" ] || continue
     if [ "$_kind" = Q ]; then
       printf 'Q %s\n' "$_tok"
+      continue
+    fi
+    if [ "$_kind" = N ]; then
+      _path="${_tok%% *}"; _name="$(_qav_squeeze "${_tok#* }")"
+      _tk="${_name// /$'\001'}"   # the token carries no space; the reader of the event puts them back
+      if ! git -C "$repo" cat-file -e "${rev}:${_path}" 2>/dev/null; then
+        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "does not exist at ${rev}"
+        continue
+      fi
+      read -r _count _first <<< "$(_qav_name_lines "$repo" "$rev" "$_path" "$_name")"
+      if [ "$_count" -eq 1 ]; then
+        printf 'P %s:"%s" OK %s %s\nQ %s\n' "$_path" "$_tk" "$_first" "$_first" "$_name"
+      elif [ "$_count" -eq 0 ]; then
+        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "the test name is not in ${_path} at ${rev}"
+      else
+        printf 'P %s:"%s" BAD %s\n' "$_path" "$_tk" "the test name is in ${_path} ${_count} times at ${rev}, and a name must occur exactly once"
+      fi
       continue
     fi
     _path="${_tok%%:*}"
@@ -279,10 +300,11 @@ _qav_cell_events() {
   done <<< "$(printf '%s\n' "$cell" | awk '{
     gsub(/\\"/, "\001")
     n = split($0, part, "\"")
-    ptr = 0; state = "fresh"
+    ptr = 0; state = "fresh"; pend = ""
     for (i = 1; i <= n; i++) {
       if (i % 2 == 0 && i < n) {
         q = part[i]; gsub(/^[ \t]+|[ \t]+$/, "", q); gsub(/\001/, "\"", q)
+        if (pend != "") { if (q != "") print "N " pend " " q; pend = ""; state = "quoted"; continue }
         if (!ptr) { if (q != "") print "Q " q; continue }
         if (state == "prose") continue
         if (q != "") { print "Q " q; state = "quoted" }
@@ -293,6 +315,7 @@ _qav_cell_events() {
           s = substr(s, RSTART + RLENGTH)
           found = 1
         }
+        if (i + 1 < n && match(s, /[^[:space:]`"(),]+:$/)) { pend = substr(s, RSTART, RLENGTH - 1); found = 1 }
         if (found) { ptr = 1; state = "fresh" }
         else if (state == "quoted" && part[i] !~ /^[ \t;]*$/) state = "prose"
       }
@@ -303,7 +326,7 @@ _qav_cell_events() {
 # _qav_artifact_events <repo> <trunk-rev> <card-id> <cell> — an `artifact` row's pointer cell, read as
 # `<path> <full blob sha>` pairs (quoted prose, `path:line` tokens and `;`/`,` set aside: the other
 # readers own those), each checked at <trunk-rev>. One event per line:
-#   `MALFORMED`      the cell holds no pair, an odd token, or a sha that is not hex;
+#   `MALFORMED <why>` the cell holds no pair, a path with no sha after it, or a sha that is not hex: <why> names the token;
 #   `SELF <path>`    the path is the card's own file;
 #   `BAD <why>`      the path is not a file at <trunk-rev>, or the sha is not that blob's full sha.
 # Nothing is printed for a pair that resolves.
@@ -315,10 +338,16 @@ _qav_artifact_events() {
   for tok in ${all[@]+"${all[@]}"}; do
     [[ "$tok" =~ $re ]] || { toks[n]="$tok"; n=$((n+1)); }
   done
-  if [ "$n" -eq 0 ] || [ $((n % 2)) -ne 0 ]; then printf 'MALFORMED\n'; return 0; fi
+  if [ "$n" -eq 0 ]; then printf "MALFORMED the cell holds no '<path> <full blob sha>' pair\n"; return 0; fi
+  while [ "$i" -lt "$n" ]; do
+    if [ $((i+1)) -ge "$n" ]; then printf "MALFORMED '%s' has no blob sha after it\n" "${toks[i]}"; return 0; fi
+    sha="$(printf '%s' "${toks[i+1]}" | tr '[:upper:]' '[:lower:]')"
+    case "$sha" in *[!0-9a-f]*) printf "MALFORMED '%s' (after '%s') is not a hex blob sha\n" "${toks[i+1]}" "${toks[i]}"; return 0 ;; esac
+    i=$((i+2))
+  done
+  i=0
   while [ "$i" -lt "$n" ]; do
     path="${toks[i]}"; sha="$(printf '%s' "${toks[i+1]}" | tr '[:upper:]' '[:lower:]')"; i=$((i+2))
-    case "$sha" in *[!0-9a-f]*) printf 'MALFORMED\n'; return 0 ;; esac
     if _qav_is_own_card "$path" "$id"; then printf 'SELF %s\n' "$path"; continue; fi
     case "$path" in
       /*|./*|../*|*/../*|*/..) printf 'BAD %s\n' "${path} is not a path from the repository root"; continue ;;
@@ -352,6 +381,17 @@ _qav_quote_in_range() {
   _needle="$(_qav_squeeze "$6")"
   [ -n "$_needle" ] && case "$_hay" in *"$_needle"*) return 0 ;; esac
   return 1   # return-class: predicate
+}
+
+# _qav_name_lines <repo> <rev> <path> <text> — prints `<n> <line>`: how many times <text> occurs in <path>
+# at <rev> (lines whitespace-normalised and backticks removed, as a quote is read; not across lines) and the
+# first line it is on, 0 when it occurs nowhere. A test is named by <text> and found when n is 1.
+_qav_name_lines() {
+  git -C "$1" show "${2}:${3}" 2>/dev/null | tr -d '`' | NEEDLE="$4" awk '
+    BEGIN { nd = ENVIRON["NEEDLE"]; gsub(/[[:space:]]+/, " ", nd); sub(/^ /, "", nd); sub(/ $/, "", nd) }
+    nd != "" { s = $0; gsub(/[[:space:]]+/, " ", s)
+      while ((p = index(s, nd)) > 0) { n++; if (n == 1) first = NR; s = substr(s, p + length(nd)) } }
+    END { print n + 0, first + 0 }'
 }
 
 # _qav_is_own_card <path> <card-id> — true if <path> is the card's own file in any board column: a file
@@ -434,7 +474,7 @@ CELL_EOF
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>] ──────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
-  local _qav_artifact_bad="" _qav_kinds
+  local _qav_artifact_bad="" _qav_artifact_malformed="" _qav_name_bad="" _qav_kinds
   local _qav_body _qav_ac_ids _qav_rows
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
@@ -531,6 +571,7 @@ kit_qa_verdict_check() {
           P)
             _qav_tok_count=$((_qav_tok_count+1))
             _qav_cur="${_qav_ev_rest%% *}"
+            _qav_cur="${_qav_cur//$'\001'/ }"
             _qav_ev_rest="${_qav_ev_rest#* }"
             _qav_cur_state="${_qav_ev_rest%% *}"
             _qav_ev_detail="${_qav_ev_rest#* }"
@@ -543,6 +584,7 @@ kit_qa_verdict_check() {
               _qav_cur_hi="${_qav_ev_detail#* }"
             else
               _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_ev_detail}: ${_qav_cur})"
+              case "$_qav_ev_detail" in "the test name"*) _qav_name_bad=1 ;; esac
             fi
             ;;
           Q)
@@ -560,7 +602,12 @@ kit_qa_verdict_check() {
                    && [ "$(_qav_range_text "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi")" != "$_qav_quote" ]; then
                 _qav_quote_short="${_qav_quote_short}${_qav_quote_short:+, }${_qid} (${_qav_cur} \"${_qav_quote}\")"
               elif ! _qav_quote_in_range "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi" "$_qav_quote"; then
-                _qav_quote_not_found="${_qav_quote_not_found}${_qav_quote_not_found:+, }${_qid} (\"${_qav_quote}\" not found at ${_qav_cur%%:*}:${_qav_cur_lo}-${_qav_cur_hi})"
+                local _qav_now _qav_now_n _qav_now_line
+                _qav_now="$(_qav_name_lines "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_quote")"
+                _qav_now_n="${_qav_now% *}"; _qav_now_line="${_qav_now#* }"
+                _qav_now=""
+                [ "$_qav_now_n" -ne 1 ] || _qav_now="; it is at ${_qav_cur%%:*}:${_qav_now_line} now"
+                _qav_quote_not_found="${_qav_quote_not_found}${_qav_quote_not_found:+, }${_qid} (\"${_qav_quote}\" not found at ${_qav_cur%%:*}:${_qav_cur_lo}-${_qav_cur_hi}${_qav_now})"
               fi
             fi
             ;;
@@ -571,7 +618,7 @@ kit_qa_verdict_check() {
         while IFS= read -r _qav_art_ev; do
           [ -n "$_qav_art_ev" ] || continue
           case "$_qav_art_ev" in
-            MALFORMED) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (an artifact pointer is '<path> <full blob sha>')" ;;
+            MALFORMED\ *) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence pointer cell '${_qptr_stripped}': ${_qav_art_ev#MALFORMED }; an artifact pointer is '<path> <full blob sha>' pairs)"; _qav_artifact_malformed=1 ;;
             SELF\ *)   _qav_self="${_qav_self}${_qav_self:+, }${_qid} (${_qav_art_ev#SELF })" ;;
             BAD\ *)    _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_art_ev#BAD })"; _qav_artifact_bad=1 ;;
           esac
@@ -615,11 +662,13 @@ kit_qa_verdict_check() {
   done <<< "$_qav_rows"
 
   if [ -n "$_qav_evidence_bad" ]; then
+    local _qav_malformed_next=""
+    [ -z "$_qav_artifact_malformed" ] || _qav_malformed_next="for an artifact row, write each file as '<path> <full blob sha>' (git rev-parse origin/<trunk>:<path>) and put any note in double quotes, which the gate does not read; "
     kit_refuse 2 qa-verdict-evidence-missing \
       "Error: ${issue_id}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
       "       A PASS needs an evidence kind from ${_qav_kinds// /|}, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
-      "Next: re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: ${_qav_malformed_next}re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -635,12 +684,14 @@ kit_qa_verdict_check() {
   if [ -n "$_qav_unresolved" ]; then
     local _qav_artifact_next=""
     [ -z "$_qav_artifact_bad" ] || _qav_artifact_next="For an artifact row, commit the artefact on the trunk first (./scripts/register-commit.sh --role QA --message \"<message>\" <path>), then paste its blob sha from git rev-parse origin/<trunk>:<path>, all forty characters. "
+    local _qav_name_next=""
+    [ -z "$_qav_name_bad" ] || _qav_name_next="For a test named in a pointer (path:\"name\"), quote the name as the file spells it, enough of it that it occurs exactly once in the file, or cite its line as path:line. "
     kit_refuse 2 qa-verdict-pointer-unresolved \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \
-      "       landed, at a line (or range) within its length; an artifact row's '<path> <full blob sha>'" \
+      "       landed, at a line (or range) within its length, or a path:\"name\" whose name occurs once in the file; an artifact row's '<path> <full blob sha>'" \
       "       must name a file that exists on the trunk with exactly that blob sha. (.claude/roles/qa.md step 4.)" \
-      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. ${_qav_artifact_next}Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. ${_qav_artifact_next}${_qav_name_next}Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

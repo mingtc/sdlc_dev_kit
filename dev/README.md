@@ -79,8 +79,8 @@ date will be read as current no matter what its first paragraph says.
 ## Verdict evidence (`evidence/`)
 
 - **[`evidence/`](evidence/)** — binary evidence a `## QA Verdict` row cites by the `artifact` kind
-  (a screenshot, a render), one `evidence/<card-id>/` directory per card, committed by QA on the
-  trunk before the row is written. The convention is in [`evidence/README.md`](evidence/README.md).
+  (a screenshot, a render), one `evidence/<card-id>/` directory per card, committed on the
+  trunk before the row is written. Who commits and who compares is in [`evidence/README.md`](evidence/README.md).
 
 ## The role outputs (`specs/`, `plans/`, `refactor/`, `design-passes/`)
 

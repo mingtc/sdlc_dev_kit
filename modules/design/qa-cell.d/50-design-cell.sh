@@ -4,7 +4,7 @@
 # Arguments: <id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>. Status 0 passes, 3 refuses, any other status is a check that could not run.
 #
 # The judgement is scripts/design/check-design-cell.py, taken from the trunk with the link check it reads. It reads the card and the
-# evidence images on the TRUNK, where QA commits them (register-commit.sh): a file only the branch holds is refused.
+# evidence images on the TRUNK, committed there with register-commit.sh: a file only the branch holds is refused.
 case "${1:-}" in -h|--help) printf '%s\n' "usage: 50-design-cell.sh <id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>  (run by the QA gate; status 0 passes, 3 refuses, other: did not run)"; exit 0 ;; esac
 id="$1" ac="$2" cell="$3" repo="$4" trunk="$6"
 broken() {  # <what> <next> — a check that cannot answer is a refusal
@@ -26,7 +26,7 @@ case "$rc" in
      broken "scripts/design/check-design-cell.py exited 0 without saying design-cell: ok." "read what it printed above, fix the tool, then land again." ;;
   1) printf '%s\n' "$out" | grep -q 'the design cell is refused' || { printf '%s\n' "$out" | tail -3; broken "scripts/design/check-design-cell.py exited 1 without a refusal." "read what it printed above, fix the tool, then land again."; }
      printf '%s\n' "$out"
-     echo "Next: write the row as UX-NNN#state@<pin>: identical; dev/evidence/$id/UX-NNN-state-pin.png, dev/evidence/$id/UX-NNN-state-build.png, commit both PNGs to the trunk (./scripts/register-commit.sh --role QA; the pin image is the render the pin commit holds, the build image a screenshot of the build), then land again; or mark the row FAIL_AC with the differing element ids (.claude/templates/design/QA-verdict-design.fragment.md)."
+     echo "Next: write the row as UX-NNN#state@<pin>: identical; dev/evidence/$id/UX-NNN-state-pin.png, dev/evidence/$id/UX-NNN-state-build.png, Dev or the project tooling commits both PNGs to the trunk (./scripts/register-commit.sh --role <role>; the pin image is the render the pin commit holds, the build image a screenshot of the build), then land again; or mark the row FAIL_AC with the differing element ids (.claude/templates/design/QA-verdict-design.fragment.md)."
      exit 3   # exit-class: internal — the check contract's refusal status; the gate turns it into its own refusal
      ;;
   *) printf '%s\n' "$out" | tail -3

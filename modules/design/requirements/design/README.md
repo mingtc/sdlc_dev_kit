@@ -112,11 +112,12 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 - A card may carry `design-scope:`: element ids it does not build. Everything else in the pinned render must match.
 - Each (UI) QA row gets a design cell with evidence kind `design`:
-  `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). QA reads
-  the pinned side from the PNG committed at the pin (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`),
-  never from the working tree, and compares the build's screenshot with it. A row with no image is not a PASS: the QA gate runs a
+  `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). The pinned
+  side is the PNG committed at the pin (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`),
+  never the working tree; a human or the orchestrator compares the build's screenshot with it (`dev/evidence/README.md`), and QA records
+  the result. A row with no image is not a PASS: the QA gate runs a
   cell check on each PASS row of kind `design`, which refuses unless every entry says `identical`, its pin is a commit the card
-  carries in `design:`, both images are PNGs committed on the trunk (QA commits them there, as the QA role says), the build image is
+  carries in `design:`, both images are PNGs committed on the trunk (by Dev or the project's tooling, never by QA's leaf worker), the build image is
   not the pin image, and the pin image is the render the pin commit holds for that screen and state. A card cannot reach
   `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites.
 

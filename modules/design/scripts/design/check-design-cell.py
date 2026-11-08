@@ -6,7 +6,7 @@ usage: check-design-cell.py REPO TRUNK CARD-ID AC-ID CELL       judge one PASS r
        check-design-cell.py --rows REPO TRUNK CARD-ID           judge that every (UI) AC has its design row
 
   REPO     the git repository;  TRUNK  the trunk commit (the card and the evidence images are read there, never from a branch or the
-           working tree: QA commits both to the trunk before landing)
+           working tree: both are committed to the trunk before landing)
   CARD-ID  the card whose verdict this is, a card or a slice (read at TRUNK, under progress/);  AC-ID  the row;  CELL  its pointer cell
 
 A cell is one entry per pinned state, then the images:
@@ -150,7 +150,7 @@ def judge_cell(repo, trunk, card_id, ac, cell, text):
                 continue
             data = bytes_at(repo, trunk, want)
             if data is None:
-                why.append(f'{tag}: {want} is not committed on the trunk ({trunk[:7]}): QA commits the evidence there first (register-commit.sh)')
+                why.append(f'{tag}: {want} is not committed on the trunk ({trunk[:7]}): commit the evidence there first (register-commit.sh)')
                 continue
             bad = png_problem(data)
             if bad:

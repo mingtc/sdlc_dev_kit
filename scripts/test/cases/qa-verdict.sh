@@ -1522,5 +1522,108 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
     || cf "qa-worker.md does not allow citing an artifact row"
   ! grep -q "evidence directory" "$r/.claude/roles/dev.md" \
     || cf "dev.md still says 'the evidence directory', whose referent is now dev/evidence/"
+  [ -f "$r/dev/evidence/README.md" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no dev/evidence/README.md in the published kit at $r"
+  grep -q 'primary checkout (not the Dev.s worktree), after' "$r/.claude/roles/qa.md" \
+    || cf "qa.md step 4 does not say the verdict table is committed from the primary checkout"
+  ! grep -q 'register-commit.sh --role QA --message "<message>" dev/evidence' "$r/.claude/roles/qa.md" \
+    || cf "qa.md still has QA commit the image it cites; dev/evidence/README.md says who commits"
+  grep -q 'QA cites an image by its blob sha and never takes or reads one' "$r/dev/evidence/README.md" \
+    || cf "dev/evidence/README.md does not state who commits and who compares an image"
   finish "README and the four card templates cite kit_qa_evidence_kinds and its built-in declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
+}
+
+# =============================================================================
+# CASE — AN `artifact` ROW THAT CANNOT BE PARSED NAMES THE ROW, THE CELL AND THE TOKEN.
+# A note typed after the pair, `(the error state)`, used to be refused with the generic form only.
+#   (a) a note after a good pair                 -> refused naming AC2, its pointer cell and the token `error`;
+#   (b) a path with no sha after it              -> refused naming AC2 and the path that has none;
+#   (c) a note in double quotes after a good pair -> LANDS (the Next: says a note goes in quotes, so it must be true).
+# =============================================================================
+case_finish_pr_qa_verdict_artifact_cell_refusal_names_the_token() {
+  cf_reset
+  make_sandbox
+
+  local ok="c13971e4a02e4dd28792b6a4756b144ebaf30bca" ev="dev/evidence" out rc
+  local ida="$SB_PREFIX-960" idb="$SB_PREFIX-961" idc="$SB_PREFIX-962" id
+  for id in "$ida" "$idb" "$idc"; do seed_issue dev_complete "$id" card chore "artifact cell $id" "feature/$id-work"; done
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$ida-card.md" artifact "$ev/$ida/render.png $ok (the error state)"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idb-card.md" artifact "$ev/$idb/render.png"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idc-card.md" artifact "$ev/$idc/render.png $ok \"the error state\""
+  publish_sandbox
+  for id in "$ida" "$idb" "$idc"; do seed_branch "$id" work "CHANGE$id.txt"; done
+  for id in "$ida" "$idb" "$idc"; do mkdir -p "$SB_WORK/$ev/$id"; printf 'render one\n' > "$SB_WORK/$ev/$id/render.png"; done
+  git -C "$SB_WORK" add "$ev" >/dev/null 2>&1
+  sbcommit -m "[QA] commit the evidence artefacts" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_finish_pr_qa_verdict_artifact_cell_refusal_names_the_token: the artefacts could not be published"
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  _qva_refused a "$ida" qa-verdict-evidence-missing "$out" "$rc" "$SB_TMP/rec-a"
+  case "$out" in *"AC2 ("*"'error'"*) : ;; *) cf "(a) the refusal does not name AC2 and the token 'error': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$out" in *"$ev/$ida/render.png"*"(the error state)"*) : ;; *) cf "(a) the refusal does not show the pointer cell: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$out" in *"double quotes"*) : ;; *) cf "(a) the Next: does not say a note goes in double quotes: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  _qva_refused b "$idb" qa-verdict-evidence-missing "$out" "$rc" "$SB_TMP/rec-b"
+  case "$out" in *"AC2 ("*"'$ev/$idb/render.png'"*) : ;; *) cf "(b) the refusal does not name AC2 and the path that has no sha: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-c" "$SB_WORK/scripts/finish-pr.sh" "$idc" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a pair with its note in double quotes — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$idc-card.md" || cf "(c) the card did not advance to qa_complete/"
+
+  finish "an artifact cell the gate cannot parse is refused naming the row, the pointer cell and the token it could not read, with a Next: that puts a note in double quotes (a, b); the same pair with its note quoted lands (c)"
+  teardown
+}
+
+# =============================================================================
+# CASE — A TEST CAN BE POINTED AT BY NAME: `path:"name"`, in place of `path:line`.
+# The gate resolves the quoted name to exactly one line of the file at the revision being landed (the
+# name, whitespace-normalised and backticks ignored, occurs once), and the row stands though lines
+# above it move. A planted line holds the test's name.
+#   (a) a name that occurs once                         -> LANDS;
+#   (b) the same row beside a path:line pointer         -> LANDS;
+#   (c) a name that is nowhere in the file              -> qa-verdict-pointer-unresolved, says so;
+#   (d) a name that occurs twice                        -> qa-verdict-pointer-unresolved, says how many and how to fix;
+#   (e) a file that does not exist                      -> qa-verdict-pointer-unresolved;
+#   (f) a quote that moved to another line is found     -> qa-verdict-quote-not-found, naming the line it is at now;
+#   (g) a quote that occurs twice and is on neither     -> qa-verdict-quote-not-found, naming no line.
+# =============================================================================
+case_finish_pr_qa_verdict_test_named_in_the_pointer() {
+  cf_reset
+  make_sandbox
+
+  local name='AC3 (D-98): shows the error state'
+  local ida="$SB_PREFIX-950" idb="$SB_PREFIX-951" idc="$SB_PREFIX-952" idd="$SB_PREFIX-953" ide="$SB_PREFIX-954" idf="$SB_PREFIX-955" idg="$SB_PREFIX-956" x
+
+  _qvp_land "$ida" named "| AC1 | PASS | test | @EV@:\"$name\" |" "it(\"$name\", () => {})"
+  [ "$_QVP_RC" -eq 0 ] || cf "(a) a test named once — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -5 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$ida-named.md" || cf "(a) the card did not advance to qa_complete/"
+
+  _qvp_land "$idb" beside "| AC1 | PASS | file:line | @CHG@:1 \"a real change\"; @EV@:\"$name\" |" "it(\"$name\", () => {})"
+  [ "$_QVP_RC" -eq 0 ] || cf "(b) a named test beside a path:line pointer — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -5 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$idb-beside.md" || cf "(b) the card did not advance to qa_complete/"
+
+  _qvp_land "$idc" absent "| AC1 | PASS | test | @EV@:\"$name\" |" "it(\"a different test name\", () => {})"
+  _qvp_refused "(c) a name that is not in the file" "$idc" absent qa-verdict-pointer-unresolved
+  case "$_QVP_OUT" in *"not in"*) : ;; *) cf "(c) the refusal does not say the name is not in the file: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$idd" twice "| AC1 | PASS | test | @EV@:\"$name\" |" "it(\"$name\", () => {}); it(\"$name\", () => {})"
+  _qvp_refused "(d) a name that occurs twice" "$idd" twice qa-verdict-pointer-unresolved
+  case "$_QVP_OUT" in *"2 times"*) : ;; *) cf "(d) the refusal does not say how many times the name occurs: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_QVP_OUT" in *"once"*) : ;; *) cf "(d) the Next: does not say the name must occur once: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$ide" nofile "| AC1 | PASS | test | nosuch.test.js:\"$name\" |"
+  _qvp_refused "(e) a file that is not there" "$ide" nofile qa-verdict-pointer-unresolved
+  case "$_QVP_OUT" in *"nosuch.test.js"*) : ;; *) cf "(e) the refusal does not name the file: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$idf" moved '| AC1 | PASS | file:line | @EV@:1 "the shifted assertion is here" |' 'the shifted assertion is here, and only here'
+  _qvp_refused "(f) a quote that moved" "$idf" moved qa-verdict-quote-not-found
+  x="$(wc -l < "$SB_WORK/EVIDENCE${idf##*-}.md" | tr -d ' ')"
+  case "$_QVP_OUT" in *"it is at EVIDENCE${idf##*-}.md:$x now"*) : ;; *) cf "(f) the refusal does not name the line the quote is at now (EVIDENCE${idf##*-}.md:$x): $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$idg" twicemoved '| AC1 | PASS | file:line | @EV@:1 "the shifted assertion is here" |' 'the shifted assertion is here, and the shifted assertion is here'
+  _qvp_refused "(g) a quote on two lines of the file" "$idg" twicemoved qa-verdict-quote-not-found
+  case "$_QVP_OUT" in *"it is at"*) cf "(g) the refusal names a line for a quote that occurs twice: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  finish "a test named in the pointer, path:\"name\", resolves to the one line holding the name and lands (a), beside a path:line pointer too (b); a name not in the file (c), in it twice (d) or in a file that is not there (e) is refused saying which; a quote that moved is refused naming the line it is at now (f), and no line when it is in several (g)"
+  teardown
 }
