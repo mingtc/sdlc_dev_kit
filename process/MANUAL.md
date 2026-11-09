@@ -699,8 +699,8 @@ your own** rather than a `git switch` in the shared root, and keep the multi-ses
 `progress.md` append-only so two sessions' entries merge instead of colliding.
 
 **And know what your detector cannot see.** A commit dropped by somebody's rebase is reachable from
-no ref, which is **outside the span `check-board.sh` prints** — it says so on every run, in the line
-quoted above. So a displaced commit is not something the drift report will surface for you; if a leg
+no ref, which is **outside the span `check-board.sh` prints** — `check-board.sh --full` says so on every
+run, in the line quoted above (the default report folds an arm with no finding into one named line). So a displaced commit is not something the drift report will surface for you; if a leg
 rebases the trunk under you, the reflog is the only witness.
 
 ### Role-attribution commit prefixes

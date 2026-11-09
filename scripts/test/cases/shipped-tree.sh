@@ -2699,7 +2699,7 @@ case_seam_shape_reformat_is_loud() {
   #    With both auto-detections removed, check-board has nothing but the declaration left.
   git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/check-board.sh" 2>&1 )" || true
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/check-board.sh" --full 2>&1 )" || true
   printf '%s' "$out" | grep -F '<unresolved trunk>' >/dev/null \
     || cf "(c) check-board.sh did not announce the unresolved trunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
 

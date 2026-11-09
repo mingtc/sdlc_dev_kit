@@ -56,7 +56,8 @@ ladder and tooling still expect. This contract is what "changed" must mean.
    where the cell is unfilled. It reports and never refuses, and it cannot see a model set by a launch flag
    or a session toggle, nor a hand edit on a tree whose ladder is unfilled and where `set-models.sh` never ran.
    Arm `[s]` also counts, as a second reading, the hand-kept `## Model & effort contract` rows in the role
-   docs that still read `<fill in>`: `set-models.sh` does not write those tables, and it does fill the
+   docs that still read `<fill in>` (a row carrying `DECLARED NONE` anywhere in it is answered and not
+   counted): `set-models.sh` does not write those tables, and it does fill the
    ladder rows in `orchestrator.md`, which that count leaves out. Its ✓ appears only over a compared field.
 
 ## 5. MINIMAL INTERFACE

@@ -57,6 +57,9 @@
 # tree and say so. NO FETCH: a hang at session start is worse than a dated answer, so the ref is
 # read as it stands and labelled with its sha.
 #
+# PRESENTATION (process/contracts/drift-report.md § 4 item 6): by default the findings print first and
+# the arms that found nothing fold into one named line; --full prints every arm in the order below, with
+# each one's count and source. Both end on the same verdict line and print the same ⚠ lines.
 # Callers: the SessionStart hook (scripts/hooks/session-start.sh); release.sh gate (d) and
 # kit-init.sh self-check (3), which both key on its verdict line; a human at session close.
 # Exit 0 whatever it finds (drift is in the output, not the exit status); 2 on a usage error.
@@ -66,23 +69,74 @@ set -uo pipefail
 # ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): a usage request is answered first,
 #    in any position; an unknown option exits 2 before any inspection. The exit-0 convention
 #    covers what the report FOUND, not a mis-invocation.
+CB_FULL=0
 for _a in "$@"; do
   case "$_a" in
     -h|--help)
-      echo "Usage: $(basename "$0")"
+      echo "Usage: $(basename "$0") [--full]"
       echo ""
       echo "Reports board drift. The arms and their letters are printed as it runs."
       echo ""
-      echo "Takes no options. Informational by convention: it exits 0 whatever it finds,"
-      echo "because drift belongs in the output and not in the exit status. Read-only —"
-      echo "it inspects files and 'git status', and never mutates."
+      echo "By default the findings (⚠) print first, then any check that did not run, then ONE line"
+      echo "naming every arm that found nothing, then the verdict. --full prints every arm in order,"
+      echo "each with its count and the source it read."
+      echo ""
+      echo "Informational by convention: it exits 0 whatever it finds, because drift belongs in the"
+      echo "output and not in the exit status. Read-only — it inspects files and the repository's"
+      echo "status, and never mutates."
       exit 0 ;;
   esac
 done
-if [ $# -gt 0 ]; then
-  echo "Error: unknown option: $1" >&2
-  echo "  $(basename "$0") takes no options; run it with no arguments." >&2
-  exit 2   # exit-class: usage
+for _a in "$@"; do
+  case "$_a" in
+    --full) CB_FULL=1 ;;
+    *)
+      echo "Error: unknown option: $_a" >&2
+      echo "  $(basename "$0") takes one option, --full; run it with no arguments for the folded report." >&2
+      exit 2 ;;   # exit-class: usage
+  esac
+done
+
+# ── THE FOLDED REPORT (the default). The report below is written arm by arm, in letter order, and a
+#    session that reads it through the SessionStart hook is cut at a byte budget, so what prints first
+#    is what is read. The default therefore runs the full report as a child (--full) and prints it
+#    reordered: the preamble, every arm holding a ⚠ line, every arm that did not run (a skipped check
+#    is never folded away), ONE line naming each arm that found nothing, then the verdict. A deciding
+#    arm without a ⚠ line stays unfolded while the verdict is not clean, so the verdict can be traced.
+#    Nothing is rewritten: every line printed is a line --full prints, and every ⚠ and every
+#    did-not-run line is printed. With no verdict line to anchor on, the child's report is printed
+#    as it came. scripts/hooks/session-start.sh keys on the folded line's lead.
+if [ "$CB_FULL" -eq 0 ]; then
+  cb_raw_rc=0
+  cb_raw="$("${BASH:-bash}" "${BASH_SOURCE[0]}" --full)" || cb_raw_rc=$?
+  printf '%s\n' "$cb_raw" | LC_ALL=C awk '
+    { raw[++nraw] = $0 }
+    /^── board-drift:/ { verdict = $0; next }
+    verdict != "" { next }
+    /^\[([a-z][0-9]*|\+[A-Za-z0-9._-]+)\]/ {
+      n++; head[n] = $0; t = $0; sub(/\].*$/, "]", t); tag[n] = t; body[n] = $0; next
+    }
+    n == 0 { pre = pre $0 "\n"; next }
+    { body[n] = body[n] "\n" $0 }
+    END {
+      if (verdict == "") { for (i = 1; i <= nraw; i++) print raw[i]; exit }
+      clean = (verdict ~ /board-drift: clean/)
+      printf "%s", pre
+      for (i = 1; i <= n; i++) {
+        cls[i] = 3
+        if (body[i] ~ /⚠/) cls[i] = 1
+        else if (body[i] ~ /DID NOT RUN|did not run|\(skipped|not measured/) cls[i] = 2
+        else if (!clean && head[i] !~ /reports only/) cls[i] = 2
+      }
+      for (c = 1; c <= 2; c++) for (i = 1; i <= n; i++) if (cls[i] == c) {
+        b = body[i]; sub(/\n+$/, "", b); print b; print ""
+      }
+      list = ""
+      for (i = 1; i <= n; i++) if (cls[i] == 3 && index(" " list " ", " " tag[i] " ") == 0) list = list (list == "" ? "" : " ") tag[i]
+      if (list != "") { print "── no findings, folded (./scripts/check-board.sh --full prints each one with its count and source): " list; print "" }
+      print verdict
+    }'
+  exit "$cb_raw_rc"   # exit-class: internal  (0 unless the full report itself died; nothing it finds sets it)
 fi
 
 # ── Greppable defaults: consumers and tests DERIVE these with sed. Never re-type them elsewhere.
@@ -1194,18 +1248,24 @@ else
   else
     for g_arr in CODE_GLOBS TEST_GLOBS; do
       g_arr_n=0
+      g_arr_nn=0
       g_arr_decl=0
       g_arr_entries=""
       # lib/glob-array.sh's kit_glob_array, the reader the ablation check uses too: an `E|` line per
-      # real array entry and a `D` line if, and only if, a comment line inside the same parens is
-      # the whole-line `# DECLARED EMPTY …` sentinel. The tag is the first character of the line so
-      # the shell loop below can branch on it with a plain `case`.
+      # real array entry, an `N|` line per entry its own line marks `# DECLARED NONE` (a decided
+      # absence, counted apart and never matched against files), and a `D` line if, and only if, a
+      # comment line inside the same parens is the whole-line `# DECLARED EMPTY …` sentinel (or every
+      # entry is an `N`). The tag is the first character of the line so the shell loop below can
+      # branch on it with a plain `case`.
       while IFS= read -r g_arr_tagged; do
         case "$g_arr_tagged" in
           E\|*) g_arr_n=$((g_arr_n+1)); g_arr_entries="${g_arr_entries}${g_arr_tagged#E|}"$'\n' ;;
+          N\|*) g_arr_nn=$((g_arr_nn+1)) ;;
           D) g_arr_decl=1 ;;
         esac
       done < <(kit_glob_array "$g_arr" "$g_cfg")
+      g_arr_nnote=""
+      [ "$g_arr_nn" -eq 0 ] || g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', which no file is asked to match)"
       if [ "$g_arr_n" -gt 0 ]; then
         # A TEST_GLOBS entry no file matches guards nothing: the ablation rule it feeds never
         # sees a test path. Matched with `case` against repository-relative paths, exactly as its
@@ -1230,10 +1290,10 @@ else
           done <<< "$g_arr_entries"
         fi
         if [ -n "$g_arr_dead" ]; then
-          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries, and these match no file  ⚠ $g_arr_dead — a glob nothing matches enforces nothing; correct it, or add the first file it should match — $(cb_src)"
+          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries$g_arr_nnote, and these match no file  ⚠ $g_arr_dead — a glob nothing matches enforces nothing; correct it, or add the first file it should match — $(cb_src)"
           g_measured=$((g_measured+1))   # reported, never a finding: a first day has no test file yet
         else
-          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
+          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries$g_arr_nnote  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
           g_measured=$((g_measured+1))
         fi
         # The kit's own self-test lives under scripts/test/, and globs match from the repository
@@ -1261,6 +1321,9 @@ else
             echo "      FILL (TEST_GLOBS vs scripts/test/**): all $g_st_n file(s) under scripts/test/ are covered by a declared entry  ✓ — $(cb_src)"
           fi
         fi
+      elif [ "$g_arr_nn" -gt 0 ]; then
+        echo "      FILL (scripts/config.sh $g_arr): every one of its $g_arr_nn entry/entries is marked '# DECLARED NONE'  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
+        g_measured=$((g_measured+1))
       elif [ "$g_arr_decl" -eq 1 ]; then
         echo "      FILL (scripts/config.sh $g_arr): empty, and declared DECLARED EMPTY  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
         g_measured=$((g_measured+1))
@@ -1324,10 +1387,14 @@ else
     g_measured=$((g_measured+1))
   else
     g_diu_lp="$CB_TREE/$GRADUATION_LOCAL_PROCEDURES"
-    g_diu_unfilled=""
+    g_diu_unfilled=""; g_diu_kind="kept-on-purpose"
     for f in $g_diu_pop; do
       g_diu_line="- **\`$f\` (DELETE-IF-UNUSED) kept, on purpose.**"
+      g_diu_none="- **\`$f\` (DELETE-IF-UNUSED) DECLARED NONE"
       if [ -f "$g_diu_lp" ] && grep -qF -- "$g_diu_line" "$g_diu_lp" 2>/dev/null; then
+        g_measured=$((g_measured+1))
+      elif [ -f "$g_diu_lp" ] && grep -qF -- "$g_diu_none" "$g_diu_lp" 2>/dev/null; then
+        g_diu_kind="kept-on-purpose or DECLARED NONE"
         g_measured=$((g_measured+1))
       else
         g_diu_unfilled="$g_diu_unfilled $f"
@@ -1335,9 +1402,9 @@ else
       fi
     done
     if [ -n "$g_diu_unfilled" ]; then
-      echo "      DELETE-IF-UNUSED:$g_diu_unfilled  ⚠ no recorded decision in $GRADUATION_LOCAL_PROCEDURES — remove the member, or record keeping it with the exact line \`- **\`<path>\` (DELETE-IF-UNUSED) kept, on purpose.**\` (process/SEED.md step 8); a mention elsewhere, or by basename only, does not count — $(cb_src)"
+      echo "      DELETE-IF-UNUSED:$g_diu_unfilled  ⚠ no recorded decision in $GRADUATION_LOCAL_PROCEDURES — remove the member, or record keeping it with the exact line \`- **\`<path>\` (DELETE-IF-UNUSED) kept, on purpose.**\`, or \`- **\`<path>\` (DELETE-IF-UNUSED) DECLARED NONE — <why>.**\` if this project has no use for it and no decision to make (process/SEED.md step 8); a mention elsewhere, or by basename only, does not count — $(cb_src)"
     else
-      echo "      DELETE-IF-UNUSED:$g_diu_pop carry a recorded kept-on-purpose decision in $GRADUATION_LOCAL_PROCEDURES  ✓ (population derived from KIT-DISPOSITION: DELETE-IF-UNUSED declarations, not a list typed into this script) — $(cb_src)"
+      echo "      DELETE-IF-UNUSED:$g_diu_pop carry a recorded $g_diu_kind decision in $GRADUATION_LOCAL_PROCEDURES  ✓ (population derived from KIT-DISPOSITION: DELETE-IF-UNUSED declarations, not a list typed into this script) — $(cb_src)"
     fi
   fi
 

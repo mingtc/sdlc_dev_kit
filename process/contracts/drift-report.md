@@ -316,12 +316,22 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    contract-backed key, item 4); this token bounds the damage where a second read is unavoidable.
    *And it binds the arm too:* an advisory arm that omits the token is a defect in the arm, because
    its advisories will be read as decisions.
+6. **Presentation may reorder and fold; it may not drop.** The report's reader may be cut at a byte
+   budget, so a presentation can print every arm that holds a finding first, then every check that
+   did not run, then ONE line naming each arm that found nothing, then the verdict. *Why:* a cut
+   report keeps its head, and a head made of clean headings keeps nothing a reader must act on.
+   *What may not change:* the verdict line, every finding line, and every skipped or did-not-run line
+   print exactly as the full report prints them; an arm that found nothing is **named** in the one
+   line, never silently absent (item 1); and the full report, with each reading's count and source
+   (items 2 and 3), stays one option away and names that option on the folded line. The shipped
+   report folds by default and prints the full one under `--full`.
 
 ## 5. MINIMAL INTERFACE
 
 **In:** the board; the running log; recent history; **the state of every home the process publishes
 from**; the declared thresholds — **each read from a source the report names, not from an ambient one.**
-**Out:** one line per check with its count or its skip reason **and its source**, then one overall
+**Out:** one line per check with its count or its skip reason **and its source** (§ 4 item 6 lets a
+presentation fold the checks that found nothing into one named line), then one overall
 verdict line.
 **Not in:** any repair. Every finding names the operation that fixes it and stops there. **Not in
 either:** a fetch. Refreshing the published state is a network act with no bound; the report reads

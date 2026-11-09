@@ -218,7 +218,7 @@ cb_set_dep() {
 
 # Run the SANDBOX copy of check-board.sh with CLAUDE_PROJECT_DIR unset: inherited, it would point
 # the copy at the REAL board.
-cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" "$@" 2>&1 ); }
+cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" --full "$@" 2>&1 ); }
 # The report as the SessionStart hook and a session close read it: findings first, clean arms folded.
 cb_run_default() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
@@ -250,7 +250,7 @@ DQEOF
 
   # SCOPE THE ASSERTIONS TO THE [j] SECTION: arms [a] and [d] also name these ids, because the
   # fixture puts real cards on the board (instruments.md § A.6).
-  _j_section() { cd "$SB_WORK" && ./scripts/check-board.sh 2>&1 | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
+  _j_section() { cd "$SB_WORK" && ./scripts/check-board.sh --full 2>&1 | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
   out="$(_j_section)"
 
   # --- must fire -----------------------------------------------------------------
@@ -310,7 +310,7 @@ case_check_board_arm_j_reads_the_named_source() {
   publish_sandbox
   origin_has_path "dev/downtime-queue.md" || _fixture_die "case_check_board_arm_j_reads_the_named_source: the queue is not on the trunk."
 
-  _j_at() { ( cd "$1" && "$SB_WORK/scripts/check-board.sh" 2>&1 ) | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
+  _j_at() { ( cd "$1" && "$SB_WORK/scripts/check-board.sh" --full 2>&1 ) | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
   out="$(_j_at "$SB_WORK/dev")"
   printf '%s' "$out" | grep 'ZZQ-201' >/dev/null || cf "(a) run from dev/, [j] did not report the landed claim: $(printf '%s' "$out" | tr '\n' '|')"
   printf '%s' "$out" | grep 'read from: ' >/dev/null || cf "(a) [j] does not name the source it read: $(printf '%s' "$out" | head -1)"
@@ -2148,7 +2148,7 @@ case_check_board_shallow_clone_does_not_narrow() {
     || _fixture_die "case_check_board_shallow_clone_does_not_narrow: the shallow clone resolves no add-commit at all, so the re-homing this case is about does not occur here."
 
   local out
-  out="$( cd "$sh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"
+  out="$( cd "$sh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full 2>&1 )"
   printf '%s\n' "$out" | grep 'THIS IS A SHALLOW CLONE' >/dev/null \
     || cf "the report does not say the history is shallow — the arms narrowed against a graft boundary and presented it as a derived epoch: $out"
   printf '%s\n' "$out" | grep "scope: every commit after ${grafted:0:9}" >/dev/null \
@@ -2639,7 +2639,7 @@ case_check_board_from_a_worktree() {
 
   # Run the worktree's OWN copy, so REPO_ROOT resolves to the worktree — which is
   # exactly the situation the trap lived in.
-  out="$( cd "$wt" && env -u CLAUDE_PROJECT_DIR "$wt/scripts/check-board.sh" 2>&1 )"; rc=$?
+  out="$( cd "$wt" && env -u CLAUDE_PROJECT_DIR "$wt/scripts/check-board.sh" --full 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc from a linked worktree (exit 0 ALWAYS)"
   printf '%s\n' "$out" | grep "origin/$SB_TRUNK" >/dev/null \
     || cf "the trunk-property arms do not name origin/$SB_TRUNK when run from a worktree: $out"
@@ -3676,7 +3676,7 @@ case_check_board_answered_question_cited_before_the_answer() {
   rm -rf "$nh"; mkdir -p "$nh"
   ( cd "$SB_WORK" && tar -cf - --exclude=.git . ) | ( cd "$nh" && tar -xf - ) || _fixture_die "could not copy the sandbox tree"
   git -C "$nh" init -q >/dev/null 2>&1 || _fixture_die "git init failed in the copy"
-  out="$( cd "$nh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  out="$( cd "$nh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full 2>&1 )"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
   printf '%s\n' "$sec" | grep -i 'no commit history' >/dev/null || cf "iv: the arm did not say it could read no history: $sec"
   printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null && cf "iv: $r2 is listed without history, where any citation counts: $sec"
 

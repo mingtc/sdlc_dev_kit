@@ -69,6 +69,11 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 # parens, `# DECLARED EMPTY — <why>`, e.g. because this project has no branch-gated code path.
 # [g] then reports it as declared rather than unfilled; the hook's own behaviour does not change
 # — empty is still unenforced.
+#
+# ONE ENTRY THAT MATCHES NOTHING ON PURPOSE (a path the project dropped): end that entry's own line
+# with `# DECLARED NONE — <why>`. The entry is then not enforced and [g] stops warning that it
+# matches no file; an entry without the comment still warns. The same words answer a model-table
+# row and a DELETE-IF-UNUSED member (process/SEED.md § day one's checklist).
 CODE_GLOBS=(
 )
 
@@ -93,7 +98,8 @@ CODE_GLOBS=(
 # src/a.test.js.
 #
 # LEAVING IT EMPTY ON PURPOSE: the same `# DECLARED EMPTY — <why>` comment line, inside the
-# parens, that CODE_GLOBS documents above.
+# parens, that CODE_GLOBS documents above; and one entry left matching nothing on purpose takes
+# the same `# DECLARED NONE — <why>` comment on its line.
 TEST_GLOBS=(
 )
 

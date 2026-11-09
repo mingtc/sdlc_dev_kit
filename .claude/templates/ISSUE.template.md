@@ -66,7 +66,7 @@ shipped-surface delta), add an AC stating explicitly that it has no notes delive
 
 ## Ablation
 
-Filled by Dev, only if this branch's diff touches a path the project's `TEST_GLOBS` (`scripts/config.sh`) declares as a test path — `finish-pr.sh` refuses such a landing if this section is absent or not well formed (a non-empty `Broken:` line and a non-empty `Red line:` line). Not required, and left as-is, when the diff touches no declared test path. The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
+Filled by Dev, only if this branch's diff touches a path the project's `TEST_GLOBS` (`scripts/config.sh`) declares as a test path — `finish-pr.sh` refuses such a landing if this section is absent or not well formed (a non-empty `Broken:` line and a non-empty `Red line:` line). Not required, and left as-is, when the diff touches no declared test path. If the red line appears only after a build step (a test that reads built output), name that step on the `Broken:` line. The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
 
 Broken: <placeholder>
 Red line: <placeholder>

@@ -50,7 +50,7 @@ parent's AC set is the **union** of all its subtasks' AC; no AC is dropped or in
 
 ## Ablation
 
-Filled by Dev, only if this slice's own diff (against its declared `branch:`, where one exists) touches a path the project's `TEST_GLOBS` (`scripts/config.sh`) declares as a test path — `subtask.sh move <id> qa_complete` refuses such a move if this section is absent or not well formed (a non-empty `Broken:` line and a non-empty `Red line:` line). Not required, and left as-is, when the diff touches no declared test path. The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
+Filled by Dev, only if this slice's own diff (against its declared `branch:`, where one exists) touches a path the project's `TEST_GLOBS` (`scripts/config.sh`) declares as a test path — `subtask.sh move <id> qa_complete` refuses such a move if this section is absent or not well formed (a non-empty `Broken:` line and a non-empty `Red line:` line). Not required, and left as-is, when the diff touches no declared test path. If the red line appears only after a build step (a test that reads built output), name that step on the `Broken:` line. The card is the trunk's: land this section's edit with `./scripts/register-commit.sh`, never on a work branch.
 
 Broken: <placeholder>
 Red line: <placeholder>

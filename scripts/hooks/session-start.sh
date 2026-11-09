@@ -32,8 +32,10 @@ fi
 
 # 2. Board drift — surface it into context (stdout is added to the session).
 # The harness cuts a hook's stdout to a short preview above roughly 10,000 bytes, so the
-# report is printed whole only up to OUT_BUDGET; past it, the arm headings and every finding
-# line (⚠) are printed, cut at the budget, the verdict last, with the command for the full text.
+# report is printed whole only up to OUT_BUDGET; past it, the arm headings, every finding
+# line (⚠) and the one line naming the arms that found nothing are printed, cut at the budget,
+# the verdict last, with the command for the full text. check-board.sh prints its findings
+# first, so the cut falls on the quiet end of the report.
 OUT_BUDGET=8000
 if [ -x "$ROOT/scripts/check-board.sh" ]; then
   REPORT="$("$ROOT/scripts/check-board.sh" 2>&1 || true)"
@@ -44,7 +46,7 @@ if [ -x "$ROOT/scripts/check-board.sh" ]; then
     NOTE="── check-board.sh: the full report is over this hook's ${OUT_BUDGET}-byte output budget; run scripts/check-board.sh for all of it. Arm headings and findings:"
     FIXED="$(printf '%s\n%s\n' "$NOTE" "$VERDICT" | LC_ALL=C wc -c | tr -d ' ')"
     printf '%s\n' "$NOTE"
-    printf '%s\n' "$REPORT" | LC_ALL=C grep -vE '^── board-drift:' | LC_ALL=C grep -E '^\[([a-z][0-9]*|\+[A-Za-z0-9._-]+)\]|⚠' \
+    printf '%s\n' "$REPORT" | LC_ALL=C grep -vE '^── board-drift:' | LC_ALL=C grep -E '^\[([a-z][0-9]*|\+[A-Za-z0-9._-]+)\]|⚠|^── no findings, folded' \
       | LC_ALL=C awk -v room="$((OUT_BUDGET - FIXED))" 'seen[$0]++ {next} {room -= length($0) + 1; if (room < 0) exit; print}' || true
     printf '%s\n' "$VERDICT"
   fi

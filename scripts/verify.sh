@@ -180,7 +180,8 @@ done
 
 # (0) --list is INFORMATIONAL and answers even an empty table — "what does this
 #     project gate on?" is exactly the question an adopter asks before filling it
-#     in, so it must not be behind the refusal below.
+#     in, so it must not be behind the refusal below. finish-pr.sh reads the "the table is empty"
+#     line below to name the route out of an empty table; change the words in both.
 if [ "$LIST" -eq 1 ]; then
   echo "verify.sh — ${#GATES[@]} declared gate(s), in run order:"
   for rec in ${GATES[@]+"${GATES[@]}"}; do

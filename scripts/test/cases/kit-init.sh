@@ -2860,7 +2860,7 @@ case_first_mile() {
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
 
   # A freshly minted card produces NO drift-[a] finding.
-  cb_a() { CLAUDE_PROJECT_DIR="$SB_WORK" "$SB_WORK/scripts/check-board.sh" 2>&1 \
+  cb_a() { CLAUDE_PROJECT_DIR="$SB_WORK" "$SB_WORK/scripts/check-board.sh" --full 2>&1 \
              | awk '/^\[a\]/{a=1} a&&/^\[b\]/{exit} a{print}'; }
   out="$(cb_a)"
   printf '%s\n' "$out" | grep '⚠' >/dev/null && cf "a FRESHLY MINTED card produced a drift-[a] finding: $out"

@@ -144,6 +144,13 @@ decision, in this exact form, one line per kept file, `<path>` being the declari
 `(DELETE-IF-UNUSED) kept, on purpose.` — because arm `[g]` matches that line, not the member's
 basename and not a sentence that merely says you kept it.
 
+**A member this project has no use for and no decision to make about** takes the same line with
+`DECLARED NONE` in place of `kept, on purpose.`: ``- **`<path>` (DELETE-IF-UNUSED) DECLARED NONE — <why>.**``.
+`DECLARED NONE` is the one answer for a decided absence, written the same way for a `TEST_GLOBS` entry
+(a trailing `# DECLARED NONE — <why>` comment on its line in `scripts/config.sh`) and for a model-table
+row (the words anywhere in the row). `[g]` and `[s]` stop warning about what carries it and warn as
+before about what does not.
+
 **Why it is a closing step and not an opening one:** on day zero you have no contradictions yet,
 and a file of invented rules is worse than none. By the end of day one you have several — and you
 will not remember them on day two.
@@ -262,7 +269,8 @@ you want to know how a stranger meets what you shipped.
   UNENFORCED, not "no code or tests exist" — so `scripts/githooks/pre-commit` and
   `scripts/finish-pr.sh`'s ablation check stay silently off until you act. Fill either with your
   globs, or, if a seam genuinely has none, declare it empty on purpose in the form config.sh
-  documents beside each array —
+  documents beside each array (one entry that matches nothing on purpose takes `# DECLARED NONE — <why>`
+  on its line) —
   `./scripts/check-board.sh`'s `[g]` arm measures both and reports which. **Name `scripts/test/*`
   in `TEST_GLOBS` beside your own test paths** (`*` matches across `/`; `**` is not special): it is the kit's own
   self-test, and an edit to it is ablation-checked only if a glob covers it — `"test/*"` does not,
@@ -278,7 +286,8 @@ you want to know how a stranger meets what you shipped.
 - **`PRD-001` exists** (step 6) and the first issue cites it;
 - **the role docs' `Model & effort contract` rows are filled.** `./scripts/set-models.sh` does not fill
   them (what it writes: `process/contracts/model-provisioning-seam.md`);
-  `check-board`'s `[s]` counts the rows still `<fill in>` (it reports, it does not gate). A role doc
+  `check-board`'s `[s]` counts the rows still `<fill in>` (it reports, it does not gate). A row for a
+  class this project does not use says `DECLARED NONE` anywhere in it and is not counted. A role doc
   removed under `DELETE-IF-UNUSED` takes its rows with it;
 - **one** issue has gone `todo → in_progress → dev_complete → qa_complete` with its evidence in its
   `## QA Verdict` table — a row per acceptance criterion, which the `qa_complete` move refuses to

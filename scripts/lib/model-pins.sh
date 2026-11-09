@@ -121,7 +121,9 @@ kit_model_drift() {
 # effort contract table still holds a `<fill in…>` cell: how many rows, and in which files. The rows
 # set-models.sh writes — orchestrator.md's ladder rows, one per class label — are not counted: it
 # fills them, and the line would stay true of rows it just wrote. Nothing else shows the per-role
-# tables are blank. Reads <root> only; prints nothing when none is blank or <root> has no role docs.
+# tables are blank. A row carrying `DECLARED NONE` anywhere in it is answered: the project has no use for
+# that class, and the row is not counted. Reads <root> only; prints nothing when none is blank or <root>
+# has no role docs.
 kit_model_blank_rows() {
   local cdir f n total=0 names="" labels
   cdir="$(kit_model_claude_dir "$1")"
@@ -132,7 +134,7 @@ kit_model_blank_rows() {
     n="$(awk -v ladder="$([ "$(basename "$f")" = orchestrator.md ] && echo 1)" -v labels="$labels" '
       BEGIN { k = split(labels, L, "|") }
       /^## /{ s = ($0 ~ /^## Model & effort contract/) }
-      s && /^\|/ && /<fill in/ {
+      s && /^\|/ && /<fill in/ && !/DECLARED NONE([^A-Za-z0-9_]|$)/ {
         if (ladder) { for (i = 1; i <= k; i++) if (L[i] != "" && index($0, "| **" L[i]) == 1) next }
         c++
       }
@@ -142,5 +144,5 @@ kit_model_blank_rows() {
     names="${names:+$names, }$(basename "$f") ($n)"
   done
   [ "$total" -gt 0 ] || return 0
-  echo "      ⚠ $total role-doc model row(s) still \`<fill in>\`: $names — set-models.sh does not write the role docs' own tables; fill them by hand (reports only)"
+  echo "      ⚠ $total role-doc model row(s) still \`<fill in>\`: $names — set-models.sh does not write the role docs' own tables; fill them by hand, or write \`DECLARED NONE\` in a row this project has no use for (reports only)"
 }

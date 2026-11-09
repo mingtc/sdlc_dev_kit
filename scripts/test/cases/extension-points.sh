@@ -580,7 +580,7 @@ case_check_board_runs_check_board_d_arms_and_cannot_be_ended_by_one() {
 
   # (a) ABSENT directory: no `[+` line, the exit is 0, the closing verdict line is there.
   rm -rf "$dir"
-  out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(a) check-board exited $rc with no check-board.d/ (exit 0 ALWAYS)"
   printf '%s\n' "$out" | grep -F '[+' >/dev/null && cf "(a) a check-board.d header printed with no check-board.d/"
   base_verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"

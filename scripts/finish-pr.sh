@@ -628,12 +628,27 @@ if "${PREMERGE_CMD[@]}"; then
   echo "  pre-merge verify --quick: PASS"
 else
   _pre_rc=$?
+  # A runner that refused on an EMPTY gates table is the one refusal with a route out: the table
+  # has to be on the trunk before the trunk's runner can judge anything, and a branch that
+  # declares the gates cannot get them there through this landing. `verify.sh --list` says so in
+  # these words. Asked before the trunk's staged copy is removed; a stubbed gate is not asked.
+  _pre_empty=""
+  if [ "$_pre_rc" -eq 2 ] && [ -z "${FINISH_PR_PREMERGE_CMD:-}" ]; then
+    _pre_list="$("${PREMERGE_CMD[0]}" --list 2>/dev/null || true)"
+    case "$_pre_list" in *"the table is empty"*) _pre_empty=1 ;; esac
+  fi
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
   # All three reds refuse, named apart: verify.sh exits 2 when it never ran at all (a
   # configuration problem — nothing was measured, nothing was even attempted) and 3 when a gate
   # could not run (nothing was measured either, but the runner did start). Only a plain FAIL
   # (exit 1, or anything else) means the branch itself measured red.
-  if [ "$_pre_rc" -eq 2 ]; then
+  if [ "$_pre_rc" -eq 2 ] && [ -n "$_pre_empty" ]; then
+    kit_refuse 1 premerge-gate-refused-to-run \
+      "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: the GATES table is empty) — refusing to merge '${BRANCH}'." \
+      "       No squash, no push, no branch deletion, no issue advance." \
+      "       ${DEFAULT_BRANCH}'s GATES table is empty, and a runner with no gate authorises no landing, so ${DEFAULT_BRANCH}'s runner has nothing to judge this branch by." \
+      "Next: land the gate table on ${DEFAULT_BRANCH} first: declare the gates in scripts/verify.sh in this checkout, run  ./scripts/register-commit.sh --role $ROLE --message \"declare the gates\" scripts/verify.sh  (it commits to ${DEFAULT_BRANCH} and leaves this branch as it is), then re-run finish-pr.sh; if that then says the branch is stacked on a base that already landed (the table was its only change), follow the rebase it names."
+  elif [ "$_pre_rc" -eq 2 ]; then
     kit_refuse 1 premerge-gate-refused-to-run \
       "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, or a narrowed run's precondition) — refusing to merge '${BRANCH}'." \
       "       No squash, no push, no branch deletion, no issue advance." \
