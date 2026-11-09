@@ -1352,7 +1352,7 @@ KI_EOF
     sc_ok "check-board.sh: the only findings are commits predating this run, which the attribution rules did not yet bind"
   elif [ -z "$KI_REAL" ]; then
     # The verdict is dirty and nothing this script can attribute explains it: say exactly
-    # that. STATED LIMIT: an arm that sets the verdict while printing NO ⚠ line is invisible here.
+    # that. STATED LIMIT: a lettered arm that sets the verdict while printing NO ⚠ line is invisible here (a deciding extension arm prints one).
     sc_ok "check-board.sh: no finding this run can attribute to itself (the report's verdict is not clean; its lines are below)"
   else
     sc_bad "check-board.sh reported drift:"

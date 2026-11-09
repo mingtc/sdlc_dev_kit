@@ -5423,6 +5423,17 @@ case_check_board_declared_none_answers_one_member_one_glob_one_row() {
     || cf "(live) the finding is not a ⚠ naming the glob and a Next: $line"
   printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     && cf "(live) graduation reads COMPLETE over a glob marked DECLARED NONE that matches a file"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' | grep -F 'which no file is asked to match' >/dev/null \
+    && cf "(live) the TEST_GLOBS line says no file is asked to match a marked entry on the same report that finds one that matches"
+  # Every entry marked, one of them matching a file: no line calls the array answered.
+  perl -i -ne 'print unless /^  "tests\/\*"$/' "$SB_WORK/scripts/config.sh"
+  grep -E '^  "tests/\*"$' "$SB_WORK/scripts/config.sh" >/dev/null && _fixture_die "the unmarked TEST_GLOBS entry was not removed from the sandbox's config.sh"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' | grep -F 'every one of its' >/dev/null \
+    && cf "(live) a ✓ line calls an array answered while one of its marked entries matches a file: $(printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS')"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' | grep -F 'matching a file' | grep -F '⚠' >/dev/null \
+    || cf "(live) the finding is gone once every entry is marked"
 
   # ── Model-table rows: the marker anywhere in the row answers it; an unanswered row warns. ───
   local ad orch src d rd role n_all n_marked
@@ -5515,8 +5526,8 @@ case_check_board_report_prints_findings_first_and_folds_clean_arms() {
     '[d]'*) : ;;
     *) cf "(1) the default report opens its arms on '${first_head:-no heading}', not on arm [d], the one with the planted duplicate" ;;
   esac
-  printf '%s\n' "$def" | grep -m1 '^\[b\]' >/dev/null \
-    && cf "(1) arm [b], which holds only a heading with its ✓, still has its own heading in the default report"
+  printf '%s\n' "$def" | grep -m1 '^\[k\]' >/dev/null \
+    && cf "(1) arm [k], an advisory arm of the kit's own with no finding, still has its own heading in the default report"
 
   # (2) The clean arms are one line, which names each of them and says where the rest is.
   fold="$(printf '%s\n' "$def" | grep -F "$CB_FOLD_LEAD" || true)"
@@ -5535,6 +5546,9 @@ case_check_board_report_prints_findings_first_and_folds_clean_arms() {
     fi
   done
   [ "$(printf '%s\n' "$def" | grep -c -F "$CB_FOLD_LEAD")" = 1 ] || cf "(2) the folded line is not exactly one line"
+  # (2c) A label is never cut mid-word (a cut leaves a space before the closing bracket, or a bare article).
+  printf '%s\n' "$fold" | grep -E ' \]| (a|an|the|of|by|and)\]' >/dev/null \
+    && cf "(2c) a label on the folded line is cut mid-phrase: $fold"
 
   # (3) Nothing is lost: the verdict, every finding line and every did-not-run line are the same set.
   [ "$(printf '%s\n' "$def" | grep '^── board-drift')" = "$(printf '%s\n' "$full" | grep '^── board-drift')" ] \
@@ -5614,6 +5628,7 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
   printf '# check-board-arm: advisory\necho "      ✓ none: 3 thing(s) read"\nreturn 0\n' > "$d/62-quiet.sh"
   printf '# check-board-arm: advisory\necho "      3 thing(s) read, nothing to say"\nreturn 0\n' > "$d/63-unmarked.sh"
   printf '# check-board-arm: advisory\necho "      ✓ none: one line"\necho "      ✓ 0 of 4 checked (skipped: the tool is absent)"\nreturn 0\n' > "$d/64-skipwordonly.sh"
+  printf '# check-board-arm: advisory\necho "      widget ✓"\necho "[a] smuggled ✓"\necho "      drift line ✓"\nreturn 3\n' > "$d/65-smuggle.sh"
   publish_sandbox
   def="$(cb_run_default)"; full="$(cb_run)"
   printf '%s\n' "$full" | grep -F -- '-> drift, owed' >/dev/null \
@@ -5638,6 +5653,48 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
     && cf "(3) the folded line names an arm that printed a finding or an unmarked line"
   [ "$(printf '%s\n' "$def" | grep '^── board-drift')" = "$(printf '%s\n' "$full" | grep '^── board-drift')" ] \
     || cf "(4) the verdict differs between the default report and --full"
+  # (5) The status line names its arm, so an arm that prints a heading-shaped line is still unfolded.
+  printf '%s\n' "$def" | grep -F '↳ [+drift] status 3' >/dev/null || cf "(5) the status line does not name its arm: $(printf '%s\n' "$def" | grep 'status 3' | head -2)"
+  printf '%s\n' "$def" | grep -F 'drift line ✓' >/dev/null || cf "(5) a line the status-3 arm printed after a heading-shaped line is not in the default report"
+  printf '%s\n' "$def" | grep -F "$CB_FOLD_LEAD" | grep -F '[+smuggle]' >/dev/null \
+    && cf "(5) an arm that returned 3 is named on the folded line because it printed a heading-shaped line"
+  # (6) A deciding arm's status line carries a ⚠, so the lines a refusal prints name the arm.
+  printf '# check-board-arm: deciding\necho "      owed ✓"\nreturn 3\n' > "$d/66-decide.sh"
+  publish_sandbox
+  def="$(cb_run_default)"
+  printf '%s\n' "$def" | grep -F '⚠' | grep -F '[+decide] status 3' >/dev/null \
+    || cf "(6) a deciding arm's status-3 line carries no ⚠ naming the arm: $(printf '%s\n' "$def" | grep 'decide' | head -3)"
+  printf '%s\n' "$def" | grep '^── board-drift' | grep -F 'findings above' >/dev/null || cf "(6) a deciding arm that returned 3 left the verdict clean"
+  rm -f "$d/66-decide.sh"
+  publish_sandbox
+  # (7) The SessionStart hook past its budget keeps what the fold protects: a [+name] section whole, its
+  # status line, and the graduation arm's hooks: and verdict lines.
+  local hook="$SB_WORK/scripts/hooks/session-start.sh" stub_root="$SB_TMP/stubroot-keep" i=0 hout
+  [ -f "$hook" ] || _fixture_die "no scripts/hooks/session-start.sh in the sandbox"
+  mkdir -p "$stub_root/scripts"
+  {
+    printf '#!/bin/sh\n'
+    printf 'echo "[g] Graduation — has day one finished?  (reports only; it never changes the verdict below —"\n'
+    printf 'echo "      hooks: off (.claude/settings.json absent) — the editor-tool hat gate does not run"\n'
+    printf 'echo "      → graduation COMPLETE over the classes measured above; this arm has nothing further to ask."\n'
+    printf 'echo "[+drift] arm (scripts/check-board.d/61-drift.sh; reports only) — read from: origin/main:"\n'
+    printf 'echo "      design pin drift: skipped: python3 not found"\n'
+    printf 'echo "      X-901 -> drift, owed (a D-NN raised)"\n'
+    printf 'echo "      ↳ [+drift] status 3: this arm reported a finding above"\n'
+    printf 'echo "[e] a quiet arm of the kit"\n'
+    while [ "$i" -lt 400 ]; do printf 'echo "      a quiet line %%s that an arm prints to explain itself at some length"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "%s (check-board.sh --full prints each one): [a] [b]"\n' "$CB_FOLD_LEAD"
+    printf 'echo "── board-drift: clean ✓"\n'
+  } > "$stub_root/scripts/check-board.sh"
+  chmod +x "$stub_root/scripts/check-board.sh"
+  hout="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
+  [ "$(printf '%s\n' "$hout" | LC_ALL=C wc -c | tr -d ' ')" -le 9000 ] || cf "(7) the over-budget hook output is over the delivery budget"
+  printf '%s\n' "$hout" | grep -F 'hooks: off' >/dev/null || cf "(7) the over-budget hook output dropped the graduation arm's hooks: line"
+  printf '%s\n' "$hout" | grep -F '→ graduation COMPLETE' >/dev/null || cf "(7) the over-budget hook output dropped the graduation verdict line"
+  printf '%s\n' "$hout" | grep -F -- '-> drift, owed' >/dev/null || cf "(7) the over-budget hook output dropped a [+name] arm's finding line"
+  printf '%s\n' "$hout" | grep -F 'skipped: python3 not found' >/dev/null || cf "(7) the over-budget hook output dropped a [+name] arm's skip line"
+  printf '%s\n' "$hout" | grep -F '↳ [+drift] status 3' >/dev/null || cf "(7) the over-budget hook output dropped the status-3 line"
+  printf '%s\n' "$hout" | grep -F 'a quiet line' >/dev/null && cf "(7) the over-budget hook output kept the quiet lines of a lettered arm"
   finish "check-board: an arm that returns 3, or prints a skip as 'skipped: <why>', or prints a line without ✓, stays in the default report; only an arm that printed nothing but ✓ lines and returned 0 is folded and named"
   teardown
 }
@@ -5664,7 +5721,7 @@ case_check_board_fold_keeps_the_graduation_verdict_and_the_hooks_line() {
   _cb_g_discharge_delete_if_unused
   rm -f "$SB_WORK/.claude/settings.json"
   publish_sandbox
-  local full def
+  local full def noisy
   full="$(cb_run | _cb_g_section)"
   printf '%s\n' "$full" | grep 'graduation COMPLETE' >/dev/null \
     || _fixture_die "the graduated sandbox does not read COMPLETE in --full, so the fold cannot be judged: $full"
@@ -5675,6 +5732,13 @@ case_check_board_fold_keeps_the_graduation_verdict_and_the_hooks_line() {
   printf '%s\n' "$def" | grep -E '→ graduation COMPLETE' >/dev/null || cf "(1) the default report lost the graduation verdict line"
   printf '%s\n' "$def" | grep -F 'hooks: off' >/dev/null || cf "(2) the default report lost the hooks: off line"
   printf '%s\n' "$def" | grep -F 'FILL (.gitignore)' >/dev/null && cf "(3) the rest of [g] was not folded: its FILL lines are in the default report"
+  # (3b) A clean report fits in a few lines: every arm heading still printed, other than [g], is one that
+  # holds a finding or says it did not run.
+  noisy="$(printf '%s\n' "$def" | awk '/^\[[a-z+]/ { if (h != "" && !keep && h !~ /^\[g\]/) print h; h = $0; keep = ($0 ~ /⚠|DID NOT RUN|skipped/); next }
+      /^── / { if (h != "" && !keep && h !~ /^\[g\]/) print h; h = ""; next }
+      h != "" && /⚠|DID NOT RUN|skipped/ { keep = 1 }
+      END { if (h != "" && !keep && h !~ /^\[g\]/) print h }')"
+  [ -z "$noisy" ] || cf "(3b) a clean graduated tree's default report still prints arm(s) that found nothing: $(printf '%s' "$noisy" | cut -c1-60 | tr '\n' '|')"
   # With hooks on, the line is absent from both and the verdict stays.
   mkdir -p "$SB_WORK/.claude"; printf '{}\n' > "$SB_WORK/.claude/settings.json"
   git -C "$SB_WORK" add .claude/settings.json >/dev/null 2>&1

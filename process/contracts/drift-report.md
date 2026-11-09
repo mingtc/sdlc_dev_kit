@@ -319,11 +319,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
 6. **Presentation may reorder and fold; it may not drop.** The report's reader may be cut at a byte
    budget, so a presentation can print every arm that holds a finding first, then every other arm in
    full, then ONE line naming each arm it folded, then the verdict. *Why:* a cut report keeps its head,
-   and a head made of clean headings keeps nothing a reader must act on. *What may be folded:* only an
-   arm that is **positively** clean, that is, one with no finding or skip wording, at least one ✓, and
-   nothing under its heading but ✓ lines. A status-3 arm, a skipped check, a line without ✓ and an arm
-   that signals a finding in its own words are not folded, because a rule that folds everything it
-   cannot recognise as a finding drops the findings it cannot recognise. *What may not change:* the
+   and a head made of clean headings keeps nothing a reader must act on. *What may be folded:* an arm whose wording the kit controls, one that prints a finding with a `⚠` and says so when it skips, when it holds neither; and an arm it does not control (an extension arm) only when it is **positively** clean, that is, one with no finding or skip wording, at least one ✓, nothing under its heading but ✓ lines, and no status-3 line naming it. A status-3 arm, a skipped check, a line without ✓ and an extension arm that signals a finding in its own words are not folded, because a rule that folds everything it cannot recognise as a finding drops the findings it cannot recognise. *What may not change:* the
    verdict line and every line of every unfolded arm print exactly as the full report prints them; a
    folded arm is **named** (by heading where its letter also heads an arm that is printed), never
    silently absent (item 1); and the full report, with each reading's count and source (items 2 and 3),
@@ -365,7 +361,7 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   lettered arms' are and naming its source, and writes nothing.
 - **Its status:** `0` it ran and found nothing; **`3` it ran and found something** — for a `deciding`
   arm that sets the verdict line, for an `advisory` arm it only reports (either way the report prints
-  a "status 3" line after the arm's own lines, which keeps the arm out of the folded report); **any other status, `1`
+  a "status 3" line naming the arm after the arm's own lines, which keeps the arm out of the folded report; a `deciding` arm's carries a `⚠`, so a refusal that prints only `⚠` lines names the arm); **any other status, `1`
   included, is a failure of the arm**, printed as "did not run" and never as something the arm found.
   *Why `3`, not `1`:* `1` is what `grep` returns on no match and what a false `[ … ]` leaves as the last
   command, so a stray `1` must never be read as something found. *What a failure of the arm does to the

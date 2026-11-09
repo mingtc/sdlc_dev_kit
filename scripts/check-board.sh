@@ -101,17 +101,22 @@ done
 #    session that reads it through the SessionStart hook is cut at a byte budget, so what prints first
 #    is what is read. The default therefore runs the full report as a child (--full) and prints it
 #    reordered: the preamble, every arm holding a ⚠ line, every other arm in full, ONE line naming each
-#    arm that was folded, then the verdict. An arm is folded only when it is POSITIVELY clean: no ⚠,
-#    no skipped / did-not-run / not-measured wording, at least one ✓, and every line under its heading
-#    a ✓ line. Anything else prints as --full prints it: a line without ✓, a status-3 arm (the arm loop
-#    below prints a "status 3" line for it), a skipped check, an adopter's arm that signals a finding
-#    some other way. The one exception is [g]: when it holds no ⚠ and reads graduation COMPLETE, its
-#    heading, its `hooks:` line and its `→ graduation` verdict line print and the rest folds, because
+#    arm that was folded, then the verdict. WHAT FOLDS DEPENDS ON WHO WROTE THE ARM. The kit's own
+#    lettered arms print a ⚠ for every finding and say so when they skip, so one folds when it holds
+#    no ⚠ and no skipped / did-not-run / not-measured wording (and, while the verdict is not clean, only
+#    if it is advisory, so a deciding arm can always be traced). A `[+name]` arm is a module's or an
+#    adopter's, and signals a finding in words the kit does not control (the extension contract asks
+#    for no glyph), so it folds only when POSITIVELY clean: no ⚠, no skip wording, at least one ✓,
+#    every line under its heading a ✓ line, and no `status 3` line naming it (the arm loop below prints
+#    one for any arm that returned 3, naming the arm, wherever the arm's own lines put it). The one
+#    lettered exception is [g]: when it holds no ⚠ and reads graduation COMPLETE, its heading, its
+#    `hooks:` line and its `→ graduation` verdict line print and the rest folds, because
 #    process/MANUAL.md and the start skill send a session to those two lines. Nothing is rewritten:
 #    every line printed is a line --full prints. With no verdict line to anchor on, the child's report
 #    is printed as it came. The folded line names an arm by its heading (`[c: progress.md § Log SLICE]`)
 #    when another heading of the same letter is printed, so no letter is both printed and called quiet.
-#    scripts/hooks/session-start.sh keys on the folded line's lead.
+#    scripts/hooks/session-start.sh keys on the folded line's lead, and keeps the lines above past its
+#    byte budget.
 if [ "$CB_FULL" -eq 0 ]; then
   cb_raw_rc=0
   cb_raw="$("${BASH:-bash}" "${BASH_SOURCE[0]}" --full)" || cb_raw_rc=$?
@@ -134,17 +139,22 @@ if [ "$CB_FULL" -eq 0 ]; then
       if ($0 ~ /⚠/) warn[n] = 1
       if ($0 ~ /DID NOT RUN|did not run|skipped|not measured/) skip[n] = 1
       if ($0 ~ /✓/) ok[n] = 1; else other[n] = 1
+      if ($0 ~ /^[[:space:]]*(⚠ )?↳ \[\+[^]]+\] status 3/) {
+        sn = $0; sub(/^[[:space:]]*(⚠ )?↳ /, "", sn); sub(/\].*$/, "]", sn); st3[sn] = 1
+      }
       if ($0 ~ /^[[:space:]]*hooks:/) hooksl[n] = $0
       if ($0 ~ /^[[:space:]]*→ graduation/) arrow[n] = $0
     }
     END {
       if (verdict == "") { for (i = 1; i <= nraw; i++) print raw[i]; exit }
       printf "%s", pre
+      clean = (verdict ~ /board-drift: clean/)
       for (i = 1; i <= n; i++) {
         cls[i] = 2
         if (warn[i]) cls[i] = 1
         else if (tag[i] == "[g]" && arrow[i] ~ /graduation COMPLETE/ && !skip[i]) cls[i] = 3
-        else if (ok[i] && !other[i] && !skip[i]) cls[i] = 4
+        else if (substr(tag[i], 1, 2) == "[+") { if (ok[i] && !other[i] && !skip[i] && !st3[tag[i]]) cls[i] = 4 }
+        else if (!skip[i] && (clean || head[i] ~ /reports only/)) cls[i] = 4
       }
       for (i = 1; i <= n; i++) if (cls[i] == 1) { bb = body[i]; sub(/\n+$/, "", bb); print bb; print "" }
       for (i = 1; i <= n; i++) {
@@ -161,10 +171,13 @@ if [ "$CB_FULL" -eq 0 ]; then
         lab = tag[i]
         if (shown[tag[i]]) {
           s = head[i]; sub(/^\[[^]]*\][[:space:]]*/, "", s)
-          s = cutat(s, ":"); s = cutat(s, " — "); s = cutat(s, " ("); s = cutat(s, " ✓"); s = substr(s, 1, 40)
+          s = cutat(s, ":"); s = cutat(s, " — "); s = cutat(s, " ("); s = cutat(s, " ✓")
+          if (length(s) > 56) { s = substr(s, 1, 56); sub(/[[:space:]]+[^[:space:]]*$/, "", s); s = s "…" }
           lab = substr(tag[i], 1, length(tag[i]) - 1) ": " s "]"
         }
-        if (index(" " list " ", " " lab " ") == 0) list = list (list == "" ? "" : " ") lab
+        seen[lab]++
+        if (seen[lab] > 1) lab = substr(lab, 1, length(lab) - 1) " #" seen[lab] "]"
+        list = list (list == "" ? "" : " ") lab
       }
       if (list != "") { print "── no findings, folded (./scripts/check-board.sh --full prints each one with its count and source): " list; print "" }
       print verdict
@@ -1298,8 +1311,31 @@ else
           D) g_arr_decl=1 ;;
         esac
       done < <(kit_glob_array "$g_arr" "$g_cfg")
+      # Marked entries that match a file (see the finding printed after the lines below).
+      g_none_live=""
+      if [ "$g_arr_nn" -gt 0 ]; then
+        if [ -z "${g_paths+x}" ]; then
+          if [ -n "$CB_REF" ]; then
+            g_paths="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$CB_REF" 2>/dev/null || true)"
+          else
+            g_paths="$(git -C "$REPO_ROOT" ls-files --cached --others --exclude-standard 2>/dev/null || true)"
+          fi
+        fi
+        while IFS= read -r g_glob; do
+          [ -n "$g_glob" ] || continue
+          g_hit=""
+          while IFS= read -r g_p; do
+            # shellcheck disable=SC2254  # the entry is a declared glob, matched as one
+            case "$g_p" in $g_glob) g_hit="$g_p"; break ;; esac
+          done <<< "$g_paths"
+          [ -z "$g_hit" ] || g_none_live="${g_none_live}${g_none_live:+, }$g_glob (matches $g_hit)"
+        done <<< "$g_arr_none"
+      fi
       g_arr_nnote=""
-      [ "$g_arr_nn" -eq 0 ] || g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', which no file is asked to match)"
+      if [ "$g_arr_nn" -gt 0 ]; then
+        if [ -n "$g_none_live" ]; then g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', one of which matches a file: see below)"
+        else g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', which no file is asked to match)"; fi
+      fi
       if [ "$g_arr_n" -gt 0 ]; then
         # A TEST_GLOBS entry no file matches guards nothing: the ablation rule it feeds never
         # sees a test path. Matched with `case` against repository-relative paths, exactly as its
@@ -1355,6 +1391,8 @@ else
             echo "      FILL (TEST_GLOBS vs scripts/test/**): all $g_st_n file(s) under scripts/test/ are covered by a declared entry  ✓ — $(cb_src)"
           fi
         fi
+      elif [ "$g_arr_nn" -gt 0 ] && [ -n "$g_none_live" ]; then
+        g_measured=$((g_measured+1))   # the finding below is the line for this array
       elif [ "$g_arr_nn" -gt 0 ]; then
         echo "      FILL (scripts/config.sh $g_arr): every one of its $g_arr_nn entry/entries is marked '# DECLARED NONE'  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
         g_measured=$((g_measured+1))
@@ -1367,29 +1405,11 @@ else
       fi
       # `# DECLARED NONE` says an entry matches nothing on purpose. An entry that matches a file is not
       # that: the marker would switch off enforcement over a path that exists. It is a finding, and it
-      # holds graduation back until the marker or the files go.
-      if [ "$g_arr_nn" -gt 0 ]; then
-        if [ -z "${g_paths+x}" ]; then
-          if [ -n "$CB_REF" ]; then
-            g_paths="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$CB_REF" 2>/dev/null || true)"
-          else
-            g_paths="$(git -C "$REPO_ROOT" ls-files --cached --others --exclude-standard 2>/dev/null || true)"
-          fi
-        fi
-        g_none_live=""
-        while IFS= read -r g_glob; do
-          [ -n "$g_glob" ] || continue
-          g_hit=""
-          while IFS= read -r g_p; do
-            # shellcheck disable=SC2254  # the entry is a declared glob, matched as one
-            case "$g_p" in $g_glob) g_hit="$g_p"; break ;; esac
-          done <<< "$g_paths"
-          [ -z "$g_hit" ] || g_none_live="${g_none_live}${g_none_live:+, }$g_glob (matches $g_hit)"
-        done <<< "$g_arr_none"
-        if [ -n "$g_none_live" ]; then
-          echo "      FILL (scripts/config.sh $g_arr): marked '# DECLARED NONE' and yet matching a file  ⚠ $g_none_live — the marker says nothing matches, and it turns enforcement off for a path that exists. Next: remove the marker, or remove the files — $(cb_src)"
-          g_find=1; g_measured=$((g_measured+1))
-        fi
+      # holds graduation back until the marker or the files go. (g_none_live is computed above the lines
+      # that call the marked entries answered, so those lines are not printed over this one.)
+      if [ -n "$g_none_live" ]; then
+        echo "      FILL (scripts/config.sh $g_arr): marked '# DECLARED NONE' and yet matching a file  ⚠ $g_none_live — the marker says nothing matches, and it turns enforcement off for a path that exists. Next: remove the marker, or remove the files — $(cb_src)"
+        g_find=1; g_measured=$((g_measured+1))
       fi
     done
   fi
@@ -2121,8 +2141,12 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
     0) : ;;
     3) # The arm found something. It may print that without a ⚠ (§ 5 asks for none), so say it here, in
        # words the folded report cannot mistake for a ✓ line.
-       echo "      ↳ status 3: this arm reported a finding above"
-       [ "$cb_arm_kind" != deciding ] || drift=1 ;;
+       if [ "$cb_arm_kind" = deciding ]; then
+         echo "      ⚠ ↳ [+${cb_arm_name}] status 3: this deciding arm reported a finding above"
+         drift=1
+       else
+         echo "      ↳ [+${cb_arm_name}] status 3: this arm reported a finding above"
+       fi ;;
     *)
       if [ "$cb_arm_kind" = deciding ]; then
         # A GATE THAT CANNOT ANSWER MUST NOT READ AS ARMED: the verdict is not clean. On a ⚠ line so the
