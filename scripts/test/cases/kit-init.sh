@@ -3172,8 +3172,9 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qE 'F1-S1|<the parent' "$st" && cf "subtask.sh: with no --stories the slice keeps a story placeholder: $(grep -nE 'F1-S1|<the parent' "$st" | tr '\n' '|')"
   # ABLATION: the empty default put back as a placeholder in a COMMITTED copy of subtask.sh (the movers run only the
   # trunk's committed copy), a second slice carries the placeholder again.
-  grep -q 'STORIES_GIVEN=""; STORIES="\[\]"' "$SB_WORK/scripts/subtask.sh" \
-    || _control_did_not_run "find the empty stories default in scripts/subtask.sh"
+  if ! grep -q 'STORIES_GIVEN=""; STORIES="\[\]"' "$SB_WORK/scripts/subtask.sh"; then
+    _control_did_not_run "find the empty stories default in scripts/subtask.sh"
+  else
   sed -i.bak 's/STORIES_GIVEN=""; STORIES="\[\]"/STORIES_GIVEN=""; STORIES="[<story ids>]"/' "$SB_WORK/scripts/subtask.sh"; rm -f "$SB_WORK/scripts/subtask.sh.bak"
   git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[PM] ablated subtask.sh" >/dev/null 2>&1 \
     && git -C "$SB_WORK" pull --rebase -q >/dev/null 2>&1 \
@@ -3184,6 +3185,7 @@ case_minted_card_claims_only_what_it_was_given() {
   origin_fetch_or_die
   git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-741/todo/$SB_PREFIX-741-s2-slice2.md" 2>/dev/null | grep -q '^stories: \[<story ids>\]' \
     || cf "ABLATION FAILED — with the empty default put back as a placeholder the slice still writes none, so the absence above is not attributable to it"
+  fi
 
   finish "$L"
   teardown
