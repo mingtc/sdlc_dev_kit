@@ -5613,7 +5613,7 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
   printf '# check-board-arm: advisory\necho "      design pin drift: skipped: python3 not found"\necho "      KIT-901 -> drift, owed (a D-NN raised with scripts/ask.sh)"\nreturn 3\n' > "$d/61-drift.sh"
   printf '# check-board-arm: advisory\necho "      ✓ none: 3 thing(s) read"\nreturn 0\n' > "$d/62-quiet.sh"
   printf '# check-board-arm: advisory\necho "      3 thing(s) read, nothing to say"\nreturn 0\n' > "$d/63-unmarked.sh"
-  printf '# check-board-arm: advisory\necho "      ✓ none: one line"\necho "      skipped: the tool is absent"\nreturn 0\n' > "$d/64-skipwordonly.sh"
+  printf '# check-board-arm: advisory\necho "      ✓ none: one line"\necho "      ✓ 0 of 4 checked (skipped: the tool is absent)"\nreturn 0\n' > "$d/64-skipwordonly.sh"
   publish_sandbox
   def="$(cb_run_default)"; full="$(cb_run)"
   printf '%s\n' "$full" | grep -F -- '-> drift, owed' >/dev/null \
