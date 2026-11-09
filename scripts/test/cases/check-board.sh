@@ -5248,6 +5248,8 @@ case_check_board_reports_a_worktree_left_by_a_landed_card() {
   [ -d "$wt/feature-$SB_PREFIX-941-gone" ] || cf "(a) the report removed a worktree"
   printf '%s\n' "$sec" | grep -F 'reports only' >/dev/null \
     || cf "(a) the section's header does not declare itself advisory (reports only): $(printf '%s\n' "$sec" | head -1)"
+  printf '%s\n' "$sec" | head -1 | grep -F 'worktrees' >/dev/null \
+    || cf "(a) the section's header does not name the worktrees it now lists: $(printf '%s\n' "$sec" | head -1)"
 
   # (b) the two landed cards' worktrees removed: the line reads clean, with its population.
   git -C "$SB_WORK" worktree remove "$wt/feature-$SB_PREFIX-941-gone" >/dev/null 2>&1

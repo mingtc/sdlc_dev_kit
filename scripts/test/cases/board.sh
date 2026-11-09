@@ -2177,6 +2177,10 @@ case_pre_commit_allows_a_branchs_own_dev_evidence() {
   [ -x "$hook" ] \
     || { skp "pre-commit: allows a branch's own dev/evidence" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
   _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
+  # What the trunk already holds: another card (a rename source below) and a cited evidence file.
+  seed_issue todo "$SB_PREFIX-078" other chore "Another card"
+  mkdir -p "$SB_WORK/dev/evidence/$SB_PREFIX-079"
+  printf 'the bytes a verdict row cites\nsecond line of the same file\nthird line of the same file\n' > "$SB_WORK/dev/evidence/$SB_PREFIX-079/held.txt"
   publish_sandbox
 
   local card="$SB_PREFIX-077" out rc
@@ -2244,7 +2248,48 @@ case_pre_commit_allows_a_branchs_own_dev_evidence() {
   [ "$rc" -ne 0 ] || cf "(d) evidence on a branch whose name carries no card id was ACCEPTED"
   _unstage "dev/evidence/$card/other.txt"
 
-  finish "pre-commit: a work branch may commit its own card's dev/evidence/<card>/ files alone (nested, and by amend), refused for another card's, a prefix of the id, a file of that name, a branch with no card id, or any commit that adds a path that is not the branch's own evidence"
+  # (g) a RENAME into the card's evidence directory is judged on its source too: `git diff` lists only
+  # the destination of a rename unless asked not to, and the source is a deletion of a path that is not evidence.
+  ( cd "$SB_WORK" && git checkout -q -b "feature/$card-rename" "$SB_TRUNK" )
+  mkdir -p "$SB_WORK/dev/evidence/$card"
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-078-other.md" "dev/evidence/$card/moved.md"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] rename another card into the evidence" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(g) an exact rename of another card into this card's evidence directory was ACCEPTED"
+  [ -f "$SB_WORK/dev/evidence/$card/moved.md" ] && git -C "$SB_WORK" reset -q --hard HEAD
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-078-other.md" "dev/evidence/$card/moved.md"
+  printf 'one more line\n' >> "$SB_WORK/dev/evidence/$card/moved.md"
+  git -C "$SB_WORK" add "dev/evidence/$card/moved.md"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] rename another card into the evidence, edited" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(g) a rename with edits of another card into this card's evidence directory was ACCEPTED"
+  git -C "$SB_WORK" reset -q --hard HEAD
+
+  # (h) a file the TRUNK already holds is not edited or deleted from a branch: a QA row may cite its sha.
+  local held="$SB_PREFIX-079"
+  ( cd "$SB_WORK" && git checkout -q -b "feature/$held-held" "$SB_TRUNK" )
+  printf 'different bytes\n' > "$SB_WORK/dev/evidence/$held/held.txt"
+  git -C "$SB_WORK" add "dev/evidence/$held/held.txt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] rewrite the held file" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(h) an edit of a dev/evidence file the trunk holds was ACCEPTED on a work branch"
+  printf '%s' "$out" | grep -F "dev/evidence/$held/held.txt" >/dev/null || cf "(h) the refusal does not name the file: $out"
+  printf '%s' "$out" | grep -F 'Next:' >/dev/null || cf "(h) the refusal gives no next step: $out"
+  printf '%s' "$out" | grep -F 'new file' >/dev/null || cf "(h) the refusal does not say to add a new file: $out"
+  git -C "$SB_WORK" reset -q --hard HEAD
+  git -C "$SB_WORK" rm -q "dev/evidence/$held/held.txt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] delete the held file" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(h) a deletion of a dev/evidence file the trunk holds was ACCEPTED on a work branch"
+  git -C "$SB_WORK" reset -q --hard HEAD
+  _try "a new file beside the held one" "dev/evidence/$held/new.txt"
+  [ "$rc" -eq 0 ] || cf "(h) a NEW file beside the held one was refused: $out"
+
+  # (i) the card id is the branch's LAST segment only: a middle segment naming another card gives nothing.
+  ( cd "$SB_WORK" && git checkout -q -b "wip/$SB_PREFIX-081-a/$SB_PREFIX-082-b" "$SB_TRUNK" )
+  _try "card of a middle segment" "dev/evidence/$SB_PREFIX-081/o.txt"
+  [ "$rc" -ne 0 ] || cf "(i) a card id from a middle segment of the branch name was ACCEPTED"
+  _unstage "dev/evidence/$SB_PREFIX-081/o.txt"
+  _try "card of the last segment" "dev/evidence/$SB_PREFIX-082/o.txt"
+  [ "$rc" -eq 0 ] || cf "(i) the card id of the branch's last segment was refused: $out"
+
+  finish "pre-commit: a work branch may commit its own card's dev/evidence/<card>/ files alone (nested, and by amend), refused for another card's, a prefix of the id, a file of that name, a branch with no card id, a card id taken from a middle segment of the branch name, a rename or a deletion of any other path, a change to a file the trunk already holds, or any commit that adds a path that is not the branch's own evidence"
   teardown
 }
 
@@ -2320,6 +2365,8 @@ case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
   if git -C "$SB_WORK" worktree add -q -b warn-leg "$leg" "$SB_TRUNK" >/dev/null 2>&1; then
     _run "$leg" "[PM] a ruling"
     { [ "$rc" -eq 0 ] && _warned; } || cf "(e) the main checkout's hat was not read for a linked worktree (exit $rc): $(cat "$err")"
+    grep -F "$(cd "$SB_WORK" && pwd -P)/$rel" "$err" >/dev/null \
+      || cf "(e) the warning does not print the main checkout's file it read, only the relative name: $(cat "$err")"
     mkdir -p "$leg/$(dirname "$rel")"; printf 'PM leg\n' > "$leg/$rel"
     _run "$leg" "[PM] a ruling"
     [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(e) the worktree's own hat file did not win over the main checkout's: $(cat "$err")"
@@ -2347,6 +2394,13 @@ case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
   else
     _control_did_not_run "add a .kanban-wt-named linked worktree to the sandbox"
   fi
+
+  # (h) a hat file this user cannot read compares nothing and says nothing: no shell error, no refusal.
+  _hat "Dev SBX-001"
+  chmod 000 "$SB_WORK/$rel"
+  _run "$SB_WORK" "[PM] a ruling"
+  chmod 644 "$SB_WORK/$rel"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(h) an unreadable hat file printed something or refused (exit $rc): $(cat "$err")"
 
   finish "commit-msg: a role tag that differs from the hat file's first word prints one Warning (both roles, the file, a Next: line) and never changes the exit status; a match in any case, the operator waiver, no hat file, a script's per-commit declaration, MSG_OK=1, an auto-exempt subject and the kanban worktree are silent; the main checkout's hat is read for a linked worktree; an untagged subject is still refused with no warning added"
   teardown
