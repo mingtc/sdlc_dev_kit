@@ -108,7 +108,9 @@ done
 #    adopter's, and signals a finding in words the kit does not control (the extension contract asks
 #    for no glyph), so it folds only when POSITIVELY clean: no ⚠, no skip wording, at least one ✓,
 #    every line under its heading a ✓ line, and no `status 3` line naming it (the arm loop below prints
-#    one for any arm that returned 3, naming the arm, wherever the arm's own lines put it). The one
+#    one for any arm that returned 3, naming the arm, wherever the arm's own lines put it; a lettered
+#    section that holds such a line is never folded either, whatever heading-shaped line the arm
+#    printed above it). The one
 #    lettered exception is [g]: when it holds no ⚠ and reads graduation COMPLETE, its heading, its
 #    `hooks:` line and its `→ graduation` verdict line print and the rest folds, because
 #    process/MANUAL.md and the start skill send a session to those two lines. Nothing is rewritten:
@@ -140,7 +142,7 @@ if [ "$CB_FULL" -eq 0 ]; then
       if ($0 ~ /DID NOT RUN|did not run|skipped|not measured/) skip[n] = 1
       if ($0 ~ /✓/) ok[n] = 1; else other[n] = 1
       if ($0 ~ /^[[:space:]]*(⚠ )?↳ \[\+[^]]+\] status 3/) {
-        sn = $0; sub(/^[[:space:]]*(⚠ )?↳ /, "", sn); sub(/\].*$/, "]", sn); st3[sn] = 1
+        sn = $0; sub(/^[[:space:]]*(⚠ )?↳ /, "", sn); sub(/\].*$/, "]", sn); st3[sn] = 1; hit3[n] = 1
       }
       if ($0 ~ /^[[:space:]]*hooks:/) hooksl[n] = $0
       if ($0 ~ /^[[:space:]]*→ graduation/) arrow[n] = $0
@@ -154,7 +156,7 @@ if [ "$CB_FULL" -eq 0 ]; then
         if (warn[i]) cls[i] = 1
         else if (tag[i] == "[g]" && arrow[i] ~ /graduation COMPLETE/ && !skip[i]) cls[i] = 3
         else if (substr(tag[i], 1, 2) == "[+") { if (ok[i] && !other[i] && !skip[i] && !st3[tag[i]]) cls[i] = 4 }
-        else if (!skip[i] && (clean || head[i] ~ /reports only/)) cls[i] = 4
+        else if (!skip[i] && !hit3[i] && (clean || head[i] ~ /reports only/)) cls[i] = 4
       }
       for (i = 1; i <= n; i++) if (cls[i] == 1) { bb = body[i]; sub(/\n+$/, "", bb); print bb; print "" }
       for (i = 1; i <= n; i++) {
