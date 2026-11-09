@@ -6,7 +6,7 @@
 #
 # Usage:   ./scripts/new-issue.sh <slug> --id <PREFIX>-NNN [--prd PRD-NNN|n/a] [--stories ID1,ID2,...]
 #   --prd n/a is the lite path: no PRD, stories: [] unless --stories is given, and prd_reason: is yours to fill.
-#   Without --stories the card says stories: [] and names no story anywhere; fill them in when the PRD's are known.
+#   Without --stories the card says stories: [] and names no story anywhere; fill them in when the PRD's stories are known.
 # Example: ID=$(./scripts/next-id.sh) && ./scripts/new-issue.sh reader-config-flag \
 #            --id "$ID" --prd PRD-001 --stories PRD-001-F1-S1,PRD-001-F1-S2
 #

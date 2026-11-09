@@ -938,9 +938,9 @@ case_forks_check_skips_a_citation_of_a_live_ruling_in_activity_and_out_of_scope(
 # landing runs only the trunk's committed copy of the scripts.
 _forks_ablate_amended_live() {
   local lib="$SB_WORK/scripts/lib/qa-gate.sh"
-  grep -q 'comm -23 <(printf' "$lib" || { _control_did_not_run "find the amended-entry subtraction in lib/qa-gate.sh"; return 0; }
+  grep -q 'comm -23 .*_fl_changed' "$lib" || { _control_did_not_run "find the amended-entry subtraction in lib/qa-gate.sh"; return 0; }
   sed -i.bak 's/comm -23 <(printf .%s\\n. "\$_fl_ids") <(printf .%s\\n. "\$_fl_changed")/printf "%s\\n" "$_fl_ids"/' "$lib" && rm -f "$lib.bak"
-  grep -q 'comm -23 <(printf' "$lib" && _control_did_not_run "plant the amended-entry ablation in lib/qa-gate.sh"
+  grep -q 'comm -23 .*_fl_changed' "$lib" && _control_did_not_run "plant the amended-entry ablation in lib/qa-gate.sh"
   return 0
 }
 _forks_ablate_heading_prefix() {
