@@ -144,12 +144,12 @@ decision, in this exact form, one line per kept file, `<path>` being the declari
 `(DELETE-IF-UNUSED) kept, on purpose.` — because arm `[g]` matches that line, not the member's
 basename and not a sentence that merely says you kept it.
 
-**A member this project has no use for and no decision to make about** takes the same line with
-`DECLARED NONE` in place of `kept, on purpose.`: ``- **`<path>` (DELETE-IF-UNUSED) DECLARED NONE — <why>.**``.
-`DECLARED NONE` is the one answer for a decided absence, written the same way for a `TEST_GLOBS` entry
-(a trailing `# DECLARED NONE — <why>` comment on its line in `scripts/config.sh`) and for a model-table
-row (the words anywhere in the row). `[g]` and `[s]` stop warning about what carries it and warn as
-before about what does not.
+**A member this project has no use for is deleted**, and removal is the whole answer: `DECLARED NONE`
+is not one for a member, and `[g]` names such a line as not counting. The marker is the one answer for
+two other decided absences, written the same way: a `TEST_GLOBS` entry that matches nothing on purpose
+(a trailing `# DECLARED NONE — <why>` comment on its line in `scripts/config.sh`; `[g]` flags one that
+does match a file) and a model-table row for a class the project does not use (the words anywhere in
+the row). `[g]` and `[s]` stop warning about what carries it and warn as before about what does not.
 
 **Why it is a closing step and not an opening one:** on day zero you have no contradictions yet,
 and a file of invented rules is worse than none. By the end of day one you have several — and you

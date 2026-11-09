@@ -2762,8 +2762,8 @@ case_finish_pr_empty_gate_table_names_the_route() {
   [ "$rc" -ne 0 ] || cf "(a) a branch landed on a trunk whose gate table is empty: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
   printf '%s\n' "$out" | grep 'pre-merge gate REFUSED TO RUN' >/dev/null \
     || cf "(a) the refusal no longer says REFUSED TO RUN: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
-  printf '%s\n' "$out" | grep -F 'register-commit.sh' | grep -F 'scripts/verify.sh' >/dev/null \
-    || cf "(a) the refusal does not name register-commit.sh landing scripts/verify.sh as the way out: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep '^Next:' | grep -F 'register-commit.sh' | grep -F 'scripts/verify.sh' >/dev/null \
+    || cf "(a) the refusal's Next: line does not name register-commit.sh landing scripts/verify.sh as the way out: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   printf '%s\n' "$out" | grep -i 'empty' | grep -F "$SB_TRUNK" >/dev/null \
     || cf "(a) the refusal does not say the trunk's gate table is empty: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   printf '%s\n' "$out" | grep -F 'finish-pr.sh' | grep -i 're-run' >/dev/null \
@@ -2788,6 +2788,30 @@ case_finish_pr_empty_gate_table_names_the_route() {
   [ "$rc" -ne 0 ] || cf "(c) a pre-merge gate that refused to run did not refuse the landing"
   printf '%s\n' "$out" | grep -F 'register-commit.sh' >/dev/null \
     && cf "(c) a gate refused for a reason other than an empty table was sent to land a gate table: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+
+  teardown
+
+  # (d) A REAL exit 2 from a table that is not empty (a malformed record), with no test stub, is kept
+  # apart from an empty one: the probe reads `verify.sh --list`, and the Next: names no route to a table.
+  make_sandbox
+  _declare_gate 'notarecord'
+  seed_issue dev_complete "$SB_PREFIX-793" malformed chore "A malformed table" "feature/$SB_PREFIX-793-malformed"
+  publish_sandbox
+  br="feature/$SB_PREFIX-793-malformed"
+  git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1 && git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: could not branch for (d)."
+  echo "a change" > "$SB_WORK/CHANGE793.txt"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[Dev] $SB_PREFIX-793: a change" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q -u origin "$br" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: could not commit and push the branch for (d)."
+  ( cd "$SB_WORK" && ./scripts/verify.sh --list 2>&1 ) | grep -F 'the table is empty' >/dev/null \
+    && _fixture_die "case_finish_pr_empty_gate_table_names_the_route: (d)'s table reads as empty, so the row tests nothing."
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-793" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) a malformed gate table landed"
+  printf '%s\n' "$out" | grep 'pre-merge gate REFUSED TO RUN' >/dev/null \
+    || cf "(d) the malformed table did not refuse as REFUSED TO RUN, so the row tests the wrong refusal: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep '^Next:' | grep -F 'register-commit.sh' >/dev/null \
+    && cf "(d) a malformed (non-empty) table was sent to land a gate table: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
 
   finish "finish-pr.sh: a trunk whose GATES table is empty still refuses a branch that declares the gates, and the refusal names the route (land scripts/verify.sh on the trunk with register-commit.sh, then re-run); the route lands the card; a gate refused for another reason names no such route"
   teardown

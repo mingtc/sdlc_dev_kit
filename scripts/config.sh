@@ -72,8 +72,8 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 #
 # ONE ENTRY THAT MATCHES NOTHING ON PURPOSE (a path the project dropped): end that entry's own line
 # with `# DECLARED NONE — <why>`. The entry is then not enforced and [g] stops warning that it
-# matches no file; an entry without the comment still warns. The same words answer a model-table
-# row and a DELETE-IF-UNUSED member (process/SEED.md § day one's checklist).
+# matches no file; an entry without the comment still warns, and a marked entry that does match a
+# file is a finding. The same words answer a model-table row (process/SEED.md § day one's checklist).
 CODE_GLOBS=(
 )
 

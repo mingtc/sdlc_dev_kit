@@ -100,39 +100,72 @@ done
 # ── THE FOLDED REPORT (the default). The report below is written arm by arm, in letter order, and a
 #    session that reads it through the SessionStart hook is cut at a byte budget, so what prints first
 #    is what is read. The default therefore runs the full report as a child (--full) and prints it
-#    reordered: the preamble, every arm holding a ⚠ line, every arm that did not run (a skipped check
-#    is never folded away), ONE line naming each arm that found nothing, then the verdict. A deciding
-#    arm without a ⚠ line stays unfolded while the verdict is not clean, so the verdict can be traced.
-#    Nothing is rewritten: every line printed is a line --full prints, and every ⚠ and every
-#    did-not-run line is printed. With no verdict line to anchor on, the child's report is printed
-#    as it came. scripts/hooks/session-start.sh keys on the folded line's lead.
+#    reordered: the preamble, every arm holding a ⚠ line, every other arm in full, ONE line naming each
+#    arm that was folded, then the verdict. An arm is folded only when it is POSITIVELY clean: no ⚠,
+#    no skipped / did-not-run / not-measured wording, at least one ✓, and every line under its heading
+#    a ✓ line. Anything else prints as --full prints it: a line without ✓, a status-3 arm (the arm loop
+#    below prints a "status 3" line for it), a skipped check, an adopter's arm that signals a finding
+#    some other way. The one exception is [g]: when it holds no ⚠ and reads graduation COMPLETE, its
+#    heading, its `hooks:` line and its `→ graduation` verdict line print and the rest folds, because
+#    process/MANUAL.md and the start skill send a session to those two lines. Nothing is rewritten:
+#    every line printed is a line --full prints. With no verdict line to anchor on, the child's report
+#    is printed as it came. The folded line names an arm by its heading (`[c: progress.md § Log SLICE]`)
+#    when another heading of the same letter is printed, so no letter is both printed and called quiet.
+#    scripts/hooks/session-start.sh keys on the folded line's lead.
 if [ "$CB_FULL" -eq 0 ]; then
   cb_raw_rc=0
   cb_raw="$("${BASH:-bash}" "${BASH_SOURCE[0]}" --full)" || cb_raw_rc=$?
   printf '%s\n' "$cb_raw" | LC_ALL=C awk '
+    function cutat(s, p,   i) { i = index(s, p); return i > 0 ? substr(s, 1, i - 1) : s }
     { raw[++nraw] = $0 }
     /^── board-drift:/ { verdict = $0; next }
     verdict != "" { next }
     /^\[([a-z][0-9]*|\+[A-Za-z0-9._-]+)\]/ {
-      n++; head[n] = $0; t = $0; sub(/\].*$/, "]", t); tag[n] = t; body[n] = $0; next
+      n++; head[n] = $0; t = $0; sub(/\].*$/, "]", t); tag[n] = t; body[n] = $0; hd[n] = 1
+      if ($0 ~ /⚠/) warn[n] = 1
+      if ($0 ~ /✓/) ok[n] = 1
+      if ($0 ~ /DID NOT RUN|did not run|skipped|not measured/) skip[n] = 1
+      next
     }
     n == 0 { pre = pre $0 "\n"; next }
-    { body[n] = body[n] "\n" $0 }
+    {
+      body[n] = body[n] "\n" $0
+      if ($0 ~ /^[[:space:]]*$/) next
+      if ($0 ~ /⚠/) warn[n] = 1
+      if ($0 ~ /DID NOT RUN|did not run|skipped|not measured/) skip[n] = 1
+      if ($0 ~ /✓/) ok[n] = 1; else other[n] = 1
+      if ($0 ~ /^[[:space:]]*hooks:/) hooksl[n] = $0
+      if ($0 ~ /^[[:space:]]*→ graduation/) arrow[n] = $0
+    }
     END {
       if (verdict == "") { for (i = 1; i <= nraw; i++) print raw[i]; exit }
-      clean = (verdict ~ /board-drift: clean/)
       printf "%s", pre
       for (i = 1; i <= n; i++) {
-        cls[i] = 3
-        if (body[i] ~ /⚠/) cls[i] = 1
-        else if (body[i] ~ /DID NOT RUN|did not run|\(skipped|not measured/) cls[i] = 2
-        else if (!clean && head[i] !~ /reports only/) cls[i] = 2
+        cls[i] = 2
+        if (warn[i]) cls[i] = 1
+        else if (tag[i] == "[g]" && arrow[i] ~ /graduation COMPLETE/ && !skip[i]) cls[i] = 3
+        else if (ok[i] && !other[i] && !skip[i]) cls[i] = 4
       }
-      for (c = 1; c <= 2; c++) for (i = 1; i <= n; i++) if (cls[i] == c) {
-        b = body[i]; sub(/\n+$/, "", b); print b; print ""
+      for (i = 1; i <= n; i++) if (cls[i] == 1) { bb = body[i]; sub(/\n+$/, "", bb); print bb; print "" }
+      for (i = 1; i <= n; i++) {
+        if (cls[i] == 2) { bb = body[i]; sub(/\n+$/, "", bb); print bb; print "" }
+        else if (cls[i] == 3) {
+          print head[i]
+          if (hooksl[i] != "") print hooksl[i]
+          print arrow[i]; print ""
+        }
       }
+      for (i = 1; i <= n; i++) if (cls[i] != 4) shown[tag[i]] = 1
       list = ""
-      for (i = 1; i <= n; i++) if (cls[i] == 3 && index(" " list " ", " " tag[i] " ") == 0) list = list (list == "" ? "" : " ") tag[i]
+      for (i = 1; i <= n; i++) if (cls[i] == 4) {
+        lab = tag[i]
+        if (shown[tag[i]]) {
+          s = head[i]; sub(/^\[[^]]*\][[:space:]]*/, "", s)
+          s = cutat(s, ":"); s = cutat(s, " — "); s = cutat(s, " ("); s = cutat(s, " ✓"); s = substr(s, 1, 40)
+          lab = substr(tag[i], 1, length(tag[i]) - 1) ": " s "]"
+        }
+        if (index(" " list " ", " " lab " ") == 0) list = list (list == "" ? "" : " ") lab
+      }
       if (list != "") { print "── no findings, folded (./scripts/check-board.sh --full prints each one with its count and source): " list; print "" }
       print verdict
     }'
@@ -1249,6 +1282,7 @@ else
     for g_arr in CODE_GLOBS TEST_GLOBS; do
       g_arr_n=0
       g_arr_nn=0
+      g_arr_none=""
       g_arr_decl=0
       g_arr_entries=""
       # lib/glob-array.sh's kit_glob_array, the reader the ablation check uses too: an `E|` line per
@@ -1260,7 +1294,7 @@ else
       while IFS= read -r g_arr_tagged; do
         case "$g_arr_tagged" in
           E\|*) g_arr_n=$((g_arr_n+1)); g_arr_entries="${g_arr_entries}${g_arr_tagged#E|}"$'\n' ;;
-          N\|*) g_arr_nn=$((g_arr_nn+1)) ;;
+          N\|*) g_arr_nn=$((g_arr_nn+1)); g_arr_none="${g_arr_none}${g_arr_tagged#N|}"$'\n' ;;
           D) g_arr_decl=1 ;;
         esac
       done < <(kit_glob_array "$g_arr" "$g_cfg")
@@ -1331,6 +1365,32 @@ else
         echo "      FILL (scripts/config.sh $g_arr): empty, and not declared deliberately empty  ⚠ SHIPPED EMPTY ON PURPOSE means UNDECLARED, which the consumer reads as UNENFORCED — fill it, or add a '# DECLARED EMPTY —' comment line inside its parens if that is this project's real answer — $(cb_src)"
         g_find=1; g_measured=$((g_measured+1))
       fi
+      # `# DECLARED NONE` says an entry matches nothing on purpose. An entry that matches a file is not
+      # that: the marker would switch off enforcement over a path that exists. It is a finding, and it
+      # holds graduation back until the marker or the files go.
+      if [ "$g_arr_nn" -gt 0 ]; then
+        if [ -z "${g_paths+x}" ]; then
+          if [ -n "$CB_REF" ]; then
+            g_paths="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$CB_REF" 2>/dev/null || true)"
+          else
+            g_paths="$(git -C "$REPO_ROOT" ls-files --cached --others --exclude-standard 2>/dev/null || true)"
+          fi
+        fi
+        g_none_live=""
+        while IFS= read -r g_glob; do
+          [ -n "$g_glob" ] || continue
+          g_hit=""
+          while IFS= read -r g_p; do
+            # shellcheck disable=SC2254  # the entry is a declared glob, matched as one
+            case "$g_p" in $g_glob) g_hit="$g_p"; break ;; esac
+          done <<< "$g_paths"
+          [ -z "$g_hit" ] || g_none_live="${g_none_live}${g_none_live:+, }$g_glob (matches $g_hit)"
+        done <<< "$g_arr_none"
+        if [ -n "$g_none_live" ]; then
+          echo "      FILL (scripts/config.sh $g_arr): marked '# DECLARED NONE' and yet matching a file  ⚠ $g_none_live — the marker says nothing matches, and it turns enforcement off for a path that exists. Next: remove the marker, or remove the files — $(cb_src)"
+          g_find=1; g_measured=$((g_measured+1))
+        fi
+      fi
     done
   fi
 
@@ -1387,24 +1447,26 @@ else
     g_measured=$((g_measured+1))
   else
     g_diu_lp="$CB_TREE/$GRADUATION_LOCAL_PROCEDURES"
-    g_diu_unfilled=""; g_diu_kind="kept-on-purpose"
+    g_diu_unfilled=""; g_diu_nonenote=""
     for f in $g_diu_pop; do
       g_diu_line="- **\`$f\` (DELETE-IF-UNUSED) kept, on purpose.**"
-      g_diu_none="- **\`$f\` (DELETE-IF-UNUSED) DECLARED NONE"
       if [ -f "$g_diu_lp" ] && grep -qF -- "$g_diu_line" "$g_diu_lp" 2>/dev/null; then
-        g_measured=$((g_measured+1))
-      elif [ -f "$g_diu_lp" ] && grep -qF -- "$g_diu_none" "$g_diu_lp" 2>/dev/null; then
-        g_diu_kind="kept-on-purpose or DECLARED NONE"
         g_measured=$((g_measured+1))
       else
         g_diu_unfilled="$g_diu_unfilled $f"
+        # A member the project has no use for is removed; "DECLARED NONE" is no answer for it, and a
+        # line saying so leaves the file in place, so it is named rather than counted.
+        if [ -f "$g_diu_lp" ] && grep -F -- "\`$f\` (DELETE-IF-UNUSED) DECLARED NONE" "$g_diu_lp" >/dev/null 2>&1; then
+          g_diu_nonenote="$g_diu_nonenote $f"
+        fi
         g_find=1; g_measured=$((g_measured+1))
       fi
     done
+    [ -z "$g_diu_nonenote" ] || g_diu_nonenote="  ⚠ \`DECLARED NONE\` is not an answer for a member ($g_diu_nonenote): a member with no use is deleted — remove the file, or record keeping it with the kept-on-purpose line"
     if [ -n "$g_diu_unfilled" ]; then
-      echo "      DELETE-IF-UNUSED:$g_diu_unfilled  ⚠ no recorded decision in $GRADUATION_LOCAL_PROCEDURES — remove the member, or record keeping it with the exact line \`- **\`<path>\` (DELETE-IF-UNUSED) kept, on purpose.**\`, or \`- **\`<path>\` (DELETE-IF-UNUSED) DECLARED NONE — <why>.**\` if this project has no use for it and no decision to make (process/SEED.md step 8); a mention elsewhere, or by basename only, does not count — $(cb_src)"
+      echo "      DELETE-IF-UNUSED:$g_diu_unfilled  ⚠ no recorded decision in $GRADUATION_LOCAL_PROCEDURES — remove the member, or record keeping it with the exact line \`- **\`<path>\` (DELETE-IF-UNUSED) kept, on purpose.**\` (process/SEED.md step 8); a mention elsewhere, or by basename only, does not count$g_diu_nonenote — $(cb_src)"
     else
-      echo "      DELETE-IF-UNUSED:$g_diu_pop carry a recorded $g_diu_kind decision in $GRADUATION_LOCAL_PROCEDURES  ✓ (population derived from KIT-DISPOSITION: DELETE-IF-UNUSED declarations, not a list typed into this script) — $(cb_src)"
+      echo "      DELETE-IF-UNUSED:$g_diu_pop carry a recorded kept-on-purpose decision in $GRADUATION_LOCAL_PROCEDURES  ✓ (population derived from KIT-DISPOSITION: DELETE-IF-UNUSED declarations, not a list typed into this script) — $(cb_src)"
     fi
   fi
 
@@ -2057,7 +2119,10 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
   ( . "$cb_arm" ) </dev/null || cb_arm_rc=$?
   case "$cb_arm_rc" in
     0) : ;;
-    3) [ "$cb_arm_kind" != deciding ] || drift=1 ;;
+    3) # The arm found something. It may print that without a ⚠ (§ 5 asks for none), so say it here, in
+       # words the folded report cannot mistake for a ✓ line.
+       echo "      ↳ status 3: this arm reported a finding above"
+       [ "$cb_arm_kind" != deciding ] || drift=1 ;;
     *)
       if [ "$cb_arm_kind" = deciding ]; then
         # A GATE THAT CANNOT ANSWER MUST NOT READ AS ARMED: the verdict is not clean. On a ⚠ line so the

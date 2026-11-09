@@ -12,7 +12,7 @@ _ex_hook() {  # <role> — the commit-msg hook's verdict on a subject tagged wit
   "$SB_WORK/scripts/githooks/commit-msg" "$msg" >/dev/null 2>&1
 }
 _ex_kinds() { ( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/lib/qa-gate.sh; kit_qa_evidence_kinds "$1" HEAD' _ "$SB_WORK" ); }
-_ex_report() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" --full 2>&1 ); }
+_ex_report() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 _ex_land() {  # <message> — commit what the sandbox holds and publish it: the readers below read the trunk
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -q -m "[PM] $_MD_ID: $1" >/dev/null 2>&1
