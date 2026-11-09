@@ -213,6 +213,33 @@ done <<PC_STAGED
 $JUDGED
 PC_STAGED
 
+# A FILE THE TRUNK ALREADY HOLDS UNDER dev/evidence/ IS NEVER CHANGED FROM A BRANCH, code commit or not: a QA
+# row may cite its blob sha, and landing the branch would put other bytes under it (dev/evidence/README.md).
+# Any staged path there that exists at the trunk is refused, edited, deleted or re-added.
+_ev_ref="refs/remotes/$KWT_REMOTE/$TRUNK"
+git -C "$ROOT" rev-parse --verify -q "$_ev_ref" >/dev/null 2>&1 || _ev_ref="refs/heads/$TRUNK"   # card-read-exempt: resolves the trunk ref, not a card's branch
+_ev_held=""; _nl=$'\n'
+while IFS= read -r _path; do
+  case "$_path" in
+    dev/evidence/*)
+      if git -C "$ROOT" cat-file -e "$_ev_ref:$_path" 2>/dev/null; then _ev_held="${_ev_held}${_ev_held:+$_nl}    $_path"; fi ;;
+  esac
+done <<PC_HELD
+$JUDGED
+PC_HELD
+if [ -n "$_ev_held" ]; then
+  ev1="✗ pre-commit guard: this commit changes dev/evidence file(s) the trunk ('$TRUNK') already holds, and HEAD is on '$BRANCH' — a branch of its own."
+  ev2="  A QA verdict row may cite such a file by its blob sha, and landing this branch would put other bytes under that sha (dev/evidence/README.md)."
+  ev3="Next: leave the file as the trunk has it, and add a new file beside it under dev/evidence/ (a changed render is a new file):  git restore --source=$_ev_ref --staged --worktree -- <path>"
+  ev4="  Files:"
+  ev5="  Genuinely need to change it anyway?  MSG_OK=1 git commit …"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 pre-commit-evidence-trunk-file "$ev1" "$ev2" "" "$ev3" "" "$ev4" "$_ev_held" "" "$ev5"
+  fi
+  printf '%s\n' "$ev1" "$ev2" "" "$ev3" "" "$ev4" "$_ev_held" "" "$ev5" >&2
+  exit 1   # exit-class: fallback
+fi
+
 # THE ONE EXEMPTION: a work branch's OWN card's Dev evidence (`dev/evidence/<card>/…`, see
 # dev/evidence/README.md). It changes after the code commit and rides the branch to the trunk at the
 # landing, so it commits here, but only when EVERY judged path is such a file, and only for the card the
@@ -221,10 +248,7 @@ PC_STAGED
 # code by CODE_GLOBS (MANUAL.md § The code-vs-metadata rule), so it never needs this.
 if [ "$ANY_CODE" -eq 0 ]; then
   # The card is the branch's LAST segment (`<kind>/<card>-<slug>`); a card id elsewhere in the name counts for nothing.
-  # A path the trunk already holds is refused apart (below): a QA row may cite its blob sha.
-  _ev_ok=1; _ev_n=0; _ev_held=""; _nl=$'\n'; _ev_last="${BRANCH##*/}"
-  _ev_ref="refs/remotes/$KWT_REMOTE/$TRUNK"
-  git -C "$ROOT" rev-parse --verify -q "$_ev_ref" >/dev/null 2>&1 || _ev_ref="refs/heads/$TRUNK"   # card-read-exempt: resolves the trunk ref, not a card's branch
+  _ev_ok=1; _ev_n=0; _ev_last="${BRANCH##*/}"
   while IFS= read -r _path; do
     [ -n "$_path" ] || continue
     _ev_n=$((_ev_n+1))
@@ -237,23 +261,10 @@ if [ "$ANY_CODE" -eq 0 ]; then
       "$_ev_card"|"$_ev_card"-*) : ;;
       *) _ev_ok=0; break ;;
     esac
-    if git -C "$ROOT" cat-file -e "$_ev_ref:$_path" 2>/dev/null; then _ev_held="${_ev_held}${_ev_held:+$_nl}    $_path"; fi
   done <<PC_EVID
 $JUDGED
 PC_EVID
-  if [ "$_ev_ok" -eq 1 ] && [ "$_ev_n" -gt 0 ]; then
-    [ -n "$_ev_held" ] || exit 0
-    ev1="✗ pre-commit guard: this commit changes dev/evidence file(s) the trunk ('$TRUNK') already holds, and HEAD is on '$BRANCH' — a branch of its own."
-    ev2="  A QA verdict row may cite such a file by its blob sha, and landing this branch would put other bytes under that sha (dev/evidence/README.md)."
-    ev3="Next: leave the file as the trunk has it, and add a new file beside it under dev/evidence/ (a changed render is a new file):  git restore --source=$_ev_ref --staged --worktree -- <path>"
-    ev4="  Files:"
-    ev5="  Genuinely need to change it anyway?  MSG_OK=1 git commit …"
-    if command -v kit_refuse >/dev/null 2>&1; then
-      kit_refuse 1 pre-commit-evidence-trunk-file "$ev1" "$ev2" "" "$ev3" "" "$ev4" "$_ev_held" "" "$ev5"
-    fi
-    printf '%s\n' "$ev1" "$ev2" "" "$ev3" "" "$ev4" "$_ev_held" "" "$ev5" >&2
-    exit 1   # exit-class: fallback
-  fi
+  [ "$_ev_ok" -eq 1 ] && [ "$_ev_n" -gt 0 ] && exit 0
 fi
 
 # Every staged path is metadata (CODE_GLOBS is declared and non-empty, and no entry matched)

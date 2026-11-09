@@ -180,7 +180,7 @@ if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
   esac
   if [ "$_hat_skip" -eq 0 ]; then
     _hat_file="$_hat_root/$_hat_rel"
-    if [ ! -f "$_hat_file" ] || [ ! -r "$_hat_file" ]; then
+    if [ ! -e "$_hat_file" ]; then
       _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
       if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
         _hat_file="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)/$_hat_rel"

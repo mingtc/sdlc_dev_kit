@@ -16,7 +16,7 @@ A file is committed in one place, by Dev or the project's tooling, and which pla
   every staged path is under the directory of the card the branch's own name carries (`<kind>/<card-id>-<slug>`). Another
   card's directory, or any other metadata path in the same commit (the card file included, however it got there), keeps
   the refusal. **Never edit, delete or re-add, on the branch, a file the trunk already holds**: a QA row may cite its sha,
-  and the hook refuses it; add a new file instead.
+  and the hook refuses it in any commit, code or not; add a new file instead.
 - **A path a test reads is code, not evidence**: list it in `CODE_GLOBS` and it commits with the code.
 
 - **The file is on the trunk before the row cites it**, committed with `./scripts/register-commit.sh --role
