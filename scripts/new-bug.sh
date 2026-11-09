@@ -186,6 +186,8 @@ if [ "$PRD" = "n/a" ]; then
   kit_prd_free_card "$WORK" "$STORIES" || exit 1   # exit-class: internal
   PRD=""
 fi
+# No --stories: the card names none (`stories: []`), not the template's example id.
+kit_drop_story_blank "$WORK" "$STORIES" || exit 1   # exit-class: internal
 PRD_FILE=""
 if [ -n "$PRD" ]; then
   for f in "$ROOT/requirements/$PRD"-*.md; do

@@ -267,7 +267,7 @@ case "$CMD" in
     [ $# -lt 3 ] && { usage >&2; exit 1; }
     no_dash "$1" "PARENT-ID"; no_dash "$2" "suffix"; no_dash "$3" "slug"
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
-    TITLE=""; PRD=""; STORIES_GIVEN=""; STORIES="[<the parent's story ids this slice covers>]"; PLAN=""; SIZE="S"
+    TITLE=""; PRD=""; STORIES_GIVEN=""; STORIES="[]"; PLAN=""; SIZE="S"
     while [ $# -gt 0 ]; do case "$1" in
       --title) need_val "$@"; TITLE="$2"; shift 2 ;;
       --prd) need_val "$@"; PRD="$2"; shift 2 ;;
