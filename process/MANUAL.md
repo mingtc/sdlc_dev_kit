@@ -77,7 +77,8 @@ selection-neutrality — are the whole of what an adopter owes.
 > `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
 > `none — operator override: <reason>`. The gate is **existence, not content**: the
 > `require-role` hook allows any mutation once the file is present, and the line's job is to tell
-> the next reader (and you, an hour later) which hat is on. Where the hooks are on
+> the next reader (and you, an hour later) which hat is on. The one comparison made is a warning:
+> `commit-msg` prints one when a subject's role tag differs from the file's first word, and commits anyway. Where the hooks are on
 > (`.claude/settings.json` present), the `session-start` hook **deletes the file at every session
 > start**, so each session re-confirms its hat rather than inheriting the last one's; where they are
 > off, nothing deletes it, so read whose it is and overwrite it with yours. The path is one value, `KIT_HAT_FILE_REL` in `scripts/lib/hat-file.sh`, that both
@@ -659,7 +660,9 @@ yet, and leaves the branch's own reviewer reading a diff with its explanation mi
 direct-to-trunk rule governs metadata changed **on its own**; it was never a ban on a code change
 carrying its own documentation. **The card is the trunk's: never commit it on a work branch.** Its
 edits go through `register-commit.sh` and the board movers, so the landing's squash never meets two
-edits to one card.
+edits to one card. **One path is committed on the branch on its own:** the Dev evidence under
+`dev/evidence/<card>/` for the card the branch carries, which changes after the code commit
+([`dev/evidence/README.md`](../dev/evidence/README.md) says who commits it and when).
 
 **And the carve-out is not limited to documentation.** An **executable declaration** the same change
 makes true rides with it too — a guard's enrolment in the gate runner's always-on set, a new check's

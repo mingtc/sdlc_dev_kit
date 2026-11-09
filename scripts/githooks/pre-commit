@@ -5,7 +5,8 @@
 # (process/MANUAL.md § The code-vs-metadata rule): a commit whose staged paths are ALL
 # metadata (none matches CODE_GLOBS) is refused on any branch OTHER THAN the trunk, naming
 # scripts/register-commit.sh as the route, or adding it to the code commit it describes. An amend is
-# judged on HEAD's paths plus the staged ones.
+# judged on HEAD's paths plus the staged ones. The one exemption: a commit whose every path is under
+# dev/evidence/<card>/ for the card the branch's own name carries (dev/evidence/README.md).
 #
 # It also refuses ANY commit while no hat is declared (process/contracts/role-gate.md § 2), whatever
 # the paths; the HAT GATE block below says what counts as declared and what is exempt. It refuses
@@ -212,6 +213,32 @@ done <<PC_STAGED
 $JUDGED
 PC_STAGED
 
+# THE ONE EXEMPTION: a work branch's OWN card's Dev evidence (`dev/evidence/<card>/…`, see
+# dev/evidence/README.md). It changes after the code commit and rides the branch to the trunk at the
+# landing, so it commits here, but only when EVERY judged path is such a file, and only for the card the
+# BRANCH NAME carries (`<kind>/<card>-<slug>`): another card's directory, a directory that is a prefix of
+# the id, the card file and every other metadata path keep the refusal below. A path the suite reads is
+# code by CODE_GLOBS (MANUAL.md § The code-vs-metadata rule), so it never needs this.
+if [ "$ANY_CODE" -eq 0 ]; then
+  _ev_ok=1; _ev_n=0
+  while IFS= read -r _path; do
+    [ -n "$_path" ] || continue
+    _ev_n=$((_ev_n+1))
+    _ev_card=""
+    case "$_path" in
+      dev/evidence/*/?*) _ev_card="${_path#dev/evidence/}"; _ev_card="${_ev_card%%/*}" ;;
+    esac
+    if [ -z "$_ev_card" ] || ! [[ "$_ev_card" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+(-[A-Za-z0-9]+)*$ ]]; then _ev_ok=0; break; fi
+    case "$BRANCH" in
+      "$_ev_card"|"$_ev_card"-*|*/"$_ev_card"|*/"$_ev_card"-*) : ;;
+      *) _ev_ok=0; break ;;
+    esac
+  done <<PC_EVID
+$JUDGED
+PC_EVID
+  [ "$_ev_ok" -eq 1 ] && [ "$_ev_n" -gt 0 ] && exit 0
+fi
+
 # Every staged path is metadata (CODE_GLOBS is declared and non-empty, and no entry matched)
 # AND we are on a branch that is not the trunk → refuse, naming the route.
 if [ "$ANY_CODE" -eq 0 ]; then
@@ -246,14 +273,21 @@ PC_CARDS
     msg9b="  code is what makes the change true, add it to the code commit it describes:"
     msg9b="$msg9b"$'\n'"    git commit --amend   (with the path staged; put --amend before any -m/-F/-c/-C, the hook reads it only there)"
   fi
+  # The exemption above, named in the refusal so a leg whose evidence was refused sees the one path that passes.
+  _own="$(printf '%s' "${BRANCH##*/}" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?$/\1/p')"
+  if [ -n "$_own" ]; then
+    msgev="  Dev evidence for this branch's own card commits here, on its own: dev/evidence/$_own/<file> (dev/evidence/README.md)."
+  else
+    msgev="  Dev evidence commits on a work branch only under dev/evidence/<card>/, and '$BRANCH' carries no card id (<kind>/<card>-<slug>) to name it (dev/evidence/README.md)."
+  fi
   msg10="  Staged paths:"
   msg11="$(printf '%s\n' "$STAGED" | sed 's/^/    /')"
   msg12="  Genuinely need to commit here anyway (importing a third party's commit verbatim, or a"
   msg13="  one-off this project has already judged)?  MSG_OK=1 git commit …"
   if command -v kit_refuse >/dev/null 2>&1; then
-    kit_refuse 1 pre-commit-metadata-off-trunk "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "$msg9b" "" "$msg10" "$msg11" "" "$msg12" "$msg13"
+    kit_refuse 1 pre-commit-metadata-off-trunk "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "$msg9b" "" "$msgev" "" "$msg10" "$msg11" "" "$msg12" "$msg13"
   fi
-  printf '%s\n' "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "$msg9b" "" "$msg10" "$msg11" "" "$msg12" "$msg13" >&2
+  printf '%s\n' "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "$msg9b" "" "$msgev" "" "$msg10" "$msg11" "" "$msg12" "$msg13" >&2
   exit 1   # exit-class: fallback
 fi
 

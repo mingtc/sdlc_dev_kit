@@ -775,6 +775,8 @@ if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch 
     echo "        ${_wt_holder:-(unknown worktree)}"
     echo "      Force-deleting a branch another worktree holds is not a fix. When that"
     echo "      worktree is done: git -C '${MAIN_ROOT}' branch -D '${BRANCH}'"
+    echo "      This script removes no worktree (it could lose files the repository does not hold). Remove it first with"
+    echo "      git -C '${MAIN_ROOT}' worktree remove '${_wt_holder:-<path>}'  (it refuses one holding changes); check-board.sh's [f] lists them."
   } >&2
 elif ! kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" - >/dev/null; then
   LOCAL_DELETE_STATE="absent"

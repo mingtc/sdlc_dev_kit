@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # KIT-CLASS: MIXED — kit mechanism, PROJECT prefix set (ROLE_PREFIXES below) — configure on adoption. See process/EXTRACTION.md.
-# Commit-message guard — two rules, one hook:
+# Commit-message guard — two rules, one hook, and a warning:
 #   (1) the SUBJECT declares the acting role — process/contracts/commit-attribution.md
 #   (2) the MESSAGE carries no generated-attribution line, in any of its common wordings —
 #       process/doctrine/commit-hygiene.md § A.1
+#   (3) a WARNING, never a refusal, when the subject's role tag differs from the hat file's first word
+#       (the gate itself still reads existence, not content — process/contracts/role-gate.md § 5)
 #
 # Wired via `git config core.hooksPath scripts/githooks`: `kit-init.sh` wires it at adoption and
 # `setup.sh` re-wires it on every fresh clone (contracts/initializer.md § 2). hooksPath lives in
@@ -154,6 +156,49 @@ esac
 
 # Accept when the subject starts with a known role tag: [Role] …
 if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
+  # RULE (3), A WARNING AND NEVER A REFUSAL: the tag against the hat file's first word. Every path out
+  # of it reaches the `exit 0` below; it prints one block on stderr and changes nothing else.
+  # Silent when there is nothing to compare: no hat file (the pre-commit hat gate decides that), the
+  # operator waiver (`none — …`), a script's per-commit declaration (it names its own role), and the
+  # standing kanban worktree (no session sits there, as in pre-commit). A linked worktree with no hat
+  # file of its own reads the main checkout's, as pre-commit does. Roles compare without case.
+  _hat_rel=""; _hat_env=""; _hat_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  # shellcheck source=../lib/hat-file.sh
+  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ] && [ -n "$_hat_root" ]; then
+    KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
+    . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
+    _hat_rel="$KIT_HAT_FILE_REL"; _hat_env="$KIT_HAT_ENV"
+  fi
+  _hat_skip=0
+  if [ -z "$_hat_rel" ] || [ -z "$_hat_env" ] || [ -n "${!_hat_env:-}" ]; then _hat_skip=1; fi
+  case "$_hat_root" in
+    */.kanban-wt)
+      if ! git symbolic-ref -q HEAD >/dev/null 2>&1 \
+         && [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
+        _hat_skip=1
+      fi ;;
+  esac
+  if [ "$_hat_skip" -eq 0 ]; then
+    _hat_file="$_hat_root/$_hat_rel"
+    if [ ! -f "$_hat_file" ]; then
+      _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+      if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
+        _hat_file="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)/$_hat_rel"
+      fi
+    fi
+    if [ -f "$_hat_file" ]; then
+      _hat_line=""
+      IFS= read -r _hat_line < "$_hat_file" || true
+      _hat_first="$(printf '%s' "${_hat_line%%[[:space:]]*}" | tr -d '\r')"
+      _tag="${subject#\[}"; _tag="${_tag%%\]*}"
+      if [ -n "$_hat_first" ] && [ "$_hat_first" != "none" ] \
+         && [ "$(printf '%s' "$_hat_first" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$_tag" | tr '[:upper:]' '[:lower:]')" ]; then
+        printf '%s\n' \
+          "Warning: this commit's role tag [$_tag] differs from the hat declared in $_hat_rel ($_hat_first). The commit goes ahead; this hook compares and never refuses." \
+          "Next: if the tag is wrong, correct the subject (amend the commit); if the hat is stale, rewrite $_hat_rel to the role you are wearing. Seats that work at once need a checkout each, since the file is one per checkout." >&2
+      fi
+    fi
+  fi
   exit 0
 fi
 

@@ -5,9 +5,17 @@
 screenshot, a render, a diff image. A `## QA Verdict` row cites one with the `artifact` evidence kind
 (`.claude/roles/qa.md` step 4) as `<path> <full blob sha>`.
 
-**Who does what, stated here once.** QA cites an image by its blob sha and never takes or reads one
-(`.claude/agents/qa-worker.md`). Dev, or the project's tooling, commits the file to the trunk, a build
-screenshot included. A human or the orchestrator compares the images, and QA records their result on the row.
+**Who commits what, and when — stated here once.** QA cites an image by its blob sha and never takes or reads one
+(`.claude/agents/qa-worker.md`). A human or the orchestrator compares the images, and QA records their result on the row.
+A file is committed in one place, by Dev or the project's tooling, and which place depends on whether a QA row will cite it:
+
+- **A file an `artifact` row will cite** (a build screenshot included) goes to the trunk, below.
+- **Any other evidence Dev produces for its card** (probe output, a log, a record a manual check read) is committed on the
+  card's work branch, under `dev/evidence/<card-id>/`, by Dev, in a commit of its own whenever it changes, before or after
+  the code commit; it reaches the trunk when the branch lands. `scripts/githooks/pre-commit` lets that commit through when
+  every staged path is under the directory of the card the branch's own name carries (`<kind>/<card-id>-<slug>`). Another
+  card's directory, or any other metadata path in the same commit (the card file included), keeps the refusal.
+- **A path a test reads is code, not evidence**: list it in `CODE_GLOBS` and it commits with the code.
 
 - **The file is on the trunk before the row cites it**, committed with `./scripts/register-commit.sh --role
   <role> --message "<message>" dev/evidence/<card-id>/<file>`. The landing resolves the pair on the trunk,

@@ -12,7 +12,8 @@
 #   (e) [Role]-prefix scan of recent trunk commits;
 #   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt, and [f0] the
 #       main checkout's working tree, which no arm reads;
-#       then, under its own header, a remote branch left by a card already in done/ or qa_complete/ (advisory);
+#       then, under its own header, a remote branch ([f3]) and a linked worktree ([f4], clean or holding
+#       changes) left by a card already in done/ or qa_complete/ (advisory);
 #   (g) graduation — has day one finished, and a `hooks: off` line while `.claude/settings.json` is absent (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
 #   (i) blocks:/blocked_by: symmetry (advisory here; a landing refuses a finding it introduces);
@@ -874,6 +875,61 @@ else
     echo "      [f3] remote branches: $f3_n read, $f3_card named for a card; these name a card already in done/ or qa_complete/  ⚠ $f3_stale — a leftover of a re-cut or an aborted landing; delete it if nothing needs it: git push $remote --delete <branch> — inspected: refs/remotes/$remote/ as last fetched; cards: $(cb_src)"
   else
     echo "      [f3] remote branches: $f3_n read, $f3_card named for a card, none for a card in done/ or qa_complete/  ✓ — inspected: refs/remotes/$remote/ as last fetched; cards: $(cb_src)"
+  fi
+fi
+
+# ── [f4] A LINKED WORKTREE LEFT BEHIND BY A CARD THAT HAS LANDED ─────────────
+# Under the same `[f]` header, so the same "reports only" reading holds. The landing keeps a branch that a
+# worktree holds ("NOT deleted — it is checked out in a worktree") and removes no worktree, so a landed
+# card's checkout stays until somebody removes it. This arm NAMES it and says whether it holds changes; it
+# removes nothing, because `git worktree remove` deletes ignored files too (installed dependencies, an env
+# file), and a landing that did it could lose work the repository does not hold. A worktree's card is read
+# off its branch (`<kind>/<ID>-<slug>`), or off its directory's name when it is detached. The population is
+# every linked worktree but the standing kanban worktree. Cards: the same done/ and qa_complete/ ids as [f3].
+if [ -z "$f3_ran" ]; then
+  echo "      [f4] worktrees: THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
+else
+  f4_porc="$(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null || true)"  # card-read-exempt: lists the linked worktrees to name leftovers; resolves no card
+  if [ -z "$f4_porc" ]; then
+    echo "      [f4] worktrees: no worktree list from $REPO_ROOT  (skipped) — inspected: git worktree list"
+  else
+    f4_n=0; f4_card=0; f4_stale=""; f4_blk=0
+    f4_path=""; f4_br=""; f4_locked=""
+    while IFS= read -r f4_l || [ -n "$f4_l" ]; do
+      case "$f4_l" in
+        "worktree "*) f4_path="${f4_l#worktree }"; f4_br=""; f4_locked=""; continue ;;
+        "branch "*)   f4_br="${f4_l#branch refs/heads/}"; continue ;;
+        "locked"*)    f4_locked=" locked"; continue ;;
+        "") ;;
+        *) continue ;;
+      esac
+      [ -n "$f4_path" ] || continue
+      f4_blk=$((f4_blk+1))
+      if [ "$f4_blk" -eq 1 ]; then f4_path=""; continue; fi   # the main checkout
+      case "$f4_path" in */.kanban-wt) f4_path=""; continue ;; esac
+      f4_n=$((f4_n+1))
+      f4_seg="${f4_br:+${f4_br##*/}}"; [ -n "$f4_seg" ] || f4_seg="${f4_path##*/}"
+      f4_id="$(printf '%s\n' "$f4_seg" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?$/\1/p')"
+      if [ -n "$f4_id" ]; then
+        f4_card=$((f4_card+1))
+        case "$f3_ids" in
+          *" $f4_id "*)
+            if [ -d "$f4_path" ]; then
+              f4_dirty="$(git -C "$f4_path" status --porcelain 2>/dev/null | awk 'END { print NR }')"
+              if [ "${f4_dirty:-0}" -eq 0 ]; then f4_state="clean"; else f4_state="$f4_dirty path(s) with uncommitted or untracked changes"; fi
+            else
+              f4_state="directory missing, git worktree prune clears it"
+            fi
+            f4_stale="${f4_stale}${f4_stale:+, }$f4_path (${f4_br:-detached}; $f4_state${f4_locked:+;$f4_locked})" ;;
+        esac
+      fi
+      f4_path=""
+    done <<< "$f4_porc"$'\n'
+    if [ -n "$f4_stale" ]; then
+      echo "      [f4] worktrees: $f4_n read, $f4_card named for a card; these name a card already in done/ or qa_complete/  ⚠ $f4_stale — the landing removes no worktree; when nothing in one is needed: git worktree remove <path> (it refuses one with changes, and deletes ignored files such as installed dependencies, so look first), then git branch -D <branch> for a branch it held — inspected: git worktree list; cards: $(cb_src)"
+    else
+      echo "      [f4] worktrees: $f4_n read, $f4_card named for a card, none for a card in done/ or qa_complete/  ✓ — inspected: git worktree list; cards: $(cb_src)"
+    fi
   fi
 fi
 

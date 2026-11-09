@@ -119,7 +119,10 @@ the PM's own judgement, not this record.
 **Out:** allow or block; on block, an instructive message. On any input it cannot interpret:
 allow.
 **Not in:** deciding *which* role is appropriate for the change. The gate checks that a hat was
-declared, never that it was the right one.
+declared, never that it was the right one. The commit-msg hook adds one **warning**, never a refusal: a
+subject whose role tag differs from the declaration's first word prints a line on stderr and the commit
+proceeds. It stays silent with no declaration (the commit gate decides that), under the operator waiver,
+under a script's per-commit declaration and in the standing kanban worktree.
 
 ## 6. REFERENCE IMPLEMENTATION
 

@@ -2271,7 +2271,7 @@ case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
   local rel env_name msg="$SB_TMP/msg.txt" out rc err="$SB_TMP/err.txt"
   rel="$(_sandbox_hat_file)"
   env_name="$(sed -n 's/^KIT_HAT_ENV="\(.*\)"$/\1/p' "$SB_WORK/scripts/lib/hat-file.sh")"
-  [ -n "$rel" ] && [ -n "$env_name" ] || _fixture_die "case_commit_msg_warns: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL or KIT_HAT_ENV on its own line."
+  [ -n "$rel" ] && [ -n "$env_name" ] || _fixture_die "case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL or KIT_HAT_ENV on its own line."
   _hat() { mkdir -p "$SB_WORK/$(dirname "$rel")"; printf '%s\n' "$1" > "$SB_WORK/$rel"; }
   _run() {   # <cwd> <subject> [VAR=value…] : run the hook the way git does (cwd = the tree root); stderr to $err, exit in $rc
     local d="$1" s="$2"; shift 2
