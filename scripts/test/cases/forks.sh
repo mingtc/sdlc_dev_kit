@@ -934,6 +934,103 @@ case_forks_check_skips_a_citation_of_a_live_ruling_in_activity_and_out_of_scope(
   finish "forks: skips a '[decision: D-NN]' citation in the Activity or Out of Scope of a ruling already live when the card left todo/ (move-issue.sh and finish-pr.sh agree), still counts one cited elsewhere on the card or of an entry added after pickup, and the live-citation read is ablation-proven"
 }
 
+# Hooks for the ablation rows below: each edits the sandbox's qa-gate.sh BEFORE it is published, because a
+# landing runs only the trunk's committed copy of the scripts.
+_forks_ablate_amended_live() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q 'comm -23 <(printf' "$lib" || { _control_did_not_run "find the amended-entry subtraction in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/comm -23 <(printf .%s\\n. "\$_fl_ids") <(printf .%s\\n. "\$_fl_changed")/printf "%s\\n" "$_fl_ids"/' "$lib" && rm -f "$lib.bak"
+  grep -q 'comm -23 <(printf' "$lib" && _control_did_not_run "plant the amended-entry ablation in lib/qa-gate.sh"
+  return 0
+}
+_forks_ablate_heading_prefix() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q '"## Activity"|"## Out of Scope")' "$lib" || { _control_did_not_run "find the exact section headings in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/"## Activity"|"## Out of Scope")/"## Activity"*|"## Out of Scope"*)/' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+_forks_ablate_fence() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q 'in_fence=\$((1 - in_fence))' "$lib" || { _control_did_not_run "find the fence toggle in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/in_fence=\$((1 - in_fence))/:/' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+
+# _forks_amend_cite_land <id> <slug> [<hook>] — a card amends live D-01 itself on the trunk after pickup
+# (through a trunk commit naming it) and cites D-01 in its Activity under 'forks: none'; then the hand-off.
+# Sets _FAL_OUT and _FAL_RC. The hook, if any, runs right after the sandbox is made.
+_forks_amend_cite_land() {
+  local id="$1" slug="$2" hook="${3:-}" reg
+  make_sandbox
+  [ -z "$hook" ] || "$hook"
+  reg="$SB_WORK/requirements/DECISIONS.md"
+  _forks_seed_register "$reg"
+  seed_issue todo "$id" "$slug" chore "Amends a live ruling and cites it" "feature/$id-work"
+  publish_sandbox
+  _forks_pickup "$id" "$slug"
+  sed -i.bak 's/^\*\*Ruling\.\*\* Old text\./**Ruling.** New text./' "$reg" && rm -f "$reg.bak"
+  grep -q 'New text' "$reg" || _fixture_die "_forks_amend_cite_land: the ruling was not amended"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[PM] $id: amend D-01" --quiet >/dev/null 2>&1
+  printf '%s\n' '- 2026-01-02 [Dev] Changed the text as ruled. [decision: D-01]' >> "$SB_WORK/progress/in_progress/$id-$slug.md"
+  git -C "$SB_WORK" add "progress/in_progress/$id-$slug.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: cite D-01" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "_forks_amend_cite_land: not published"
+  seed_branch "$id" work "CHANGE-$id.txt"
+  _FAL_OUT="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/move-issue.sh "$id" dev_complete --role Dev --note ready 2>&1 )"; _FAL_RC=$?
+}
+
+# =============================================================================
+# CASE — THE LIVE-CITATION EXEMPTION HAS EDGES.
+#   (a) a card that AMENDS live D-01 itself on the trunk after pickup and cites it in the Activity under
+#       'forks: none' is refused: an entry the window changed is not "already made";
+#   (b) ablation of (a): without the subtraction it lands;
+#   (c) a heading that only BEGINS like '## Activity' opens no exempt section;
+#   (d) a '## Out of Scope' line inside a code fence opens none;
+#   (e) the Next: says the skip applies to a card that left a todo/ column.
+# RED FIRST: (a), (c), (d), (e) fail on the check as it first read the exempt sections.
+# =============================================================================
+case_forks_check_live_citation_exemption_has_edges() {
+  cf_reset
+  local id ac1="- [ ] AC1 — the sandbox's seeded behaviour holds."
+
+  id="$SB_PREFIX-766"
+  _forks_amend_cite_land "$id" amend-cite
+  [ "$_FAL_RC" -ne 0 ] || cf "(a) a card that amended live D-01 itself and cites it in the Activity landed under 'forks: none'"
+  case "$_FAL_OUT" in *"does not name: D-01"*) : ;; *) cf "(a) the refusal does not name D-01: $(printf '%s' "$_FAL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$_FAL_OUT" in *"left a todo/ column"*) : ;; *) cf "(e) the Next: does not say the skip is for a card that left a todo/ column: $(printf '%s' "$_FAL_OUT" | tr '\n' '|' | cut -c1-700)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-767"
+  _forks_amend_cite_land "$id" amend-abl _forks_ablate_amended_live
+  [ "$_FAL_RC" -eq 0 ] || cf "ABLATION FAILED — with the subtraction of changed entries removed the amending card was still refused (exit $_FAL_RC), so (a)'s refusal is not attributable to it: $(printf '%s' "$_FAL_OUT" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  id="$SB_PREFIX-768"
+  _forks_drift_land work-c "$id" lookalike 0 "$ac1" "$(printf '%s\n\n%s' '## Activity log of rulings' 'This card decides [decision: D-01].')" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(c) a live D-01 cited under a heading that only begins with '## Activity' was exempted"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(c) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-769"
+  _FDL_HOOK=_forks_ablate_heading_prefix _forks_drift_land work-c2 "$id" lookalike-abl 0 "$ac1" "$(printf '%s\n\n%s' '## Activity log of rulings' 'This card decides [decision: D-01].')" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "ABLATION FAILED — with the headings matched by prefix the lookalike was still refused (exit $_FDL_RC), so (c) is not attributable to the exact match"
+  teardown
+
+  id="$SB_PREFIX-770"
+  _forks_drift_land work-d "$id" fenced 0 "$ac1" "$(printf '%s\n%s\n%s\n%s\n\n%s' '## Problem' '```' '## Out of Scope' '```' 'This card settles the matter: [decision: D-01].')" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(d) a live D-01 cited after a fenced '## Out of Scope' line was exempted"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(d) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-771"
+  _FDL_HOOK=_forks_ablate_fence _forks_drift_land work-d2 "$id" fenced-abl 0 "$ac1" "$(printf '%s\n%s\n%s\n%s\n\n%s' '## Problem' '```' '## Out of Scope' '```' 'This card settles the matter: [decision: D-01].')" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "ABLATION FAILED — with the fence ignored the fenced heading was still refused (exit $_FDL_RC), so (d) is not attributable to the fence reader"
+  teardown
+
+  finish "forks: a live-ruling citation in the Activity or Out of Scope is not skipped for an entry the card itself amended after pickup, under a heading that only begins like the section's, or after a fenced heading line; the Next: says the skip is for a card that left a todo/ column; each edge is ablation-proven"
+}
+
 # _forks_pad_card <file> — append the template boilerplate real cards share (a long fixed section),
 # so two cards differ only in their few lines of own text, as two cards from one template do.
 _forks_pad_card() {
