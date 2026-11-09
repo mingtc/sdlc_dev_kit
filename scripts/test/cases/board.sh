@@ -2287,6 +2287,7 @@ case_pre_commit_allows_a_branchs_own_dev_evidence() {
   [ "$rc" -ne 0 ] || cf "(j) a code commit carrying a rewritten dev/evidence file the trunk holds was ACCEPTED"
   printf '%s' "$out" | grep -F "dev/evidence/$held/held.txt" >/dev/null || cf "(j) the refusal does not name the file: $out"
   git -C "$SB_WORK" reset -q --hard HEAD
+  mkdir -p "$SB_WORK/src"
   printf 'int z;\n' > "$SB_WORK/src/z.c"
   git -C "$SB_WORK" add src/z.c
   out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] code alone" 2>&1 )"; rc=$?
