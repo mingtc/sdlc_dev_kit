@@ -3183,7 +3183,8 @@ case_minted_card_claims_only_what_it_was_given() {
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-741" s2 slice2 --title "Slice 2" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || _fixture_die "case_minted_card_claims_only_what_it_was_given: the ablated subtask.sh refused a legal mint (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
   origin_fetch_or_die
-  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-741/todo/$SB_PREFIX-741-s2-slice2.md" 2>/dev/null | grep -q '^stories: \[<story ids>\]' \
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-741/todo/$SB_PREFIX-741-s2-slice2.md" > "$SB_TMP/subtask-abl.md" 2>/dev/null
+  grep -q '^stories: \[<story ids>\]' "$SB_TMP/subtask-abl.md" \
     || cf "ABLATION FAILED — with the empty default put back as a placeholder the slice still writes none, so the absence above is not attributable to it"
   fi
 
