@@ -2278,6 +2278,19 @@ case_pre_commit_allows_a_branchs_own_dev_evidence() {
   out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] delete the held file" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(h) a deletion of a dev/evidence file the trunk holds was ACCEPTED on a work branch"
   git -C "$SB_WORK" reset -q --hard HEAD
+  # (j) the same holds for a CODE commit: metadata riding it is no exception for a file the trunk holds.
+  mkdir -p "$SB_WORK/src"
+  printf 'int z;\n' > "$SB_WORK/src/z.c"
+  printf 'rewritten beside code\n' > "$SB_WORK/dev/evidence/$held/held.txt"
+  git -C "$SB_WORK" add src/z.c "dev/evidence/$held/held.txt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] code and a rewritten held file" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(j) a code commit carrying a rewritten dev/evidence file the trunk holds was ACCEPTED"
+  printf '%s' "$out" | grep -F "dev/evidence/$held/held.txt" >/dev/null || cf "(j) the refusal does not name the file: $out"
+  git -C "$SB_WORK" reset -q --hard HEAD
+  printf 'int z;\n' > "$SB_WORK/src/z.c"
+  git -C "$SB_WORK" add src/z.c
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] code alone" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(j) the control, a code commit that touches no held file, was refused: $out"
   _try "a new file beside the held one" "dev/evidence/$held/new.txt"
   [ "$rc" -eq 0 ] || cf "(h) a NEW file beside the held one was refused: $out"
 
@@ -2289,7 +2302,7 @@ case_pre_commit_allows_a_branchs_own_dev_evidence() {
   _try "card of the last segment" "dev/evidence/$SB_PREFIX-082/o.txt"
   [ "$rc" -eq 0 ] || cf "(i) the card id of the branch's last segment was refused: $out"
 
-  finish "pre-commit: a work branch may commit its own card's dev/evidence/<card>/ files alone (nested, and by amend), refused for another card's, a prefix of the id, a file of that name, a branch with no card id, a card id taken from a middle segment of the branch name, a rename or a deletion of any other path, a change to a file the trunk already holds, or any commit that adds a path that is not the branch's own evidence"
+  finish "pre-commit: a work branch may commit its own card's dev/evidence/<card>/ files alone (nested, and by amend), refused for another card's, a prefix of the id, a file of that name, a branch with no card id, a card id taken from a middle segment of the branch name, a rename or a deletion of any other path, a change to a file the trunk already holds (a code commit's included), or any commit that adds a path that is not the branch's own evidence"
   teardown
 }
 
@@ -2370,6 +2383,10 @@ case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
     mkdir -p "$leg/$(dirname "$rel")"; printf 'PM leg\n' > "$leg/$rel"
     _run "$leg" "[PM] a ruling"
     [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(e) the worktree's own hat file did not win over the main checkout's: $(cat "$err")"
+    chmod 000 "$leg/$rel"
+    _run "$leg" "[PM] a ruling"
+    chmod 644 "$leg/$rel"
+    [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(e) an unreadable own hat file fell back to the main checkout's (exit $rc): $(cat "$err")"
   else
     _control_did_not_run "add a linked worktree to the sandbox"
   fi
