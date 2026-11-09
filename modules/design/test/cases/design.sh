@@ -2021,6 +2021,8 @@ if 'Gone' in p.path:                                                  # a page t
         pass
 if 'Logs' in p.path:                                                  # a board whose logic throws: the runtime calls console.error, the postlude's wrapper sends it
     urllib.request.urlopen(base + '/__kit-runtime-error?m=' + u.quote('Error: boom'))
+if 'Tall' in p.path or 'Fits' in p.path:                              # the postlude reports the page's scrollHeight once the board has drawn
+    urllib.request.urlopen(base + '/__kit-board-height?b=' + u.quote(u.unquote(p.path)[1:], safe='') + '&h=' + ('1200' if 'Tall' in p.path else '844'))
 if 'Quiet' in p.path:                                                 # a healthy board: the runtime's warning is a console line that Chrome logs, never a console.error call
     sys.stderr.write('[1:2:1101/000000.000000:INFO:CONSOLE:350] "[dc-runtime] Dashboard: {{ row.name }} never resolved \u2014 rendered as empty", source: %s/support.js (350)\n' % base)
 PYEOF
@@ -2121,6 +2123,20 @@ EOF
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(m) a board whose runtime only warned (a console line, no console.error) carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Timer.dc.html
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(m) a healthy board carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  # (n) a board whose content is taller than its canvas size is said, so a leg that cannot view the PNG still sees the cut-off; one that fits, or reports no height, is not
+  cp "$d/p5/Timer.dc.html" "$d/p5/Tall.dc.html"; cp "$d/p5/Timer.dc.html" "$d/p5/Fits.dc.html"
+  _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Tall.dc.html
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OVERFLOW Tall.dc.html 1200px > 844px"; } || cf "(n) a board whose content is 1200px under a 844px size is not said to OVERFLOW (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Fits.dc.html
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "OVERFLOW"; } || cf "(n) a board whose content fits is said to OVERFLOW (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" "$d/p5" "$d/out" --runtime "$d/rt.js" --chrome "$d/chrome" --only Timer.dc.html
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "OVERFLOW"; } || cf "(n) a board that reported no height is said to OVERFLOW (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py "$m/render.py" --help
+  _dm_has "$_dm_out" "OVERFLOW" || cf "(n) the help does not say what OVERFLOW means"
+  # (o) the Designer role says what OVERFLOW means and that heights are unverified until rendered, and where a board generator is committed
+  local role="$m/../../_claude/roles/designer.md"
+  { grep -F 'OVERFLOW' "$role" >/dev/null && grep -iF 'until rendered' "$role" >/dev/null; } || cf "(o) designer.md does not say what OVERFLOW means and that a height is unverified until rendered"
+  grep -F 'requirements/design/<canvas>/tools/' "$role" >/dev/null || cf "(o) designer.md does not say a script that writes boards is committed under requirements/design/<canvas>/tools/"
   finish "$L"
   teardown
 }
