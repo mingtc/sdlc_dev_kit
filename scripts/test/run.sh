@@ -520,6 +520,7 @@ CASES=(
   case_the_held_list_names_every_file_the_landing_and_slice_tools_source
   case_finish_pr_gate_revision
   case_finish_pr_trunk_gate_judges_the_branch
+  case_finish_pr_empty_gate_table_names_the_route
   case_finish_pr_stacked_branch_unlanded_base_refuses
   case_finish_pr_stacked_branch_squashed_base_refuses
   case_finish_pr_stacked_branch_landed_base_ref_kept_refuses_as_squash_landed
@@ -636,6 +637,8 @@ CASES=(
   case_check_board_reverse_coverage
   case_check_board_model_pins_arm
   case_check_board_model_pins_arm_names_blank_role_doc_tables
+  case_check_board_declared_none_answers_one_member_one_glob_one_row
+  case_check_board_report_prints_findings_first_and_folds_clean_arms
   case_check_board_answered_question_arm
   case_check_board_reports_what_only_this_checkout_holds
   case_check_board_answered_question_cited_before_the_answer

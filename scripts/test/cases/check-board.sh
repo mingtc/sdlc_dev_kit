@@ -218,7 +218,9 @@ cb_set_dep() {
 
 # Run the SANDBOX copy of check-board.sh with CLAUDE_PROJECT_DIR unset: inherited, it would point
 # the copy at the REAL board.
-cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
+cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" "$@" 2>&1 ); }
+# The report as the SessionStart hook and a session close read it: findings first, clean arms folded.
+cb_run_default() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # CASE — check-board's [j] arm joins the downtime queue to the board, and CLASSIFIES the
 # Status cell rather than grepping it.
@@ -5341,5 +5343,240 @@ case_check_board_graduation_reports_hooks_off() {
     || cf "the hooks-off report changed another line of the arm (it must be a report, not a verdict input)"
 
   finish "arm [g] prints 'hooks: off (.claude/settings.json absent)' when the file is absent and not when it is present, and the rest of the arm is identical in both runs"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DECIDED ABSENCE HAS ONE CHEAP ANSWER, THE SAME WORDS EVERYWHERE: `DECLARED NONE`.
+# A glob no file matches, a DELETE-IF-UNUSED member nobody decided, and a model-table row left
+# `<fill in>` each warn on every run until answered. The answer is the marker, read the same way at
+# each place: a trailing `# DECLARED NONE` comment on the glob's own line, `DECLARED NONE` after the
+# member's `(DELETE-IF-UNUSED)` in LOCAL-PROCEDURES, `DECLARED NONE` anywhere in the row. A row or
+# member nobody answered still warns (the control at each place), and none of it moves the verdict.
+# =============================================================================
+case_check_board_declared_none_answers_one_member_one_glob_one_row() {
+  cf_reset
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  mkdir -p "$SB_WORK/tests"; printf '# a test\n' > "$SB_WORK/tests/a.test.sh"
+  _cb_g_fill_glob_array TEST_GLOBS '  "tests/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  "gone-a/*"  # DECLARED NONE -- this path was abandoned.'
+  _cb_g_fill_glob_array TEST_GLOBS '  "gone-b/*"'
+  publish_sandbox
+  local out line v_plain
+
+  # ── TEST_GLOBS: the marked dead glob is not named, the unmarked one is. ─────────────────────
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' | grep -v 'vs scripts/test' || true)"
+  printf '%s\n' "$line" | grep -F 'gone-b/*' >/dev/null \
+    || cf "(glob) an unmarked dead TEST_GLOBS entry was not named: ${line:-no TEST_GLOBS line}"
+  printf '%s\n' "$line" | grep -F 'gone-a/*' >/dev/null \
+    && cf "(glob) a dead TEST_GLOBS entry carrying '# DECLARED NONE' was still named as matching no file: $line"
+  v_plain="$(printf '%s\n' "$out" | grep '^── board-drift')"
+
+  # Every dead entry answered: the line reads clean, and the verdict is what it was.
+  perl -i -pe 's|^  "gone-b/\*"$|  "gone-b/*"  # DECLARED NONE -- no second tree.|' "$SB_WORK/scripts/config.sh"
+  grep -F '"gone-b/*"  # DECLARED NONE' "$SB_WORK/scripts/config.sh" >/dev/null \
+    || _fixture_die "the second glob's marker was not written to the sandbox's config.sh"
+  publish_sandbox
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' | grep -v 'vs scripts/test' || true)"
+  printf '%s\n' "$line" | grep -F '⚠' >/dev/null \
+    && cf "(glob) every dead entry carries '# DECLARED NONE' and the line still warns: $line"
+  printf '%s\n' "$line" | grep -F 'declares' >/dev/null \
+    || cf "(glob) the marked entries left no line a reader can see: ${line:-no TEST_GLOBS line}"
+  [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$v_plain" ] \
+    || cf "(glob) a declared-none glob moved the verdict"
+
+  # ── DELETE-IF-UNUSED: one member answered with the marker, another left undecided. ──────────
+  local f
+  f="$(_cb_g_a_declaring_file)"
+  if [ -n "$f" ]; then
+    _cb_g_discharge_delete_if_unused
+    grep -F -- "- **\`$f\` (DELETE-IF-UNUSED) kept, on purpose.**" "$SB_WORK/process/LOCAL-PROCEDURES.md" >/dev/null \
+      || _fixture_die "the sandbox's LOCAL-PROCEDURES.md carries no kept line for $f to replace"
+    grep -vF -- "- **\`$f\` (DELETE-IF-UNUSED) kept, on purpose.**" "$SB_WORK/process/LOCAL-PROCEDURES.md" > "$SB_WORK/process/LP.new" \
+      && mv "$SB_WORK/process/LP.new" "$SB_WORK/process/LOCAL-PROCEDURES.md"
+    publish_sandbox
+    out="$(cb_run)"
+    printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' | grep -F "$f" >/dev/null \
+      || cf "(member) the member with no line was not named as undecided: $(printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED')"
+    printf -- '- **`%s` (DELETE-IF-UNUSED) DECLARED NONE -- no use for it here.**\n' "$f" >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
+    publish_sandbox
+    out="$(cb_run)"
+    printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
+      && cf "(member) a member answered with 'DECLARED NONE' was still reported undecided: $(printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED')"
+    printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*carry a recorded' >/dev/null \
+      || cf "(member) the answered member was not read as recorded: $(printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED')"
+    # A mention elsewhere is still not an answer (the exact-line rule is unchanged).
+    grep -vF -- "$f" "$SB_WORK/process/LOCAL-PROCEDURES.md" > "$SB_WORK/process/LP.new" \
+      && mv "$SB_WORK/process/LP.new" "$SB_WORK/process/LOCAL-PROCEDURES.md"
+    printf '%s DECLARED NONE\n' "$f" >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
+    publish_sandbox
+    out="$(cb_run)"
+    printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
+      || cf "(member) a bare mention of DECLARED NONE, not in the member's line, was read as an answer"
+  fi
+
+  # ── Model-table rows: the marker anywhere in the row answers it; an unanswered row warns. ───
+  local ad orch src d rd role n_all n_marked
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  src=""
+  for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do [ -d "$d/roles" ] && src="$d"; done
+  if [ -z "$ad" ] || [ -z "$src" ]; then
+    skp "check-board declared-none (model rows)" "no .claude/agents + roles in the real tree"
+  else
+    for role in dev qa pm refactorer; do
+      [ -f "$src/roles/$role.md" ] && cp "$src/roles/$role.md" "$SB_WORK/.claude/roles/$role.md"
+    done
+    _blank_rows() {  # <doc> — every row of the Model & effort section is left <fill in> in both cells
+      awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) }
+        s && /^\|/ && /`/ { n = split($0, p, "|"); o = p[1]
+          for (i = 2; i <= n; i++) { c = p[i]
+            if (i >= 3 && i <= 4 && match(c, /`[^`]*`/)) c = substr(c, 1, RSTART - 1) "`<fill in>`" substr(c, RSTART + RLENGTH)
+            o = o "|" c }
+          print o; next }
+        { print }' "$1" > "$1.new" && mv "$1.new" "$1"
+    }
+    _mark_first_row() {  # <doc> — the MODEL cell of the first unanswered data row becomes DECLARED NONE; its effort cell is left alone
+      awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) }
+        s && !d && /^\|/ && /<fill in/ && !/DECLARED NONE/ { n = split($0, p, "|"); o = p[1]
+          for (i = 2; i <= n; i++) { c = p[i]; if (i == 3) c = " DECLARED NONE "; o = o "|" c }
+          print o; d = 1; next }
+        { print }' "$1" > "$1.new" && mv "$1.new" "$1"
+    }
+    _unanswered() {  # <doc> — rows of the section still <fill in> and not marked
+      awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /<fill in/ && !/DECLARED NONE/ { c++ } END { print c + 0 }' "$1"
+    }
+    _count() { printf '%s\n' "$1" | grep 'role-doc model row' | sed -n 's/^ *⚠ \([0-9]*\) role-doc.*/\1/p'; }
+    for rd in "$SB_WORK"/.claude/roles/*.md; do [ "${rd##*/}" = orchestrator.md ] || _blank_rows "$rd"; done
+    publish_sandbox
+    out="$(cb_run)"; n_all="$(_count "$out")"
+    [ -n "$n_all" ] && [ "$n_all" -gt 1 ] || _fixture_die "the blanked role docs print no usable role-doc count (got '${n_all:-none}')"
+    _mark_first_row "$SB_WORK/.claude/roles/dev.md"
+    grep -F 'DECLARED NONE' "$SB_WORK/.claude/roles/dev.md" >/dev/null || _fixture_die "the marker was not written to the sandbox's dev.md"
+    publish_sandbox
+    out="$(cb_run)"; n_marked="$(_count "$out")"
+    [ "$n_marked" = "$((n_all - 1))" ] \
+      || cf "(row) one row marked 'DECLARED NONE' in its model cell should leave $((n_all - 1)) blank row(s), the report counts '${n_marked:-none}'"
+    # Every row of every hand-kept table answered: the line is gone and the verdict has not moved.
+    for rd in "$SB_WORK"/.claude/roles/*.md; do
+      [ "${rd##*/}" = orchestrator.md ] && continue
+      while [ "$(_unanswered "$rd")" -gt 0 ]; do _mark_first_row "$rd"; done
+    done
+    publish_sandbox
+    out="$(cb_run)"
+    printf '%s\n' "$out" | grep 'role-doc model row' >/dev/null \
+      && cf "(row) every hand-kept row answered with 'DECLARED NONE' and the report still counts blanks: $(printf '%s\n' "$out" | grep 'role-doc model row')"
+    [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$v_plain" ] \
+      || cf "(row) declared-none rows moved the verdict"
+  fi
+
+  finish "check-board: 'DECLARED NONE' answers a TEST_GLOBS entry (trailing comment), a DELETE-IF-UNUSED member (its LOCAL-PROCEDURES line) and a model-table row (anywhere in it) the same way; an unanswered one at each place still warns; a bare mention is no answer; the verdict is unmoved"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE REPORT PRINTS ITS FINDINGS FIRST AND FOLDS THE ARMS THAT FOUND NOTHING INTO ONE LINE.
+# The SessionStart hook cuts the report at a byte budget, so what comes first is what a session
+# reads. Order and folding are the only change: the verdict line, every `⚠` line and every skipped
+# or did-not-run line are exactly what `--full` prints, and `--full` is the unfolded, original-order
+# report. Driven through the real script on a board with one planted finding (a duplicate id, arm
+# [d]), then through the SessionStart hook and the two consumers that read the report's text.
+# =============================================================================
+CB_FOLD_LEAD='── no findings, folded'   # the one line's lead, shared with scripts/hooks/session-start.sh
+case_check_board_report_prints_findings_first_and_folds_clean_arms() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-195" first-shape  bug   "Dev-filed bug"
+  seed_issue done "$SB_PREFIX-195" second-shape spike "PM-minted spike"
+  publish_sandbox
+  local def full rc_def rc_full first_head fold n_def n_full tag miss
+  def="$(cb_run_default)"; rc_def=$?
+  full="$(cb_run)"; rc_full=$?
+  [ "$rc_def" -eq 0 ] || cf "the default report exited $rc_def (exit 0 ALWAYS)"
+  [ "$rc_full" -eq 0 ] || cf "'--full' exited $rc_full — an unknown option is a usage error, but the report's own option is not: $(printf '%s' "$full" | head -3 | tr '\n' '|')"
+  printf '%s\n' "$full" | grep '^\[a\]' >/dev/null \
+    || _fixture_die "'--full' prints no [a] heading, so the unfolded report was not obtained and every comparison below is about nothing"
+
+  # (1) Findings first: the first arm heading is the arm that found something, not a clean one.
+  first_head="$(printf '%s\n' "$def" | grep -m1 '^\[' || true)"
+  case "$first_head" in
+    '[d]'*) : ;;
+    *) cf "(1) the default report opens its arms on '${first_head:-no heading}', not on arm [d], the one with the planted duplicate" ;;
+  esac
+  printf '%s\n' "$def" | grep -m1 '^\[k\]' >/dev/null \
+    && cf "(1) arm [k], an advisory arm that found nothing, still has its own heading in the default report"
+
+  # (2) The clean arms are one line, which names each of them and says where the rest is.
+  fold="$(printf '%s\n' "$def" | grep -F "$CB_FOLD_LEAD" || true)"
+  [ -n "$fold" ] || cf "(2) no folded line beginning '$CB_FOLD_LEAD' in the default report"
+  printf '%s\n' "$fold" | grep -F -- '--full' >/dev/null || cf "(2) the folded line does not say where the folded arms are: $fold"
+  miss=""
+  for tag in $(printf '%s\n' "$full" | grep -oE '^\[([a-z][0-9]*)\]' | sort -u); do
+    printf '%s\n' "$def" | grep -F "$tag" >/dev/null || miss="$miss $tag"
+  done
+  [ -z "$miss" ] || cf "(2) arm(s)$miss appear in --full and are neither printed nor named in the default report"
+  [ "$(printf '%s\n' "$def" | grep -c -F "$CB_FOLD_LEAD")" = 1 ] || cf "(2) the folded line is not exactly one line"
+
+  # (3) Nothing is lost: the verdict, every finding line and every did-not-run line are the same set.
+  [ "$(printf '%s\n' "$def" | grep '^── board-drift')" = "$(printf '%s\n' "$full" | grep '^── board-drift')" ] \
+    || cf "(3) the verdict line differs between the default report and --full"
+  case "${def##*$'\n'}" in '── board-drift:'*) : ;; *) cf "(3) the default report does not end on the verdict line: ${def##*$'\n'}" ;; esac
+  [ "$(printf '%s\n' "$def" | grep '⚠' | sort)" = "$(printf '%s\n' "$full" | grep '⚠' | sort)" ] \
+    || cf "(3) the ⚠ lines of the default report are not the ⚠ lines of --full"
+  [ "$(printf '%s\n' "$def" | grep -E 'DID NOT RUN|did not run|\(skipped' | sort)" = "$(printf '%s\n' "$full" | grep -E 'DID NOT RUN|did not run|\(skipped' | sort)" ] \
+    || cf "(3) a check that did not run was folded away: its line is in --full and not in the default report"
+
+  # (4) Findings before the arms that did not run, before the folded line, before the verdict.
+  n_def="$(printf '%s\n' "$def" | grep -n -m1 '⚠' | cut -d: -f1)"
+  n_full="$(printf '%s\n' "$def" | grep -n -m1 -E 'DID NOT RUN|did not run|\(skipped' | cut -d: -f1)"
+  [ -z "$n_full" ] || [ "$n_def" -lt "$n_full" ] || cf "(4) a did-not-run line (line $n_full) comes before the first finding (line $n_def)"
+  n_full="$(printf '%s\n' "$def" | grep -n -m1 -F "$CB_FOLD_LEAD" | cut -d: -f1)"
+  [ -n "$n_full" ] && [ "$n_def" -lt "$n_full" ] || cf "(4) the folded line (line ${n_full:-none}) does not come after the first finding (line $n_def)"
+
+  # (5) --full is the original order: the first arm heading is [a].
+  case "$(printf '%s\n' "$full" | grep -m1 '^\[')" in '[a]'*) : ;; *) cf "(5) --full does not open on arm [a]" ;; esac
+
+  # (6) The option is documented, and an unknown option is still a usage error.
+  ( cd "$SB_WORK" && ./scripts/check-board.sh --help 2>&1 ) | grep -F -- '--full' >/dev/null || cf "(6) --help does not name --full"
+  ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --no-such-option >/dev/null 2>&1 ); rc_def=$?
+  [ "$rc_def" -eq 2 ] || cf "(6) an unknown option exited $rc_def, not 2"
+
+  # (7) The SessionStart hook: its output, under budget, opens on the finding; over budget it keeps the folded line.
+  local hook="$SB_WORK/scripts/hooks/session-start.sh" hout stub_root="$SB_TMP/stubroot-fold" i=0
+  [ -f "$hook" ] || _fixture_die "no scripts/hooks/session-start.sh in the sandbox"
+  hout="$(CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" 2>&1)" || true
+  case "$(printf '%s\n' "$hout" | grep -m1 '^\[')" in '[d]'*) : ;; *) cf "(7) the hook's output does not open its arms on the finding: $(printf '%s\n' "$hout" | grep -m1 '^\[')" ;; esac
+  mkdir -p "$stub_root/scripts"
+  {
+    printf '#!/bin/sh\n'
+    printf 'echo "[d] a finding arm — read from: origin/main:"\n'
+    printf 'echo "    ⚠ FOLD-FINDING-SENTINEL card X: in todo/ but last Activity declares in_progress"\n'
+    while [ "$i" -lt 400 ]; do printf 'echo "      a clean line %s that an arm prints to explain itself at some length"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "%s (check-board.sh --full prints each one): [a] [b]"\n' "$CB_FOLD_LEAD"
+    printf 'echo "── board-drift: findings above ⚠ (informational; exit 0 by convention)"\n'
+  } > "$stub_root/scripts/check-board.sh"
+  chmod +x "$stub_root/scripts/check-board.sh"
+  hout="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
+  printf '%s\n' "$hout" | grep -F 'FOLD-FINDING-SENTINEL' >/dev/null || cf "(7) the over-budget hook output dropped the finding"
+  printf '%s\n' "$hout" | grep -F "$CB_FOLD_LEAD" >/dev/null || cf "(7) the over-budget hook output dropped the folded line, which names the arms that found nothing"
+
+  # (8) The consumers that read the report's text: the verdict line decides (kit-init's check (3) and
+  # release.sh's gate (d) both key on it), and the ⚠ lines they print are the ones --full prints.
+  printf '%s\n' "$def" | grep -F 'board-drift: findings above' >/dev/null || cf "(8) the verdict text a consumer keys on moved"
+  # A clean board: the verdict is the one a consumer reads as clean, still reachable on the last line.
+  teardown
+  make_sandbox
+  publish_sandbox
+  def="$(cb_run_default)"
+  printf '%s\n' "$def" | grep -F "$CB_FOLD_LEAD" >/dev/null || cf "(clean) a board with no finding prints no folded line"
+  case "${def##*$'\n'}" in '── board-drift: clean'*) : ;; *) cf "(clean) the clean report does not end on 'board-drift: clean': ${def##*$'\n'}" ;; esac
+  [ "$(printf '%s\n' "$def" | grep -c '^\[')" -lt "$(cb_run | grep -c '^\[')" ] \
+    || cf "(clean) the clean report prints as many arm headings as --full: nothing was folded"
+
+  finish "check-board: findings print first, arms that found nothing fold into one named line, arms that did not run stay visible, the verdict and every ⚠ line match --full, --full is the original order, and the SessionStart hook opens on the finding"
   teardown
 }

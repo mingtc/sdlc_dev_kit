@@ -2720,3 +2720,75 @@ case_finish_pr_help_names_post_merge_prep() {
   finish "finish-pr.sh --help names POST_MERGE_PREP"
   teardown
 }
+
+# =============================================================================
+# CASE — THE FIRST CARD THAT DECLARES THE GATES HAS A ROUTE. Unmarked, like the cases above.
+#
+# The trunk's runner judges a branch that changes verify.sh, and a trunk whose GATES table is still
+# empty refuses to run. A project that finds its stack through its first card declares the gates on
+# that card's branch, so the landing refuses on the trunk's empty table. The refusal stays (a runner
+# with no gate authorises nothing); it now names the way out:
+#   (a) the refusal says REFUSED TO RUN, names the trunk's empty table, and names the route: land
+#       the gate table on the trunk first with register-commit.sh, then re-run finish-pr.sh;
+#   (b) following that route (register-commit.sh from the branch's checkout, then the same landing)
+#       lands the card;
+#   (c) a gate runner refused for any other reason names no such route, and a trunk whose table is
+#       filled lands a branch that changes verify.sh as before (the case above).
+# =============================================================================
+case_finish_pr_empty_gate_table_names_the_route() {
+  cf_reset
+  local out rc br
+  make_sandbox
+  # The sandbox declares one gate on its trunk; this project has not chosen its stack yet, so none.
+  perl -i -ne 'print unless /^  "sandbox gate\|select\|/' "$SB_WORK/scripts/verify.sh"
+  seed_issue dev_complete "$SB_PREFIX-791" firstgate chore "The first card declares the gates" "feature/$SB_PREFIX-791-firstgate"
+  publish_sandbox
+  br="feature/$SB_PREFIX-791-firstgate"
+  git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1 && git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: could not branch."
+  git -C "$SB_WORK" show "$SB_TRUNK:scripts/verify.sh" > "$SB_TMP/trunk-verify.sh"
+  awk '/^GATES=\($/ { i = 1; next } i && /^\)/ { i = 0 } i && /^[[:space:]]*"/ { n++ } END { exit (n > 0) }' "$SB_TMP/trunk-verify.sh" \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: the sandbox trunk's GATES table is not empty, so the case tests nothing."
+  _declare_gate 'first|core|/bin/echo first-gate-green'
+  echo "the first card's own change" > "$SB_WORK/CHANGE791.txt"   # the table rides with the card's code, as a first card's does
+  git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[Dev] $SB_PREFIX-791: declare the gates" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q -u origin "$br" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: could not commit and push the branch."
+  ( cd "$SB_WORK" && ./scripts/verify.sh --quick >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_empty_gate_table_names_the_route: the branch's own runner is not green, so the row tests nothing."
+
+  # (a) NO FPR_STUB. The refusal names the route.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-791" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a branch landed on a trunk whose gate table is empty: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'pre-merge gate REFUSED TO RUN' >/dev/null \
+    || cf "(a) the refusal no longer says REFUSED TO RUN: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'register-commit.sh' | grep -F 'scripts/verify.sh' >/dev/null \
+    || cf "(a) the refusal does not name register-commit.sh landing scripts/verify.sh as the way out: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -i 'empty' | grep -F "$SB_TRUNK" >/dev/null \
+    || cf "(a) the refusal does not say the trunk's gate table is empty: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'finish-pr.sh' | grep -i 're-run' >/dev/null \
+    || cf "(a) the refusal does not end by saying to re-run finish-pr.sh: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  assert_landing_untouched "(a)" "$SB_PREFIX-791" firstgate "$br"
+
+  # (b) The route works as named: land the table on the trunk, then the same landing succeeds.
+  ( cd "$SB_WORK" && ./scripts/register-commit.sh --role Dev --message "$SB_PREFIX-791: declare the gates" scripts/verify.sh ) >/dev/null 2>&1 \
+    || cf "(b) register-commit.sh refused to land scripts/verify.sh on the trunk, so the route the refusal names does not work"
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-791" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) after the gate table landed on the trunk the card still did not land (exit $rc): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  teardown
+
+  # (c) A gate refused for another reason names no route to the table.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-792" otherrefusal chore "Refused for another reason" "feature/$SB_PREFIX-792-otherrefusal"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-792" otherrefusal CHANGE792.txt
+  printf '#!/usr/bin/env bash\nexit 2\n' > "$SB_TMP/gate-exit-2c"; chmod +x "$SB_TMP/gate-exit-2c"
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-exit-2c" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-792" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a pre-merge gate that refused to run did not refuse the landing"
+  printf '%s\n' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    && cf "(c) a gate refused for a reason other than an empty table was sent to land a gate table: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+
+  finish "finish-pr.sh: a trunk whose GATES table is empty still refuses a branch that declares the gates, and the refusal names the route (land scripts/verify.sh on the trunk with register-commit.sh, then re-run); the route lands the card; a gate refused for another reason names no such route"
+  teardown
+}
