@@ -94,7 +94,7 @@ every carrier, parking touches none of the scripts.*
   role.**
 - **What counts as CODE here — `scripts/config.sh`'s `CODE_GLOBS`.** `scripts/githooks/pre-commit`
   reads it from there, never from this file, and refuses a metadata-only commit made off the
-  trunk once it is filled. Only a path it matches goes through a branch.
+  trunk once it is filled. Only a path it matches goes through a branch (bar a card's own Dev evidence under `dev/evidence/`).
   **Everything else is metadata and commits direct to `<trunk>`**: board moves, requirement and
   issue edits, role-doc updates, `process/**`, `dev/**`, the running log, the project-facts sheet
   and this file.

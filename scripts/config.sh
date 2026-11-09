@@ -44,7 +44,8 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 # ── CODE_GLOBS — the one project-supplied definition the code-vs-metadata rule needs
 #    (process/MANUAL.md § The code-vs-metadata rule): "which paths are code." Everything NOT
 #    matched here is metadata and commits direct to the trunk. Read by
-#    scripts/githooks/pre-commit, which refuses a metadata-only commit made off the trunk.
+#    scripts/githooks/pre-commit, which refuses a metadata-only commit made off the trunk
+#    (bar a branch's own card's Dev evidence, dev/evidence/README.md).
 #
 # SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and the pre-commit hook that reads this
 # treats undeclared as unenforced — it will not refuse anything until you fill this in (the

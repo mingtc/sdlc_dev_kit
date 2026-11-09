@@ -1,9 +1,9 @@
 <!-- KIT-CLASS: KIT — the verdict-evidence convention. Travels unedited; it names no project. -->
-# `dev/evidence/` — binary evidence a QA Verdict row cites
+# `dev/evidence/` — the evidence a card produces: what a QA Verdict row cites, and what Dev leaves
 
-`dev/evidence/<card-id>/` holds the files that show an AC met when the proof is not a line of code: a
-screenshot, a render, a diff image. A `## QA Verdict` row cites one with the `artifact` evidence kind
-(`.claude/roles/qa.md` step 4) as `<path> <full blob sha>`.
+`dev/evidence/<card-id>/` holds the files that show an AC met or a claim established when the proof is not a line of
+code: a screenshot, a render, a diff image, probe output. A `## QA Verdict` row cites one with the `artifact` evidence
+kind (`.claude/roles/qa.md` step 4) as `<path> <full blob sha>`.
 
 **Who commits what, and when — stated here once.** QA cites an image by its blob sha and never takes or reads one
 (`.claude/agents/qa-worker.md`). A human or the orchestrator compares the images, and QA records their result on the row.
@@ -14,7 +14,9 @@ A file is committed in one place, by Dev or the project's tooling, and which pla
   card's work branch, under `dev/evidence/<card-id>/`, by Dev, in a commit of its own whenever it changes, before or after
   the code commit; it reaches the trunk when the branch lands. `scripts/githooks/pre-commit` lets that commit through when
   every staged path is under the directory of the card the branch's own name carries (`<kind>/<card-id>-<slug>`). Another
-  card's directory, or any other metadata path in the same commit (the card file included), keeps the refusal.
+  card's directory, or any other metadata path in the same commit (the card file included, however it got there), keeps
+  the refusal. **Never edit, delete or re-add, on the branch, a file the trunk already holds**: a QA row may cite its sha,
+  and the hook refuses it; add a new file instead.
 - **A path a test reads is code, not evidence**: list it in `CODE_GLOBS` and it commits with the code.
 
 - **The file is on the trunk before the row cites it**, committed with `./scripts/register-commit.sh --role

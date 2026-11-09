@@ -180,13 +180,13 @@ if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
   esac
   if [ "$_hat_skip" -eq 0 ]; then
     _hat_file="$_hat_root/$_hat_rel"
-    if [ ! -f "$_hat_file" ]; then
+    if [ ! -f "$_hat_file" ] || [ ! -r "$_hat_file" ]; then
       _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
       if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
         _hat_file="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)/$_hat_rel"
       fi
     fi
-    if [ -f "$_hat_file" ]; then
+    if [ -f "$_hat_file" ] && [ -r "$_hat_file" ]; then
       _hat_line=""
       IFS= read -r _hat_line < "$_hat_file" || true
       _hat_first="$(printf '%s' "${_hat_line%%[[:space:]]*}" | tr -d '\r')"
@@ -194,8 +194,8 @@ if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
       if [ -n "$_hat_first" ] && [ "$_hat_first" != "none" ] \
          && [ "$(printf '%s' "$_hat_first" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$_tag" | tr '[:upper:]' '[:lower:]')" ]; then
         printf '%s\n' \
-          "Warning: this commit's role tag [$_tag] differs from the hat declared in $_hat_rel ($_hat_first). The commit goes ahead; this hook compares and never refuses." \
-          "Next: if the tag is wrong, correct the subject (amend the commit); if the hat is stale, rewrite $_hat_rel to the role you are wearing. Seats that work at once need a checkout each, since the file is one per checkout." >&2
+          "Warning: this commit's role tag [$_tag] differs from the hat declared in $_hat_file ($_hat_first). The commit goes ahead; this hook compares and never refuses." \
+          "Next: if the tag is wrong, correct the subject (amend the commit); if the hat is stale, rewrite $_hat_file to the role you are wearing, or declare this checkout's own at $_hat_rel. Seats that work at once need a checkout each, since the file is one per checkout." >&2
       fi
     fi
   fi

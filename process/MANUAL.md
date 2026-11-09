@@ -646,7 +646,7 @@ standing kanban worktree, the same machinery `move-issue.sh` uses for a board mo
 commits in the linked checkout itself; the edited copy stays there, so discard it
 (`git checkout -- <path>`) once landed, or a pull is refused for that path. Once `scripts/config.sh`'s `CODE_GLOBS` is declared (empty means
 unenforced, and nothing is refused), `scripts/githooks/pre-commit` refuses a metadata-only
-commit made this way and names both routes: the trunk, or the code commit the metadata describes
+commit made this way (bar the one path named below) and names both routes: the trunk, or the code commit the metadata describes
 (next paragraph). An amend is judged on the commit being made, HEAD's paths plus the staged ones, so a
 README added to a code commit by `git commit --amend` passes; a metadata-only amend of a metadata-only
 commit is refused as a fresh one is. The hook reads `--amend` only before any `-m`, `-F`, `-c` or `-C`

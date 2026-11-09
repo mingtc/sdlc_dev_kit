@@ -117,7 +117,9 @@ guard can see a commit the operator makes by hand.
   `pre-commit-metadata-off-trunk`: a commit made off the trunk that stages no path the project
   declares as code ⇒ refuse, naming `scripts/register-commit.sh` as the route
   that lands the same content on the trunk, and the code commit to amend when the branch's code is
-  what makes the change true. `MSG_OK=1` is the declared bypass.
+  what makes the change true. `MSG_OK=1` is the declared bypass. One commit passes: every path under
+  `dev/evidence/<card>/` for the card the branch's last name segment carries, none of them a file the
+  trunk holds (`dev/evidence/README.md`; a trunk-held one is refused as `pre-commit-evidence-trunk-file`).
 
 ## 4. WHAT GREEN MEANS
 

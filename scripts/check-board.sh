@@ -853,7 +853,7 @@ for f3_col in done qa_complete; do
     [ -n "$f3_id" ] && f3_ids="$f3_ids $f3_id "
   done
 done
-echo "[f] remote branches left by a landed card (reports only — never changes the verdict below):"
+echo "[f] remote branches and worktrees left by a landed card (reports only — never changes the verdict below):"
 f3_refs="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" 2>/dev/null || true)"  # card-read-exempt: lists every remote branch to name leftovers; resolves none
 if [ -z "$f3_ran" ]; then
   echo "      [f3] remote branches: THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
