@@ -3176,6 +3176,7 @@ case_minted_card_claims_only_what_it_was_given() {
     || _control_did_not_run "find the empty stories default in scripts/subtask.sh"
   sed -i.bak 's/STORIES_GIVEN=""; STORIES="\[\]"/STORIES_GIVEN=""; STORIES="[<story ids>]"/' "$SB_WORK/scripts/subtask.sh"; rm -f "$SB_WORK/scripts/subtask.sh.bak"
   git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[PM] ablated subtask.sh" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" pull --rebase -q >/dev/null 2>&1 \
     && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
     || _fixture_die "case_minted_card_claims_only_what_it_was_given: could not publish the ablated subtask.sh."
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-741" s2 slice2 --title "Slice 2" 2>&1 )" || rc=$?
