@@ -5198,6 +5198,69 @@ case_check_board_reports_a_remote_branch_left_by_a_landed_card() {
 }
 
 # =============================================================================
+# CASE — arm [f] reports a linked worktree whose card has landed, and never removes one.
+#
+# The population is `git worktree list` minus the main checkout and the standing kanban worktree.
+# A worktree's card is read off its branch (`<kind>/<card>-<slug>`), or, when it is detached, off its
+# directory's name. One for a card in done/ or qa_complete/ is named with its state, clean or holding
+# changes, so a reader can tell a removable one from one that carries unsaved work; one for an open
+# card is not named; removing the worktree clears the line, and the verdict never moves.
+# =============================================================================
+case_check_board_reports_a_worktree_left_by_a_landed_card() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-941" gone chore "Landed, clean worktree"
+  seed_issue todo "$SB_PREFIX-942" live chore "Still open"
+  seed_issue todo "$SB_PREFIX-943" qa chore "Landed to qa_complete, detached, dirty"
+  publish_sandbox
+  local wt="$SB_TMP/wts"
+  mkdir -p "$wt"
+  git -C "$SB_WORK" worktree add -q -b "feature/$SB_PREFIX-941-gone" "$wt/feature-$SB_PREFIX-941-gone" "$SB_TRUNK" >/dev/null 2>&1 \
+    || _control_did_not_run "add a worktree on a branch of the landed card"
+  git -C "$SB_WORK" worktree add -q -b "feature/$SB_PREFIX-942-live" "$wt/live" "$SB_TRUNK" >/dev/null 2>&1 \
+    || _control_did_not_run "add a worktree on a branch of the open card"
+  git -C "$SB_WORK" worktree add -q --detach "$wt/$SB_PREFIX-943-qa" "$SB_TRUNK" >/dev/null 2>&1 \
+    || _control_did_not_run "add a detached worktree named for the qa_complete card"
+  printf 'unsaved work\n' > "$wt/$SB_PREFIX-943-qa/untracked-notes.txt"
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-941-gone.md" "progress/done/$SB_PREFIX-941-gone.md" >/dev/null 2>&1
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-943-qa.md" "progress/qa_complete/$SB_PREFIX-943-qa.md" >/dev/null 2>&1
+  sbcommit -m "[QA] board: 941 and 943 landed" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  local out sec verdict0 verdict1
+  _sec() { printf '%s\n' "$1" | awk '/^\[f\] remote branches/ { f = 1; print; next } f && /^\[[a-z]\]/ { exit } f && /^──/ { exit } f'; }
+  out="$(cb_run)"; sec="$(_sec "$out")"; verdict0="$(printf '%s\n' "$out" | grep '^── board-drift:')"
+  printf '%s\n' "$sec" | grep -F '[f4]' >/dev/null || cf "(a) the section has no [f4] worktree line: ${sec:-no section}"
+  printf '%s\n' "$sec" | grep -F "$wt/feature-$SB_PREFIX-941-gone" >/dev/null \
+    || cf "(a) the worktree on a branch of a card in done/ was not named: $sec"
+  printf '%s\n' "$sec" | grep -F "$wt/$SB_PREFIX-943-qa" >/dev/null \
+    || cf "(a) the detached worktree named for a card in qa_complete/ was not named: $sec"
+  printf '%s\n' "$sec" | grep -F "$wt/live" >/dev/null \
+    && cf "(a) the worktree of a card still open was named: $sec"
+  printf '%s\n' "$sec" | grep -F '3 read, 3 named for a card' >/dev/null \
+    || cf "(a) the population was not printed (3 linked worktrees read, 3 named for a card): $sec"
+  printf '%s\n' "$sec" | grep -F 'git worktree remove' >/dev/null \
+    || cf "(a) the line does not name the command that removes one: $sec"
+  printf '%s\n' "$sec" | grep -F "$wt/feature-$SB_PREFIX-941-gone (feature/$SB_PREFIX-941-gone; clean)" >/dev/null \
+    || cf "(a) the clean worktree is not marked clean beside its branch: $sec"
+  printf '%s\n' "$sec" | grep -F "$wt/$SB_PREFIX-943-qa (detached; 1 path(s) with uncommitted or untracked changes)" >/dev/null \
+    || cf "(a) the detached worktree holding an untracked file is not marked as holding 1 changed path: $sec"
+  [ -e "$wt/$SB_PREFIX-943-qa/untracked-notes.txt" ] || cf "(a) the report removed a worktree's untracked file"
+  [ -d "$wt/feature-$SB_PREFIX-941-gone" ] || cf "(a) the report removed a worktree"
+  printf '%s\n' "$sec" | grep -F 'reports only' >/dev/null \
+    || cf "(a) the section's header does not declare itself advisory (reports only): $(printf '%s\n' "$sec" | head -1)"
+
+  # (b) the two landed cards' worktrees removed: the line reads clean, with its population.
+  git -C "$SB_WORK" worktree remove "$wt/feature-$SB_PREFIX-941-gone" >/dev/null 2>&1
+  git -C "$SB_WORK" worktree remove --force "$wt/$SB_PREFIX-943-qa" >/dev/null 2>&1
+  out="$(cb_run)"; sec="$(_sec "$out")"; verdict1="$(printf '%s\n' "$out" | grep '^── board-drift:')"
+  printf '%s\n' "$sec" | grep -F '1 read, 1 named for a card, none for a card in done/' >/dev/null \
+    || cf "(b) with the landed cards' worktrees removed the line did not read clean with its population: ${sec:-no section}"
+  [ "$verdict0" = "$verdict1" ] || cf "(b) the report moved the verdict: '$verdict0' then '$verdict1'"
+  finish "check-board arm [f]: a linked worktree whose card is in done/ or qa_complete/ is named with its population and whether it holds changes, a worktree of an open card is not, nothing is removed, the verdict does not move, and removing the worktree clears the line"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm [g] reports a declared TEST_GLOBS that does not cover scripts/test/**.
 #
 # The population is the shipped scripts/test/ tree itself, copied into the sandbox, and its file

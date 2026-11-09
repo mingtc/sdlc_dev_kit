@@ -2155,6 +2155,204 @@ case_pre_commit_allows_code_on_a_branch() {
 }
 
 # =============================================================================
+# CASE — the pre-commit hook lets a work branch commit ITS OWN card's Dev evidence by itself.
+# `dev/evidence/<card>/…` is metadata, and a leg's evidence changes after the code commit; the
+# branch's own card is read off the branch name (`<kind>/<card>-<slug>`), and nothing else is
+# exempted. Every row that must pass is RED on a hook with no such exemption; the refusals are green
+# before and after, and each one is what a looser exemption would turn red:
+#   (a) the branch's own evidence file, and one nested below the card's directory, passes;
+#   (b) another card's directory, a directory that is only a PREFIX of the card's id, and the bare
+#       prefix, are refused naming this branch's own directory;
+#   (c) own evidence staged WITH any other metadata, or with the card, is refused: the exemption is for a
+#       commit whose every path is the branch's own evidence;
+#   (d) a branch whose name carries no card id is refused whatever it stages;
+#   (e) an amend of an evidence-only commit passes the same way;
+#   (f) a file named dev/evidence/<card> (not a directory) is refused; MSG_OK=1 still bypasses.
+# =============================================================================
+case_pre_commit_allows_a_branchs_own_dev_evidence() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: allows a branch's own dev/evidence" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
+  publish_sandbox
+
+  local card="$SB_PREFIX-077" out rc
+  ( cd "$SB_WORK" && git checkout -q -b "feature/$card-probe" )
+  _try() {   # <label> <path>… : stage exactly these, commit as a session would; leaves the result in $out / $rc
+    local lbl="$1" p; shift
+    for p in "$@"; do mkdir -p "$SB_WORK/$(dirname "$p")"; echo "$lbl $p" > "$SB_WORK/$p"; git -C "$SB_WORK" add "$p"; done
+    out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] $lbl" 2>&1 )"; rc=$?
+  }
+  _unstage() {   # <path>… : back to a clean index and tree after a refusal
+    local p
+    for p in "$@"; do
+      git -C "$SB_WORK" rm -q -f --cached -- "$p" >/dev/null 2>&1; rm -f "${SB_WORK:?}/$p"
+      rmdir -p "${SB_WORK:?}/$(dirname "$p")" 2>/dev/null || true
+    done
+  }
+
+  # (b) refusals first, on a branch with no commit of its own yet.
+  _try "other card" "dev/evidence/$SB_PREFIX-078/probe.txt"
+  [ "$rc" -ne 0 ] || cf "(b) another card's evidence directory was ACCEPTED on this branch"
+  printf '%s' "$out" | grep -F "dev/evidence/$card/" >/dev/null \
+    || cf "(b) the refusal does not name this branch's own evidence directory dev/evidence/$card/: $out"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null || cf "(b) the refusal lost its trunk route: $out"
+  _unstage "dev/evidence/$SB_PREFIX-078/probe.txt"
+  _try "prefix of the id" "dev/evidence/$SB_PREFIX-07/probe.txt"
+  [ "$rc" -ne 0 ] || cf "(b) a directory that is only a prefix of the card id ($SB_PREFIX-07) was ACCEPTED"
+  _unstage "dev/evidence/$SB_PREFIX-07/probe.txt"
+  _try "bare prefix" "dev/evidence/$SB_PREFIX/probe.txt"
+  [ "$rc" -ne 0 ] || cf "(b) the bare prefix directory ($SB_PREFIX) was ACCEPTED"
+  _unstage "dev/evidence/$SB_PREFIX/probe.txt"
+
+  # (c) own evidence plus anything that is not the branch's own evidence.
+  _try "evidence and a note" "dev/evidence/$card/probe.txt" "a-note.md"
+  [ "$rc" -ne 0 ] || cf "(c) own evidence staged with another metadata file was ACCEPTED"
+  _unstage "dev/evidence/$card/probe.txt" "a-note.md"
+  _try "evidence and the card" "dev/evidence/$card/probe.txt" "progress/todo/$card-probe.md"
+  [ "$rc" -ne 0 ] || cf "(c) own evidence staged with the card was ACCEPTED (the card is the trunk's)"
+  _unstage "dev/evidence/$card/probe.txt" "progress/todo/$card-probe.md"
+  _try "evidence and another card's evidence" "dev/evidence/$card/probe.txt" "dev/evidence/$SB_PREFIX-078/probe.txt"
+  [ "$rc" -ne 0 ] || cf "(c) own evidence staged with another card's evidence was ACCEPTED"
+  _unstage "dev/evidence/$card/probe.txt" "dev/evidence/$SB_PREFIX-078/probe.txt"
+
+  # (f) a FILE called dev/evidence/<card> is not the card's directory.
+  _try "a file, not a directory" "dev/evidence/$card"
+  [ "$rc" -ne 0 ] || cf "(f) a file named dev/evidence/$card (no directory) was ACCEPTED"
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] escape" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) MSG_OK=1 did not bypass the guard: $out"
+
+  # (a) the branch's own evidence passes, alone and nested.
+  ( cd "$SB_WORK" && git checkout -q -b "feature/$card-probe2" "$SB_TRUNK" )
+  _try "own evidence" "dev/evidence/$card/probe.txt"
+  [ "$rc" -eq 0 ] || cf "(a) the branch's own evidence file alone was refused: $out"
+  _try "own nested evidence" "dev/evidence/$card/shots/AC2-error.txt"
+  [ "$rc" -eq 0 ] || cf "(a) a file nested below the branch's own evidence directory was refused: $out"
+
+  # (e) an amend of an evidence-only commit is judged on HEAD's paths plus the staged ones.
+  echo "changed after the commit" >> "$SB_WORK/dev/evidence/$card/probe.txt"
+  git -C "$SB_WORK" add "dev/evidence/$card/probe.txt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q --amend --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) an amend of an evidence-only commit with the same evidence file was refused: $out"
+
+  # (d) a branch with no card id in its name gets no exemption.
+  ( cd "$SB_WORK" && git checkout -q -b feature/no-card-here "$SB_TRUNK" )
+  _try "no card in the branch name" "dev/evidence/$card/other.txt"
+  [ "$rc" -ne 0 ] || cf "(d) evidence on a branch whose name carries no card id was ACCEPTED"
+  _unstage "dev/evidence/$card/other.txt"
+
+  finish "pre-commit: a work branch may commit its own card's dev/evidence/<card>/ files alone (nested, and by amend), refused for another card's, a prefix of the id, a file of that name, a branch with no card id, or any commit that adds a path that is not the branch's own evidence"
+  teardown
+}
+
+# =============================================================================
+# CASE — commit-msg WARNS, and never refuses, when the subject's role tag differs from the role on
+# the hat file's first word. Rows (the exit status is asserted in every row; a warning is a line on
+# stderr and nothing else):
+#   (a) a matching tag is silent, whatever the case the hat is written in;
+#   (b) a mismatch exits 0, prints one Warning naming both roles, the file and a next step;
+#   (c) the operator waiver (`none — …`), no hat file at all, and a script's per-commit declaration say nothing;
+#   (d) MSG_OK=1 and the auto-exempt subjects say nothing; an untagged subject is still refused by the
+#       existing rule, with no warning added;
+#   (e) a linked worktree with no hat file of its own reads the main checkout's, as pre-commit does;
+#   (f) through a real `git commit` the commit is made, the warning shows, and the log has it;
+#   (g) the standing kanban worktree (holds no session) is not compared.
+# =============================================================================
+case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  [ -x "$hook" ] \
+    || { skp "commit-msg: warns on a mismatched role tag" "scripts/githooks/commit-msg is absent from this tree"; teardown; return; }
+  publish_sandbox
+  local rel env_name msg="$SB_TMP/msg.txt" out rc err="$SB_TMP/err.txt"
+  rel="$(_sandbox_hat_file)"
+  env_name="$(sed -n 's/^KIT_HAT_ENV="\(.*\)"$/\1/p' "$SB_WORK/scripts/lib/hat-file.sh")"
+  [ -n "$rel" ] && [ -n "$env_name" ] || _fixture_die "case_commit_msg_warns: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL or KIT_HAT_ENV on its own line."
+  _hat() { mkdir -p "$SB_WORK/$(dirname "$rel")"; printf '%s\n' "$1" > "$SB_WORK/$rel"; }
+  _run() {   # <cwd> <subject> [VAR=value…] : run the hook the way git does (cwd = the tree root); stderr to $err, exit in $rc
+    local d="$1" s="$2"; shift 2
+    printf '%s\n' "$s" > "$msg"
+    ( cd "$d" && env -u MSG_OK -u "$env_name" "$@" "$hook" "$msg" ) >/dev/null 2>"$err"; rc=$?
+  }
+  _warned() { grep -F 'Warning' "$err" >/dev/null; }
+
+  _hat "Dev SBX-001"
+  _run "$SB_WORK" "[Dev] fine"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(a) a matching tag was not silent or not accepted (exit $rc): $(cat "$err")"
+  _hat "dev SBX-001"
+  _run "$SB_WORK" "[Dev] fine"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(a) a hat written in lower case warned against the same role: $(cat "$err")"
+
+  _hat "Dev SBX-001"
+  _run "$SB_WORK" "[PM] a ruling"
+  [ "$rc" -eq 0 ] || cf "(b) a role-tag mismatch changed the exit status to $rc: $(cat "$err")"
+  _warned || cf "(b) a [PM] subject under a Dev hat printed no Warning: $(cat "$err")"
+  grep -F '[PM]' "$err" >/dev/null && grep -F 'Dev' "$err" >/dev/null \
+    || cf "(b) the warning does not name both roles: $(cat "$err")"
+  grep -F "$rel" "$err" >/dev/null || cf "(b) the warning does not name the hat file $rel: $(cat "$err")"
+  grep -F 'Next:' "$err" >/dev/null || cf "(b) the warning gives no next step: $(cat "$err")"
+  [ "$(grep -c 'Warning' "$err")" -eq 1 ] || cf "(b) more than one Warning line: $(cat "$err")"
+
+  _hat "none — operator override: the operator waived the hat"
+  _run "$SB_WORK" "[PM] a ruling"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(c) the operator waiver was compared or refused (exit $rc): $(cat "$err")"
+  rm -f "${SB_WORK:?}/${rel:?}"
+  _run "$SB_WORK" "[PM] a ruling"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(c) with no hat file the hook said something or refused (that gate is pre-commit's) (exit $rc): $(cat "$err")"
+  _hat "Dev SBX-001"
+  _run "$SB_WORK" "[PM] a ruling" "$env_name=PM"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(c) a script's per-commit declaration ($env_name) was compared against the file (exit $rc): $(cat "$err")"
+
+  _run "$SB_WORK" "[PM] a ruling" MSG_OK=1
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(d) MSG_OK=1 did not stay silent (exit $rc): $(cat "$err")"
+  _run "$SB_WORK" "Merge branch 'x'"
+  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(d) an auto-exempt subject was compared (exit $rc): $(cat "$err")"
+  _run "$SB_WORK" "no role tag at all"
+  [ "$rc" -ne 0 ] || cf "(d) an untagged subject was ACCEPTED (the existing rule)"
+  _warned && cf "(d) an untagged subject got a mismatch warning on top of its refusal: $(cat "$err")"
+
+  # (e) a linked worktree of the same repository, the hat declared only in the main checkout.
+  local leg="$SB_TMP/leg"
+  if git -C "$SB_WORK" worktree add -q -b warn-leg "$leg" "$SB_TRUNK" >/dev/null 2>&1; then
+    _run "$leg" "[PM] a ruling"
+    { [ "$rc" -eq 0 ] && _warned; } || cf "(e) the main checkout's hat was not read for a linked worktree (exit $rc): $(cat "$err")"
+    mkdir -p "$leg/$(dirname "$rel")"; printf 'PM leg\n' > "$leg/$rel"
+    _run "$leg" "[PM] a ruling"
+    [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(e) the worktree's own hat file did not win over the main checkout's: $(cat "$err")"
+  else
+    _control_did_not_run "add a linked worktree to the sandbox"
+  fi
+
+  # (f) a real commit: made, warned, and a second commit with the matching tag is silent.
+  _hat "Dev SBX-001"
+  echo x >> "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[PM] a ruling by hand" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) a commit with a mismatched tag was refused (exit $rc): $out"
+  printf '%s' "$out" | grep -F 'Warning' >/dev/null || cf "(f) git commit printed no warning: $out"
+  git -C "$SB_WORK" log -1 --format=%s | grep -F '[PM] a ruling by hand' >/dev/null || cf "(f) the commit is not in the log"
+  echo y >> "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[Dev] a matching one" 2>&1 )"; rc=$?
+  { [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -F 'Warning' >/dev/null; } || cf "(f) a matching tag warned or was refused (exit $rc): $out"
+
+  # (g) the standing kanban worktree holds no session: a board script's commit there is not compared.
+  local kwt="$SB_TMP/x/.kanban-wt"
+  mkdir -p "$SB_TMP/x"
+  if git -C "$SB_WORK" worktree add -q --detach "$kwt" "$SB_TRUNK" >/dev/null 2>&1; then
+    _run "$kwt" "[QA] board: a move"
+    [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(g) a commit in the standing kanban worktree was compared against the main checkout's hat (exit $rc): $(cat "$err")"
+  else
+    _control_did_not_run "add a .kanban-wt-named linked worktree to the sandbox"
+  fi
+
+  finish "commit-msg: a role tag that differs from the hat file's first word prints one Warning (both roles, the file, a Next: line) and never changes the exit status; a match in any case, the operator waiver, no hat file, a script's per-commit declaration, MSG_OK=1, an auto-exempt subject and the kanban worktree are silent; the main checkout's hat is read for a linked worktree; an untagged subject is still refused with no warning added"
+  teardown
+}
+
+# =============================================================================
 # CASE — the pre-commit hook refuses a commit when no hat is declared. The editor-tool gate does
 # not see a mutation made through a shell, and every such mutation must pass a commit to count.
 # Built in the real order: the change is made by a shell command (`sed -i`'s effect, here an

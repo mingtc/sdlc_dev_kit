@@ -566,6 +566,8 @@ CASES=(
   case_pre_commit_reads_code_globs_through_the_shared_reader
   case_pre_commit_allows_metadata_on_trunk
   case_pre_commit_allows_code_on_a_branch
+  case_pre_commit_allows_a_branchs_own_dev_evidence
+  case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat
   case_pre_commit_refuses_a_commit_with_no_hat
   case_pre_commit_refuses_a_staged_hat_file
   case_board_scripts_commit_with_no_hat_file
@@ -661,6 +663,7 @@ CASES=(
   case_check_board_fill_arm_flags_a_test_glob_that_matches_no_file
   case_check_board_progress_trails_the_last_code_commit
   case_check_board_reports_a_remote_branch_left_by_a_landed_card
+  case_check_board_reports_a_worktree_left_by_a_landed_card
   case_check_board_fill_arm_reports_test_globs_missing_the_kits_own_tests
   case_check_board_shallow_clone_does_not_narrow
   case_check_board_trailer_scan_shares_the_epoch
