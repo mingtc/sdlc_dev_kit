@@ -3105,6 +3105,7 @@ case_minted_card_claims_only_what_it_was_given() {
     && ./scripts/new-issue.sh told --id "$SB_PREFIX-741" --prd "$prdid" --stories "$prdid-F2-S3,$prdid-F2-S4" \
     && ./scripts/new-issue.sh untold --id "$SB_PREFIX-742" \
     && ./scripts/new-bug.sh bugged --id "$SB_PREFIX-743" --prd "$prdid" --stories "$prdid-F2-S3" \
+    && ./scripts/new-bug.sh bugless --id "$SB_PREFIX-746" --prd "$prdid" \
     && { _member_removed scripts/new-refactor.sh || ./scripts/new-refactor.sh tidied --id "$SB_PREFIX-744"; } ) >/dev/null 2>&1 \
     || _fixture_die "case_minted_card_claims_only_what_it_was_given: a creator refused a legal mint."
 
@@ -3119,7 +3120,18 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qE 'F1-S1|<story ids>|stories <' "$c" \
     && cf "new-issue.sh: with no --stories the card keeps a story placeholder: $(grep -nE 'F1-S1|<story ids>|stories <' "$c" | tr '\n' '|')"
   grep -qF -- ' — stories' "$c" && cf "new-issue.sh: with no --stories the References line still names stories: $(grep -m1 'PRD:\*\*' "$c")"
+  c="$td/$SB_PREFIX-746-bugless.md"
+  grep -q '^stories: \[\]' "$c" || cf "new-bug.sh: with no --stories the frontmatter does not say stories: []: $(grep -m1 '^stories:' "$c")"
+  grep -qE 'F1-S1|<story ids>|stories? <' "$c" \
+    && cf "new-bug.sh: with no --stories the card keeps a story placeholder: $(grep -nE 'F1-S1|<story ids>|stories? <' "$c" | tr '\n' '|')"
   # ABLATION: the no-stories rewrite taken out of the sandbox's copy of the creator, the placeholder is back.
+  grep -q '^kit_drop_story_blank ' "$SB_WORK/scripts/new-bug.sh" \
+    || _control_did_not_run "find the kit_drop_story_blank call in scripts/new-bug.sh"
+  sed -i.bak 's/^kit_drop_story_blank .*$/:/' "$SB_WORK/scripts/new-bug.sh"; rm -f "$SB_WORK/scripts/new-bug.sh.bak"
+  ( cd "$SB_WORK" && ./scripts/new-bug.sh bugabl --id "$SB_PREFIX-747" --prd "$prdid" ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: the ablated bug creator refused a legal mint."
+  grep -qE 'F1-S1|<story ids>' "$td/$SB_PREFIX-747-bugabl.md" \
+    || cf "ABLATION FAILED — with the no-stories rewrite removed new-bug.sh still writes no story placeholder, so the absence above is not attributable to it"
   grep -q '^kit_drop_story_blank ' "$SB_WORK/scripts/new-issue.sh" \
     || _control_did_not_run "find the kit_drop_story_blank call in scripts/new-issue.sh"
   sed -i.bak 's/^kit_drop_story_blank .*$/:/' "$SB_WORK/scripts/new-issue.sh"; rm -f "$SB_WORK/scripts/new-issue.sh.bak"
@@ -3156,7 +3168,21 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qF "\`$SB_PREFIX-741-told.md\`" "$st" || cf "subtask.sh: the body does not name its parent's card"
   grep -qF '<status>' "$st" && cf "subtask.sh: the body keeps a <status> blank no mint-time value can fill"
   grep -qE '§ F1 § S' "$st" && cf "subtask.sh: the card names the template's example story"
-  grep -q '^stories: \[<' "$st" || cf "subtask.sh: with no --stories the slice claims a story set: $(grep -m1 '^stories:' "$st")"
+  grep -q '^stories: \[\]' "$st" || cf "subtask.sh: with no --stories the slice does not say stories: []: $(grep -m1 '^stories:' "$st")"
+  grep -qE 'F1-S1|<the parent' "$st" && cf "subtask.sh: with no --stories the slice keeps a story placeholder: $(grep -nE 'F1-S1|<the parent' "$st" | tr '\n' '|')"
+  # ABLATION: the empty default put back as a placeholder in a COMMITTED copy of subtask.sh (the movers run only the
+  # trunk's committed copy), a second slice carries the placeholder again.
+  grep -q 'STORIES_GIVEN=""; STORIES="\[\]"' "$SB_WORK/scripts/subtask.sh" \
+    || _control_did_not_run "find the empty stories default in scripts/subtask.sh"
+  sed -i.bak 's/STORIES_GIVEN=""; STORIES="\[\]"/STORIES_GIVEN=""; STORIES="[<story ids>]"/' "$SB_WORK/scripts/subtask.sh"; rm -f "$SB_WORK/scripts/subtask.sh.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[PM] ablated subtask.sh" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: could not publish the ablated subtask.sh."
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-741" s2 slice2 --title "Slice 2" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_minted_card_claims_only_what_it_was_given: the ablated subtask.sh refused a legal mint (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  origin_fetch_or_die
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-741/todo/$SB_PREFIX-741-s2-slice2.md" 2>/dev/null | grep -q '^stories: \[<story ids>\]' \
+    || cf "ABLATION FAILED — with the empty default put back as a placeholder the slice still writes none, so the absence above is not attributable to it"
 
   finish "$L"
   teardown
