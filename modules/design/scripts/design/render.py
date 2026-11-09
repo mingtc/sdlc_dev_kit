@@ -35,6 +35,9 @@ that does not exist), `CHROME-ABSENT` and exit 3. A board whose PNG Chrome did n
 The project is COPIED to a temp dir, support.js is written there (never into PROJECT_DIR), the copy is served on 127.0.0.1, each
 board is screenshotted at its size, and the temp dir is removed. Network is needed only for web fonts; offline the text falls back to
 the system font (a font host that never answers holds Chrome until --timeout, and the board is a FAIL). Python 3 standard library only.
+An `OVERFLOW <board> <content>px > <board>px` line follows an OK line when the page's content (its scrollHeight, in CSS px, read as the board draws)
+is taller than the size canvas.json gives the board, so a reader who cannot view the PNG still learns the board is cut off. It is a report: the exit
+code is unchanged, and content clipped by an `overflow: hidden` ancestor is not seen. A board that reports no height is not measured.
 An OK line can carry notes, each from what the page did: `NOTE-404` (a file the page asked for is not in the project: a sheet or a
 screen the board links, say), `NOTE-LOGIC` (the page called console.error, which is how the runtime reports a board whose logic throws; that board draws a red label and is still OK, the picture says it and so does this; the runtime's warnings and info lines are not reported), `NO-THEME-RULE`, and a board's own `:root` that keeps its values over a theme sheet.
 """
@@ -48,6 +51,9 @@ POSTLUDE = r"""
   var q=new URLSearchParams(location.search), t=q.get('theme');
   if(t) document.documentElement.setAttribute('data-theme',t);
   (function chk(n){ if(typeof window.__dcSetProps==='function'&&typeof window.__dcRootName==='function'){ new Image().src='/__kit-runtime-ran?b='+encodeURIComponent(decodeURIComponent(location.pathname).replace(/^\//,'')); } else if(n<50){ setTimeout(function(){chk(n+1)},100); } })(0);
+  var nm=encodeURIComponent(decodeURIComponent(location.pathname).replace(/^\//,'')), hs=0;      // the page's content height, sent whenever it grows: a board is drawn at its size, and what is taller is cut off
+  function rep(){ var b=document.body, h=Math.max(document.documentElement.scrollHeight, b?b.scrollHeight:0); if(h>hs){ hs=h; new Image().src='/__kit-board-height?b='+nm+'&h='+h; } }
+  window.addEventListener('load',function(){setTimeout(rep,0)}); [300,1500,4000,7000].forEach(function(t){setTimeout(rep,t)});
   var oe=console.error;      // only what the page sends to console.error is a logic failure; warnings and info lines are the runtime talking
   console.error=function(){ try{ new Image().src='/__kit-runtime-error?m='+encodeURIComponent(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0,300)); }catch(e){} return oe.apply(console,arguments); };
   var p=q.get('dcprops'); if(!p) return;
@@ -171,7 +177,7 @@ def main(argv):
             print('UNKNOWN-THEME: no file of %s holds a [data-theme="%s"] rule. Nothing was rendered.' % (a.project, a.theme), file=sys.stderr)
             return 2
 
-        ran, missing, errs = set(), [], []
+        ran, missing, errs, heights = set(), [], [], {}
 
         class Q(http.server.SimpleHTTPRequestHandler):
             def log_message(self, *x):
@@ -185,6 +191,15 @@ def main(argv):
             def do_GET(self):
                 if self.path.startswith('/__kit-runtime-error'):
                     errs.append(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('m', [''])[0])
+                    self.send_response(204)
+                    self.end_headers()
+                    return
+                if self.path.startswith('/__kit-board-height'):
+                    qh = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    try:
+                        heights[qh.get('b', [''])[0]] = max(int(qh.get('h', ['0'])[0]), heights.get(qh.get('b', [''])[0], 0))
+                    except ValueError:
+                        pass
                     self.send_response(204)
                     self.end_headers()
                     return
@@ -215,6 +230,7 @@ def main(argv):
             if os.path.exists(out):
                 os.remove(out)      # a failed run must not leave the last render to pass for this one
             del missing[:], errs[:]
+            heights.pop(n, None)
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout)
                 ok = r.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0
@@ -234,6 +250,8 @@ def main(argv):
             elif ok and a.theme and re.search(r':root\s*\{[^}]*--[\w-]+\s*:', open(os.path.join(root, n), encoding='utf-8', errors='replace').read()):
                 note += ' NOTE: the board has its own :root block of custom properties, which wins over a theme sheet for the properties it sets'
             print(('OK   ' if ok else 'FAIL ') + '%s %dx%d%s -> %s%s' % (n, w, h, ' @%gx' % a.scale if a.scale != 1 else '', out, note))
+            if ok and heights.get(n, 0) > h:
+                print('OVERFLOW %s %dpx > %dpx: the content is taller than the board, so the PNG cuts it off; make the board taller in canvas.json, or shorten the content' % (n, heights[n], h))
             if not ok:
                 rc = 1
                 if os.path.exists(out):

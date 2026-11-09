@@ -158,6 +158,11 @@ element; a panel Theme tab sits behind a flag that is off by default), so a Gate
 separate board; with neither, say so and review the brand version. Read an `OK` line before citing a PNG: `NOTE-404` names a sheet or
 screen the project does not hold, and `NOTE-LOGIC` says the page called `console.error`, which is how the runtime reports a board
 whose logic failed (the board then draws a red label).
+`OVERFLOW <board> <content>px > <board>px` after an `OK` line says the board's content is taller than its size in `canvas.json`, so the PNG
+cuts it off; a height set by estimate is unverified until rendered, so read for this line before calling a long table or list done.
+
+A script that writes boards (a generator) is committed under `requirements/design/<canvas>/tools/` in the round that uses it, never left
+in a scratch directory: the next round regenerates from it, not from memory. Nothing a test reads may live there, or it is code.
 
 ### Comments
 
