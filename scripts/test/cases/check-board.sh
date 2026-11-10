@@ -5600,6 +5600,25 @@ case_check_board_report_prints_findings_first_and_folds_clean_arms() {
   printf '%s\n' "$fout" | grep -E '^\[c\] progress.md LAST ENTRY' >/dev/null \
     || cf "(5b) a lettered reading that did not run was folded: $fout"
   rm -f "$fold_cp"
+  # (5c) A verdict that is not clean with no ⚠ anywhere was set by an arm that printed none: the deciding
+  # lettered arms stay in view and a line says so; an advisory arm still folds.
+  canned="$SB_TMP/canned-report2.txt"
+  {
+    printf '%s\n' '── check-board.sh — board-drift report @ canned'
+    printf '\n%s\n%s\n' '[a] Folder drift (every column) — read from: x:' '      3 card(s) judged, nothing to say'
+    printf '\n%s\n' '[k] declined/ depth (reports only — never changes the verdict below): 0 card(s)'
+    printf '\n%s\n' '── board-drift: findings above ⚠ (informational; exit 0 by convention)'
+  } > "$canned"
+  perl -0pe 'BEGIN { $c = shift; $f = q{cb_raw="$("${BASH:-bash}" "${BASH_SOURCE[0]}" --full)"}; $r = q{cb_raw="$(cat "} . $c . q{")"} } s/\Q$f\E/$r/ or die "NOMATCH\n"' "$canned" "$SB_WORK/scripts/check-board.sh" > "$fold_cp" \
+    || _fixture_die "could not make the second canned-report copy of check-board.sh"
+  chmod +x "$fold_cp"
+  fout="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-fold.sh 2>&1 )"
+  printf '%s\n' "$fout" | grep -E '^\[a\] Folder drift' >/dev/null \
+    || cf "(5c) a deciding lettered arm was folded although the verdict is not clean and no arm printed a ⚠: $fout"
+  printf '%s\n' "$fout" | grep -F 'set by an arm that printed no ⚠ line' >/dev/null \
+    || cf "(5c) nothing says the verdict was set by an arm that printed no ⚠: $fout"
+  printf '%s\n' "$fout" | grep -F "$CB_FOLD_LEAD" | grep -F '[k]' >/dev/null || cf "(5c) the advisory arm was not folded: $fout"
+  rm -f "$fold_cp"
 
   # (6) The option is documented, and an unknown option is still a usage error.
   ( cd "$SB_WORK" && ./scripts/check-board.sh --help 2>&1 ) | grep -F -- '--full' >/dev/null || cf "(6) --help does not name --full"
@@ -5685,6 +5704,13 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
     && cf "(3) the folded line names an arm that printed a finding or an unmarked line"
   [ "$(printf '%s\n' "$def" | grep '^── board-drift')" = "$(printf '%s\n' "$full" | grep '^── board-drift')" ] \
     || cf "(4) the verdict differs between the default report and --full"
+  # (4b) An arm that returned 3 is in the findings-first group, ahead of the arms that merely did not run.
+  n_def="$(printf '%s\n' "$def" | grep -n -m1 -E '^\[\+drift\]' | cut -d: -f1)"
+  n_full="$(printf '%s\n' "$def" | grep -n -m1 -E 'DID NOT RUN' | cut -d: -f1)"
+  if [ -n "$n_full" ]; then
+    [ -n "$n_def" ] && [ "$n_def" -lt "$n_full" ] \
+      || cf "(4b) the status-3 arm [+drift] (line ${n_def:-none}) does not come before the first arm that did not run (line $n_full)"
+  fi
   # (5) The status line names its arm, so an arm that prints a heading-shaped line is still unfolded.
   printf '%s\n' "$def" | grep -F '↳ [+drift] status 3' >/dev/null || cf "(5) the status line does not name its arm: $(printf '%s\n' "$def" | grep 'status 3' | head -2)"
   printf '%s\n' "$def" | grep -F 'drift line ✓' >/dev/null || cf "(5) a line the status-3 arm printed after a heading-shaped line is not in the default report"
@@ -5727,6 +5753,35 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
   printf '%s\n' "$hout" | grep -F 'skipped: python3 not found' >/dev/null || cf "(7) the over-budget hook output dropped a [+name] arm's skip line"
   printf '%s\n' "$hout" | grep -F '↳ [+drift] status 3' >/dev/null || cf "(7) the over-budget hook output dropped the status-3 line"
   printf '%s\n' "$hout" | grep -F 'a quiet line' >/dev/null && cf "(7) the over-budget hook output kept the quiet lines of a lettered arm"
+  # (8) A [+name] section longer than the budget whose finding comes last, and a verbose quiet arm followed
+  # by a late arm that returned 3: both findings and both status lines survive, and the output stays in budget.
+  stub_root="$SB_TMP/stubroot-long"; i=0
+  mkdir -p "$stub_root/scripts"
+  {
+    printf '#!/bin/sh\n'
+    printf 'echo "[g] Graduation — has day one finished?  (reports only"\n'
+    printf 'echo "      hooks: off (settings absent) — the hat gate does not run"\n'
+    printf 'echo "      → graduation COMPLETE over the classes measured above."\n'
+    printf 'echo "[+verbose] arm (scripts/check-board.d/50-verbose.sh; reports only) — read from: origin/main:"\n'
+    while [ "$i" -lt 200 ]; do printf 'echo "      XYZ-%s UX-1#home@abc1234 clean and in step with its pin"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "      XYZ-777 -> drift, owed (a D-NN raised with scripts/ask.sh)"\n'
+    printf 'echo "      ↳ [+verbose] status 3: this arm reported a finding above"\n'
+    printf 'echo "[+quiet] arm (scripts/check-board.d/55-quiet.sh; reports only) — read from: origin/main:"\n'
+    i=0; while [ "$i" -lt 120 ]; do printf 'echo "      verbose quiet line %s that explains itself at some length"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "[+late] arm (scripts/check-board.d/60-late.sh; reports only) — read from: origin/main:"\n'
+    printf 'echo "      XYZ-900 -> drift, owed (a D-NN raised)"\n'
+    printf 'echo "      ↳ [+late] status 3: this arm reported a finding above"\n'
+    printf 'echo "%s (check-board.sh --full prints each one): [a] [b]"\n' "$CB_FOLD_LEAD"
+    printf 'echo "── board-drift: clean ✓"\n'
+  } > "$stub_root/scripts/check-board.sh"
+  chmod +x "$stub_root/scripts/check-board.sh"
+  hout="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
+  [ "$(printf '%s\n' "$hout" | LC_ALL=C wc -c | tr -d ' ')" -le 8200 ] || cf "(8) the over-budget hook output is over its budget with long [+name] sections"
+  printf '%s\n' "$hout" | grep -F 'XYZ-777 -> drift, owed' >/dev/null || cf "(8) a long [+name] arm's finding, which comes last, was dropped"
+  printf '%s\n' "$hout" | grep -F '↳ [+verbose] status 3' >/dev/null || cf "(8) a long [+name] arm's status line was dropped"
+  printf '%s\n' "$hout" | grep -F 'XYZ-900 -> drift, owed' >/dev/null || cf "(8) a late arm's finding was dropped behind a verbose arm"
+  printf '%s\n' "$hout" | grep -F '↳ [+late] status 3' >/dev/null || cf "(8) a late arm's status line was dropped behind a verbose arm"
+  printf '%s\n' "$hout" | grep -F 'not shown' >/dev/null || cf "(8) a section the hook cut short does not say so"
   finish "check-board: an arm that returns 3, or prints a skip as 'skipped: <why>', or prints a line without ✓, stays in the default report; only an arm that printed nothing but ✓ lines and returned 0 is folded and named"
   teardown
 }

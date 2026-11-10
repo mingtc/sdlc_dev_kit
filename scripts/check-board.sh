@@ -149,12 +149,17 @@ if [ "$CB_FULL" -eq 0 ]; then
     END {
       if (verdict == "") { for (i = 1; i <= nraw; i++) print raw[i]; exit }
       printf "%s", pre
+      # A verdict that is not clean with no ⚠ anywhere was set by an arm that printed none (a lettered arm
+      # must print a ⚠ before it sets `drift`): leave every deciding lettered arm in view, and say so.
+      anywarn = 0
+      for (i = 1; i <= n; i++) if (warn[i]) anywarn = 1
+      unnamed = (verdict !~ /board-drift: clean/ && !anywarn)
       for (i = 1; i <= n; i++) {
         cls[i] = 2
-        if (warn[i]) cls[i] = 1
+        if (warn[i] || hit3[i] || (substr(tag[i], 1, 2) == "[+" && st3[tag[i]])) cls[i] = 1
         else if (tag[i] == "[g]" && arrow[i] ~ /graduation COMPLETE/ && !skip[i]) cls[i] = 3
         else if (substr(tag[i], 1, 2) == "[+") { if (ok[i] && !other[i] && !skip[i] && !st3[tag[i]]) cls[i] = 4 }
-        else if (!skip[i] && !hit3[i]) cls[i] = 4
+        else if (!skip[i] && !(unnamed && head[i] !~ /reports only/)) cls[i] = 4
       }
       for (i = 1; i <= n; i++) if (cls[i] == 1) { bb = body[i]; sub(/\n+$/, "", bb); print bb; print "" }
       for (i = 1; i <= n; i++) {
@@ -180,6 +185,7 @@ if [ "$CB_FULL" -eq 0 ]; then
         list = list (list == "" ? "" : " ") lab
       }
       if (list != "") { print "── no findings, folded (./scripts/check-board.sh --full prints each one with its count and source): " list; print "" }
+      if (unnamed) { print "── the verdict below was set by an arm that printed no ⚠ line: the deciding arms above are shown in full, and ./scripts/check-board.sh --full prints all of it"; print "" }
       print verdict
     }'
   exit "$cb_raw_rc"   # exit-class: internal  (0 unless the full report itself died; nothing it finds sets it)
@@ -437,6 +443,9 @@ fi
 # SOURCE's scripts/config.sh (never sourced). Empty when it cannot be read: each arm then says so.
 PRD_SURFACE="$(kit_prd_surface "$CB_TREE/scripts/config.sh" 2>/dev/null || true)"
 
+# EVERY LETTERED ARM THAT SETS `drift=1` PRINTS A ⚠ LINE FIRST. The default report folds a quiet lettered arm,
+# and a ⚠-less finding would fold with it; a verdict that is not clean with no ⚠ anywhere is reported as
+# set by an arm that printed none (the fold above), but the arm itself must name its finding.
 drift=0
 echo "── check-board.sh — board-drift report @ $(date +%Y-%m-%dT%H:%M:%S)"
 echo "   repo: $REPO_ROOT"
@@ -1333,7 +1342,7 @@ else
       fi
       g_arr_nnote=""
       if [ "$g_arr_nn" -gt 0 ]; then
-        if [ -n "$g_none_live" ]; then g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', one of which matches a file: see below)"
+        if [ -n "$g_none_live" ]; then g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', some of which match a file: see below)"
         else g_arr_nnote=" (and $g_arr_nn marked '# DECLARED NONE', which no file is asked to match)"; fi
       fi
       if [ "$g_arr_n" -gt 0 ]; then
@@ -1392,7 +1401,7 @@ else
           fi
         fi
       elif [ "$g_arr_nn" -gt 0 ] && [ -n "$g_none_live" ]; then
-        g_measured=$((g_measured+1))   # the finding below is the line for this array
+        :   # the finding below is the line for this array, and it counts the array
       elif [ "$g_arr_nn" -gt 0 ]; then
         echo "      FILL (scripts/config.sh $g_arr): every one of its $g_arr_nn entry/entries is marked '# DECLARED NONE'  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
         g_measured=$((g_measured+1))
@@ -1409,7 +1418,8 @@ else
       # that call the marked entries answered, so those lines are not printed over this one.)
       if [ -n "$g_none_live" ]; then
         echo "      FILL (scripts/config.sh $g_arr): marked '# DECLARED NONE' and yet matching a file  ⚠ $g_none_live — the marker says nothing matches, and it turns enforcement off for a path that exists. Next: remove the marker, or remove the files — $(cb_src)"
-        g_find=1; g_measured=$((g_measured+1))
+        g_find=1
+        [ "$g_arr_n" -gt 0 ] || g_measured=$((g_measured+1))   # counted once: the lines above count an array that has entries
       fi
     done
   fi

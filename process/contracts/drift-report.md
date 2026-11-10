@@ -324,7 +324,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    folded arm is **named** (by heading where its letter also heads an arm that is printed), never
    silently absent (item 1); and the full report, with each reading's count and source (items 2 and 3),
    stays one option away and the folded line names that option. The shipped report folds by default and
-   prints the full one under `--full`. The graduation arm keeps its verdict and `hooks:` lines when the
+   prints the full one under `--full`. A verdict that is not clean while no arm printed a finding line is said to be set by an arm that printed none, and the deciding arms print in full. The graduation arm keeps its verdict and `hooks:` lines when the
    rest of it folds, because the day-one checklist and the manual send a session to them.
 
 ## 5. MINIMAL INTERFACE
