@@ -3324,11 +3324,12 @@ case_check_board_model_pins_arm_names_blank_role_doc_tables() {
   _rows_in_table() {  # the table data rows (a backticked cell) of the doc's Model & effort section
     awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /`/ { c++ } END { print c + 0 }' "$1"
   }
-  _set_table_cells() {  # <doc> <text> — every backticked cell of the section's rows becomes `<text>`
+  _set_table_cells() {  # <doc> <text> — every model/effort cell of the section's rows becomes `<text>`, a cell a tree that finished day one answered with DECLARED NONE included (the case judges the arm on a table it blanked itself, so it must blank those too)
     awk -v t="$2" '/^## /{ s = ($0 ~ /^## Model & effort contract/) }
-      s && /^\|/ && /`/ { n = split($0, p, "|"); o = p[1]
+      s && /^\|/ && (/`/ || /DECLARED NONE/) { n = split($0, p, "|"); o = p[1]
         for (i = 2; i <= n; i++) { c = p[i]
           if (i >= 3 && i <= 4 && match(c, /`[^`]*`/)) c = substr(c, 1, RSTART - 1) "`" t "`" substr(c, RSTART + RLENGTH)
+          else if (i >= 3 && i <= 4 && c ~ /DECLARED NONE/) c = " `" t "` "
           o = o "|" c }
         print o; next }
       { print }' "$1" > "$1.new" && mv "$1.new" "$1"
