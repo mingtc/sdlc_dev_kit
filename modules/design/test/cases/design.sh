@@ -1199,8 +1199,8 @@ case_a_wireframe_canvas_keeps_gate_1_through_a_content_edit_and_loses_it_to_a_st
     _dm_wire_restore
   done
   _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"}}}'
-  _dm_edit "$D/A.dc.html" 's@#485d92@#3b4f82@'
-  _dm_commit "content: a token and its :root value"
+  _dm_edit "$D/A.dc.html" 's@#485d92@#3b4f82@'; _dm_edit "$D/B.dc.html" 's@#485d92@#3b4f82@'
+  _dm_commit "content: a token and the :root value of each screen that holds it"
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(b) a change of a token the screen uses stales a wireframe approval (exit $_dm_rc): $(_dm_brief)"
   _dm_wire_restore

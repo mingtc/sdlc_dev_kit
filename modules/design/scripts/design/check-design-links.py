@@ -24,11 +24,20 @@ Reads
   <PRD_PREFIX>-*.md        stories (headings `F<n>-S<n>`, full id <PRD_PREFIX>-NNN-F<n>-S<n>), ACs (`- [ ] AC<n>: (UI) ...`), a story's
                            `UI:` field, `Design: pending` lines, and citations `[design: UX-NNN]` / `[design: UX-NNN#state]`
   <canvas>/CANVAS.md       the screen registry: a table whose header names the columns (any order). Needed: UX-id, file,
-                           states, stories. Optional: title, platform, pair, status or gate1/gate2.
+                           states, stories. Optional: title, platform, pair, status or gate1/gate2. Optional header line
+                           `- **Mode:** wireframe [decision: D-NN]` (see Mode below); `none` or no line is the default model
   <canvas>/project/*.dc.html   optional: data-ux / data-stories on the artboard root, and its colour literals
   <cards>/<shelf>/*.md     the `design:` frontmatter key of each card: `none`, or `[UX-NNN#state@<commit>, ...]`; slices too
                            (<cards>/subtasks/<parent>/<shelf>/*.md)
 A marker inside a code span or a fenced block is prose and is ignored.
+
+Mode. A canvas whose Mode line says `wireframe` and cites a [decision: D-NN] the register confirms (not WITHDRAWN) is a wireframe
+canvas: its gate 1 approvals are judged by STRUCTURE, not bytes (the ordered start and end tags of the artboard and of the screens it
+imports, each start tag with its attributes except class, style, data-props and data-stories; text, numbers, sheets, scripts,
+images and tokens are not compared), so a row whose bytes moved and whose structure did not stays approved and is listed on one
+CONTENT-ONLY line; its gate 2 is not judged and may read `build`; and an UNCOVERED or STALE-PENDING finding that reaches only
+wireframe rows is shown as UNCOVERED-WIRE or STALE-PENDING-WIRE and not counted. Without the ruling the mode is not in effect (WAIVER).
+A Mode value other than none or wireframe is a REGISTRY finding and the canvas is read by the default model.
 
 Reports (each line starts with its class)
   UNCOVERED     an AC tagged (UI) with no `[design: ...]` marker on its own line (the story is `Design: pending`: said so)
@@ -51,12 +60,12 @@ Reports (each line starts with its class)
   DESIGN-MISSING a card's AC cites [design: UX-NNN#state] that the card's design: key does not list
   UI-MISMATCH   a story whose `UI:` field says none while one of its ACs is tagged (UI)
   PAIR          a row's `pair` names a row that is missing or does not name it back
-  GATE-CELL     a gate cell that is not `open`, `changes`, `superseded` or `approved@<sha>`
+  GATE-CELL     a gate cell that is not `open`, `changes`, `superseded` or `approved@<sha>` (`build` is valid in gate 2 of a wireframe canvas only)
   APPROVAL-NO-SHA a gate cell that says `approved` with no @<sha>
   APPROVAL-UNRESOLVED a gate cell `approved@<sha>` whose sha is not a commit here (a shallow clone cannot see an older one)
   STALE-APPROVAL a gate cell `approved@<sha>` whose artboard differs at HEAD from its bytes at <sha> (the root's data-stories
                 aside), or is missing at either, or a file it loads (sheet, script, image, imported screen) or a token it uses has
-                changed since; the row goes back to review
+                changed since; the row goes back to review. In a wireframe canvas: gate 1 only, and only when the structure differs
   SUPERSEDED    a citation of a superseded screen        DUPLICATE  one UX id on two rows
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
                 approved gate cell whose file is not there
@@ -77,6 +86,9 @@ Reports (each line starts with its class)
                 heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
 Report lines, not findings (shown; never counted, never an exit status):
+  MODE          a wireframe canvas in effect, naming its ruling
+  CONTENT-ONLY  the approved rows of a wireframe canvas whose bytes moved since the approval and whose structure did not
+  UNCOVERED-WIRE, STALE-PENDING-WIRE   an UNCOVERED or STALE-PENDING finding that reaches only wireframe rows
   UNCITED       a row no PRD cites
   UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
                 colours are not checked. Put the sheet under project/ as a file and link it by a relative path; or a token file that is not
@@ -110,8 +122,16 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY')
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY',
+                  'MODE', 'CONTENT-ONLY', 'UNCOVERED-WIRE', 'STALE-PENDING-WIRE')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
+MODE_LINE = re.compile(r'^\s*[-*]\s*\*\*Mode:\*\*\s*(.*?)\s*$')
+MODES = ('', 'none', 'wireframe')
+# The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
+# attribute nobody listed here moves the structure and sends the row back to review.
+STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
+TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)([^<>]*)>')
+META_B = re.compile(rb' data-stories="[^"]*"')
 
 META = re.compile(r' data-stories="[^"]*"')
 # A file an artboard loads that neither revision holds cannot have changed, so it is no gap in a comparison: `support.js` is supplied by the
@@ -216,16 +236,22 @@ def artboard_rel(root, r):
 
 def approval_problems(root, r, gates=None):
     """[(class, text)] about the gate cells of registry row r: a cell that is not a state, `approved` with no sha, a sha that is not a
-    commit, an artboard missing at the sha or at HEAD, an artboard that differs at HEAD from its bytes at the sha."""
+    commit, an artboard missing at the sha or at HEAD, an artboard that differs at HEAD from its bytes at the sha. In a wireframe canvas
+    (r['wire']) gate 2 may read `build` and is not judged, and gate 1 is stale when the STRUCTURE differs; a row whose bytes moved and
+    whose structure did not gives ('CONTENT-ONLY', ux)."""
     out, rel = [], artboard_rel(root, r)
+    wire = bool(r.get('wire'))
     for gate, val in sorted(r['gates'].items()):
         if gates and gate not in gates:
             continue
+        if wire and gate == 'gate2' and val == 'build':
+            continue
         m = GATE_CELL.fullmatch(val)
         if not m:
-            out.append(('GATE-CELL', f"{r['where']}: {r['ux']} {gate} is `{val or 'empty'}`, not open, changes, superseded or approved@<sha>"))
+            more = '; `build` is valid only in a canvas whose Mode line is wireframe. Next: set it to open, or declare the mode with a ruling' if val == 'build' else ''
+            out.append(('GATE-CELL', f"{r['where']}: {r['ux']} {gate} is `{val or 'empty'}`, not open, changes, superseded or approved@<sha>{more}"))
             continue
-        if not val.startswith('approved'):
+        if not val.startswith('approved') or (wire and gate == 'gate2'):
             continue
         sha = m.group(2)
         if not sha:
@@ -241,6 +267,17 @@ def approval_problems(root, r, gates=None):
             then = same_name_at(root, sha, rel, now)       # the canvas moved with its bytes: the approval holds
         if then is None or now is None:
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: {rel} is missing at {'that commit' if then is None else 'HEAD'}; back to review"))
+        elif wire:
+            base, top = posixpath.dirname(rel), project_top(rel)
+            if structure_sig(lambda p: git_bytes(root, sha, p), base, top, then) != structure_sig(lambda p: git_bytes(root, HEAD_REV, p), base, top, now):
+                out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}, but the structure of {rel} differs at HEAD "
+                            f"(elements, ids, states and links; text, numbers and styles are not compared in mode wireframe); back to review. "
+                            f"Next: show the human the round and write its take-in commit's sha into {gate}"))
+            else:
+                ba, bb = git_bytes(root, sha, rel), git_bytes(root, HEAD_REV, rel)
+                if META.sub('', then) != META.sub('', now) or (ba is not None and bb is not None and META_B.sub(b'', ba) != META_B.sub(b'', bb)) \
+                        or (ba is not None and loaded_stale(root, sha, rel, then, now)):
+                    out.append(('CONTENT-ONLY', r['ux']))
         elif META.sub('', then) != META.sub('', now):
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}, but {rel} differs at HEAD; back to review"))
         elif git_blob(root, sha, rel) is not None:
@@ -254,6 +291,27 @@ def tags_of(markup):
     """[(tag name, {attribute: value})] of the start tags of markup, comments and script bodies left out, attributes in any quoting."""
     h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
     return [(m.group(1).lower(), {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(2))}) for m in TAG.finditer(h)]
+
+
+def structure(markup):
+    """The structure a wireframe canvas's gate 1 approves: the ordered start and end tags of markup (comments and script bodies left
+    out), each start tag with its attributes except STRUCT_IGNORED, in sorted order. Text is dropped, so a change of wording, a number
+    or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
+    h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
+    out = []
+    for m in TAG_ANY.finditer(h):
+        if m.group(1):
+            out.append(('/', m.group(2).lower()))
+        else:
+            at = {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(3))}
+            out.append((m.group(2).lower(), tuple(sorted((k, v) for k, v in at.items() if k not in STRUCT_IGNORED))))
+    return tuple(out)
+
+
+def structure_sig(read, base, top, markup):
+    """The structure of an artboard and of every screen it imports (the closure's HTML files); `read` reads a repository path."""
+    _, texts, _ = closure(read, base, markup, top=top)
+    return (structure(markup),) + tuple((k, structure(t)) for k, t in sorted(texts.items()) if k.lower().endswith('.html'))
 
 
 def ref_path(href):
@@ -799,12 +857,25 @@ def read_registry(canvas_md, root):
     return parse_registry(read(canvas_md), str(canvas_md.relative_to(root)), canvas_md.parent)
 
 
+def read_mode(text):
+    """-> (mode word, [D-NN cited], line number) of the canvas's `- **Mode:**` header line outside code fences, or ('', [], 0)."""
+    for n, ln in fence_scan(text)[0]:
+        m = MODE_LINE.match(ln)
+        if m:
+            return re.match(r'[`*_ ]*([A-Za-z-]*)', WAIVER_MARK.sub('', m.group(1))).group(1).lower(), WAIVER_MARK.findall(m.group(1)), n
+    return '', [], 0
+
+
 def parse_registry(text, label, canvas):
     """(rows, problems) from registry text. A registry may hold several tables, one per product area; a table is the
     registry's when its header names `ux-id`, `file`, `states` and `stories`. Columns are found by name, so a table may
     add columns (pair, gate1, gate2) or keep the single `status`."""
     rows, problems, cols = [], [], None
     fs = full_story()
+    mode, mode_ids, mode_line = read_mode(text)
+    if mode not in MODES:
+        problems.append(f'{label}:{mode_line}: Mode `{mode}` is not none or wireframe, so the canvas is read by the default model. Next: write the Mode line as `wireframe [decision: D-NN]`, or `none`')
+        mode = ''
     for n, ln in enumerate(text.splitlines(), 1):
         cells = split_row(ln)
         if not cells:
@@ -832,6 +903,7 @@ def parse_registry(text, label, canvas):
             'stories': fs.findall(get('stories')), 'status': status,
             'superseded': 'superseded' in ([get('status').strip('`* ').lower()] + list(gates.values())),
             'where': f'{label}:{n}', 'canvas': canvas, 'waivers': WAIVER_MARK.findall(ln),
+            'mode': mode, 'mode_waivers': mode_ids, 'mode_where': f'{label}:{mode_line}', 'wire': False,
         })
     return rows, problems
 
@@ -1047,6 +1119,27 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             reg_box.append(register_ids(root, requirements))
         return reg_box[0]
 
+    wire, modelines, seen = set(), [], set()
+    for r in rows:
+        if r['canvas'] in seen or r['mode'] != 'wireframe':
+            continue
+        seen.add(r['canvas'])
+        problem = waiver_problem(get_register(), requirements, r['mode_waivers']) if r['mode_waivers'] else 'its Mode line cites no [decision: D-NN]'
+        if problem:
+            out.append(line('WAIVER', f"{r['mode_where']}: mode wireframe is not in effect, so the canvas is read by the default model: {problem}. "
+                            f"Next: cite on the Mode line a [decision: D-NN] that {requirements}/DECISIONS.md holds with a current ruling, or remove the line"))
+        else:
+            wire.add(r['canvas'])
+            modelines.append(line('MODE', f"{r['canvas'].name}: mode wireframe ({', '.join(r['mode_waivers'])}): gate 1 by structure, gate 2 on the build; "
+                                  f"UNCOVERED and STALE-PENDING for its stories are shown, not counted"))
+    for r in rows:
+        r['wire'] = r['canvas'] in wire
+
+    def wire_only(ux_ids):
+        """True when the rows named reach at least one row and every one of them sits in a wireframe canvas."""
+        rws = [by_ux[u] for u in ux_ids if u in by_ux]
+        return bool(rws) and all(x['wire'] for x in rws)
+
     rowfiles = set()
     for r in rows:
         try:
@@ -1088,7 +1181,11 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 if not a['refs']:
                     why = ' (story is `Design: pending`)' if s in pending_story else ''
                     why += ' - the story Notes cite a screen; move the marker onto the AC line' if v['notes_cite'] else ''
-                    out.append(line('UNCOVERED', f"{rel}:{a['line']}: {s} {a['ac']} (UI) has no [design: ...] marker{why}"))
+                    msg = f"{rel}:{a['line']}: {s} {a['ac']} (UI) has no [design: ...] marker{why}"
+                    if wire_only(by_story.get(s, [])):
+                        out.append(line('UNCOVERED-WIRE', msg + ' (mode wireframe: shown, not counted)'))
+                    else:
+                        out.append(line('UNCOVERED', msg))
             if v['ui_field'] is not None and re.match(r'^none\b', v['ui_field']) and ui_acs:
                 out.append(line('UI-MISMATCH', f"{rel}:{v['head']}: {s} says `UI: none` but {ui_acs[0]['ac']} is tagged (UI)"))
             ui_story = bool(ui_acs) or (v['ui_field'] not in (None, '') and not re.match(r'^(none|n/a)\b', v['ui_field'] or ''))
@@ -1099,7 +1196,12 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             rowed = [s for s, v in sc['stories'].items() if a <= v['head'] <= b and s in by_story]
             if inside or rowed:
                 what = f'{len(inside)} marker(s)' if inside else f'a registry row for {rowed[0]}'
-                out.append(line('STALE-PENDING', f'{rel}:{n}: `Design: pending` but the section already has {what}'))
+                msg = f'{rel}:{n}: `Design: pending` but the section already has {what}'
+                reach = [u for s in rowed for u in by_story.get(s, [])] + [UXREF.match(m[2]).group(1) for m in inside if UXREF.match(m[2])]
+                if wire_only(reach):
+                    out.append(line('STALE-PENDING-WIRE', msg + ' (mode wireframe: shown, not counted)'))
+                else:
+                    out.append(line('STALE-PENDING', msg))
         headed = {s: v for s, v in sc['stories'].items() if v['head']}
         bare = ['-'.join(s.rsplit('-', 2)[1:]) for s, v in sorted(headed.items()) if v['ui_field'] is None]
         if bare and len(bare) == len(headed):
@@ -1107,6 +1209,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         elif bare:
             out.append(line('UNCLASSIFIED', f"{rel}: not design-classified: {', '.join(bare)} carry no UI: line (info)"))
 
+    content_only = {}
     for r in rows:
         if not r['stories']:
             out.append(line('NO-STORY', f"{r['where']}: {r['ux']} cites no story"))
@@ -1122,7 +1225,10 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             elif r['ux'] not in o['pair']:
                 out.append(line('PAIR', f"{r['where']}: {r['ux']} pairs with {pr}, which does not name {r['ux']} back"))
         for cls, text in approval_problems(root, r):
-            out.append(line(cls, text))
+            if cls == 'CONTENT-ONLY':
+                content_only.setdefault(r['canvas'], (r['where'].rsplit(':', 1)[0], []))[1].append(text)
+            else:
+                out.append(line(cls, text))
         art = r['canvas'] / PROJECT_SUBDIR / r['file']
         if art.is_file():
             html = read(art)
@@ -1157,6 +1263,8 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         elif any(v.startswith('approved') for v in r['gates'].values()):
             out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there"))
 
+    for label, uxs in content_only.values():
+        out.append(line('CONTENT-ONLY', f"{label}: {', '.join(uxs)} approved, with text, numbers or styles changed since and the structure as approved (mode wireframe, info)"))
     # the cards: every shelf not landed or declined, then any card named by --leaving wherever it sits
     paths = []
     cdir = root / cards
@@ -1241,13 +1349,15 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('NOT-APPROVED', f"{where}: {ux} gate1 is `{g1 or 'absent'}`, not approved@<sha>, and the design: line carries no waiver the register confirms"))
             elif sha and not waived:
                 for cls, text in approval_problems(root, row, ('gate1',)):
-                    out.append(line(cls, text.replace(f"{row['where']}:", f'{where}:', 1)))
+                    if cls != 'CONTENT-ONLY':
+                        out.append(line(cls, text.replace(f"{row['where']}:", f'{where}:', 1)))
                 if pin_ok and is_commit(root, sha.group(1)) and not is_ancestor(root, sha.group(1), pin) and not waived:
                     out.append(line('PIN-ORDER', f'{where}: pin @{pin[:7]} of {tag} is older than the approval @{sha.group(1)[:7]} of its row'))
     for p in problems:
         out.append(line('REGISTRY', p))
-    counts = {'rows': len(rows), 'citations': ncites, 'stories': len(all_stories), 'prds': len(prds), 'cards': ncards}
-    return out, counts
+    counts = {'rows': len(rows), 'citations': ncites, 'stories': len(all_stories), 'prds': len(prds), 'cards': ncards,
+              'wire': len(wire), 'content_only': sum(len(v[1]) for v in content_only.values())}
+    return modelines + out, counts
 
 
 def main(argv):
@@ -1291,8 +1401,10 @@ def main(argv):
         print(ln)
     n = sum(1 for l in out if not l.startswith(REPORT_CLASSES))
     reports = len(out) - n
+    wired = (f"; wireframe: {sum(l.startswith('UNCOVERED-WIRE') for l in out)} uncovered, {sum(l.startswith('STALE-PENDING-WIRE') for l in out)} stale-pending, "
+             f"{c['content_only']} content-only (not counted)") if c['wire'] else ''
     print(f"design-links: {c['rows']} registry row(s), {c['citations']} citation(s), {c['stories']} story(ies) in {c['prds']} PRD(s), "
-          f"{c['cards']} pinned card(s); {n} finding(s)" + (f', {reports} report line(s)' if reports else ''))
+          f"{c['cards']} pinned card(s); {n} finding(s)" + (f', {reports} report line(s)' if reports else '') + wired)
     return 1 if (a.strict and n) else 0
 
 
