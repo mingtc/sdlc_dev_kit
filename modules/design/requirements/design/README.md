@@ -47,7 +47,7 @@ requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of tru
 ```
 
 `stories` holds the story ids of **every** PRD that touches the screen: no row belongs to one PRD. `pair` names the phone
-or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `changes` or `approved@<sha>` (§ 6).
+or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `changes` or `approved@<sha>` (§ 6); `gate2` may also read `build` in a wireframe canvas (§ 6).
 `CANVAS.md` declares the **breakpoint** and the widths covered; a PRD covers the gap or says it is out of scope.
 
 ## 3. Citations from the PRDs
@@ -71,7 +71,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   a story; no `Design: pending` outlives its first marker. `python3 scripts/design/check-design-links.py` reports these, and
   `--strict` makes it the design-record gate in `PROJECT.md`: it says the PRDs, the registry, the approvals and the pins of cards in
   flight agree, and nothing about a build. `prd-view.py <PRD id>` lists the screens and states one PRD reaches. A gate cell is
-  `open`, `changes`, `superseded` or `approved@<sha>`; a card's `design:` value is `none` or `[UX-NNN#state@<commit>, ...]`.
+  `open`, `changes`, `superseded` or `approved@<sha>`; a card's `design:` value is `none` or `[UX-NNN#state@<commit>, ...]`. In a wireframe canvas (§ 6) an `UNCOVERED` or `STALE-PENDING` finding that reaches only its rows is shown and not counted.
 
 ## 4. Pins
 
@@ -83,7 +83,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   `[decision: D-NN]` in its trailing comment: it covers every screen on that line, and its D-NN must be an entry of
   `requirements/DECISIONS.md`. The sha in an
   approval is the commit that took in the approved version; an approval whose artboard, a file it loads (a sheet, a script, an image, a screen it imports) or a token it uses has since changed is **stale** and the row goes back to
-  `changes`; the link check reports it as `STALE-APPROVAL`.
+  `changes`; the link check reports it as `STALE-APPROVAL` (in a wireframe canvas, § 6, only a change of structure makes gate 1 stale).
 - Before the card moves, every entry is checked: it carries `@<commit>`, that commit resolves and holds the screen's artboard, its
   row is approved (`approved@<sha>`, an ancestor of the pin and still true at HEAD) or waived, and a card whose ACs cite a screen
   does not say `design: none` or leave one out. The card gate, a move check on `in_progress/` and `dev_complete/` read from the trunk,
@@ -119,7 +119,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   cell check on each PASS row of kind `design`, which refuses unless every entry says `identical`, its pin is a commit the card
   carries in `design:`, both images are PNGs committed on the trunk (by Dev or the project's tooling, never by QA's leaf worker), the build image is
   not the pin image, and the pin image is the render the pin commit holds for that screen and state. A card cannot reach
-  `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites.
+  `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites. For a pin to a wireframe canvas
+  `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared (§ 6).
 
 ## 6. Fidelity: one artifact, two gates
 
@@ -155,6 +156,35 @@ row (its title cell), the same marker and the same register as a card's waiver o
   approves the render on the canvas; the audits are tools, and their figures are quoted as printed.
 - The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
   the Designer's deliverable per state.
+
+### Wireframe mode
+
+A canvas that is a wireframe of flow and content, kept current as part of the PRD, with the build as the visual anchor, says so in its
+header: `- **Mode:** wireframe [decision: D-NN]`. Without the mode such a canvas is either frozen, to keep its approvals, or its
+approvals reset at every sync until they mean nothing. The decision is a ruling `requirements/DECISIONS.md` holds with a current
+ruling (the check a waiver gets); without one the mode is not in effect and the link check reports `WAIVER`. No line, or `none`, is the
+default model above; any other value is a `REGISTRY` finding. The mode is per canvas.
+
+- **Gate 1 is structure and flow**: the screens, their states, the elements that carry an id, and the links. It is approved per
+  **round**. A round is one Designer take-in commit; the human approves once for the rows that read `STALE-APPROVAL` or `open` after it,
+  and the Designer writes that commit's sha as `approved@<sha>` into those rows only. A row whose structure did not move stays
+  approved at its older sha.
+- **Structure** is the ordered start and end tags of the artboard and of each screen it imports, each start tag with its attributes
+  except `class`, `style`, `data-props` and `data-stories`; text is not read. An element added, removed, moved or renamed, a
+  `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy), classes, styles, a sheet, a
+  token, an image, the component script and its props are content: the approval stands, and the link check lists the row on one
+  `CONTENT-ONLY` line. An attribute not named above counts as structure. Script or props logic that changes which branch shows is
+  the build's, not gate 1's.
+- **Gate 2 is taken on the build.** Its cell reads `build`, valid only in this mode, and is not judged (nor is a gate 2 approval
+  written before). No contrast or target audit is run. The build is accepted by the QA design row of each (UI) AC (§ 5).
+- **`--strict`** prints a `MODE` line, shows an `UNCOVERED` or `STALE-PENDING` finding as `UNCOVERED-WIRE` or `STALE-PENDING-WIRE` when
+  every row it reaches is in a wireframe canvas, and counts them on its summary line; nothing else is demoted. A story that a default
+  canvas's row also lists keeps its findings.
+- **Unchanged**: a card still pins (`design:` entries, `@<commit>`, the render at the pin, gate 1 approved or waived), a change to a
+  pinned state still needs a `D-NN`, the pin-drift report compares bytes, and a colour or token finding still fails the gate.
+- **Switching** is editing the Mode line. No approval is rewritten; each is judged by the rule in force at the next check. Removing the
+  line sends a row whose content moved since its approval back to review and makes a `build` a `GATE-CELL` finding; adding it needs the
+  decision.
 
 ## 7. Flows
 

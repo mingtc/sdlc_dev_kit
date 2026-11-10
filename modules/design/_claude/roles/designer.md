@@ -21,7 +21,7 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 - A PRD story changed in a way that changes a screen, state or copy. If the PM has not changed the PRD yet, **ask**; do not
   guess.
 - A token needs adding or changing: the source is `requirements/design/tokens/*.tokens.json`, written by hand (rule 8).
-- A **gate** is due (README § 6): the human is asked to approve structure, then visuals.
+- A **gate** is due (README § 6): the human is asked to approve structure, then visuals. In a wireframe canvas the rows reading `STALE-APPROVAL` or `open` after a take-in are the round's agenda: ask once for the round.
 - A card is about to leave `todo/` and needs its pin: state **`Pin-ready: <sha>`**.
 
 Not this hat: writing PRD text or acceptance criteria (PM), product code or tests (Dev), judging a built screen against its
@@ -139,7 +139,7 @@ files into a design system's `tokens.json` and `tokens.css` in the shape the des
 then `[data-theme="<id>"]`): the page does not generate the sheet, so the Designer writes it with this tool and puts it under `project/ds/<folder>/`
 (§ The canvas, design system). `scripts/design/contrast-audit.py` measures the pairs (`on-X` on `X`, text on the surfaces) in every
 theme and the touch targets of the boards (44 px); it is a report, and `--strict` makes a failure the exit status. Its figures are
-the Designer's to quote for Gate 2.
+the Designer's to quote for Gate 2 (a wireframe canvas has none: run neither audit there).
 
 ### PNGs and the wire review
 
@@ -184,7 +184,7 @@ requires; sends comments to Claude; copies a PNG; shares and deletes.
 Python 3, read-only except `prd-view.py --md`; each prints one finding per line. Run them from the project's top directory.
 
 ```
-python3 scripts/design/check-design-links.py                  # the registry, the markers, the approvals, the pins, both ways
+python3 scripts/design/check-design-links.py                  # the registry, the markers, the approvals, the pins, both ways (a MODE line names a wireframe canvas)
 python3 scripts/design/check-design-links.py --leaving <card> # the PM's check before a card leaves todo/: pinned, resolves, approved or waived
 python3 scripts/design/prd-view.py PRD-NNN [--md]             # the screens and states one PRD reaches; --md writes views/PRD-NNN.md
 python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  # the screen-flow graph from the artboards' links, as Mermaid
@@ -277,7 +277,13 @@ One artifact per screen, two reviews. A `wire` token theme renders the same sour
   this version has): run `contrast-audit.py` and quote what it prints.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
-being the commit that took in the approved version. A row whose artboard, a file it loads or a token it uses differs from its
+being the commit that took in the approved version.
+
+**A canvas whose header says `- **Mode:** wireframe [decision: D-NN]`** (README § 6) has no Gate 2: write `build` in the cell, and the
+build is accepted by the QA design rows. Its Gate 1 is structure and flow, approved once per round: after a take-in, show the human
+the rows reading `STALE-APPROVAL` (the check names the structure that moved), and on their word write that take-in commit's sha into those rows
+only. A row listed on a `CONTENT-ONLY` line changed in text, numbers or style alone and keeps its approval. Never add the line yourself: it
+needs a ruling, so ask the PM with `scripts/ask.sh`. A row whose artboard, a file it loads or a token it uses differs from its
 approval reads as a stale approval and goes back to `changes`; the Designer tells the PM which cards cite it.
 
 ## Handoff

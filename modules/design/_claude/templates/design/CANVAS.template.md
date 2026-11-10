@@ -4,6 +4,7 @@
 - **Canvas:** <canvas title, named for the product, never a PRD id> — <URL, or "none yet"> (a canvas that takes comments is private to the owner or shared within the organisation; a public link cannot)
 - **Last pull:** none (then `<canvas version id> @ <repo commit>`: the commit that took the files into `project/`; its manifest is the `## Manifest` section)
 - **Last publish:** none (then `<canvas version id> @ <repo commit>`, written after the read-back by sha)
+- **Mode:** none (the default model. `wireframe [decision: D-NN]` makes this canvas a wireframe kept current with the PRD: gate 1 by structure, gate 2 `build`; the decision must be an entry of `requirements/DECISIONS.md`. See `requirements/design/README.md` § 6)
 - **Pin-ready:** none (the last commit that touched the screen files and tokens a card cites, `CANVAS.md` bookkeeping excluded; set only when every row the card cites has `approved@<sha>` in `gate1`)
 - **Breakpoint:** <the width where phone becomes desktop>; widths covered: <phone width>, <desktop width>. A PRD covers the gap between them or says it is out of scope.
 - **PRDs served:** <PRD-NNN, PRD-NNN: listed for the reader; no screen belongs to one PRD>
@@ -20,7 +21,7 @@ Written by `/design-pull` and `/design-publish`, one line per `project/` file: `
 ## Screen registry
 
 `platform`: `phone` or `web-desktop`. `pair` names the other width of the same screen (symmetric). `gate1` and `gate2` are
-`open`, `changes` or `approved@<sha>`, `<sha>` being the commit that took in the approved version. One table per product area, the
+`open`, `changes` or `approved@<sha>`, `<sha>` being the commit that took in the approved version; `gate2` reads `build` in a wireframe canvas. One table per product area, the
 same header each time.
 
 ### <product area>

@@ -5,6 +5,12 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.0]
+
+### Added
+
+- **A wireframe mode for a canvas** (`- **Mode:** wireframe [decision: D-NN]` in `CANVAS.md`; requirements `README` § 6). For a canvas that is a wireframe of flow and content kept current with the PRD, with the build as the visual anchor: gate 1 is approved per round and stays good through a change of text, numbers or style (the link check compares structure: the ordered tags, ids, states and links), gate 2 reads `build` and is not judged, and `--strict` shows an `UNCOVERED` or `STALE-PENDING` finding that reaches only such canvases as `UNCOVERED-WIRE` or `STALE-PENDING-WIRE` without counting it. The mode needs a ruling `requirements/DECISIONS.md` holds, or it is not in effect (`WAIVER`). A canvas without the line is read exactly as before, so nothing is required of a project that does not want it.
+
 ## [0.5.0]
 
 ### Added
