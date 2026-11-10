@@ -5569,6 +5569,38 @@ case_check_board_report_prints_findings_first_and_folds_clean_arms() {
   # (5) --full is the original order: the first arm heading is [a].
   case "$(printf '%s\n' "$full" | grep -m1 '^\[')" in '[a]'*) : ;; *) cf "(5) --full does not open on arm [a]" ;; esac
 
+  # (5b) The fold's own rules, on canned reports: the real awk, fed text the real report cannot be made to
+  # print (headings that share a long prefix, a deciding arm that finds without a ⚠). The copy differs
+  # from the script in the one line that runs the full report as a child.
+  local fold_cp="$SB_WORK/scripts/check-board-fold.sh" canned="$SB_TMP/canned-report.txt" fout
+  perl -0pe 'BEGIN { $c = shift; $f = q{cb_raw="$("${BASH:-bash}" "${BASH_SOURCE[0]}" --full)"}; $r = q{cb_raw="$(cat "} . $c . q{")"} } s/\Q$f\E/$r/ or die "NOMATCH\n"' "$canned" "$SB_WORK/scripts/check-board.sh" > "$fold_cp" \
+    || _fixture_die "could not make the canned-report copy of check-board.sh: the child line moved"
+  chmod +x "$fold_cp"
+  {
+    printf '%s\n' '── check-board.sh — board-drift report @ canned'
+    printf '\n%s\n' '[c] A long heading for the quiet reading of this one letter number one runs on ✓ — read from: x:'
+    printf '\n%s\n' '[c] A long heading for the quiet reading of this one letter number two runs on ✓ — read from: x:'
+    printf '\n%s\n' '[c] progress.md LAST ENTRY: THIS CHECK DID NOT RUN — nothing separates them  (skipped)'
+    printf '\n%s\n%s\n' '[f] a reading with a finding:' '      ⚠ UNPUBLISHED 1 commit'
+    printf '\n%s\n' '[k] declined/ depth (reports only — never changes the verdict below): 0 card(s)'
+    printf '\n%s\n' '── board-drift: findings above ⚠ (informational; exit 0 by convention)'
+  } > "$canned"
+  fout="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-fold.sh 2>&1 )"
+  printf '%s\n' "$fout" | grep -F "$CB_FOLD_LEAD" >/dev/null || _fixture_die "the canned report produced no folded line: $fout"
+  fold="$(printf '%s\n' "$fout" | grep -F "$CB_FOLD_LEAD")"
+  [ "$(printf '%s\n' "$fold" | grep -o '\[c: ' | wc -l | tr -d ' ')" = 2 ] \
+    || cf "(5b) the two quiet [c] readings that share a long prefix are not two labels on the folded line: $fold"
+  [ "$(printf '%s\n' "$fold" | grep -oE '\[c: [^]]*\]' | sort -u | wc -l | tr -d ' ')" = 2 ] \
+    || cf "(5b) the two labels for headings that share a prefix are the same label: $fold"
+  printf '%s\n' "$fold" | grep -E '\[c: [^]]* \]|\[c: [^]]*[A-Za-z]\]' | grep -vF '…' >/dev/null \
+    && cf "(5b) a label that was cut does not end on a word boundary with an ellipsis: $fold"
+  printf '%s\n' "$fold" | grep -F '[k]' >/dev/null || cf "(5b) an advisory lettered arm with no finding was not folded: $fold"
+  printf '%s\n' "$fout" | grep -E '^\[c\] A long heading' >/dev/null \
+    && cf "(5b) a quiet lettered reading was left unfolded because another arm found something: $fout"
+  printf '%s\n' "$fout" | grep -E '^\[c\] progress.md LAST ENTRY' >/dev/null \
+    || cf "(5b) a lettered reading that did not run was folded: $fout"
+  rm -f "$fold_cp"
+
   # (6) The option is documented, and an unknown option is still a usage error.
   ( cd "$SB_WORK" && ./scripts/check-board.sh --help 2>&1 ) | grep -F -- '--full' >/dev/null || cf "(6) --help does not name --full"
   ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --no-such-option >/dev/null 2>&1 ); rc_def=$?
