@@ -2816,3 +2816,91 @@ case_finish_pr_empty_gate_table_names_the_route() {
   finish "finish-pr.sh: a trunk whose GATES table is empty still refuses a branch that declares the gates, and the refusal names the route (land scripts/verify.sh on the trunk with register-commit.sh, then re-run); the route lands the card; a gate refused for another reason names no such route"
   teardown
 }
+
+# =============================================================================
+# CASE — A BRANCH THAT MOVES DURING THE GATE IS NOT LANDED UNREAD.
+#
+# finish-pr.sh reads the QA Verdict at the branch tip it resolved, then runs the pre-merge gate,
+# which can take long. A commit that reaches the branch meanwhile would be squashed with the rest
+# while the Activity note certifies the earlier revision. The gate stub below is the Dev committing
+# in parallel: it adds LATE.txt to the branch. Asserted: nonzero exit, the refusal named, nothing
+# landed, the branch and card untouched.
+# =============================================================================
+case_finish_pr_refuses_a_branch_that_moved_during_the_gate() {
+  cf_reset
+  make_sandbox
+  local out rc br
+  seed_issue dev_complete "$SB_PREFIX-807" moved chore "Branch moves during the gate" "feature/$SB_PREFIX-807-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-807" work CHANGE.txt
+  br="feature/$SB_PREFIX-807-work"
+  cat > "$SB_TMP/gate-moves-the-branch" <<'STUB'
+#!/usr/bin/env bash
+export GIT_AUTHOR_NAME=late GIT_AUTHOR_EMAIL=late@example.invalid GIT_COMMITTER_NAME=late GIT_COMMITTER_EMAIL=late@example.invalid
+b="$(git rev-parse "refs/heads/$W807_BRANCH")" || exit 9
+ix="$(mktemp)" || exit 9
+rm -f "$ix"
+GIT_INDEX_FILE="$ix" git read-tree "$b" || exit 9
+GIT_INDEX_FILE="$ix" git update-index --add --cacheinfo "100644,$(echo late | git hash-object -w --stdin),LATE.txt" || exit 9
+t="$(GIT_INDEX_FILE="$ix" git write-tree)" || exit 9
+n="$(git commit-tree "$t" -p "$b" -m 'a commit that arrived during the gate')" || exit 9
+git update-ref "refs/heads/$W807_BRANCH" "$n" "$b" || exit 9
+rm -f "$ix"
+exit 0
+STUB
+  chmod +x "$SB_TMP/gate-moves-the-branch"
+
+  out="$( cd "$SB_WORK" && W807_BRANCH="$br" FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-moves-the-branch" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-807" 2>&1 )"; rc=$?
+  git -C "$SB_WORK" cat-file -e "refs/heads/$br:LATE.txt" 2>/dev/null \
+    || cf "the stub did not move the branch, so the row tests nothing: $out"
+  [ "$rc" -ne 0 ] || cf "a branch that moved during the gate landed (rc=0): $out"
+  printf '%s\n' "$out" | grep 'branch-moved-during-gate' >/dev/null \
+    || cf "the refusal is not the branch-moved one: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep '^Next:' >/dev/null \
+    || cf "the branch-moved refusal names no Next: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  assert_landing_untouched "(branch moved)" "$SB_PREFIX-807" moved "$br" CHANGE.txt
+  origin_has_path "LATE.txt" && cf "the late commit's file reached the trunk"
+
+  finish "finish-pr.sh: a branch that moved during the pre-merge gate is refused with nothing landed, and the refusal names its Next"
+  teardown
+}
+
+# =============================================================================
+# CASE — A TAG WITH THE BRANCH'S SHORT NAME IS NOT WHAT IS LANDED.
+#
+# The branch is resolved as refs/heads/<name> for the existence check and the gate, and was read by
+# short name for the QA read and the squash; a tag of the same name wins a short-name lookup.
+# The tag is made at a commit holding TAGGED.txt. Asserted: the branch's own change lands and the
+# tag's does not, and the Activity note names the branch's tip.
+# =============================================================================
+case_finish_pr_lands_the_branch_not_a_tag_of_its_name() {
+  cf_reset
+  make_sandbox
+  local out rc br tagc tip
+  seed_issue dev_complete "$SB_PREFIX-808" tagged chore "A tag shares the branch name" "feature/$SB_PREFIX-808-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-808" work CHANGE.txt
+  br="feature/$SB_PREFIX-808-work"
+  tip="$(git -C "$SB_WORK" rev-parse --short "refs/heads/$br")"
+  git -C "$SB_WORK" checkout -q -b "scratch-808" "$SB_TRUNK" >/dev/null 2>&1 \
+    && echo "tag only" > "$SB_WORK/TAGGED.txt" \
+    && git -C "$SB_WORK" add TAGGED.txt >/dev/null 2>&1 \
+    && sbcommit -q -m "a commit only the tag points at" >/dev/null 2>&1 \
+    && tagc="$(git -C "$SB_WORK" rev-parse HEAD)" \
+    && git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" tag "$br" "$tagc" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_lands_the_branch_not_a_tag_of_its_name: could not plant the tag."
+  [ "$(git -C "$SB_WORK" rev-parse "$br^{commit}" 2>/dev/null)" = "$tagc" ] \
+    || _fixture_die "case_finish_pr_lands_the_branch_not_a_tag_of_its_name: the tag does not win the short name, so the row tests nothing."
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-808" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "finish-pr exited $rc (expected 0): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  origin_has_path "CHANGE.txt" || cf "the branch's own change did not land"
+  origin_has_path "TAGGED.txt" && cf "the tag's commit landed in place of the branch's"
+  origin_file_contains "progress/qa_complete/$SB_PREFIX-808-tagged.md" "verdict read at $tip" \
+    || cf "the Activity note does not name the branch's tip $tip"
+
+  finish "finish-pr.sh: a tag with the branch's short name is not what is read or squashed; the branch lands"
+  teardown
+}
