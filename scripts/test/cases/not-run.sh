@@ -359,7 +359,7 @@ case_post_merge_verify_exit_two_reads_unrunnable() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[Dev] $id: class every gate full" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push -q -u origin "feature/$id-reclass" >/dev/null 2>&1
-  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  # the gate checkout is the branch's own, as the landing gate requires when a branch changes verify.sh
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-pm" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the landing did not complete (rc=$rc), so the post-merge reading below was not taken: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: UNRUNNABLE' >/dev/null \
