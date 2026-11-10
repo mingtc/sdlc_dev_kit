@@ -55,13 +55,16 @@ _bp_reset() { KIT_BP_NHITS=0; }
 
 # _bp_awk <awk args> — awk read byte-wise (LC_ALL=C), because an awk that fails on a byte its locale
 # cannot decode would read as "found nothing". A non-zero status is recorded in KIT_BP_FAIL_FILE
-# (a file, so a failure inside $( ) is seen) and the arm is then NOT a clean one: the caller reads
-# that file and says "did not run".
+# (a file, so a failure inside $( ) is seen) with awk's own last words, which name the file, and the
+# arm is then NOT a clean one: the caller reads that file and says "did not run". awk's stderr is
+# otherwise dropped, as every caller dropped it before.
 KIT_BP_FAIL_FILE=""
 _bp_awk() {
-  local rc
-  LC_ALL=C awk "$@"; rc=$?
-  if [ "$rc" -ne 0 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then printf 'awk exited %s\n' "$rc" >> "$KIT_BP_FAIL_FILE"; fi
+  local rc err
+  { err="$(LC_ALL=C awk "$@" 2>&1 1>&3)"; rc=$?; } 3>&1
+  if [ "$rc" -ne 0 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then
+    printf 'awk exited %s: %s\n' "$rc" "$(printf '%s' "$err" | tail -n 2 | tr '\n' ' ')" >> "$KIT_BP_FAIL_FILE"
+  fi
   return "$rc"   # return-class: internal
 }
 
@@ -872,4 +875,22 @@ $rcid"
     fi
   fi
   return 0
+}
+
+# kit_bp_ready — every function the arms above call is defined, the dependency libraries' included.
+# Defined LAST, so a library that stopped part way (this one, or card-field.sh or decision-register.sh
+# cut at a function boundary, which `bash -n` accepts) is not ready: this function is missing, or it
+# names what is. A caller asks it before it runs an arm, and an arm that was not ready did not run.
+# Sets KIT_BP_NOT_READY to the names that are missing.
+KIT_BP_NOT_READY=""
+kit_bp_ready() {
+  local f
+  KIT_BP_NOT_READY=""
+  for f in kit_bp_ids kit_bp_blocks kit_bp_citations kit_bp_corpus kit_bp_register_shape kit_bp_reverse_coverage \
+           kit_bp_registers_present kit_bp_card_files kit_bp_load_declarations \
+           kit_card_field kit_card_list kit_decision_register_live kit_decision_register_retired \
+           kit_decisions_cited kit_declared_value kit_prd_surface kit_ruling_state; do
+    command -v "$f" >/dev/null 2>&1 || KIT_BP_NOT_READY="${KIT_BP_NOT_READY}${KIT_BP_NOT_READY:+ }$f"
+  done
+  [ -z "$KIT_BP_NOT_READY" ]   # return-class: predicate
 }

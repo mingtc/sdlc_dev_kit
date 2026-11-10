@@ -650,7 +650,7 @@ else
       "Next: land the gate table on ${DEFAULT_BRANCH} first: declare the gates in scripts/verify.sh in this checkout, run  ./scripts/register-commit.sh --role $ROLE --message \"declare the gates\" scripts/verify.sh  (it commits to ${DEFAULT_BRANCH} and leaves this branch as it is), then re-run finish-pr.sh; if that then says the branch is stacked on a base that already landed (the table was its only change), follow the rebase it names."
   elif [ "$_pre_rc" -eq 2 ]; then
     kit_refuse 1 premerge-gate-refused-to-run \
-      "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, or a narrowed run's precondition) — refusing to merge '${BRANCH}'." \
+      "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, a narrowed run's precondition, or --quick over a table whose every gate is class full) — refusing to merge '${BRANCH}'." \
       "       No squash, no push, no branch deletion, no issue advance." \
       "       Nothing about the branch was measured: this is the gate's own configuration, not the branch." \
       "Next: fix scripts/verify.sh (its own refusal names what it needs), then re-run finish-pr.sh."
@@ -1052,7 +1052,9 @@ if [ -z "$PM_UNRUNNABLE" ]; then
   _pm_sum="$(printf '%s\n' "$_pm_out" | grep '^gates declared:' | tail -n 1 || true)"
   _pm_failed="$(printf '%s' "$_pm_sum" | sed -n 's/.*failed: \([0-9][0-9]*\).*/\1/p')"
   _pm_cnr="$(printf '%s' "$_pm_sum" | sed -n 's/.*could not run: \([0-9][0-9]*\).*/\1/p')"
-  if [ "$_pm_rc" -eq 3 ]; then
+  if [ "$_pm_rc" -eq 2 ]; then
+    PM_UNRUNNABLE="the gate at ${PM_READ:-?} in ${PM_TREE} refused to run (exit 2: an empty or malformed table, an unknown argument, or --quick over a table whose every gate is class full): nothing was measured"
+  elif [ "$_pm_rc" -eq 3 ]; then
     PM_UNRUNNABLE="the gate ran at ${PM_READ:-?} in ${PM_TREE} and exited 3: nothing failed, and ${_pm_cnr:-at least one} gate(s) could not run"
   elif [ "$_pm_rc" -eq 1 ] && [ "${_pm_failed:-x}" = "0" ] && [ "${_pm_cnr:-0}" -gt 0 ] 2>/dev/null; then
     PM_UNRUNNABLE="the gate ran at ${PM_READ:-?} in ${PM_TREE} and its summary counts ${_pm_cnr} gate(s) that could not run and none that failed"

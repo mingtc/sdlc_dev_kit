@@ -67,6 +67,9 @@
 set -uo pipefail
 # Every arm reads cards and registers byte-wise: an awk that fails on a byte its locale cannot decode
 # prints nothing, and nothing reads as "no finding" (process/contracts/drift-report.md § 4 item 7).
+# The caller's own LC_ALL is kept (set or not) and restored for a check-board.d arm, which is the
+# project's own command and answers in the locale it was launched in.
+if [ "${LC_ALL+x}" = x ]; then CB_CALLER_LC_SET=1; CB_CALLER_LC="$LC_ALL"; else CB_CALLER_LC_SET=0; CB_CALLER_LC=""; fi
 export LC_ALL=C
 
 # ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): a usage request is answered first,
@@ -338,14 +341,10 @@ fi
 # it). A load failure leaves [m] printing that it did not run.
 # shellcheck source=lib/card-field.sh
 [ -f "$CB_LIB_DIR/card-field.sh" ] && . "$CB_LIB_DIR/card-field.sh" 2>/dev/null || true
-# Loaded means EVERY function the arms call is defined: a library that stopped part way leaves some of them
-# unset, and testing one of them would let the rest fail as "command not found" and read as clean.
-cb_bp_loaded() {
-  local f
-  for f in kit_bp_ids kit_bp_blocks kit_bp_citations kit_bp_corpus kit_bp_register_shape kit_bp_reverse_coverage kit_bp_registers_present kit_bp_card_files; do
-    command -v "$f" >/dev/null 2>&1 || return 1
-  done
-}
+# Loaded means EVERY function the arms call is defined, the dependency libraries' included
+# (lib/board-properties.sh's kit_bp_ready, defined last): a library that stopped part way leaves some of
+# them unset, and the rest would fail as "command not found" and read as clean.
+cb_bp_loaded() { command -v kit_bp_ready >/dev/null 2>&1 && kit_bp_ready; }
 # An arm that did not run is not a clean one: it prints a ⚠ line and sets `drift`, so the verdict never
 # reads `clean` over a check nobody made.
 cb_bp_missing() {
@@ -354,24 +353,30 @@ cb_bp_missing() {
 }
 # cb_bp_run <function> <args…> — runs one arm. A reader inside it that failed (an awk that exited non-zero,
 # recorded by lib/board-properties.sh in CB_BP_FAIL) means the arm did not answer: its "✓ none" lines are
-# withheld and a ⚠ line says so, and `drift` is set.
+# withheld and a ⚠ line says so, and `drift` is set. With no temp file to record in, nothing could be said
+# about the readers, so the arm is not run and says so.
 CB_BP_FAIL="$(mktemp 2>/dev/null || true)"
+CB_BP_RUNF=""
 cb_bp_run() {
-  local f
   : > "${CB_BP_FAIL:-/dev/null}" 2>/dev/null
   KIT_BP_FAIL_FILE="$CB_BP_FAIL"
-  f="$(mktemp 2>/dev/null || true)"
-  if [ -z "$f" ]; then "$@"; return; fi
-  "$@" > "$f"
-  if [ -n "$CB_BP_FAIL" ] && [ -s "$CB_BP_FAIL" ]; then
-    grep -v '✓' "$f"
+  CB_BP_RUNF="$(mktemp 2>/dev/null || true)"
+  if [ -z "$CB_BP_FAIL" ] || [ -z "$CB_BP_RUNF" ]; then
+    echo "      ⚠ this arm DID NOT RUN — no temp file could be made to watch its readers with, so the verdict below is not clean  (nothing was checked, which is not a pass)"
+    drift=1
+    return 0
+  fi
+  "$@" > "$CB_BP_RUNF"
+  if [ -s "$CB_BP_FAIL" ]; then
+    grep -v '✓' "$CB_BP_RUNF"
     echo "      ⚠ this arm DID NOT RUN to its end — a reader failed on a file it could not read ($(head -1 "$CB_BP_FAIL")); what is printed above is not the whole answer, so the verdict below is not clean"
     drift=1
   else
-    cat "$f"
+    cat "$CB_BP_RUNF"
   fi
-  rm -f "$f"
+  rm -f "$CB_BP_RUNF"; CB_BP_RUNF=""
 }
+
 
 # The shared model-seam reader (arm [s] and scripts/set-models.sh read the SAME class table, ladder
 # cells and pin frontmatter). A load failure leaves [s] printing that it did not run.
@@ -422,14 +427,15 @@ else
   CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (no $CB_REMOTE/${CB_TRUNK:-<unresolved trunk>} ref)"
 fi
 
+
 # CB_TREE is the directory the board-reading arms walk. For a ref, one checkout of the ref into a temp
 # dir: a `git show` per file would break the time budget on a large board.
 CB_TREE="$REPO_ROOT"
 CB_TMP=""
 CB_IDX=""
-cb_cleanup() { [ -z "$CB_IDX" ] || rm -f "$CB_IDX" 2>/dev/null; [ -z "${CB_BP_FAIL:-}" ] || rm -f "$CB_BP_FAIL" 2>/dev/null; [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
+cb_cleanup() { [ -z "$CB_IDX" ] || rm -f "$CB_IDX" 2>/dev/null; [ -z "${CB_BP_FAIL:-}" ] || rm -f "$CB_BP_FAIL" 2>/dev/null; [ -z "${CB_BP_RUNF:-}" ] || rm -f "$CB_BP_RUNF" 2>/dev/null; [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
 trap cb_cleanup EXIT
-# The signals are trapped so the cleanup waits for the `archive | tar` below: with EXIT alone, a
+# The signals are trapped so the cleanup waits for the checkout below: with EXIT alone, a
 # TERM or HUP runs cb_cleanup mid-copy and tar re-creates part of the temp dir. Signals not listed
 # here, and SIGKILL, still race.
 trap 'exit 143' TERM
@@ -445,7 +451,7 @@ if [ "$CB_SRC_KIND" = "ref" ]; then
      && GIT_INDEX_FILE="$CB_IDX" git -C "$REPO_ROOT" checkout-index -a -f --prefix="$CB_TMP/" >/dev/null 2>&1; then
     CB_TREE="$CB_TMP"
   else
-    # Archive failed: degrade to the checkout and RELABEL, so no arm names a ref it did not read.
+    # Checkout of the ref failed: degrade to the working tree and RELABEL, so no arm names a ref it did not read.
     CB_SRC_KIND="worktree"
     CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (could not read $CB_REF — checkout of the ref failed)"
     CB_REF=""
@@ -2187,7 +2193,7 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
       continue ;;
   esac
   cb_arm_rc=0
-  ( . "$cb_arm" ) </dev/null || cb_arm_rc=$?
+  ( if [ "$CB_CALLER_LC_SET" = 1 ]; then export LC_ALL="$CB_CALLER_LC"; else unset LC_ALL; fi; . "$cb_arm" ) </dev/null || cb_arm_rc=$?
   case "$cb_arm_rc" in
     0) : ;;
     3) # The arm found something. It may print that without a ⚠ (§ 5 asks for none), so say it here, in

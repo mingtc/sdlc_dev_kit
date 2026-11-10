@@ -86,12 +86,12 @@ kit_agent_records_fetch() {
 _kit_agent_verdict_section() {
   local repo="$1" rev="$2" id="$3" root="$4" path
   path="$(git -C "$repo" ls-tree -r --name-only "$rev" -- "$root/" 2>/dev/null \
-          | awk -v id="$id" -v root="$root/" '!found && index($0, root) == 1 {
+          | LC_ALL=C awk -v id="$id" -v root="$root/" '!found && index($0, root) == 1 {
               rest = substr($0, length(root) + 1); n = split(rest, p, "/")
               if (n == 2 && index(p[2], id "-") == 1) { print; found = 1 } }')"
   [ -n "$path" ] || return 0
   git -C "$repo" show "$rev:$path" 2>/dev/null \
-    | awk 'done { next } /^## QA Verdict/ { on = 1; print; next } on && /^## / { done = 1; next } on { print }'
+    | LC_ALL=C awk 'done { next } /^## QA Verdict/ { on = 1; print; next } on && /^## / { done = 1; next } on { print }'
 }
 
 kit_agent_landing_check() {
@@ -113,7 +113,7 @@ kit_agent_landing_check() {
     return 0
   fi
   v_agents="$(kit_agent_of "$repo" "$verdict")"
-  case "$(printf '%s' "$v_agents" | awk 'END { print NR }')" in
+  case "$(printf '%s' "$v_agents" | LC_ALL=C awk 'END { print NR }')" in
     0) echo "AGENT_CHECK: UNRUNNABLE — the QA verdict commit ${verdict:0:9} has no identity record (written outside the harness hooks, or the hooks are not wired)."; return 0 ;;
     1) : ;;
     *) echo "AGENT_CHECK: UNRUNNABLE — the QA verdict commit ${verdict:0:9} is claimed by more than one identity ($(printf '%s' "$v_agents" | tr '\n' ';')), so it is not attributable."; return 0 ;;
@@ -123,7 +123,7 @@ kit_agent_landing_check() {
     [ -n "$sha" ] || continue
     n_code=$((n_code + 1))
     a="$(kit_agent_of "$repo" "$sha")"
-    case "$(printf '%s' "$a" | awk 'END { print NR }')" in
+    case "$(printf '%s' "$a" | LC_ALL=C awk 'END { print NR }')" in
       1) n_rec=$((n_rec + 1)); code_agents="${code_agents}${a}"$'\n' ;;
     esac
   done <<< "$(git -C "$repo" rev-list "$trunk..$branch" 2>/dev/null)"

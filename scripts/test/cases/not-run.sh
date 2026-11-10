@@ -285,7 +285,7 @@ case_check_board_arm_keeps_the_callers_locale() {
   mkdir -p "$SB_WORK/scripts/check-board.d"
   {
     printf '# check-board-arm: advisory\n'
-    printf "if printf 'ÉTÉ' | grep -qi 'été'; then echo '      locale-arm: caller-locale match yes'; else echo '      locale-arm: caller-locale match no'; fi\n"
+    printf "if printf 'ÉTÉ' | grep -i 'été' >/dev/null; then echo '      locale-arm: caller-locale match yes'; else echo '      locale-arm: caller-locale match no'; fi\n"
   } > "$SB_WORK/scripts/check-board.d/50-locale.sh"
   out="$(LC_ALL="$loc" cb_run)"
   printf '%s\n' "$out" | grep -F 'locale-arm: caller-locale match yes' >/dev/null \
@@ -323,7 +323,7 @@ case_board_property_refusal_names_the_file_and_the_side() {
   _bpf_land "$id"
   PATH="$oldp"
   [ "$_BPF_RC" -ne 0 ] || cf "(a) an awk failing on the landed tree — finish-pr.sh exited 0"
-  case "$_BPF_OUT" in *"shimmed-file.md"*) : ;; *) cf "(a) the refusal does not carry the failing reader's own line naming the file: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_BPF_OUT" in *"shimmed-file.md"*) : ;; *) cf "(a) the refusal does not carry the failing reader's own line naming the file: $(printf "%s" "$_BPF_OUT" | grep -A7 "^Error:" | tr "\n" "|" | cut -c1-900)" ;; esac
 
   # (b) fails on the trunk's own tree only (the tree without the branch's marker file).
   {
@@ -337,8 +337,9 @@ case_board_property_refusal_names_the_file_and_the_side() {
   _bpf_land "$id"
   PATH="$oldp"
   [ "$_BPF_RC" -ne 0 ] || cf "(b) a trunk-side failing reader — finish-pr.sh exited 0"
-  grep -q 'refusal=board-property-unreadable' "$SB_TMP/rec-$id"/*.tsv 2>/dev/null \
-    || cf "(b) a reader that failed on the trunk's tree was not refused as board-property-unreadable (every finding already on the trunk reads as the branch's): $(cat "$SB_TMP/rec-$id"/*.tsv 2>/dev/null | grep -o 'refusal=[a-z-]*' | sort -u | tr '\n' ' ')"
+  # read from THIS landing's output (the progress records of (a) are in the same directory)
+  case "$_BPF_OUT" in *"the TRUNK's own tree"*) : ;; *) cf "(b) a reader that failed on the trunk's tree was not refused as a trunk-side board-property-unreadable: $(printf '%s' "$_BPF_OUT" | grep -A3 '^Error:' | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_BPF_OUT" in *DISAGREES*) cf "(b) the trunk-side failure was blamed on the branch as its finding (DISAGREES)" ;; esac
   finish "the unreadable-arm refusal carries the reader's own error line naming the file, and an arm that died on the trunk's tree refuses as board-property-unreadable instead of putting the trunk's findings on the branch"
   teardown
 }
@@ -354,7 +355,8 @@ case_post_merge_verify_exit_two_reads_unrunnable() {
   local id="$SB_PREFIX-921" V="$SB_WORK/scripts/verify.sh" out rc
   seed_issue dev_complete "$id" reclass chore "Reclasses every gate full" "feature/$id-reclass"
   publish_sandbox
-  git -C "$SB_WORK" checkout -q -b "feature/$id-reclass" "$SB_TRUNK" >/dev/null 2>&1
+  seed_branch "$id" reclass CHANGE921.txt
+  git -C "$SB_WORK" checkout -q "feature/$id-reclass" >/dev/null 2>&1
   sed -i.bak 's#|select|/bin/echo sandbox-gate-green#|full|/bin/echo sandbox-gate-green#' "$V"; rm -f "$V.bak"
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[Dev] $id: class every gate full" --quiet >/dev/null 2>&1
@@ -389,7 +391,7 @@ case_verdict_section_and_lived_probe_read_a_byte_wise() {
   { printf -- '---\nid: KIT-931\n---\n\n## QA Verdict\n\n| AC1 | PASS | caf\351 |\n| AC2 | PASS | TAILMARK |\n\n## Activity\n'; } > "$r/progress/todo/KIT-931-x.md"
   git -C "$r" add -A >/dev/null 2>&1
   git -C "$r" -c user.email=t@t -c user.name=t commit -q -m seed >/dev/null 2>&1
-  out="$(LC_ALL="$loc" bash -c ". '$SB_WORK/scripts/lib/agent-record.sh' && _kit_agent_verdict_section '$r' HEAD KIT-931 progress/todo" 2>/dev/null)"
+  out="$(LC_ALL="$loc" bash -c ". '$SB_WORK/scripts/lib/agent-record.sh' && _kit_agent_verdict_section '$r' HEAD KIT-931 progress" 2>/dev/null)"
   printf '%s\n' "$out" | grep -F 'TAILMARK' >/dev/null \
     || cf "the verdict section stops at a row holding a byte the locale cannot decode (the rows after it are lost): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 

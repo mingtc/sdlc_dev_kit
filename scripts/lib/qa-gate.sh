@@ -1362,12 +1362,17 @@ kit_ablation_check() {
 # written by lib/board-properties.sh's _bp_awk). An arm that did not answer is added to _BPC_DEAD:
 # "found nothing" and "could not read" are not the same state, and only the first may pass.
 _BPC_DEAD=""
+_BPC_DEAD_WHY=""
 _bpc_run_arm() {
   local out="$1" only="$2"
   shift 2
-  : > "$out"; rm -f "$out.done" "$out.fail"
-  ( set +e; export LC_ALL=C; KIT_BP_HITS_FILE="$out"; KIT_BP_FAIL_FILE="$out.fail"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>&1; : > "$out.done" ) || true
-  if [ ! -f "$out.done" ] || [ -s "$out.fail" ]; then _BPC_DEAD="${_BPC_DEAD}${_BPC_DEAD:+ }${out##*/}"; fi
+  : > "$out"; rm -f "$out.done" "$out.fail" "$out.err"
+  ( set +e; export LC_ALL=C; KIT_BP_HITS_FILE="$out"; KIT_BP_FAIL_FILE="$out.fail"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>"$out.err"; : > "$out.done" ) || true
+  if [ ! -f "$out.done" ] || [ -s "$out.fail" ]; then
+    _BPC_DEAD="${_BPC_DEAD}${_BPC_DEAD:+ }${out##*/}"
+    # the reader's own last words, which name the file, are kept: the scratch directory is gone by the refusal
+    _BPC_DEAD_WHY="${_BPC_DEAD_WHY}${_BPC_DEAD_WHY:+$'\n'}       ${out##*/}: $( { cat "$out.fail" "$out.err" 2>/dev/null || true; } | tail -n 3 | tr '\n' ' ' | cut -c1-400)"
+  fi
   return 0
 }
 
@@ -1387,7 +1392,7 @@ kit_board_property_check() {
   local old_sha new_sha arm base new first_rule="" msg=() ran="" skipped="" kept=0 n
   local -a cols
 
-  _BPC_DEAD=""
+  _BPC_DEAD=""; _BPC_DEAD_WHY=""
   scratch="$(mktemp -d "${TMPDIR:-/tmp}/board-props.XXXXXX" 2>/dev/null || true)"
   if [ -z "$scratch" ]; then
     kit_refuse 1 board-property-unreadable \
@@ -1401,6 +1406,29 @@ kit_board_property_check() {
     rm -rf "$scratch" 2>/dev/null || true
     git -C "$repo" worktree prune >/dev/null 2>&1 || true
   }
+  # An arm that could not read refuses; which side it died on decides who owns the repair.
+  _bpc_refuse_dead() {  # <base|new>
+    local side="$1" why="$_BPC_DEAD_WHY" dead="$_BPC_DEAD" nxt
+    _bpc_cleanup
+    if [ "$side" = base ]; then
+      nxt="Next: a reader failed on the TRUNK's own tree (${old_rev}), so nothing about the branch was judged: run ./scripts/check-board.sh, repair the file it (or the line above) names on the trunk, land that on the trunk, then re-run the command that refused. If it names nothing, stop and hand off."
+    else
+      nxt="Next: a reader failed on the tree this landing produces, so a file the BRANCH adds or changes is the likely cause and the line above names it: correct it in the branch's change, commit and push, then re-run the command that refused. If it names nothing, stop and hand off."
+    fi
+    kit_refuse 1 board-property-unreadable \
+      "Error: the board-property check could not read the board for: ${dead} — it will not report PASS, or a finding, for an arm that did not answer." \
+      "       base.<arm> is the trunk's tree and new.<arm> the landed one; d is [d], i [i], l [l], p [p], r [r], q [q] of check-board.sh. The reader's own last words:" \
+      "${why}" \
+      "$nxt" \
+      "       NOTHING WAS CHANGED."
+  }
+  if ! command -v kit_bp_ready >/dev/null 2>&1 || ! kit_bp_ready; then
+    _bpc_cleanup
+    kit_refuse 1 board-property-unreadable \
+      "Error: the board-property libraries are not ready (a function the arms call is not defined: ${KIT_BP_NOT_READY:-kit_bp_ready}) — a library stopped part way, and an arm that cannot run is not a clean one." \
+      "Next: restore scripts/lib/board-properties.sh, card-field.sh and decision-register.sh (version control or the release zip hold the originals) and land that on the trunk, then re-run the command that refused. If those files were not yours to change, stop and hand off." \
+      "       NOTHING WAS CHANGED."
+  fi
 
   # THE RULES, from the trunk's own copies of check-board.sh and config.sh.
   decl="$scratch/check-board.sh"
@@ -1494,6 +1522,7 @@ kit_board_property_check() {
       q) _bpc_run_arm "$scratch/base.q" "" kit_bp_register_shape "$tree" ;;
     esac
   done
+  if [ -n "$_BPC_DEAD" ]; then _bpc_refuse_dead base; fi
   if [ "$old_sha" != "$new_sha" ] && ! git -C "$tree" merge --squash "$new_sha" >/dev/null 2>&1; then
     _bpc_cleanup
     echo "BOARD_PROPERTY_CHECK: did not run — ${new_rev} does not merge cleanly into ${old_rev}, so there is no landed tree to read; resolve the conflict on the branch."
@@ -1550,13 +1579,7 @@ kit_board_property_check() {
       "Next: correct each finding above in the branch's change (the card, register or PRD it names), commit and push, then re-run the command that refused. A finding that is a ruling nobody has made is not yours to invent: ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
       "       NOTHING WAS CHANGED."
   fi
-  if [ -n "$_BPC_DEAD" ]; then
-    kit_refuse 1 board-property-unreadable \
-      "Error: the board-property check could not read the board for: ${_BPC_DEAD} (a reader exited early or failed on a card, a register or CORPUS.md) — it will not report PASS for an arm that did not answer." \
-      "       base.<arm> is the trunk's tree and new.<arm> the landed one; d is [d], i [i], l [l], p [p], r [r], q [q] of check-board.sh." \
-      "Next: run ./scripts/check-board.sh and read what it prints for the arms named above; repair the file it cannot read, commit, then re-run the command that refused. If it names nothing, stop and hand off." \
-      "       NOTHING WAS CHANGED."
-  fi
+  if [ -n "$_BPC_DEAD" ]; then _bpc_refuse_dead new; fi
   echo "BOARD_PROPERTY_CHECK: PASS — ran: ${ran:-none}; property untouched, not run: ${skipped:-none}; finding(s) already on ${old_rev} and not refused: ${kept}."
   return 0
 }

@@ -38,7 +38,7 @@ kit_lived_signals() {
 
   # (1) THE RECEIPT — anchored and literal, per the stamp rule above.
   if [ -f "$tree/scripts/config.sh" ]; then
-    line="$(awk -v m="$mark" 'index($0,m)==1 { print; exit }' "$tree/scripts/config.sh" 2>/dev/null || true)"
+    line="$(LC_ALL=C awk -v m="$mark" 'index($0,m)==1 { print; exit }' "$tree/scripts/config.sh" 2>/dev/null || true)"
     [ -n "$line" ] && printf 'stamp|%s\n' "$line"
   fi
 
@@ -52,11 +52,11 @@ kit_lived_signals() {
 
   # (3) progress.md § Log, and (4) ARCHIVE.md § Archived.
   if [ -f "$tree/progress.md" ]; then
-    n="$(awk -v re="$KIT_LOG_HEADING_ERE" '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ re) { inlog=1; next } } inlog && NF { print }' "$tree/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
+    n="$(LC_ALL=C awk -v re="$KIT_LOG_HEADING_ERE" '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ re) { inlog=1; next } } inlog && NF { print }' "$tree/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n:-0}" -gt 0 ] && printf 'log|%s\n' "$n"
   fi
   if [ -f "$tree/ARCHIVE.md" ]; then
-    n="$(awk '/^## Archived$/ { a=1; next } a && NF { print }' "$tree/ARCHIVE.md" 2>/dev/null | wc -l | tr -d ' ')"
+    n="$(LC_ALL=C awk '/^## Archived$/ { a=1; next } a && NF { print }' "$tree/ARCHIVE.md" 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n:-0}" -gt 0 ] && printf 'archive|%s\n' "$n"
   fi
   return 0

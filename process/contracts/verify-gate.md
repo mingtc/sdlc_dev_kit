@@ -125,6 +125,8 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   correct and its reader cannot tell which question it answered.)*
 - The caller asks for a narrowed run **and** for the full claim ⇒ refuse; the two cannot be the
   same output.
+- `--quick` over a table whose every gate is class `full` runs no check ⇒ refuse (exit 2), naming the
+  class column. A pass over zero checks run is the empty-but-green gate.
 - A named subset resolves to nothing ⇒ refuse, naming what did not match. Silently running zero
   checks and reporting success is the worst available outcome.
 
@@ -161,8 +163,8 @@ there is one runner, one order and one summary* is the contract.
   of a subset that resolves to nothing is that runner's: declare one that exits non-zero on no match.
   *Why:* an item is whatever the runner takes — a path, a node id, a name filter — and only it can read one.
 - **Its exit status:** `0` green; `1` at least one check failed (whatever else happened); `2` the
-  runner refused to run (its table is empty or malformed, an argument is unknown, or a narrowed run's
-  own preconditions failed); `3` nothing failed
+  runner refused to run (its table is empty or malformed, an argument is unknown, a narrowed run's
+  own preconditions failed, or `--quick` over a table whose every gate is class `full`); `3` nothing failed
   and at least one check could not run. Anything non-zero is red, so a caller asking only "zero or
   not" is unaffected.
 - The kit's copy keeps the two halves apart: the gate set is a **declared table** near the top of

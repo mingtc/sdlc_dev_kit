@@ -328,12 +328,15 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    rest of it folds, because the day-one checklist and the manual send a session to them.
 7. **No answer is not a pass.** A check that selected nothing, could not read its input, or whose library is
    absent or half loaded says *did not run*, with a `⚠` line, and does not let the verdict read `clean`, `PASS`
-   or `✓`. The readers therefore read byte-wise (`LC_ALL=C`, so a byte the locale cannot decode is not a
-   crash that reads as no finding), a reader that failed marks its arm as not run, and a gate that ran no
-   check refuses. *Why:* "found nothing" and "could not read" otherwise print the same words, and the
-   verdict becomes a claim about files nobody opened. The landing's board-property check refuses
-   `board-property-unreadable` for an arm that did not answer, and `verify.sh --quick` refuses a table whose
-   every gate is class `full`.
+   or `✓`. **Where that holds today, and no further:** the board-property arms ([d] [i] [l] [p] [q] [r]) and the
+   landing's check of the same properties (a function the arms call that is not defined, or a reader that
+   exited non-zero, marks the arm not run; the landing refuses `board-property-unreadable`, naming the
+   reader's own last words and which side it failed on), and `verify.sh --quick` (it refuses when no gate is one
+   it runs). **Every other arm** reads byte-wise (`LC_ALL=C`), which removes the one trigger observed, a byte
+   the locale cannot decode, but does not check its readers' exit status: a reader that fails for another
+   reason still reads as no finding there, and that is a known gap, not a property. An arm in
+   `scripts/check-board.d/` keeps the caller's locale. *Why:* "found nothing" and "could not read" otherwise
+   print the same words, and the verdict becomes a claim about files nobody opened.
 
 ## 5. MINIMAL INTERFACE
 
