@@ -1129,6 +1129,264 @@ case_an_approval_covers_what_the_approved_screen_loads_and_the_tokens_it_uses() 
 }
 
 # =============================================================================
+# THE WIREFRAME MODE'S CASES. The fixture below is one canvas whose Mode line is `wireframe`, whose register holds the ruling the
+# line cites, and whose UX-001 is approved at a version that loads a sheet and an imported screen and holds a script, props and
+# nested elements. Every expected answer is written in the case.
+# =============================================================================
+# _dm_mode <text> — set the canvas's Mode line to `- **Mode:** <text>` (an empty text removes the line).
+_dm_mode() {
+  local f="$SB_WORK/requirements/design/app/CANVAS.md"
+  awk -v m="$1" 'NR == 1 { print; if (m != "") print "\n- **Mode:** " m; next } !/^- \*\*Mode:\*\*/ { print }' "$f" > "$f.new" && mv "$f.new" "$f"
+}
+_dm_brief() { printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-"${1:-260}"; }
+# _dm_line_has <text> <line prefix> <needle> — status 0 when a line of the text starts with the prefix and holds the needle.
+_dm_line_has() { printf '%s\n' "$1" | awk -v a="$2" -v b="$3" 'index($0, a) == 1 && index($0, b) { f = 1 } END { exit !f }'; }
+_dm_wire_register() { printf '# Decisions\n\n### %s — the canvas is a wireframe\n\n**Ruling.** The build is the visual anchor.\n' "$_DM_DN" > "$SB_WORK/requirements/DECISIONS.md"; }
+# _dm_wire_fixture — _DM_W is the approved commit, _DM_V the commit that records the approval and the mode, _DM_DN the ruling's id.
+_dm_wire_fixture() {
+  _dm_links_fixture || return 1
+  local D="$SB_WORK/requirements/design/app/project"
+  _DM_DN="D-$((30 + 1))"   # built here: a decision id written out in a shipped file is read as a citation of the project's register
+  _dm_wire_register
+  printf 'h1 { margin: 16px }\n' > "$D/s.css"
+  printf '<x-dc><header id="hdr">Header</header></x-dc>\n' > "$D/Header.dc.html"
+  _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<link rel="stylesheet" href="s.css"><script>var n = 1;</script><dc-import name="Header"></dc-import><h1 id="ux-001-title" data-props="{&quot;a&quot;:1}" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1><div id="ux-001-g1"><b id="ux-001-b1">x</b></div><i id="ux-001-i1">y</i>'
+  _dm_commit "the screen the approval covers"; _DM_W="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$_DM_W|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_mode "wireframe [decision: $_DM_DN]"
+  _dm_commit "approve UX-001 in wireframe mode"; _DM_V="$_DM_SHA"
+  return 0
+}
+# _dm_wire_restore — the screen files and tokens back as the approval commit recorded them.
+_dm_wire_restore() { git -C "$SB_WORK" checkout -q "$_DM_V" -- requirements/design/app/project requirements/design/tokens >/dev/null 2>&1; git -C "$SB_WORK" clean -fdq -- requirements/design/app/project >/dev/null 2>&1; _dm_commit "restored"; }
+_dm_wire_guards() {  # <case finish line> — status 1 (after the skip) when the case cannot run
+  if ! _dm_have; then skp_lived "$1" "$(_dm_gone_reason)"; return 1; fi
+  _ku_have_sha || { skp "$1" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return 1; }
+  _dm_python || { skp "$1" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return 1; }
+  return 0
+}
+
+# =============================================================================
+# CASE — IN A WIREFRAME CANVAS AN APPROVAL OF GATE 1 SURVIVES A CHANGE OF CONTENT AND PRESENTATION AND GOES BACK TO REVIEW ON A CHANGE
+#   OF STRUCTURE.
+#   Operand: scripts/design/check-design-links.py --strict over the wireframe fixture, one edit at a time to the approved screen
+#   (restored between). Text, numbers, class, style, a sheet, the script, the props, a token and the text of an imported screen leave
+#   the approval good and are shown on a CONTENT-ONLY line; an added, renamed or moved element, a data-state, a link and a change to
+#   an imported screen's elements read STALE-APPROVAL saying structure.
+# =============================================================================
+case_a_wireframe_canvas_keeps_gate_1_through_a_content_edit_and_loses_it_to_a_structural_one() {
+  cf_reset
+  local L="in a canvas whose Mode line is wireframe, check-design-links.py --strict keeps UX-001's gate 1 approval through an edit of text, a number, class, style, a sheet, the script, the props, a token and an imported screen's text (a CONTENT-ONLY line shows it), and reads STALE-APPROVAL saying structure for an added, renamed or moved element, a data-state, a changed link and a changed imported screen's elements"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" e name file expr
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a) the fixture is not clean before any edit (exit $_dm_rc): $(_dm_brief)"
+  _dm_has "$_dm_out" "CONTENT-ONLY" && cf "(a) a canvas nothing has changed in has a CONTENT-ONLY line"
+  for e in \
+    'text::A.dc.html::s@>List<@>Lists, now 3.<@' \
+    'class::A.dc.html::s@<h1 id="ux-001-title"@<h1 class="big" id="ux-001-title"@' \
+    'style::A.dc.html::s@color: var(--color-primary)"@color: var(--color-primary); margin: 9px"@' \
+    'script::A.dc.html::s@var n = 1;@var n = 2;@' \
+    'props::A.dc.html::s@:1}"@:2}"@' \
+    'sheet::s.css::s@16px@90px@' \
+    'imported text::Header.dc.html::s@>Header<@>Header two<@'; do
+    name="${e%%::*}"; e="${e#*::}"; file="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/$file" "$expr"; _dm_commit "content: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(b) a change of $name does not leave the approval good with a CONTENT-ONLY line (exit $_dm_rc): $(_dm_brief)"
+    _dm_has "$_dm_out" "STALE-APPROVAL" && cf "(b) a change of $name reads STALE-APPROVAL in a wireframe canvas"
+    _dm_wire_restore
+  done
+  _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"}}}'
+  _dm_edit "$D/A.dc.html" 's@#485d92@#3b4f82@'
+  _dm_commit "content: a token and its :root value"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(b) a change of a token the screen uses stales a wireframe approval (exit $_dm_rc): $(_dm_brief)"
+  _dm_wire_restore
+  for e in \
+    'an added element::A.dc.html::s@</h1>@</h1><p id="ux-001-hint">Hint</p>@' \
+    'a renamed id::A.dc.html::s@ux-001-title@ux-001-heading@' \
+    'a moved element::A.dc.html::s@</b></div><i id="ux-001-i1">y</i>@</b><i id="ux-001-i1">y</i></div>@' \
+    'a data-state::A.dc.html::s@<div id="ux-001-g1">@<div id="ux-001-g1" data-state="a">@' \
+    'a changed link::A.dc.html::s@B.dc.html#top@A.dc.html@' \
+    'an imported screen gaining an element::Header.dc.html::s@</header>@</header><nav id="nv"></nav>@'; do
+    name="${e%%::*}"; e="${e#*::}"; file="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/$file" "$expr"; _dm_commit "structure: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_has "$_dm_out" "structure"; } || cf "(c) $name does not read STALE-APPROVAL saying structure (exit $_dm_rc): $(_dm_brief)"
+    _dm_wire_restore
+  done
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "CONTENT-ONLY"; } || cf "(d) the approval does not hold again, with no CONTENT-ONLY line, once the files are back (exit $_dm_rc): $(_dm_brief)"
+  # the round: the new sha in the cell clears it
+  _dm_edit "$D/A.dc.html" 's@</h1>@</h1><p id="ux-001-hint">Hint</p>@'; _dm_commit "a round adds an element"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" "s/approved@$_DM_W/approved@${_DM_SHA}/"
+  _dm_commit "approve the round"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(e) writing the round's commit into the cell does not clear the row (exit $_dm_rc): $(_dm_brief)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE WIREFRAME MODE IS IN EFFECT ONLY WHILE ITS LINE CITES A RULING THE REGISTER HOLDS, AND THE CHECK SAYS WHICH MODE IT READ.
+#   Operand: scripts/design/check-design-links.py --strict over the wireframe fixture after a text edit to the approved screen.
+#   With the ruling: a MODE line, exit 0. With no register, an id the register lacks, a withdrawn ruling or no id on the line: a
+#   WAIVER finding naming a Next, the mode not in effect and the edit reading STALE-APPROVAL. A value that is not none or wireframe is
+#   a REGISTRY finding and the default model; `none` is the default model with no finding.
+# =============================================================================
+case_the_wireframe_mode_needs_a_confirmed_ruling_and_is_named_in_the_checks_output() {
+  cf_reset
+  local L="check-design-links.py names a wireframe canvas's mode in a MODE line while its Mode line cites a ruling the register holds, and otherwise reports a WAIVER finding with a Next (no register, an id the register lacks, a withdrawn ruling, no id), reads the canvas by the default model, and reads a Mode value that is not none or wireframe as a REGISTRY finding"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" other="D-$((30 + 2))"
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists<@'; _dm_commit "a text edit"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "MODE" "wireframe ($_DM_DN)" && _dm_has "$_dm_out" "gate 1 by structure" && _dm_has "$_dm_out" "gate 2 on the build"; } || cf "(a) a confirmed wireframe canvas gets no MODE line naming the ruling, or does not exit 0 (exit $_dm_rc): $(_dm_brief)"
+  git -C "$SB_WORK" rm -q requirements/DECISIONS.md; _dm_commit "no register"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "WAIVER" "not in effect" && _dm_has "$_dm_out" "Next:" && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1"; } || cf "(b) with no register the mode stands or the finding names no Next (exit $_dm_rc): $(_dm_brief)"
+  _dm_has "$_dm_out" "MODE  " && cf "(b) a mode that is not in effect is announced"
+  printf '# Decisions\n\n### %s — another ruling\n\n**Ruling.** Another.\n' "$other" > "$SB_WORK/requirements/DECISIONS.md"; _dm_commit "a register without the id"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "WAIVER" "$_DM_DN is not an entry" && _dm_has "$_dm_out" "Next:" && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(c) an id the register lacks keeps the mode in effect (exit $_dm_rc): $(_dm_brief)"
+  printf '# Decisions\n\n### %s — withdrawn\n\n**Ruling.** WITHDRAWN 2026-01-01 — nothing replaces it.\n' "$_DM_DN" > "$SB_WORK/requirements/DECISIONS.md"; _dm_commit "the ruling is withdrawn"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "WAIVER" "WITHDRAWN" && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a withdrawn ruling keeps the mode in effect (exit $_dm_rc): $(_dm_brief)"
+  _dm_wire_register; _dm_mode "wireframe"; _dm_commit "a Mode line with no ruling"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "WAIVER" "cites no [decision: D-NN]" && _dm_has "$_dm_out" "Next:" && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) a Mode line with no ruling keeps the mode in effect, or names no Next (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode "wireframes [decision: $_DM_DN]"; _dm_commit "a misspelt mode"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "REGISTRY" "not none or wireframe" && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(f) a Mode value that is not none or wireframe is no REGISTRY finding, or loosens the check (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode "none"; _dm_commit "mode none"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && ! _dm_has "$_dm_out" "WAIVER" && ! _dm_has "$_dm_out" "REGISTRY" && ! _dm_has "$_dm_out" "MODE  "; } || cf "(g) Mode none is not the plain default model (exit $_dm_rc): $(_dm_brief)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A WIREFRAME CANVAS DOES NOT JUDGE GATE 2 AND SHOWS, WITHOUT COUNTING, THE TWO CLASSES IT DEMOTES.
+#   Operand: scripts/design/check-design-links.py --strict. `build` is a gate 2 value in a wireframe canvas and a GATE-CELL finding
+#   in any other; a stale gate 2 approval is silent in one and STALE-APPROVAL in the other. An unmarked (UI) AC and a Design: pending
+#   section that already holds a marker, both reaching only wireframe rows, are UNCOVERED-WIRE and STALE-PENDING-WIRE (exit 0, counted
+#   on the summary line); a story that a default canvas's row also lists keeps UNCOVERED as a finding.
+# =============================================================================
+case_a_wireframe_canvas_judges_no_gate_2_and_shows_what_it_does_not_count() {
+  cf_reset
+  local L="check-design-links.py --strict accepts build in a wireframe canvas's gate 2 and does not judge a stale gate 2 approval there (a default canvas reads GATE-CELL and STALE-APPROVAL), prints an unmarked (UI) AC and a stale Design: pending section that reach only wireframe rows as UNCOVERED-WIRE and STALE-PENDING-WIRE with the counts on the summary line and exit 0, and keeps UNCOVERED a finding for a story a default canvas also lists"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md" P="$SB_WORK/requirements/PRD-001-app.md" out X="$_DM_X"
+  _dm_edit "$P" 's@- \[ \] AC3: the list is sorted\.@- [ ] AC3: (UI) the list is sorted.@'
+  printf '\n### F2 — Later\n\n**Design:** pending\n\n##### F2-S1 — Later\n\n**UI:** default\n\n- [ ] AC1: (UI) already designed. [design: UX-002#default]\n' >> "$P"
+  _dm_commit "an unmarked (UI) AC and a stale pending section"
+  _dm_py scripts/design/check-design-links.py --strict
+  out="$_dm_out"
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$out" "UNCOVERED-WIRE" "PRD-001-F1-S1 AC3" && _dm_line_has "$out" "STALE-PENDING-WIRE" "PRD-001-app.md"; } || cf "(a) the two demoted classes are not shown and passed in a wireframe canvas (exit $_dm_rc): $(_dm_brief 320)"
+  _dm_has "$out" "wireframe: 1 uncovered, 1 stale-pending, 0 content-only (not counted)" || cf "(a) the summary line does not count what the mode did not count: $(printf '%s' "$out" | tail -1)"
+  _dm_line_has "$out" "UNCOVERED     " "PRD-001" && cf "(a) the demoted UNCOVERED is still a finding"
+  _dm_mode ""; _dm_commit "mode off"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "UNCOVERED     " "PRD-001-F1-S1 AC3" && _dm_line_has "$_dm_out" "STALE-PENDING " "PRD-001-app.md" && ! _dm_has "$_dm_out" "-WIRE"; } || cf "(b) without the mode the same two lines are not findings (exit $_dm_rc): $(_dm_brief 320)"
+  # gate 2
+  _dm_mode "wireframe [decision: $_DM_DN]"
+  _dm_edit "$C" "s/| approved@$_DM_W | open |/| approved@$_DM_W | build |/"
+  _dm_edit "$C" "s/| PRD-001-F1-S2 | open | open |/| PRD-001-F1-S2 | open | approved@$X |/"
+  _dm_commit "gate 2: build, and an approval of UX-002"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "GATE-CELL" && cf "(c) build in a wireframe canvas's gate 2 is a GATE-CELL finding: $(_dm_brief)"
+  _dm_edit "$D/B.dc.html" 's@</h1>@</h1><p id="ux-002-x">n</p>@'; _dm_commit "UX-002 gains an element after its gate 2 approval"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UX-002 gate2"; } || cf "(c) a stale gate 2 approval is judged in a wireframe canvas (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode ""; _dm_commit "mode off again"
+  _dm_py scripts/design/check-design-links.py --strict
+  { _dm_line_has "$_dm_out" "GATE-CELL" "UX-001 gate2 is \`build\`" && _dm_has "$_dm_out" "Next:" && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-002 gate2"; } || cf "(d) in a default canvas build is not a GATE-CELL finding with a Next, or a stale gate 2 is silent: $(_dm_brief 320)"
+  # a default canvas that also lists the story
+  _dm_mode "wireframe [decision: $_DM_DN]"
+  _dm_edit "$C" "s/| approved@$_DM_W | build |/| approved@$_DM_W | open |/"
+  _dm_edit "$C" "s/| PRD-001-F1-S2 | open | approved@$X |/| PRD-001-F1-S2 | open | open |/"
+  _dm_commit "back to a clean wireframe canvas"
+  printf '\n##### F1-S4 — Hifi\n\n**UI:** default\n\n- [ ] AC1: (UI) a screen of the other canvas.\n' >> "$P"
+  _dm_art "$SB_WORK/requirements/design/hifi/project/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title">Hi</h1>' PRD-001-F1-S4
+  _dm_art "$SB_WORK/requirements/design/hifi/project/H.dc.html" 004 '--color-primary: #485d92;' '<h1 id="ux-004-title">Hi</h1>' PRD-001-F1-S1
+  _dm_registry "$SB_WORK/requirements/design/hifi" 'UX-003|C.dc.html|default|PRD-001-F1-S4|open|open'
+  _dm_commit "a canvas with no Mode line, listing its own story"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "UNCOVERED     " "PRD-001-F1-S4 AC1" && _dm_line_has "$_dm_out" "UNCOVERED-WIRE" "PRD-001-F1-S1 AC3"; } || cf "(e) a story only a default canvas lists is not still a finding, or the wireframe canvas's story is not still demoted (exit $_dm_rc): $(_dm_brief 320)"
+  _dm_registry "$SB_WORK/requirements/design/hifi" 'UX-003|C.dc.html|default|PRD-001-F1-S4|open|open' 'UX-004|H.dc.html|default|PRD-001-F1-S1|open|open'
+  _dm_commit "the default canvas lists the story too"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "UNCOVERED     " "PRD-001-F1-S1 AC3" && ! _dm_line_has "$_dm_out" "UNCOVERED-WIRE" "PRD-001-F1-S1"; } || cf "(f) a story that a default canvas's row also lists is demoted (exit $_dm_rc): $(_dm_brief 320)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A WIREFRAME CANVAS STILL PINS A CARD, AND THE PIN REPORT IS THE DEFAULT ONE.
+#   Operand: scripts/design/check-design-links.py --leaving and scripts/design/pin-drift.py over the wireframe fixture. A pin to the
+#   approved row is let through, also after a content edit; after a structural edit it is STALE-APPROVAL; a row not approved is
+#   NOT-APPROVED and a state with no render is NO-RENDER; a content edit to a pinned state still reads drift.
+# =============================================================================
+case_a_wireframe_canvas_still_pins_a_card_and_pin_drift_is_unchanged() {
+  cf_reset
+  local L="in a wireframe canvas check-design-links.py --leaving lets a pin to the approved row through (also after a content edit), refuses it with STALE-APPROVAL after a structural edit, refuses an unapproved row (NOT-APPROVED) and a state with no render (NO-RENDER), and pin-drift.py still reads a content edit to a pinned state as drift"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" V="$_DM_V" v7 c="$SB_PREFIX-894"
+  v7="${V:0:7}"
+  _dm_card 891 todo "design: [UX-001#default@$V]"
+  _dm_card 892 todo "design: [UX-002#default@$V]"
+  _dm_card 893 todo "design: [UX-001#empty@$V]"
+  _dm_card 894 in_progress "design: [UX-001#default@$V]"
+  _dm_commit "the cards"
+  _dm_leaving 891; { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "0 finding(s)"; } || cf "(a) a pin to the approved row of a wireframe canvas is refused (exit $_dm_rc): $(_dm_brief)"
+  _dm_leaving 892; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NOT-APPROVED"; } || cf "(b) a pin to a row not approved is let through in a wireframe canvas (exit $_dm_rc): $(_dm_brief)"
+  _dm_leaving 893; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NO-RENDER"; } || cf "(c) a pin to a state with no render is let through in a wireframe canvas (exit $_dm_rc): $(_dm_brief)"
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'; _dm_commit "a content edit after the pin"
+  _dm_leaving 891; { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "0 finding(s)"; } || cf "(d) a content edit after the approval refuses the pin (exit $_dm_rc): $(_dm_brief)"
+  _dm_py scripts/design/pin-drift.py
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#default@$v7")" = drift ] && _dm_has "$(_dm_row "$_dm_out" "$c" "UX-001#default@$v7")" "ux-001-title"; } || cf "(e) pin-drift.py does not read a content edit to a pinned state as drift naming the element: $(_dm_row "$_dm_out" "$c" "UX-001#default@$v7")"
+  _dm_edit "$D/A.dc.html" 's@</h1>@</h1><p id="ux-001-hint">Hint</p>@'; _dm_commit "a structural edit"
+  _dm_leaving 891; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(f) a pin after a structural edit is let through (exit $_dm_rc): $(_dm_brief)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — SWITCHING A CANVAS'S MODE REWRITES NO APPROVAL AND RE-JUDGES ALL OF THEM BY THE RULE THEN IN FORCE.
+#   Operand: scripts/design/check-design-links.py --strict over the wireframe fixture after a text edit, with the Mode line removed
+#   and put back. In the mode the row is approved and listed on the CONTENT-ONLY line; without it the row is STALE-APPROVAL and a
+#   gate 2 of build is GATE-CELL; the gate 1 cell reads as it did throughout.
+# =============================================================================
+case_switching_a_canvas_mode_rejudges_its_approvals_and_rewrites_none() {
+  cf_reset
+  local L="removing a canvas's Mode line makes check-design-links.py read its approvals by bytes (a content edit is STALE-APPROVAL, a gate 2 of build is GATE-CELL) and putting it back reads them by structure again (CONTENT-ONLY), with the gate cells never rewritten by either switch"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md" cell
+  cell="approved@$_DM_W"
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists<@'
+  _dm_edit "$C" "s/| $cell | open |/| $cell | build |/"
+  _dm_commit "a text edit and gate 2 build"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001" && _dm_has "$_dm_out" "1 content-only"; } || cf "(a) in the mode the edited row is not approved and listed (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode ""; _dm_commit "the mode is removed"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_line_has "$_dm_out" "GATE-CELL" "UX-001 gate2 is \`build\`" && ! _dm_has "$_dm_out" "CONTENT-ONLY"; } || cf "(b) without the mode the edited row is not STALE-APPROVAL with gate 2 a GATE-CELL finding (exit $_dm_rc): $(_dm_brief 320)"
+  _dm_has "$(cat "$C")" "| $cell | build |" || cf "(b) the switch rewrote the gate cells"
+  _dm_mode "wireframe [decision: $_DM_DN]"; _dm_commit "the mode is put back"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(c) with the mode back the row is not approved by structure again (exit $_dm_rc): $(_dm_brief)"
+  _dm_has "$(cat "$C")" "| $cell | build |" || cf "(c) the switch back rewrote the gate cells"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE TOOLS READ WHAT A REAL PULL HOLDS: A :ROOT VALUE IS HELD TO ITS TOKEN, A NEW STATE IS NOT A CHANGE, A SHEET THE TOOLS
 #   CANNOT READ IS SAID, A ROOT-RELATIVE SHEET IS READ, A STATE LOADS WHAT ITS OWN MARKUP LOADS, A SHEET'S OWN PROPERTIES ARE NOT "NO TOKEN".
 #   Operand: scripts/design/check-design-links.py and scripts/design/pin-drift.py over a canvas shaped like a real export (a helmet with
