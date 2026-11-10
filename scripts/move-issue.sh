@@ -261,7 +261,7 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
   # SUBSTITUTED BY POSITION, NOT BY PATTERN: `sed` would read a `|`-bearing replacement through
   # its delimiter rules and awk's gsub would read a `&` as the whole match.
   kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" TARGETS_DISPLAY="${TARGET_FOLDERS//|/ | }" \
-    awk -v t="$tok" -v t2='@TARGET_FOLDERS@' '
+    LC_ALL=C awk -v t="$tok" -v t2='@TARGET_FOLDERS@' '
     function swap(s, tk, v,   i) { i = index(s, tk); return i ? substr(s, 1, i-1) v substr(s, i + length(tk)) : s }
     { print swap(swap($0, t, ENVIRON["ROLE_SET_DISPLAY"]), t2, ENVIRON["TARGETS_DISPLAY"]) }'
 }
@@ -402,7 +402,7 @@ if [ -z "$ROLE" ]; then
   # The error and the ONE synopsis line (read from the header, so there is no second copy), not
   # the whole help text.
   echo "Error: --role is required ($KIT_ROLE_SET)." >&2
-  usage | awk '/^Usage:/ { f = 1; next } f && !d { sub(/^ +/, ""); print "Usage: " $0 "   (--help lists the rest)"; d = 1 }' >&2
+  usage | LC_ALL=C awk '/^Usage:/ { f = 1; next } f && !d { sub(/^ +/, ""); print "Usage: " $0 "   (--help lists the rest)"; d = 1 }' >&2
   exit 2   # exit-class: usage
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
@@ -624,7 +624,7 @@ else
       _mv_warned=0
       while IFS= read -r _mv_b; do
         [ -n "$_mv_b" ] || continue
-        _mv_col="$(printf '%s\n' "$_mv_tree" | awk -F/ -v id="$_mv_b" 'NF == 3 && index($3, id "-") == 1 { print $2; exit }')"
+        _mv_col="$(printf '%s\n' "$_mv_tree" | LC_ALL=C awk -F/ -v id="$_mv_b" 'NF == 3 && index($3, id "-") == 1 { print $2; exit }')"
         case "$_mv_col" in qa_complete|done) continue ;; esac
         if [ -n "$_mv_col" ]; then _mv_where="found in ${_mv_col}/"; else _mv_where="not found on the trunk"; fi
         echo "Warning: ${ISSUE_ID} is blocked_by ${_mv_b}, which is not in qa_complete/ or done/ on ${KWT_REMOTE}/${DEFAULT_BRANCH} (${_mv_where})." >&2
@@ -698,7 +698,7 @@ if [ -n "$SET_PR" ]; then
       echo "pr:    already '${SET_PR}' — left unchanged (idempotent)."
     else
       PR_TMP="$(mktemp)"
-      awk -v repl="$DESIRED_LINE" 'BEGIN{done=0} done==0 && /^pr:/{print repl; done=1; next} {print}' "$DEST" > "$PR_TMP"  # card-read-exempt: writes the pr: line; the read above goes through kit_card_field
+      LC_ALL=C awk -v repl="$DESIRED_LINE" 'BEGIN{done=0} done==0 && /^pr:/{print repl; done=1; next} {print}' "$DEST" > "$PR_TMP"  # card-read-exempt: writes the pr: line; the read above goes through kit_card_field
       mv "$PR_TMP" "$DEST"
       echo "pr:    set to '${SET_PR}' (was: '${CUR_PR}')"
     fi

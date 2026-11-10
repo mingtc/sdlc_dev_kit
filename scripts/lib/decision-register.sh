@@ -34,7 +34,7 @@ kit_registers_declared() {
 kit_declared_value() {
   local file="$1" name="$2"
   [ -f "$file" ] || return 1   # return-class: predicate
-  awk -v n="$name" '
+  LC_ALL=C awk -v n="$name" '
     BEGIN { head = "^" n "=\047" }
     $0 ~ head { f=1 }
     f {
@@ -91,7 +91,7 @@ kit_decision_register_retired() {
   local file="$1" shape="$2"
   [ -f "$file" ] || return 0
   sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$file" 2>/dev/null \
-    | awk 'BEGIN{c=0} { line=$0
+    | LC_ALL=C awk 'BEGIN{c=0} { line=$0
             while (1) {
               if (c) { i=index(line,"-->"); if (!i) { line=""; break }
                        line=substr(line,i+3); c=0; continue }
@@ -126,7 +126,7 @@ kit_decisions_touched_by_diff() {
   # before whichever comes first, the next "<mark><id>" heading or the next "## " section
   # boundary — so the LAST entry in a section does not read as reaching every unrelated line
   # up to the next id, possibly across a whole following section's own insertions.
-  spans="$(printf '%s\n' "$branch_copy" | awk -v m="$mark" '
+  spans="$(printf '%s\n' "$branch_copy" | LC_ALL=C awk -v m="$mark" '
     index($0,m)==1 {
       if (cur != "") print cur, start, NR-1
       id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id)
@@ -149,7 +149,7 @@ kit_decisions_touched_by_diff() {
       c=${cd_part%%,*}
       if [ "$cd_part" = "$c" ]; then d=1; else d=${cd_part#*,}; [ "$d" -eq 0 ] && d=1; fi
       end=$(( c + d - 1 ))
-      printf '%s\n' "$spans" | awk -v lo="$c" -v hi="$end" '$2 <= hi && $3 >= lo { print $1 }'
+      printf '%s\n' "$spans" | LC_ALL=C awk -v lo="$c" -v hi="$end" '$2 <= hi && $3 >= lo { print $1 }'
     done | sort -u; } || true
 }
 

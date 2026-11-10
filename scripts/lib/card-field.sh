@@ -22,7 +22,7 @@
 #   scalar, or a block list of `- A` lines; a trailing `# comment` is removed. Prints nothing for an
 #   absent or empty key, and always returns 0.
 _kit_card_scan() {
-  awk -v k="$2" -v mode="$3" '
+  LC_ALL=C awk -v k="$2" -v mode="$3" '
     /^---[[:space:]]*$/ { n++; next }
     n == 1 && index($0, k ":") == 1 {
       found = 1
@@ -69,7 +69,7 @@ kit_card_id_of_path() {
 }
 
 kit_card_list() {
-  awk -v k="$2" '
+  LC_ALL=C awk -v k="$2" '
     function add(t) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); if (t != "") print t }
     /^---[[:space:]]*$/ { n++; if (n > 1) exit; next }
     n != 1 { next }

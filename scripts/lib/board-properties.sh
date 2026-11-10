@@ -53,6 +53,18 @@ _BP_STAMP_WORDS='Amended|CONFIRMED|Clarified|SUPERSEDED|WITHDRAWN|WORKING DEFAUL
 
 _bp_reset() { KIT_BP_NHITS=0; }
 
+# _bp_awk <awk args> — awk read byte-wise (LC_ALL=C), because an awk that fails on a byte its locale
+# cannot decode would read as "found nothing". A non-zero status is recorded in KIT_BP_FAIL_FILE
+# (a file, so a failure inside $( ) is seen) and the arm is then NOT a clean one: the caller reads
+# that file and says "did not run".
+KIT_BP_FAIL_FILE=""
+_bp_awk() {
+  local rc
+  LC_ALL=C awk "$@"; rc=$?
+  if [ "$rc" -ne 0 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then printf 'awk exited %s\n' "$rc" >> "$KIT_BP_FAIL_FILE"; fi
+  return "$rc"   # return-class: internal
+}
+
 # _bp_hit <text> <key>... — print one finding line and record it.
 _bp_hit() {
   local text="$1" keys="" k
@@ -152,7 +164,7 @@ kit_bp_ids() {
   done <<< "$KIT_BP_CARD_EMPTY"
   d_out=""
   if [ "${#KIT_BP_CARD_FILES[@]}" -gt 0 ]; then
-    d_out="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" \
+    d_out="$(_bp_awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" \
                  -v root="$tree/" -v dq='"' -v sq="'" '
       function short(p) { s = p; sub("^" root, "", s); return s }
       FNR == 1 { n++; path[n] = FILENAME; val[n] = ""; inf = 0; closed = 0; got = 0 }
@@ -276,7 +288,7 @@ kit_bp_blocks() {
                 printf 'C\t%s\n' "$id"
                 kit_card_list "$f" blocks     | while IFS= read -r it; do printf 'B\t%s\t%s\n' "$id" "$it"; done
                 kit_card_list "$f" blocked_by | while IFS= read -r it; do printf 'D\t%s\t%s\n' "$id" "$it"; done
-              done; } | awk -F'\t' '
+              done; } | _bp_awk -F'\t' '
     $1 == "C" { CARD[$2] = 1; next }
     $1 == "B" { DECL++; B[$2 "\x1f" $3] = 1; next }
     $1 == "D" { DECL++; BB[$2 "\x1f" $3] = 1; next }
@@ -332,9 +344,9 @@ $(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape" | { grep -E
     l_retired="$l_retired
 $(kit_decision_register_retired "$lreg_file" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"
   done <<< "$(printf '%s\n' "$REGISTERS")"
-  l_live="$(printf '%s\n' "$l_live" | awk 'NF' | sort -u || true)"
-  l_retired="$(printf '%s\n' "$l_retired" | awk 'NF' | sort -u || true)"
-  l_shapes="$(printf '%s\n' "$l_shapes" | awk 'NF' | sort -u || true)"
+  l_live="$(printf '%s\n' "$l_live" | _bp_awk 'NF' | sort -u || true)"
+  l_retired="$(printf '%s\n' "$l_retired" | _bp_awk 'NF' | sort -u || true)"
+  l_shapes="$(printf '%s\n' "$l_shapes" | _bp_awk 'NF' | sort -u || true)"
   l_live_n="$(printf '%s\n' "$l_live" | grep -c . || true)"
   l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
 
@@ -380,7 +392,7 @@ $(kit_decisions_cited "$tree/$cfile" "$lshp" || true)"
       elif ! grep -qx -- "$cid" <<< "$l_live"; then
         _bp_hit "    ⚠ $cfile cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names" "l:dangling:$cfile:$cid"
       fi
-    done <<< "$(printf '%s\n' "$l_cids" | awk 'NF')"
+    done <<< "$(printf '%s\n' "$l_cids" | _bp_awk 'NF')"
     # A bare id mention OUTSIDE any '[decision: ...]' bracket is never read as a citation above.
     # Counted here by blanking every marker SPAN first (so an id already counted as a citation is
     # not counted twice), then matching the id shape(s) on what is left.
@@ -424,7 +436,7 @@ kit_bp_corpus() {
   # id: only, never a whole-file grep).
   kit_bp_card_files "$tree"
   if [ "${#KIT_BP_CARD_FILES[@]}" -gt 0 ]; then
-    p_known="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" '
+    p_known="$(_bp_awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" '
       FNR == 1 { inf = 0; closed = 0; got = 0 }
       !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
       inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
@@ -453,7 +465,7 @@ ${BASH_REMATCH[1]}"
   # Every manifest row's Status cell. A LEADING `|` makes awk's first -F'|' field empty, so Status
   # (the table's 3rd column) is $4. A table row only — the header and its `|---|` separator are
   # not data.
-  p_rows="$(awk -F'|' '
+  p_rows="$(_bp_awk -F'|' '
     /^\|/ {
       if ($0 ~ /^\|[[:space:]]*-+/) next
       if (NF < 5) next
@@ -499,7 +511,7 @@ ${BASH_REMATCH[1]}"
 # at the next heading of the SAME shape, at any OTHER heading (any level), or at a
 # bucket-separator `---` rule.
 _bp_entry_spans() {
-  awk -v m="$2" -v s="$3" '
+  _bp_awk -v m="$2" -v s="$3" '
     index($0,m)==1 {
       rest=substr($0,length(m)+1)
       if (rest ~ ("^" s "([[:space:]]|$)")) {
@@ -591,7 +603,7 @@ kit_bp_register_shape() {
       # separate it from the Ruling above and the Provenance below are not inside it.
       if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
         q_why_body="$(printf '%s\n' "$qbody" | sed -n "${w_line},$((p_line-1))p" | sed '1s/^\*\*Why\.\*\*//' \
-                      | awk '/^[[:space:]]*$/ { if (seen) gap=1; next } { if (gap) { print "split"; exit } seen=1 }')"
+                      | _bp_awk '/^[[:space:]]*$/ { if (seen) gap=1; next } { if (gap) { print "split"; exit } seen=1 }')"
         if [ -n "$q_why_body" ]; then
           _bp_hit "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph" "q:$qreg_path:$qid:whypara"
         fi
@@ -600,7 +612,7 @@ kit_bp_register_shape() {
       # Nothing after Provenance's own paragraph before the entry ends.
       if [ -n "$p_line" ]; then
         q_after="$(printf '%s\n' "$qbody" | sed -n "$((p_line+1)),\$p")"
-        q_trailing="$(printf '%s\n' "$q_after" | awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (seen && NF) {print; exit} }')"
+        q_trailing="$(printf '%s\n' "$q_after" | _bp_awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (seen && NF) {print; exit} }')"
         if [ -n "$q_trailing" ]; then
           _bp_hit "      ⚠ $qreg_path $qid — content follows Provenance's own paragraph: \"$q_trailing\"" "q:$qreg_path:$qid:trailing:$q_trailing"
         fi
@@ -645,12 +657,12 @@ $qtgt $qid"
   while read -r qtgt; do
     [ -n "$qtgt" ] || continue
     if ! grep -qx -- "$qtgt" <<< "$q_stamped"; then
-      q_by="$(printf '%s\n' "$q_reopeners" | awk -v t="$qtgt" '$1==t{print $2}' | sort -u | tr '\n' ' ')"
+      q_by="$(printf '%s\n' "$q_reopeners" | _bp_awk -v t="$qtgt" '$1==t{print $2}' | sort -u | tr '\n' ' ')"
       qk=()
       for qby_one in $q_by; do qk+=("q:$qtgt:unstamped:$qby_one"); done
       _bp_hit "      ⚠ $qtgt — reopened or superseded by ${q_by}but carries no stamp of its own (pm.md: \"a ruling is not done until the predecessor carries its stamp, in the same change\")" "${qk[@]}"
     fi
-  done <<< "$(printf '%s\n' "$q_reopeners" | awk 'NF{print $1}' | sort -u)"
+  done <<< "$(printf '%s\n' "$q_reopeners" | _bp_awk 'NF{print $1}' | sort -u)"
 
   if [ "$q_entries" -eq 0 ]; then
     echo "      – 0 entr(ies) in the register(s) read  (nothing to check)"
@@ -668,7 +680,7 @@ $qtgt $qid"
 # <start> <end>" lines): the Ruling field runs from its label to the line before Why's, its lines
 # joined by \001.
 _bp_rulings() {
-  awk '
+  _bp_awk '
     NR == FNR { if ($1 != "") { k++; id[k]=$1; s[k]=$2; e[k]=$3 } next }
     {
       for (i = 1; i <= k; i++) if (FNR >= s[i] && FNR <= e[i]) {
@@ -731,7 +743,7 @@ _bp_ruling_history() {
       fi
       subj="$(git -C "$KIT_BP_HIST_REPO" log -1 --format=%s "$sha" 2>/dev/null)"
       _bp_note "      ⚠ $rpath $id — its Ruling text changed in ${sha:0:9} (\"$subj\") and no bold stamp is among the lines that commit added; a changed ruling is stamped, in the same change, so a reader of the register can tell a reopen from a first writing. Write **<word> <YYYY-MM-DD>.** inside the entry's Ruling, <word> one of ${_BP_STAMP_WORDS//|/, }; plain text and a stamp in a later commit are not read, and this history stays as it is, so stamp the next change this way"
-    done <<< "$(diff "$scratch/old.r" "$scratch/new.r" | awk -F'\t' '/^< /{o[substr($1,3)]=1} /^> /{w[substr($1,3)]=1} END{for (i in w) if (i in o) print i}' | sort)"
+    done <<< "$(diff "$scratch/old.r" "$scratch/new.r" | _bp_awk -F'\t' '/^< /{o[substr($1,3)]=1} /^> /{w[substr($1,3)]=1} END{for (i in w) if (i in o) print i}' | sort)"
   done <<< "$(git -C "$KIT_BP_HIST_REPO" log --no-merges --format=%H "$KIT_BP_HIST_RANGE" -- "$rpath" 2>/dev/null)"
   rm -rf "$scratch"
   _BP_HIST_N=$((_BP_HIST_N + n))
@@ -756,7 +768,7 @@ _bp_added_state_head() {
 # collision land outside the section a reader checks. Reported through _bp_note.
 _bp_findings_numbering() {
   local out line n prev
-  out="$(awk '
+  out="$(_bp_awk '
     /^##[[:space:]]+Findings/ { f=1; fl=NR; next }
     f && !ended && (/^##/ || /^---[[:space:]]*$/) { ended=1; el=NR }
     f && /^[0-9]+\.[[:space:]]/ {
@@ -806,9 +818,9 @@ $rid"
       fi
     done <<< "$r_spans"
   done <<< "$(printf '%s\n' "$REGISTERS")"
-  r_live="$(printf '%s\n' "$r_live" | awk 'NF' | sort -u || true)"
-  r_exempt="$(printf '%s\n' "$r_exempt" | awk 'NF' | sort -u || true)"
-  r_shapes="$(printf '%s\n' "$r_shapes" | awk 'NF' | sort -u || true)"
+  r_live="$(printf '%s\n' "$r_live" | _bp_awk 'NF' | sort -u || true)"
+  r_exempt="$(printf '%s\n' "$r_exempt" | _bp_awk 'NF' | sort -u || true)"
+  r_shapes="$(printf '%s\n' "$r_shapes" | _bp_awk 'NF' | sort -u || true)"
   r_live_n="$(printf '%s\n' "$r_live" | grep -c . || true)"
   r_exempt_n="$(printf '%s\n' "$r_exempt" | grep -c . || true)"
 
@@ -841,7 +853,7 @@ $rcid"
       done <<< "$(kit_decisions_cited "$tree/$rpf" "$rshp" || true)"
     done <<< "$r_shapes"
   done <<< "$r_prds"
-  r_cited="$(printf '%s\n' "$r_cited" | awk 'NF' | sort -u || true)"
+  r_cited="$(printf '%s\n' "$r_cited" | _bp_awk 'NF' | sort -u || true)"
 
   echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]; registers read: $r_reg_named"
   while read -r rid; do

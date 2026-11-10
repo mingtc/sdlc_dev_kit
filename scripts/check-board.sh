@@ -65,6 +65,9 @@
 # Exit 0 whatever it finds (drift is in the output, not the exit status); 2 on a usage error.
 # Read-only; it never mutates.
 set -uo pipefail
+# Every arm reads cards and registers byte-wise: an awk that fails on a byte its locale cannot decode
+# prints nothing, and nothing reads as "no finding" (process/contracts/drift-report.md § 4 item 7).
+export LC_ALL=C
 
 # ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): a usage request is answered first,
 #    in any position; an unknown option exits 2 before any inspection. The exit-0 convention
@@ -335,8 +338,40 @@ fi
 # it). A load failure leaves [m] printing that it did not run.
 # shellcheck source=lib/card-field.sh
 [ -f "$CB_LIB_DIR/card-field.sh" ] && . "$CB_LIB_DIR/card-field.sh" 2>/dev/null || true
-cb_bp_loaded() { command -v kit_bp_ids >/dev/null 2>&1; }
-cb_bp_missing() { echo "      – scripts/lib/board-properties.sh is missing or did not load — this arm did not run  (skipped)"; }
+# Loaded means EVERY function the arms call is defined: a library that stopped part way leaves some of them
+# unset, and testing one of them would let the rest fail as "command not found" and read as clean.
+cb_bp_loaded() {
+  local f
+  for f in kit_bp_ids kit_bp_blocks kit_bp_citations kit_bp_corpus kit_bp_register_shape kit_bp_reverse_coverage kit_bp_registers_present kit_bp_card_files; do
+    command -v "$f" >/dev/null 2>&1 || return 1
+  done
+}
+# An arm that did not run is not a clean one: it prints a ⚠ line and sets `drift`, so the verdict never
+# reads `clean` over a check nobody made.
+cb_bp_missing() {
+  echo "      ⚠ scripts/lib/board-properties.sh is missing or did not load completely — this arm DID NOT RUN, so the verdict below is not clean  (nothing was checked, which is not a pass)"
+  drift=1
+}
+# cb_bp_run <function> <args…> — runs one arm. A reader inside it that failed (an awk that exited non-zero,
+# recorded by lib/board-properties.sh in CB_BP_FAIL) means the arm did not answer: its "✓ none" lines are
+# withheld and a ⚠ line says so, and `drift` is set.
+CB_BP_FAIL="$(mktemp 2>/dev/null || true)"
+cb_bp_run() {
+  local f
+  : > "${CB_BP_FAIL:-/dev/null}" 2>/dev/null
+  KIT_BP_FAIL_FILE="$CB_BP_FAIL"
+  f="$(mktemp 2>/dev/null || true)"
+  if [ -z "$f" ]; then "$@"; return; fi
+  "$@" > "$f"
+  if [ -n "$CB_BP_FAIL" ] && [ -s "$CB_BP_FAIL" ]; then
+    grep -v '✓' "$f"
+    echo "      ⚠ this arm DID NOT RUN to its end — a reader failed on a file it could not read ($(head -1 "$CB_BP_FAIL")); what is printed above is not the whole answer, so the verdict below is not clean"
+    drift=1
+  else
+    cat "$f"
+  fi
+  rm -f "$f"
+}
 
 # The shared model-seam reader (arm [s] and scripts/set-models.sh read the SAME class table, ladder
 # cells and pin frontmatter). A load failure leaves [s] printing that it did not run.
@@ -387,11 +422,12 @@ else
   CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (no $CB_REMOTE/${CB_TRUNK:-<unresolved trunk>} ref)"
 fi
 
-# CB_TREE is the directory the board-reading arms walk. For a ref, one `git archive` into a temp
+# CB_TREE is the directory the board-reading arms walk. For a ref, one checkout of the ref into a temp
 # dir: a `git show` per file would break the time budget on a large board.
 CB_TREE="$REPO_ROOT"
 CB_TMP=""
-cb_cleanup() { [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
+CB_IDX=""
+cb_cleanup() { [ -z "$CB_IDX" ] || rm -f "$CB_IDX" 2>/dev/null; [ -z "${CB_BP_FAIL:-}" ] || rm -f "$CB_BP_FAIL" 2>/dev/null; [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
 trap cb_cleanup EXIT
 # The signals are trapped so the cleanup waits for the `archive | tar` below: with EXIT alone, a
 # TERM or HUP runs cb_cleanup mid-copy and tar re-creates part of the temp dir. Signals not listed
@@ -401,14 +437,17 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 if [ "$CB_SRC_KIND" = "ref" ]; then
   CB_TMP="$(mktemp -d 2>/dev/null || true)"
-  if [ -n "$CB_TMP" ] \
-     && git -C "$REPO_ROOT" archive --format=tar "$CB_REF" 2>/dev/null \
-        | tar -x -C "$CB_TMP" 2>/dev/null; then
+  # Not `git archive`: it honours a `.gitattributes` `export-ignore`, which would hide a card from
+  # every arm while the label still names the ref as read. A throwaway index checked out whole reads all of it.
+  CB_IDX="$(mktemp 2>/dev/null || true)"
+  if [ -n "$CB_TMP" ] && [ -n "$CB_IDX" ] \
+     && GIT_INDEX_FILE="$CB_IDX" git -C "$REPO_ROOT" read-tree "$CB_REF" >/dev/null 2>&1 \
+     && GIT_INDEX_FILE="$CB_IDX" git -C "$REPO_ROOT" checkout-index -a -f --prefix="$CB_TMP/" >/dev/null 2>&1; then
     CB_TREE="$CB_TMP"
   else
     # Archive failed: degrade to the checkout and RELABEL, so no arm names a ref it did not read.
     CB_SRC_KIND="worktree"
-    CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (could not read $CB_REF — archive failed)"
+    CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (could not read $CB_REF — checkout of the ref failed)"
     CB_REF=""
     CB_TREE="$REPO_ROOT"
   fi
@@ -625,7 +664,7 @@ fi
 echo
 echo "[d] Frontmatter id integrity (every column in STATUS_FOLDERS) — $(cb_src):"
 if cb_bp_loaded; then
-  kit_bp_ids "$CB_TREE"
+  cb_bp_run kit_bp_ids "$CB_TREE"
   [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 else
   cb_bp_missing
@@ -1623,7 +1662,7 @@ fi
 echo
 echo "[i] blocks:/blocked_by: symmetry (every column in STATUS_FOLDERS; reports only — it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
 if cb_bp_loaded; then
-  kit_bp_blocks "$CB_TREE"
+  cb_bp_run kit_bp_blocks "$CB_TREE"
   # NO `drift=1` HERE, DELIBERATELY, AND DO NOT ADD ONE. See the ruling above.
 else
   cb_bp_missing
@@ -1710,13 +1749,15 @@ fi
 # ---------------------------------------------------------------------------
 echo
 if ! cb_bp_loaded; then
-  echo "[l] Declared reference integrity — every cited register id resolves: scripts/lib/board-properties.sh is missing or did not load — cannot resolve citations (skipped) — $(cb_src)"
+  echo "[l] Declared reference integrity — every cited register id resolves — $(cb_src):"
+  echo "      ⚠ scripts/lib/board-properties.sh is missing or did not load completely — this arm DID NOT RUN, so no citation was resolved and the verdict below is not clean  (nothing was checked, which is not a pass)"
+  drift=1
 elif [ -z "$(kit_bp_registers_present "$CB_TREE")" ]; then
   echo "[l] Declared reference integrity — every cited register id resolves: no register was read (none of the declared ones is present in this source) — nothing to resolve citations against (skipped) — $(cb_src)"
 else
   echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
   KIT_BP_SKIP_DIR="$CB_STAGE_DIR"
-  kit_bp_citations "$CB_TREE"
+  cb_bp_run kit_bp_citations "$CB_TREE"
   [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 fi
 
@@ -1876,7 +1917,7 @@ CORPUS_FILE="${CORPUS_FILE:-requirements/CORPUS.md}"   # relative to the reposit
 echo
 echo "[p] CORPUS forward-reference integrity ($CORPUS_FILE) — $(cb_src):"
 if cb_bp_loaded; then
-  kit_bp_corpus "$CB_TREE" "$G_GRADUATION_COMPLETE"
+  cb_bp_run kit_bp_corpus "$CB_TREE" "$G_GRADUATION_COMPLETE"
   [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 else
   cb_bp_missing
@@ -1900,7 +1941,7 @@ echo "[q] Declared-register entry shape — every D-NN entry is exactly three fi
 if cb_bp_loaded; then
   KIT_BP_HIST_REPO="$REPO_ROOT"
   if [ -n "$CB_RULE_EPOCH" ]; then KIT_BP_HIST_RANGE="$CB_RULE_EPOCH..$CB_RULE_REV"; else KIT_BP_HIST_RANGE="$CB_RULE_REV"; fi
-  kit_bp_register_shape "$CB_TREE"
+  cb_bp_run kit_bp_register_shape "$CB_TREE"
   KIT_BP_HIST_REPO=""; KIT_BP_HIST_RANGE=""
 else
   cb_bp_missing
@@ -1923,7 +1964,7 @@ echo "[r] Declared reverse coverage — every live register entry a PRD constrai
 if cb_bp_loaded && [ -z "$PRD_SURFACE" ]; then
   echo "      – PRD_PREFIX is not readable in this source's scripts/config.sh, so there is no PRD surface to read — this arm did not run  (skipped)"
 elif cb_bp_loaded; then
-  kit_bp_reverse_coverage "$CB_TREE"
+  cb_bp_run kit_bp_reverse_coverage "$CB_TREE"
 else
   cb_bp_missing
 fi

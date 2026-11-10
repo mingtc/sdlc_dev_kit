@@ -35,6 +35,7 @@
 # empty):
 #   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
 # kit-init REFUSES a repository that has already lived; there, add the record to GATES by hand.
+# `--quick` over a table whose every gate is class `full` runs nothing and refuses the same way (exit 2).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -224,6 +225,21 @@ for rec in "${GATES[@]}"; do
          "Next: set the class of '$g_name' in the GATES array to core, select or full." ;;
   esac
 done
+
+# (2b) --quick must select something: a table whose every gate is class `full` runs nothing under
+#      it, and a green summary over zero gates run is the empty-but-green runner (1) refuses.
+if [ "$QUICK" -eq 1 ] && [ "$SCOPED" -eq 0 ]; then
+  q_sel=0
+  for rec in "${GATES[@]}"; do
+    rest="${rec#*|}"; [ "${rest%%|*}" = "full" ] || q_sel=1
+  done
+  if [ "$q_sel" -eq 0 ]; then
+    kit_refuse 2 quick-selected-nothing \
+      "verify.sh: REFUSING — --quick runs no gate: every declared gate is class \`full\`, which --quick skips." \
+      "  A pass over zero gates run authorises a landing on no evidence, so this refuses like an empty table." \
+      "Next: class at least one fast gate \`core\` in the GATES array (the class is its second field: \"<name>|<core|select|full>|<command…>\"), then re-run; ./scripts/verify.sh --list prints the table."
+  fi
+fi
 
 if [ "$SCOPED" -eq 1 ] && [ "${#SCOPE[@]}" -eq 0 ]; then
   echo "verify.sh: --scope needs at least one item (a test path, a node id, whatever your runner takes)" >&2

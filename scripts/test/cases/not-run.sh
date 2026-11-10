@@ -19,7 +19,7 @@ _nr_shim_awk() {
 }
 
 # _nr_have_utf8 — the UTF-8 locale the byte rows need is installed.
-_nr_have_utf8() { locale -a 2>/dev/null | /usr/bin/grep -ix 'en_US.UTF-8' >/dev/null; }
+_nr_have_utf8() { locale -a 2>/dev/null | grep -ix 'en_US.UTF-8' >/dev/null; }
 
 # =============================================================================
 # CASE — THE LANDING REFUSES A BOARD-PROPERTY ARM THAT DID NOT ANSWER.
@@ -47,7 +47,7 @@ case_board_property_check_refuses_an_arm_that_did_not_answer() {
   export PATH="$SB_TMP/shim:$PATH"
   _bpf_land "$id"
   PATH="$oldp"
-  [ "$_BPF_RC" -ne 0 ] || cf "(b) an arm whose awk exited 2 — finish-pr.sh exited 0: $(printf '%s' "$_BPF_OUT" | /usr/bin/grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
+  [ "$_BPF_RC" -ne 0 ] || cf "(b) an arm whose awk exited 2 — finish-pr.sh exited 0: $(printf '%s' "$_BPF_OUT" | grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
   grep -q 'refusal=board-property-unreadable' "$SB_TMP/rec-$id"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=board-property-unreadable: $(cat "$SB_TMP/rec-$id"/*.tsv 2>/dev/null | cut -c1-200)"
   case "$_BPF_OUT" in *"Next:"*) : ;; *) cf "(b) the refusal names no Next: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
@@ -64,8 +64,10 @@ case_board_property_check_refuses_an_arm_that_did_not_answer() {
     export LC_ALL=en_US.UTF-8
     _bpf_land "$id"
     unset LC_ALL
-    [ "$_BPF_RC" -ne 0 ] || cf "(c) a stray card with an undecodable byte in a UTF-8 locale landed: $(printf '%s' "$_BPF_OUT" | /usr/bin/grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
+    [ "$_BPF_RC" -ne 0 ] || cf "(c) a stray card with an undecodable byte in a UTF-8 locale landed: $(printf '%s' "$_BPF_OUT" | grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
     origin_has_path "BP-$id.txt" && cf "(c) the branch was merged over an undecodable byte"
+    # refused AS THE FINDING (the arm read the card byte-wise), not merely as an arm that could not read it
+    case "$_BPF_OUT" in *DISAGREES*) : ;; *) cf "(c) the refusal does not carry the stray card's finding (DISAGREES): $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
   fi
 
   finish "the landing refuses a board-property arm that did not answer — an awk that fails inside the arm refuses as board-property-unreadable with a Next, and a card holding a byte the locale cannot decode still has its finding found — never BOARD_PROPERTY_CHECK: PASS over an arm that read nothing"
@@ -89,12 +91,12 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
   sed -i.bak "s/^id: $SB_PREFIX-871\$/id: $SB_PREFIX-879/" "$SB_WORK/progress/todo/$SB_PREFIX-871-stray.md"; rm -f "$SB_WORK/progress/todo/$SB_PREFIX-871-stray.md.bak"
   publish_sandbox
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -F 'DISAGREES' >/dev/null || cf "(a) control: the planted disagreeing id is not reported: $(printf '%s' "$out" | /usr/bin/grep '⚠' | head -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'DISAGREES' >/dev/null || cf "(a) control: the planted disagreeing id is not reported: $(printf '%s' "$out" | grep '⚠' | head -3 | tr '\n' '|')"
 
   mv "$SB_WORK/scripts/lib/board-properties.sh" "$SB_TMP/bp.sh.away"
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null && cf "(b) board-properties.sh absent — the verdict reads clean over arms that did not run"
-  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null || cf "(b) board-properties.sh absent — no arm says it DID NOT RUN: $(printf '%s' "$out" | /usr/bin/grep -c 'did not run')"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null || cf "(b) board-properties.sh absent — no arm says it DID NOT RUN: $(printf '%s' "$out" | grep -c 'did not run')"
   mv "$SB_TMP/bp.sh.away" "$SB_WORK/scripts/lib/board-properties.sh"
 
   if _nr_have_utf8; then
@@ -102,7 +104,7 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
     git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -m "[PM] a byte in the title" --quiet >/dev/null 2>&1
     git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
     out="$(LC_ALL=en_US.UTF-8 cb_run)"
-    printf '%s\n' "$out" | grep -F 'DISAGREES' >/dev/null || cf "(e) a byte its UTF-8 locale cannot decode hid the disagreeing id: $(printf '%s' "$out" | /usr/bin/grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$out" | grep -F 'DISAGREES' >/dev/null || cf "(e) a byte its UTF-8 locale cannot decode hid the disagreeing id: $(printf '%s' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
   fi
   teardown
 
@@ -112,9 +114,9 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
   seed_issue todo "$SB_PREFIX-873" fine chore "A well-formed card" >/dev/null
   publish_sandbox
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(c0) control: a clean sandbox does not read clean: $(printf '%s' "$out" | /usr/bin/grep '⚠' | head -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(c0) control: a clean sandbox does not read clean: $(printf '%s' "$out" | grep '⚠' | head -3 | tr '\n' '|')"
   local cut
-  cut="$(/usr/bin/grep -n '^kit_bp_corpus()' "$SB_WORK/scripts/lib/board-properties.sh" | head -1 | cut -d: -f1)"
+  cut="$(grep -n '^kit_bp_corpus()' "$SB_WORK/scripts/lib/board-properties.sh" | head -1 | cut -d: -f1)"
   [ -n "$cut" ] || _fixture_die "case_check_board_does_not_read_clean_over_a_check_that_did_not_run: kit_bp_corpus() not found in the sandbox's board-properties.sh"
   head -n "$((cut - 1))" "$SB_WORK/scripts/lib/board-properties.sh" > "$SB_TMP/bp.cut" && cat "$SB_TMP/bp.cut" > "$SB_WORK/scripts/lib/board-properties.sh"
   out="$(cb_run)"
@@ -130,8 +132,8 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
   out="$(cb_run)"
   PATH="$oldp"
   printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null && cf "(d) an awk that exits 2 inside arm [d] — the verdict reads clean"
-  printf '%s\n' "$out" | grep -F 'DID NOT RUN to its end' >/dev/null || cf "(d) an awk that exits 2 inside arm [d] — the arm does not say it did not run to its end: $(printf '%s' "$out" | /usr/bin/grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
-  printf '%s\n' "$out" | /usr/bin/grep -A6 '^\[d\]' | /usr/bin/grep '✓ none' >/dev/null && cf "(d) arm [d] printed ✓ none although its reader failed"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN to its end' >/dev/null || cf "(d) an awk that exits 2 inside arm [d] — the arm does not say it did not run to its end: $(printf '%s' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -A6 '^\[d\]' | grep '✓ none' >/dev/null && cf "(d) arm [d] printed ✓ none although its reader failed"
 
   finish "check-board.sh never ends board-drift: clean over an arm that did not run: board-properties.sh absent, half loaded, or an awk failing inside arm [d] each print DID NOT RUN and a findings verdict, and a byte the locale cannot decode no longer hides a finding"
   teardown
@@ -149,13 +151,13 @@ case_check_board_reads_a_card_that_export_ignore_hides() {
   seed_issue todo "$SB_PREFIX-881" two chore "Minted twice" >/dev/null
   printf 'progress/todo export-ignore\n' > "$SB_WORK/.gitattributes"
   publish_sandbox
-  if git -C "$SB_WORK" archive --format=tar "origin/$SB_TRUNK" 2>/dev/null | tar -t 2>/dev/null | /usr/bin/grep -F 'progress/todo/' >/dev/null; then
+  if git -C "$SB_WORK" archive --format=tar "origin/$SB_TRUNK" 2>/dev/null | tar -t 2>/dev/null | grep -F 'progress/todo/' >/dev/null; then
     _fixture_die "case_check_board_reads_a_card_that_export_ignore_hides: the export-ignore line did not hide progress/todo/ from git archive, so the case would prove nothing"
   fi
   local out
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'DUPLICATE' >/dev/null \
-    || cf "a duplicate id inside an export-ignore'd directory is not reported: $(printf '%s' "$out" | /usr/bin/grep -E '^\[d\]|board-drift' | head -4 | tr '\n' '|' | cut -c1-300)"
+    || cf "a duplicate id inside an export-ignore'd directory is not reported: $(printf '%s' "$out" | grep -E '^\[d\]|board-drift' | head -4 | tr '\n' '|' | cut -c1-300)"
   finish "check-board.sh reads the ref with every tracked file, so a .gitattributes export-ignore on a board column no longer hides a duplicate id behind a clean verdict"
   teardown
 }
@@ -172,7 +174,7 @@ case_verify_quick_with_no_gate_selected_refuses() {
   awk '{print} /^GATES=\($/{print "  \"only|full|true\""}' "$V" > "$SB_TMP/v.sh" && cat "$SB_TMP/v.sh" > "$V"
   # the sandbox's own gate is class select: make it full too, so no declared gate is one --quick runs
   sed -i.bak 's#|select|/bin/echo sandbox-gate-green#|full|/bin/echo sandbox-gate-green#' "$V"; rm -f "$V.bak"
-  /usr/bin/grep -F 'sandbox gate|full|' "$V" >/dev/null || _fixture_die "case_verify_quick_with_no_gate_selected_refuses: the sandbox gate was not reclassed to full"
+  grep -F 'sandbox gate|full|' "$V" >/dev/null || _fixture_die "case_verify_quick_with_no_gate_selected_refuses: the sandbox gate was not reclassed to full"
   out="$( cd "$SB_WORK" && ./scripts/verify.sh --quick 2>&1 )"; rc=$?
   [ "$rc" -eq 2 ] || cf "(a) --quick over a table whose only gate is class full exited $rc, not 2: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
   case "$out" in *"Next:"*"core"*) : ;; *) cf "(a) the refusal does not name the class column in a Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
@@ -185,7 +187,7 @@ case_verify_quick_with_no_gate_selected_refuses() {
   publish_sandbox
   seed_branch "$id" quick CHANGE891.txt
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-q" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "(c) finish-pr.sh landed with a pre-merge --quick that ran no gate: $(printf '%s' "$out" | /usr/bin/grep -E 'pre-merge|GATE' | head -3 | tr '\n' '|')"
+  [ "$rc" -ne 0 ] || cf "(c) finish-pr.sh landed with a pre-merge --quick that ran no gate: $(printf '%s' "$out" | grep -E 'pre-merge|GATE' | head -3 | tr '\n' '|')"
   origin_has_path "CHANGE891.txt" && cf "(c) the branch was merged although the pre-merge gate ran nothing"
   finish "verify.sh --quick refuses (exit 2, a Next naming the class column) when every declared gate is class full, the full run and a core gate are unchanged, and finish-pr.sh does not land on a pre-merge gate that ran nothing"
   teardown
@@ -201,7 +203,7 @@ case_qa_verdict_shadow_check_fail_token_refuses() {
   seed_issue dev_complete "$id" shadowfail chore "Shadow-check marked FAIL" "feature/$id-work"
   local f="$SB_WORK/progress/dev_complete/$id-shadowfail.md"
   perl -i -pe 's/^\| shadow-check \| — \|/| shadow-check | FAIL_REGRESSION |/' "$f"
-  /usr/bin/grep -F '| shadow-check | FAIL_REGRESSION |' "$f" >/dev/null \
+  grep -F '| shadow-check | FAIL_REGRESSION |' "$f" >/dev/null \
     || _fixture_die "case_qa_verdict_shadow_check_fail_token_refuses: the FAIL_REGRESSION token was not planted on the shadow-check row"
   publish_sandbox
   seed_branch "$id" work CHANGE857.txt

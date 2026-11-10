@@ -172,11 +172,11 @@ kit_qa_evidence_kinds() {
   local repo="${1:-.}" rev="${2:-}" f k out="" extra="" body paths=""
   local pick='{ sub(/\r$/, ""); sub(/#.*/, ""); if (NF && $1 ~ /^[a-z][a-z0-9:_-]*$/) print $1 }'
   if [ -n "$rev" ]; then
-    paths="$(git -C "$repo" ls-tree "$rev" process/evidence-kinds.d/ 2>/dev/null | awk -F'\t' '$1 ~ / blob / { print $2 }' || true)"
+    paths="$(git -C "$repo" ls-tree "$rev" process/evidence-kinds.d/ 2>/dev/null | LC_ALL=C awk -F'\t' '$1 ~ / blob / { print $2 }' || true)"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       body="$(git -C "$repo" show "$rev:$f" 2>/dev/null)" || continue
-      extra="${extra}${extra:+$'\n'}$(printf '%s\n' "$body" | awk "$pick" 2>/dev/null || true)"
+      extra="${extra}${extra:+$'\n'}$(printf '%s\n' "$body" | LC_ALL=C awk "$pick" 2>/dev/null || true)"
     done <<PATHS_EOF
 $paths
 PATHS_EOF
@@ -308,7 +308,7 @@ _qav_cell_events() {
     else
       printf 'P %s OK %s %s\n' "$_tok" "$_lo" "$_hi"
     fi
-  done <<< "$(printf '%s\n' "$cell" | awk -v nm="$_nm" '{
+  done <<< "$(printf '%s\n' "$cell" | LC_ALL=C awk -v nm="$_nm" '{
     gsub(/\\"/, "\001")
     n = split($0, part, "\"")
     ptr = 0; state = "fresh"; pend = ""
@@ -401,7 +401,7 @@ _qav_quote_in_range() {
 # at <rev> (lines whitespace-normalised and backticks removed, as a quote is read; not across lines) and the
 # first line it is on, 0 when it occurs nowhere. A test is named by <text> and found when n is 1.
 _qav_name_lines() {
-  git -C "$1" show "${2}:${3}" 2>/dev/null | tr -d '`' | NEEDLE="$4" awk '
+  git -C "$1" show "${2}:${3}" 2>/dev/null | tr -d '`' | NEEDLE="$4" LC_ALL=C awk '
     BEGIN { nd = ENVIRON["NEEDLE"]; gsub(/[[:space:]]+/, " ", nd); sub(/^ /, "", nd); sub(/ $/, "", nd) }
     nd != "" { s = $0; gsub(/[[:space:]]+/, " ", s)
       while ((p = index(s, nd)) > 0) { n++; if (n == 1) first = NR; s = substr(s, p + length(nd)) } }
@@ -425,7 +425,7 @@ _qav_is_own_card() {
 # trimmed. A pipe splits cells unless it is written `\|`, which is part of the cell and is
 # returned as a plain `|`. The one reader of a verdict-table row's cells.
 kit_md_row_cell() {
-  printf '%s\n' "$1" | awk -v n="$2" '{
+  printf '%s\n' "$1" | LC_ALL=C awk -v n="$2" '{
     k = 0; cur = ""; s = $0
     for (i = 1; i <= length(s); i++) {
       c = substr(s, i, 1)
@@ -442,7 +442,7 @@ kit_md_row_cell() {
 # section's '|' lines without the header and separator rows. Empty when the card has no such
 # section. The one extraction of those rows: the landing check and read-verdict.sh both read them here.
 kit_qa_verdict_rows() {
-  awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$1" \
+  LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$1" \
     | { grep -E '^\|' || true; } | { grep -vE '^\|[[:space:]]*(AC id|-+)[[:space:]]*\|' || true; }
 }
 
@@ -512,7 +512,7 @@ kit_qa_verdict_check() {
     trunk_rev="$(_kit_ac_commit "$repo" "$trunk_rev")"
   fi
 
-  _qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+  _qav_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
 
   if ! grep -qE '^## QA Verdict[[:space:]]*$' "$src"; then
@@ -541,6 +541,10 @@ kit_qa_verdict_check() {
       local _qav_shadow_norm
       _qav_shadow_norm="$(printf '%s' "$_qptr_stripped" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
       _qav_is_placeholder "$_qav_shadow_norm" && _qav_shadow_bad=1
+      # The row's verdict cell is not required (the template's is `—`), but a FAIL token on it is a FAIL row.
+      case "$_qverdict" in
+        FAIL_AC|FAIL_REGRESSION) _qav_fail_rows="${_qav_fail_rows}${_qav_fail_rows:+, }${_qid}" ;;
+      esac
       continue
     fi
 
@@ -828,7 +832,7 @@ kit_qa_verdict_check() {
 #   one. A fenced example heading still is: no shared fence reader exists for a register, and a
 #   second parser here would drift from it.
 _forks_entry_ids() {
-  git -C "$1" show "${2}:${3}" 2>/dev/null | awk -v m="$4" '
+  git -C "$1" show "${2}:${3}" 2>/dev/null | LC_ALL=C awk -v m="$4" '
     index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); print id }' \
     | { grep -oE "^${5}" || true; } | sort -u || true
 }
@@ -885,7 +889,7 @@ _forks_window_entries() {
   done
   while IFS= read -r d; do
     [ -n "$d" ] || continue
-    prov="$(printf '%s\n' "$tipcopy" | awk -v m="$mark" -v d="$d" '
+    prov="$(printf '%s\n' "$tipcopy" | LC_ALL=C awk -v m="$mark" -v d="$d" '
       index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); if (f) exit; f=(id==d); next }
       f && /^## / { exit }
       f && !p && /^\*\*Provenance\.\*\*/ { p=1; print; next }
@@ -969,9 +973,9 @@ kit_ac_drift_check() {
     echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
     return 0
   fi
-  new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+  new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
-    | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+    | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
   # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
   # line, the same text _qav_ac_bullet_text compares), so a citation elsewhere on the card — in
   # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
@@ -1021,9 +1025,9 @@ _forks_cited_ids() {
   local new_body old_body ac ac_old ac_new unchanged="" scratch line ids seen="" in_body=1
   local sec_scratch="" in_sec=0 in_fence=0 hd sec_id core_ids sec_ids kept=""
   if [ -n "$leave_commit" ]; then
-    new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+    new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
     old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
-      | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+      | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
     while IFS= read -r ac; do
       [ -n "$ac" ] || continue
       ac_old="$(_qav_ac_bullet_text "$old_body" "$ac")"
@@ -1131,7 +1135,7 @@ kit_forks_check() {
       "       NOTHING WAS CHANGED."
   fi
   # Only registers declared with the D-NN shape are read here; arm [l] reads each declared register's own shape.
-  _forks_regs="$(printf '%s\n' "$_forks_declared" | awk -F'|' '$3 == "D-[0-9]+" { print }')"
+  _forks_regs="$(printf '%s\n' "$_forks_declared" | LC_ALL=C awk -F'|' '$3 == "D-[0-9]+" { print }')"
   # THE ONE READER: kit_decisions_cited (lib/decision-register.sh) — case-insensitive label,
   # spacing-tolerant, list- and range-aware — the same reader arm (l) and arm (r) read a citation
   # through. A second regex here would let one caller read a citation another cannot see. Called unconditionally, like kit_decision_register_live below:
@@ -1330,7 +1334,7 @@ kit_ablation_check() {
           "Next: break the behaviour the changed test covers, run the test and see it go red, restore it, then add the '## Ablation' section to the card with 'Broken:' and 'Red line:' from that run; commit the card and re-run the command that refused." \
           "       NOTHING WAS CHANGED."
       fi
-      _abl_body="$(awk '/^## Ablation[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$src")"
+      _abl_body="$(LC_ALL=C awk '/^## Ablation[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$src")"
       _abl_broken="$(printf '%s\n' "$_abl_body" | sed -n 's/^Broken:[[:space:]]*//p' | head -1)"
       _abl_red="$(printf '%s\n' "$_abl_body" | sed -n 's/^Red line:[[:space:]]*//p' | head -1)"
       case "$_abl_broken" in ''|'<placeholder>') _abl_bad=1 ;; *) _abl_bad="" ;; esac
@@ -1353,17 +1357,24 @@ kit_ablation_check() {
 # ── kit_board_property_check <repo> <old-rev> <new-rev> [<card-rel> <card-dest-rel>] ───────────
 # _bpc_run_arm <hits-file> <only-list> <function> <tree> [<arg>] — one arm, in a subshell with
 # `set -e` off (the arms are written for a caller without it), its findings appended to <hits-file>.
+# The arm reads byte-wise (LC_ALL=C), and it ANSWERED only if it ran to its end — the subshell writes
+# <hits-file>.done after the function returns — and none of its awk calls failed (<hits-file>.fail,
+# written by lib/board-properties.sh's _bp_awk). An arm that did not answer is added to _BPC_DEAD:
+# "found nothing" and "could not read" are not the same state, and only the first may pass.
+_BPC_DEAD=""
 _bpc_run_arm() {
   local out="$1" only="$2"
   shift 2
-  : > "$out"
-  ( set +e; KIT_BP_HITS_FILE="$out"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>&1 ) || true
+  : > "$out"; rm -f "$out.done" "$out.fail"
+  ( set +e; export LC_ALL=C; KIT_BP_HITS_FILE="$out"; KIT_BP_FAIL_FILE="$out.fail"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>&1; : > "$out.done" ) || true
+  if [ ! -f "$out.done" ] || [ -s "$out.fail" ]; then _BPC_DEAD="${_BPC_DEAD}${_BPC_DEAD:+ }${out##*/}"; fi
+  return 0
 }
 
 # _bpc_new_findings <base-hits> <new-hits> — the text of each finding in <new-hits> that carries a
 # key <base-hits> does not.
 _bpc_new_findings() {
-  awk -F'\t' -v US="$KIT_BP_US" -v bf="$1" '
+  LC_ALL=C awk -F'\t' -v US="$KIT_BP_US" -v bf="$1" '
     FILENAME == bf { n = split($1, k, US); for (i = 1; i <= n; i++) base[k[i]] = 1; next }
     { n = split($1, k, US); for (i = 1; i <= n; i++) if (!(k[i] in base)) { print $2; break } }
   ' "$1" "$2"
@@ -1376,6 +1387,7 @@ kit_board_property_check() {
   local old_sha new_sha arm base new first_rule="" msg=() ran="" skipped="" kept=0 n
   local -a cols
 
+  _BPC_DEAD=""
   scratch="$(mktemp -d "${TMPDIR:-/tmp}/board-props.XXXXXX" 2>/dev/null || true)"
   if [ -z "$scratch" ]; then
     kit_refuse 1 board-property-unreadable \
@@ -1536,6 +1548,13 @@ kit_board_property_check() {
       "       check-board.sh reports the same property; only a finding this landing introduces is refused," \
       "       and one already on ${old_rev} is not." \
       "Next: correct each finding above in the branch's change (the card, register or PRD it names), commit and push, then re-run the command that refused. A finding that is a ruling nobody has made is not yours to invent: ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
+      "       NOTHING WAS CHANGED."
+  fi
+  if [ -n "$_BPC_DEAD" ]; then
+    kit_refuse 1 board-property-unreadable \
+      "Error: the board-property check could not read the board for: ${_BPC_DEAD} (a reader exited early or failed on a card, a register or CORPUS.md) — it will not report PASS for an arm that did not answer." \
+      "       base.<arm> is the trunk's tree and new.<arm> the landed one; d is [d], i [i], l [l], p [p], r [r], q [q] of check-board.sh." \
+      "Next: run ./scripts/check-board.sh and read what it prints for the arms named above; repair the file it cannot read, commit, then re-run the command that refused. If it names nothing, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
   echo "BOARD_PROPERTY_CHECK: PASS — ran: ${ran:-none}; property untouched, not run: ${skipped:-none}; finding(s) already on ${old_rev} and not refused: ${kept}."

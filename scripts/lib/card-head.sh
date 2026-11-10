@@ -44,7 +44,7 @@ kit_rehead_card() {
   body="${card}.rehead"
   # Two comment blocks are the template's, not the card's: the classification marker and the
   # LINKS declaration (addressed to whoever maintains the template; the self-test reads it there).
-  awk '
+  LC_ALL=C awk '
     /^<!-- (KIT-CLASS:|LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS)/ { if (!/-->/) skip = 1; next }
     skip && /-->/      { skip = 0; next }
     skip              { next }
@@ -64,7 +64,7 @@ kit_rehead_card() {
 # in the H1 (the first `# ` line, up to its ` — `) and the date of the seed Activity entry (the
 # LAST `- YYYY-MM-DD ` line). Values travel through ENVIRON, not `awk -v`, which expands escapes.
 kit_stamp_card() {
-  KIT_STAMP_ID="$2" KIT_STAMP_DATE="$3" awk '
+  KIT_STAMP_ID="$2" KIT_STAMP_DATE="$3" LC_ALL=C awk '
     { l[NR] = $0 }
     !h && /^# / { h = NR }
     /^- YYYY-MM-DD / { s = NR }
@@ -89,7 +89,7 @@ kit_fill_card() {
     if [ -n "$2" ]; then export "KIT_FILL_T$n=$1" "KIT_FILL_V$n=$2"; n=$((n + 1)); fi
     shift 2
   done
-  KIT_FILL_N="$n" awk '
+  KIT_FILL_N="$n" LC_ALL=C awk '
     BEGIN { n = ENVIRON["KIT_FILL_N"] + 0
             for (i = 0; i < n; i++) { t[i] = ENVIRON["KIT_FILL_T" i]; v[i] = ENVIRON["KIT_FILL_V" i] } }
     fm < 2 { if ($0 == "---") fm++; print; next }
@@ -165,7 +165,7 @@ kit_card_fragments() {
   # The three placements and the strip, in one pass over the card. The texts travel through ENVIRON,
   # since awk -v expands escapes; the slots arrive as <slot> US <text>, separated by RS, a text's newlines
   # carried as GS (macOS awk splits on a newline when asked to split on another separator).
-  KIT_FRAG_SLOTS="$slot_texts" KIT_FRAG_FM="$fm" KIT_FRAG_BE="$be" awk '
+  KIT_FRAG_SLOTS="$slot_texts" KIT_FRAG_FM="$fm" KIT_FRAG_BE="$be" LC_ALL=C awk '
     function lines(t, arr,   n) { n = split(t, arr, "\n"); return n }
     function trim_end(arr, n) { while (n > 0 && arr[n] == "") n--; return n }
     { L[NR] = $0 }

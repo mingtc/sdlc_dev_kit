@@ -326,6 +326,14 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    stays one option away and the folded line names that option. The shipped report folds by default and
    prints the full one under `--full`. A verdict that is not clean while no arm printed a finding line is said to be set by an arm that printed none, and the deciding arms print in full. The graduation arm keeps its verdict and `hooks:` lines when the
    rest of it folds, because the day-one checklist and the manual send a session to them.
+7. **No answer is not a pass.** A check that selected nothing, could not read its input, or whose library is
+   absent or half loaded says *did not run*, with a `⚠` line, and does not let the verdict read `clean`, `PASS`
+   or `✓`. The readers therefore read byte-wise (`LC_ALL=C`, so a byte the locale cannot decode is not a
+   crash that reads as no finding), a reader that failed marks its arm as not run, and a gate that ran no
+   check refuses. *Why:* "found nothing" and "could not read" otherwise print the same words, and the
+   verdict becomes a claim about files nobody opened. The landing's board-property check refuses
+   `board-property-unreadable` for an arm that did not answer, and `verify.sh --quick` refuses a table whose
+   every gate is class `full`.
 
 ## 5. MINIMAL INTERFACE
 
