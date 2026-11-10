@@ -170,6 +170,9 @@ case_verify_quick_with_no_gate_selected_refuses() {
   make_sandbox
   local V="$SB_WORK/scripts/verify.sh" out rc id="$SB_PREFIX-891"
   awk '{print} /^GATES=\($/{print "  \"only|full|true\""}' "$V" > "$SB_TMP/v.sh" && cat "$SB_TMP/v.sh" > "$V"
+  # the sandbox's own gate is class select: make it full too, so no declared gate is one --quick runs
+  sed -i.bak 's#|select|/bin/echo sandbox-gate-green#|full|/bin/echo sandbox-gate-green#' "$V"; rm -f "$V.bak"
+  /usr/bin/grep -F 'sandbox gate|full|' "$V" >/dev/null || _fixture_die "case_verify_quick_with_no_gate_selected_refuses: the sandbox gate was not reclassed to full"
   out="$( cd "$SB_WORK" && ./scripts/verify.sh --quick 2>&1 )"; rc=$?
   [ "$rc" -eq 2 ] || cf "(a) --quick over a table whose only gate is class full exited $rc, not 2: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
   case "$out" in *"Next:"*"core"*) : ;; *) cf "(a) the refusal does not name the class column in a Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
@@ -181,7 +184,7 @@ case_verify_quick_with_no_gate_selected_refuses() {
   seed_issue dev_complete "$id" quick chore "Quick selects nothing" "feature/$id-quick"
   publish_sandbox
   seed_branch "$id" quick CHANGE891.txt
-  out="$( cd "$SB_WORK" && env FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true KIT_PROGRESS_DIR="$SB_TMP/rec-q" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-q" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(c) finish-pr.sh landed with a pre-merge --quick that ran no gate: $(printf '%s' "$out" | /usr/bin/grep -E 'pre-merge|GATE' | head -3 | tr '\n' '|')"
   origin_has_path "CHANGE891.txt" && cf "(c) the branch was merged although the pre-merge gate ran nothing"
   finish "verify.sh --quick refuses (exit 2, a Next naming the class column) when every declared gate is class full, the full run and a core gate are unchanged, and finish-pr.sh does not land on a pre-merge gate that ran nothing"
