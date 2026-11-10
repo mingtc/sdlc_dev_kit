@@ -19,7 +19,7 @@ _nr_shim_awk() {
 }
 
 # _nr_have_utf8 — the UTF-8 locale the byte rows need is installed.
-_nr_have_utf8() { locale -a 2>/dev/null | grep -ix 'en_US.UTF-8' >/dev/null; }
+_nr_have_utf8() { [ -n "$(_nr_utf8_locale)" ]; }
 
 # =============================================================================
 # CASE — THE LANDING REFUSES A BOARD-PROPERTY ARM THAT DID NOT ANSWER.
@@ -61,13 +61,15 @@ case_board_property_check_refuses_an_arm_that_did_not_answer() {
     sbcommit -m "[Dev] $id: a byte in the stray card's title" --quiet >/dev/null 2>&1
     git -C "$SB_WORK" push -q origin "feature/$id-notrun" >/dev/null 2>&1
     git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
-    export LC_ALL=en_US.UTF-8
+    export LC_ALL="$(_nr_utf8_locale)"
     _bpf_land "$id"
     unset LC_ALL
     [ "$_BPF_RC" -ne 0 ] || cf "(c) a stray card with an undecodable byte in a UTF-8 locale landed: $(printf '%s' "$_BPF_OUT" | grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
     origin_has_path "BP-$id.txt" && cf "(c) the branch was merged over an undecodable byte"
     # refused AS THE FINDING (the arm read the card byte-wise), not merely as an arm that could not read it
     case "$_BPF_OUT" in *DISAGREES*) : ;; *) cf "(c) the refusal does not carry the stray card's finding (DISAGREES): $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  else
+    echo "  NOT RUN: no UTF-8 locale installed (locale -a lists none) — row (c), the undecodable byte, did not execute"
   fi
 
   finish "the landing refuses a board-property arm that did not answer — an awk that fails inside the arm refuses as board-property-unreadable with a Next, and a card holding a byte the locale cannot decode still has its finding found — never BOARD_PROPERTY_CHECK: PASS over an arm that read nothing"
@@ -103,8 +105,10 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
     perl -i -pe 'BEGIN{binmode(STDIN);binmode(STDOUT)} s/^title: .*/"title: caf\xe9"/e' "$SB_WORK/progress/todo/$SB_PREFIX-871-stray.md"
     git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -m "[PM] a byte in the title" --quiet >/dev/null 2>&1
     git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
-    out="$(LC_ALL=en_US.UTF-8 cb_run)"
+    out="$(LC_ALL="$(_nr_utf8_locale)" cb_run)"
     printf '%s\n' "$out" | grep -F 'DISAGREES' >/dev/null || cf "(e) a byte its UTF-8 locale cannot decode hid the disagreeing id: $(printf '%s' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  else
+    echo "  NOT RUN: no UTF-8 locale installed (locale -a lists none) — row (e), the undecodable byte, did not execute"
   fi
   teardown
 
@@ -214,5 +218,207 @@ case_qa_verdict_shadow_check_fail_token_refuses() {
     || cf "no progress record carries refusal=qa-verdict-fail: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
   origin_has_path "CHANGE857.txt" && cf "the branch was merged before the refusal"
   finish "finish-pr.sh reads a FAIL_AC or FAIL_REGRESSION token on the shadow-check row as a FAIL row (refusal=qa-verdict-fail), where it used to continue past the row before the verdict was read"
+  teardown
+}
+
+# _nr_utf8_locale — prints the name of an installed UTF-8 locale (en_US first), or nothing. The byte
+# rows need one; a row that has none says so rather than passing silently.
+_nr_utf8_locale() {
+  local l
+  for l in en_US.UTF-8 en_US.utf8 C.UTF-8 C.utf8; do
+    if locale -a 2>/dev/null | grep -ix "$l" >/dev/null; then printf '%s' "$l"; return 0; fi
+  done
+  l="$(locale -a 2>/dev/null | grep -iE '\.utf-?8$' | head -n 1)"
+  printf '%s' "$l"
+}
+
+# =============================================================================
+# CASE — A LIBRARY THAT STOPPED PART WAY IS NOT A CLEAN ANSWER, ONE LEVEL DOWN.
+# card-field.sh cut before kit_card_list leaves the board-property arms loading and calling a
+# function that is not there. The landing must refuse it (board-property-unreadable) and the
+# report must say DID NOT RUN, never PASS and never `board-drift: clean`.
+# =============================================================================
+case_a_half_loaded_dependency_library_is_not_a_clean_answer() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  local lib="$SB_WORK/scripts/lib/card-field.sh" cut out
+  cut="$(grep -n '^kit_card_list()' "$lib" | head -n 1 | cut -d: -f1)"
+  [ -n "$cut" ] || _fixture_die "case_a_half_loaded_dependency_library_is_not_a_clean_answer: kit_card_list() not found in the sandbox's card-field.sh"
+  head -n "$((cut - 1))" "$lib" > "$SB_TMP/cf.cut" && cat "$SB_TMP/cf.cut" > "$lib"
+  bash -n "$lib" || _fixture_die "case_a_half_loaded_dependency_library_is_not_a_clean_answer: the truncated card-field.sh does not parse"
+  _bpf_card_file "$SB_WORK/progress/todo/$SB_PREFIX-903-target.md" "$SB_PREFIX-903"
+  seed_issue todo "$SB_PREFIX-904" fine chore "A well-formed card" >/dev/null
+  publish_sandbox
+
+  local id="$SB_PREFIX-902"
+  _bpf_begin "$id" halfload
+  _bpf_card_file "$SB_WORK/progress/todo/$SB_PREFIX-905-blocker.md" "$SB_PREFIX-905" "blocks: [$SB_PREFIX-903]"
+  _bpf_end "$id" halfload
+  _bpf_land "$id"
+  [ "$_BPF_RC" -ne 0 ] || cf "(a) a landing over a half-loaded card-field.sh exited 0: $(printf '%s' "$_BPF_OUT" | grep BOARD_PROPERTY | head -2 | tr '\n' '|')"
+  origin_has_path "BP-$id.txt" && cf "(a) the branch was merged over a half-loaded library"
+  case "$_BPF_OUT" in *"board-property-unreadable"*|*"could not read the board"*|*"not ready"*) : ;; *) cf "(a) the refusal does not say the check could not read: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null && cf "(b) the report reads clean over a half-loaded card-field.sh"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null || cf "(b) the report does not say an arm DID NOT RUN over a half-loaded card-field.sh"
+  finish "a dependency library cut at a function boundary (kit_card_list undefined) makes the landing refuse and the report say DID NOT RUN, the same answer as a half-loaded board-properties.sh"
+  teardown
+}
+
+# =============================================================================
+# CASE — A [+name] ARM RUNS IN THE CALLER'S LOCALE. The report reads byte-wise, but an arm in
+# scripts/check-board.d is the project's own command and must see the locale it was launched in.
+# =============================================================================
+case_check_board_arm_keeps_the_callers_locale() {
+  cf_reset
+  local loc out
+  loc="$(_nr_utf8_locale)"
+  if [ -z "$loc" ]; then
+    echo "  NOT RUN: no UTF-8 locale installed (locale -a lists none) — the caller's-locale row did not execute"
+    finish "check-board.sh's [+name] arms keep the caller's locale — NOT RUN here: no UTF-8 locale is installed"
+    return 0
+  fi
+  make_sandbox
+  publish_sandbox
+  mkdir -p "$SB_WORK/scripts/check-board.d"
+  {
+    printf '# check-board-arm: advisory\n'
+    printf "if printf 'ÉTÉ' | grep -qi 'été'; then echo '      locale-arm: caller-locale match yes'; else echo '      locale-arm: caller-locale match no'; fi\n"
+  } > "$SB_WORK/scripts/check-board.d/50-locale.sh"
+  out="$(LC_ALL="$loc" cb_run)"
+  printf '%s\n' "$out" | grep -F 'locale-arm: caller-locale match yes' >/dev/null \
+    || cf "an advisory arm launched under $loc did not see that locale (grep -i on non-ASCII text): $(printf '%s' "$out" | grep -F 'locale-arm' | head -2 | tr '\n' '|')"
+  finish "check-board.sh restores the caller's locale for a check-board.d arm, so a project's own arm answers as it does outside the report"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE REFUSAL FOR AN ARM THAT DID NOT ANSWER NAMES THE FILE, AND A TRUNK-SIDE FAILURE IS
+# NOT BLAMED ON THE BRANCH. (a) the awk fails only on the landed tree and says which file it
+# could not open: the refusal carries that line. (b) the awk fails only on the trunk's own tree:
+# the refusal is board-property-unreadable, not the finding the trunk "newly" shows.
+# =============================================================================
+case_board_property_refusal_names_the_file_and_the_side() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  publish_sandbox
+  local id="$SB_PREFIX-911" oldp="$PATH" shim="$SB_TMP/shim2"
+  _bpf_begin "$id" side
+  _bpf_card_file "$SB_WORK/progress/todo/$SB_PREFIX-912-stray.md" "$SB_PREFIX-919"
+  _bpf_end "$id" side
+  mkdir -p "$shim"
+
+  # (a) fails on the landed tree only (the tree that holds the branch's marker file).
+  {
+    printf '#!/bin/sh\n'
+    printf 'case " $* " in *" scan="*) ;; *) exec /usr/bin/awk "$@" ;; esac\n'
+    printf 'for a in "$@"; do case "$a" in root=*) r="${a#root=}" ;; esac; done\n'
+    printf 'if [ -e "${r}BP-%s.txt" ]; then echo "awk: cannot open file ${r}progress/todo/shimmed-file.md" >&2; exit 2; fi\n' "$id"
+    printf 'exec /usr/bin/awk "$@"\n'
+  } > "$shim/awk"; chmod +x "$shim/awk"
+  export PATH="$shim:$PATH"
+  _bpf_land "$id"
+  PATH="$oldp"
+  [ "$_BPF_RC" -ne 0 ] || cf "(a) an awk failing on the landed tree — finish-pr.sh exited 0"
+  case "$_BPF_OUT" in *"shimmed-file.md"*) : ;; *) cf "(a) the refusal does not carry the failing reader's own line naming the file: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  # (b) fails on the trunk's own tree only (the tree without the branch's marker file).
+  {
+    printf '#!/bin/sh\n'
+    printf 'case " $* " in *" scan="*) ;; *) exec /usr/bin/awk "$@" ;; esac\n'
+    printf 'for a in "$@"; do case "$a" in root=*) r="${a#root=}" ;; esac; done\n'
+    printf 'if [ ! -e "${r}BP-%s.txt" ]; then exit 2; fi\n' "$id"
+    printf 'exec /usr/bin/awk "$@"\n'
+  } > "$shim/awk"; chmod +x "$shim/awk"
+  export PATH="$shim:$PATH"
+  _bpf_land "$id"
+  PATH="$oldp"
+  [ "$_BPF_RC" -ne 0 ] || cf "(b) a trunk-side failing reader — finish-pr.sh exited 0"
+  grep -q 'refusal=board-property-unreadable' "$SB_TMP/rec-$id"/*.tsv 2>/dev/null \
+    || cf "(b) a reader that failed on the trunk's tree was not refused as board-property-unreadable (every finding already on the trunk reads as the branch's): $(cat "$SB_TMP/rec-$id"/*.tsv 2>/dev/null | grep -o 'refusal=[a-z-]*' | sort -u | tr '\n' ' ')"
+  finish "the unreadable-arm refusal carries the reader's own error line naming the file, and an arm that died on the trunk's tree refuses as board-property-unreadable instead of putting the trunk's findings on the branch"
+  teardown
+}
+
+# =============================================================================
+# CASE — A LANDED verify.sh THAT RUNS NO GATE UNDER --quick IS READ AS COULD NOT RUN, NOT FAIL.
+# The pre-merge gate runs the trunk's copy; post-merge runs the landed one. A branch that classes
+# every gate `full` makes the second exit 2, which measured nothing.
+# =============================================================================
+case_post_merge_verify_exit_two_reads_unrunnable() {
+  cf_reset
+  make_sandbox
+  local id="$SB_PREFIX-921" V="$SB_WORK/scripts/verify.sh" out rc
+  seed_issue dev_complete "$id" reclass chore "Reclasses every gate full" "feature/$id-reclass"
+  publish_sandbox
+  git -C "$SB_WORK" checkout -q -b "feature/$id-reclass" "$SB_TRUNK" >/dev/null 2>&1
+  sed -i.bak 's#|select|/bin/echo sandbox-gate-green#|full|/bin/echo sandbox-gate-green#' "$V"; rm -f "$V.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: class every gate full" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q -u origin "feature/$id-reclass" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-pm" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the landing did not complete (rc=$rc), so the post-merge reading below was not taken: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: UNRUNNABLE' >/dev/null \
+    || cf "a post-merge verify.sh --quick that exited 2 is not POST_MERGE_GATE: UNRUNNABLE: $(printf '%s\n' "$out" | grep -E 'POST_MERGE_GATE|post-merge verify' | tr '\n' '|')"
+  finish "finish-pr.sh reads a post-merge verify.sh exit of 2 as UNRUNNABLE (nothing was measured), not as a FAIL asserting the trunk is red"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE OTHER BYTE-SENSITIVE READERS READ BYTE-WISE: the agent-record verdict section and the
+# lived-tree probe's progress.md and ARCHIVE.md readers. A \xe9 row under a UTF-8 locale stopped
+# their awk and cut what they returned short.
+# =============================================================================
+case_verdict_section_and_lived_probe_read_a_byte_wise() {
+  cf_reset
+  local loc r out
+  loc="$(_nr_utf8_locale)"
+  if [ -z "$loc" ]; then
+    echo "  NOT RUN: no UTF-8 locale installed (locale -a lists none) — the byte-wise reader row did not execute"
+    finish "the verdict-section and lived-probe readers read byte-wise — NOT RUN here: no UTF-8 locale is installed"
+    return 0
+  fi
+  make_sandbox
+  r="$SB_TMP/arrepo"
+  git init -q "$r" >/dev/null 2>&1
+  mkdir -p "$r/progress/todo"
+  { printf -- '---\nid: KIT-931\n---\n\n## QA Verdict\n\n| AC1 | PASS | caf\351 |\n| AC2 | PASS | TAILMARK |\n\n## Activity\n'; } > "$r/progress/todo/KIT-931-x.md"
+  git -C "$r" add -A >/dev/null 2>&1
+  git -C "$r" -c user.email=t@t -c user.name=t commit -q -m seed >/dev/null 2>&1
+  out="$(LC_ALL="$loc" bash -c ". '$SB_WORK/scripts/lib/agent-record.sh' && _kit_agent_verdict_section '$r' HEAD KIT-931 progress/todo" 2>/dev/null)"
+  printf '%s\n' "$out" | grep -F 'TAILMARK' >/dev/null \
+    || cf "the verdict section stops at a row holding a byte the locale cannot decode (the rows after it are lost): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  mkdir -p "$SB_TMP/lived"
+  { printf '# progress\n\n## Log\n\nfirst caf\351 line\nsecond line\n'; } > "$SB_TMP/lived/progress.md"
+  out="$(LC_ALL="$loc" bash -c ". '$SB_WORK/scripts/lib/lived-probe.sh' && kit_lived_signals '$SB_TMP/lived' 'NO_SUCH_MARK=' todo" 2>/dev/null)"
+  printf '%s\n' "$out" | grep -x 'log|2' >/dev/null \
+    || cf "the lived probe's § Log count stops at a line holding an undecodable byte (want log|2): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "the verdict-section and lived-probe readers read byte-wise, so a byte the locale cannot decode no longer cuts a verdict section or a § Log count short"
+  teardown
+}
+
+# =============================================================================
+# CASE — A mktemp THAT FAILS IS A DID NOT RUN, NOT A CLEAN ARM. The arm's reader failures are
+# recorded in a temp file; without one nothing could be said about them.
+# =============================================================================
+case_check_board_says_did_not_run_when_mktemp_fails() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-941" fine chore "A well-formed card" >/dev/null
+  publish_sandbox
+  local oldp="$PATH" shim="$SB_TMP/shim3" out
+  mkdir -p "$shim"
+  printf '#!/bin/sh\nexit 1\n' > "$shim/mktemp"; chmod +x "$shim/mktemp"
+  export PATH="$shim:$PATH"
+  out="$(cb_run)"
+  PATH="$oldp"
+  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null && cf "mktemp failing — the verdict reads clean over arms whose readers could not be watched"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null || cf "mktemp failing — no arm says it DID NOT RUN: $(printf '%s' "$out" | grep -E '^\[d\]|board-drift' | head -3 | tr '\n' '|')"
+  finish "check-board.sh says DID NOT RUN, and the verdict is not clean, when it cannot make the temp file its readers' failures are recorded in"
   teardown
 }
