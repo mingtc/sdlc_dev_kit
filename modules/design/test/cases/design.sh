@@ -1138,6 +1138,11 @@ _dm_mode() {
   local f="$SB_WORK/requirements/design/app/CANVAS.md"
   awk -v m="$1" 'NR == 1 { print; if (m != "") print "\n- **Mode:** " m; next } !/^- \*\*Mode:\*\*/ { print }' "$f" > "$f.new" && mv "$f.new" "$f"
 }
+# _dm_mode_raw <text> — insert text (awk escapes, \n) after the title in place of any Mode line: for a Mode line in a comment or a second one.
+_dm_mode_raw() {
+  local f="$SB_WORK/requirements/design/app/CANVAS.md"
+  awk -v m="$1" 'NR == 1 { print; print "\n" m; next } !/^- \*\*Mode:\*\*/ { print }' "$f" > "$f.new" && mv "$f.new" "$f"
+}
 _dm_brief() { printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-"${1:-260}"; }
 # _dm_line_has <text> <line prefix> <needle> — status 0 when a line of the text starts with the prefix and holds the needle.
 _dm_line_has() { printf '%s\n' "$1" | awk -v a="$2" -v b="$3" 'index($0, a) == 1 && index($0, b) { f = 1 } END { exit !f }'; }
@@ -1146,11 +1151,13 @@ _dm_wire_register() { printf '# Decisions\n\n### %s — the canvas is a wirefram
 _dm_wire_fixture() {
   _dm_links_fixture || return 1
   local D="$SB_WORK/requirements/design/app/project"
+  # elements whose earlier attribute holds a raw > (a title, a props JSON in single quotes): the attributes after it are still read
+  _DM_RAWGT="<dc-button title=\"Next >\" id=\"ux-001-next\" data-state=\"default\" href=\"B.dc.html\">Go</dc-button><dc-link data-props='{\"f\":\"a=>b\"}' id=\"ux-001-lnk\" data-state=\"ok\" href=\"B.dc.html\">L</dc-link>"
   _DM_DN="D-$((30 + 1))"   # built here: a decision id written out in a shipped file is read as a citation of the project's register
   _dm_wire_register
   printf 'h1 { margin: 16px }\n' > "$D/s.css"
   printf '<x-dc><header id="hdr">Header</header></x-dc>\n' > "$D/Header.dc.html"
-  _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<link rel="stylesheet" href="s.css"><script>var n = 1;</script><dc-import name="Header"></dc-import><h1 id="ux-001-title" data-props="{&quot;a&quot;:1}" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1><div id="ux-001-g1"><b id="ux-001-b1">x</b></div><i id="ux-001-i1">y</i>'
+  _dm_art "$D/A.dc.html" 001 '--color-primary: #485d92;' '<link rel="stylesheet" href="s.css"><script>var n = 1;</script><dc-import name="Header"></dc-import><h1 id="ux-001-title" data-props="{&quot;a&quot;:1}" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1><div id="ux-001-g1"><b id="ux-001-b1">x</b></div><i id="ux-001-i1">y</i>'"$_DM_RAWGT"
   _dm_commit "the screen the approval covers"; _DM_W="$_DM_SHA"
   _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$_DM_W|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   _dm_mode "wireframe [decision: $_DM_DN]"
@@ -1210,7 +1217,12 @@ case_a_wireframe_canvas_keeps_gate_1_through_a_content_edit_and_loses_it_to_a_st
     'a moved element::A.dc.html::s@</b></div><i id="ux-001-i1">y</i>@</b><i id="ux-001-i1">y</i></div>@' \
     'a data-state::A.dc.html::s@<div id="ux-001-g1">@<div id="ux-001-g1" data-state="a">@' \
     'a changed link::A.dc.html::s@B.dc.html#top@A.dc.html@' \
-    'an imported screen gaining an element::Header.dc.html::s@</header>@</header><nav id="nv"></nav>@'; do
+    'an imported screen gaining an element::Header.dc.html::s@</header>@</header><nav id="nv"></nav>@' \
+    'a rename after a raw > in a title::A.dc.html::s@ux-001-next@ux-001-go@' \
+    'a data-state after a raw > in a title::A.dc.html::s@data-state="default"@data-state="error"@' \
+    'a link after a raw > in a title::A.dc.html::s@href="B.dc.html">Go@href="C.dc.html">Go@' \
+    'a rename after a raw > in single-quoted props::A.dc.html::s@ux-001-lnk@ux-001-go2@' \
+    'a data-state after a raw > in single-quoted props::A.dc.html::s@data-state="ok"@data-state="bad"@'; do
     name="${e%%::*}"; e="${e#*::}"; file="${e%%::*}"; expr="${e#*::}"
     _dm_edit "$D/$file" "$expr"; _dm_commit "structure: $name"
     _dm_py scripts/design/check-design-links.py --strict
@@ -1264,6 +1276,15 @@ case_the_wireframe_mode_needs_a_confirmed_ruling_and_is_named_in_the_checks_outp
   _dm_mode "none"; _dm_commit "mode none"
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && ! _dm_has "$_dm_out" "WAIVER" && ! _dm_has "$_dm_out" "REGISTRY" && ! _dm_has "$_dm_out" "MODE  "; } || cf "(g) Mode none is not the plain default model (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode_raw "<!--\n- **Mode:** wireframe [decision: $_DM_DN]\n-->"; _dm_commit "a Mode line in a comment"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && ! _dm_has "$_dm_out" "MODE  " && ! _dm_has "$_dm_out" "WAIVER"; } || cf "(h) a Mode line inside an HTML comment puts the mode in effect (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode_raw "- **Mode:** wireframe [decision: $_DM_DN]\n- **Mode:** none"; _dm_commit "two Mode lines that disagree"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "REGISTRY" "contradicts" && _dm_has "$_dm_out" "Next: keep one Mode line" && _dm_has "$_dm_out" "STALE-APPROVAL" && ! _dm_has "$_dm_out" "MODE  "; } || cf "(i) a second Mode line that contradicts the first is not a REGISTRY finding with a Next, read by the default model (exit $_dm_rc): $(_dm_brief)"
+  _dm_mode_raw "- **Mode:** wireframe [decision: $_DM_DN]\n- **Mode:** wireframe [decision: $_DM_DN]"; _dm_commit "two Mode lines that agree"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "MODE" "wireframe ($_DM_DN)" && ! _dm_has "$_dm_out" "REGISTRY"; } || cf "(j) two Mode lines that say the same are refused (exit $_dm_rc): $(_dm_brief)"
   finish "$L"
   teardown
 }
@@ -1302,6 +1323,10 @@ case_a_wireframe_canvas_judges_no_gate_2_and_shows_what_it_does_not_count() {
   _dm_edit "$D/B.dc.html" 's@</h1>@</h1><p id="ux-002-x">n</p>@'; _dm_commit "UX-002 gains an element after its gate 2 approval"
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UX-002 gate2"; } || cf "(c) a stale gate 2 approval is judged in a wireframe canvas (exit $_dm_rc): $(_dm_brief)"
+  _dm_edit "$C" "s/| PRD-001-F1-S2 | open | approved@$X |/| PRD-001-F1-S2 | build | approved@$X |/"; _dm_commit "build in gate 1"
+  _dm_py scripts/design/check-design-links.py --strict
+  { _dm_line_has "$_dm_out" "GATE-CELL" "UX-002 gate1 is \`build\`" && _dm_has "$_dm_out" "gate 2 value only" && ! _dm_has "$_dm_out" "declare the mode"; } || cf "(c2) build in gate 1 of a wireframe canvas is not told it is a gate 2 value, or is told to declare a mode it has: $(_dm_brief 320)"
+  _dm_edit "$C" "s/| PRD-001-F1-S2 | build | approved@$X |/| PRD-001-F1-S2 | open | approved@$X |/"; _dm_commit "gate 1 back"
   _dm_mode ""; _dm_commit "mode off again"
   _dm_py scripts/design/check-design-links.py --strict
   { _dm_line_has "$_dm_out" "GATE-CELL" "UX-001 gate2 is \`build\`" && _dm_has "$_dm_out" "Next:" && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-002 gate2"; } || cf "(d) in a default canvas build is not a GATE-CELL finding with a Next, or a stale gate 2 is silent: $(_dm_brief 320)"
@@ -1348,6 +1373,7 @@ case_a_wireframe_canvas_still_pins_a_card_and_pin_drift_is_unchanged() {
   _dm_leaving 893; { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "NO-RENDER"; } || cf "(c) a pin to a state with no render is let through in a wireframe canvas (exit $_dm_rc): $(_dm_brief)"
   _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'; _dm_commit "a content edit after the pin"
   _dm_leaving 891; { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "0 finding(s)"; } || cf "(d) a content edit after the approval refuses the pin (exit $_dm_rc): $(_dm_brief)"
+  _dm_line_has "$_dm_out" "CONTENT-ONLY" "$SB_PREFIX-891" || cf "(d) a pin to a row whose content moved since its approval reads as a clean 0 finding(s) with no CONTENT-ONLY line: $(_dm_brief)"
   _dm_py scripts/design/pin-drift.py
   { [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#default@$v7")" = drift ] && _dm_has "$(_dm_row "$_dm_out" "$c" "UX-001#default@$v7")" "ux-001-title"; } || cf "(e) pin-drift.py does not read a content edit to a pinned state as drift naming the element: $(_dm_row "$_dm_out" "$c" "UX-001#default@$v7")"
   _dm_edit "$D/A.dc.html" 's@</h1>@</h1><p id="ux-001-hint">Hint</p>@'; _dm_commit "a structural edit"
@@ -1406,10 +1432,39 @@ case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
     _dm_has "$text" "\`$a\`" || cf "(b) the README does not name \`$a\`, which the checker leaves out of structure"
   done
   IFS=$' \t\n'
+  _dm_has "$(cat "$M/_claude/templates/design/QA-verdict-design.fragment.md")" "at the pin commit" || cf "(d) the QA fragment does not say the mode is read at the pin commit"
   for f in _claude/roles/designer.md _claude/templates/design/QA-verdict-design.fragment.md _claude/templates/design/CANVAS.template.md; do
     _dm_has "$(cat "$M/$f")" "wireframe" || cf "(c) $f does not name the wireframe mode"
   done
   finish "$L"
+}
+
+# =============================================================================
+# CASE — THE CARD GATE LETS A CARD THROUGH THAT IS PINNED TO A ROW WHOSE CONTENT MOVED (A REPORT LINE, NOT A FINDING), AND TAKES ITS LIST OF
+#   REPORT CLASSES FROM THE CHECKER.
+#   Operand: scripts/move-issue.sh over a wireframe canvas whose approved row had a text edit since, and check-design-links.py
+#   --report-classes. The card moves; the checker names the four classes of the mode among its report classes; the hook holds no list of its own.
+# =============================================================================
+case_the_card_gate_passes_a_pin_to_a_content_only_row_and_reads_the_report_classes_from_the_checker() {
+  cf_reset
+  local L="the board mover lets a card pinned to a wireframe row whose text changed since its approval into in_progress/ (the link check prints a CONTENT-ONLY report line for the pin), and the card gate takes its report classes from check-design-links.py --report-classes, which lists MODE, CONTENT-ONLY, UNCOVERED-WIRE and STALE-PENDING-WIRE"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" id
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'
+  _dm_land "a text edit after the approval"
+  _dm_seed 841 "design: [UX-001#default@$_DM_V]"; id="$_DM_CARD"
+  _dm_gate_move "$id" PM
+  [ "$_dm_rc" -eq 0 ] || cf "(a) a card pinned to a wireframe row whose text changed since its approval is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/in_progress/$id-gate.md" || cf "(a) the card did not reach in_progress/ on the trunk"
+  _dm_py scripts/design/check-design-links.py --report-classes
+  local c
+  for c in MODE CONTENT-ONLY UNCOVERED-WIRE STALE-PENDING-WIRE UNCITED DESIGN-STORY; do
+    _dm_has "|$_dm_out|" "|$c|" || cf "(b) --report-classes does not list $c: $_dm_out"
+  done
+  _dm_has "$(cat "$REAL_REPO_ROOT/modules/design/move-check.d/50-design-pin.sh")" "DESIGN-STORY" && cf "(c) the card gate holds a list of report classes of its own"
+  finish "$L"
+  teardown
 }
 
 # =============================================================================
