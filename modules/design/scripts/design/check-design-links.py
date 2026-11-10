@@ -130,7 +130,9 @@ MODES = ('', 'none', 'wireframe')
 # The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
 # attribute nobody listed here moves the structure and sends the row back to review.
 STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
-TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)([^<>]*)>')
+# quote-aware: a `>` inside a quoted attribute value does not end the tag (TAG, which tags_of and the default model read, is not)
+TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:"[^"]*"|\'[^\']*\'|[^\'"<>])*)>')
+TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 META_B = re.compile(rb' data-stories="[^"]*"')
 
 META = re.compile(r' data-stories="[^"]*"')
@@ -248,7 +250,10 @@ def approval_problems(root, r, gates=None):
             continue
         m = GATE_CELL.fullmatch(val)
         if not m:
-            more = '; `build` is valid only in a canvas whose Mode line is wireframe. Next: set it to open, or declare the mode with a ruling' if val == 'build' else ''
+            more = ''
+            if val == 'build':
+                more = ('; `build` is a gate 2 value only. Next: set gate1 to open or approved@<sha>' if gate == 'gate1' else
+                        '; `build` is valid only in a canvas whose Mode line is wireframe. Next: set it to open, or declare the mode with a ruling')
             out.append(('GATE-CELL', f"{r['where']}: {r['ux']} {gate} is `{val or 'empty'}`, not open, changes, superseded or approved@<sha>{more}"))
             continue
         if not val.startswith('approved') or (wire and gate == 'gate2'):
@@ -298,8 +303,15 @@ def structure(markup):
     out), each start tag with its attributes except STRUCT_IGNORED, in sorted order. Text is dropped, so a change of wording, a number
     or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
     h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
-    out = []
-    for m in TAG_ANY.finditer(h):
+    out, end = [], 0
+    for o in TAG_OPEN.finditer(h):
+        if o.start() < end:
+            continue                                  # inside a tag already read
+        m = TAG_ANY.match(h, o.start())
+        if m is None:                                 # a tag this reader cannot parse keeps its raw text, so it errs toward a reset
+            out.append(('?', h[o.start():o.start() + 200]))
+            continue
+        end = m.end()
         if m.group(1):
             out.append(('/', m.group(2).lower()))
         else:
@@ -858,12 +870,14 @@ def read_registry(canvas_md, root):
 
 
 def read_mode(text):
-    """-> (mode word, [D-NN cited], line number) of the canvas's `- **Mode:**` header line outside code fences, or ('', [], 0)."""
+    """-> [(mode word, [D-NN cited], line number)] for each `- **Mode:**` header line outside code fences and HTML comments."""
+    text = HTML_COMMENT.sub(lambda m: '\n' * m.group(0).count('\n'), text)
+    out = []
     for n, ln in fence_scan(text)[0]:
         m = MODE_LINE.match(ln)
         if m:
-            return re.match(r'[`*_ ]*([A-Za-z-]*)', WAIVER_MARK.sub('', m.group(1))).group(1).lower(), WAIVER_MARK.findall(m.group(1)), n
-    return '', [], 0
+            out.append((re.match(r'[`*_ ]*([A-Za-z-]*)', WAIVER_MARK.sub('', m.group(1))).group(1).lower(), WAIVER_MARK.findall(m.group(1)), n))
+    return out
 
 
 def parse_registry(text, label, canvas):
@@ -872,7 +886,13 @@ def parse_registry(text, label, canvas):
     add columns (pair, gate1, gate2) or keep the single `status`."""
     rows, problems, cols = [], [], None
     fs = full_story()
-    mode, mode_ids, mode_line = read_mode(text)
+    modes = read_mode(text)
+    mode, mode_ids, mode_line = modes[0] if modes else ('', [], 0)
+    diff = [x for x in modes[1:] if (x[0], sorted(x[1])) != (mode, sorted(mode_ids))]
+    if diff:
+        problems.append(f'{label}:{diff[0][2]}: a second Mode line contradicts the one at line {mode_line}, so the canvas is read by the default model. '
+                        f'Next: keep one Mode line')
+        mode, mode_ids = '', []
     if mode not in MODES:
         problems.append(f'{label}:{mode_line}: Mode `{mode}` is not none or wireframe, so the canvas is read by the default model. Next: write the Mode line as `wireframe [decision: D-NN]`, or `none`')
         mode = ''
@@ -1349,7 +1369,9 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('NOT-APPROVED', f"{where}: {ux} gate1 is `{g1 or 'absent'}`, not approved@<sha>, and the design: line carries no waiver the register confirms"))
             elif sha and not waived:
                 for cls, text in approval_problems(root, row, ('gate1',)):
-                    if cls != 'CONTENT-ONLY':
+                    if cls == 'CONTENT-ONLY':
+                        out.append(line('CONTENT-ONLY', f"{where}: {tag} is pinned to an approved row whose text, numbers or styles changed since the approval; its structure is as approved (mode wireframe, info)"))
+                    else:
                         out.append(line(cls, text.replace(f"{row['where']}:", f'{where}:', 1)))
                 if pin_ok and is_commit(root, sha.group(1)) and not is_ancestor(root, sha.group(1), pin) and not waived:
                     out.append(line('PIN-ORDER', f'{where}: pin @{pin[:7]} of {tag} is older than the approval @{sha.group(1)[:7]} of its row'))
@@ -1371,7 +1393,11 @@ def main(argv):
     ap.add_argument('--strict', action='store_true')
     ap.add_argument('--head', default='HEAD', metavar='REV', help='the revision an approval is compared with (default HEAD)')
     ap.add_argument('--leaving', metavar='CARD', action='append', default=[])
+    ap.add_argument('--report-classes', action='store_true', help='print the classes that are report lines, not findings, separated by |, and exit')
     a = ap.parse_args(argv[1:])
+    if a.report_classes:
+        print('|'.join(REPORT_CLASSES))
+        return 0
     global REGISTRY_NAME, PROJECT_SUBDIR, HEAD_REV
     REGISTRY_NAME, PROJECT_SUBDIR, HEAD_REV = a.registry_name, a.project_subdir, a.head
     root = Path(a.root).resolve()

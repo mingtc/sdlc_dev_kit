@@ -32,7 +32,10 @@ out="$( cd "$scratch" && GIT_DIR="$gitdir" PYTHONDONTWRITEBYTECODE=1 python3 scr
 rc=$?
 # an answer is the tool's own summary line; no line, or a status that is neither 0 nor 1, is a tool that did not run
 case "$rc" in 0|1) printf '%s\n' "$out" | grep -q '^design-links: ' || { printf '%s\n' "$out" | tail -3; broken "scripts/design/check-design-links.py exited $rc without its summary line." "read what it printed above, fix the design record or the tool, then move $id again."; } ;; esac
-found="$(printf '%s\n' "$out" | grep -v '^design-links:' | grep -E '^[A-Z][A-Z-]+ ' | grep -vE '^(UNCITED|UNCLASSIFIED|SCRIPT-COLOUR|UNREAD|UNCOMPARED|DESIGN-STORY) ' | sed "s#progress/todo/#progress/$from/#" || true)"
+# the classes that are report lines, not findings, are the tool's own list
+reports="$( cd "$scratch" && PYTHONDONTWRITEBYTECODE=1 python3 scripts/design/check-design-links.py --report-classes 2>/dev/null </dev/null )" || reports=''
+[ -n "$reports" ] || broken "scripts/design/check-design-links.py on the trunk does not list its report classes." "commit and push the design module's current files (./scripts/module.sh status design), then move $id again."
+found="$(printf '%s\n' "$out" | grep -v '^design-links:' | grep -E '^[A-Z][A-Z-]+ ' | grep -vE "^($reports) " | sed "s#progress/todo/#progress/$from/#" || true)"
 [ "$mode" = full ] || found="$(printf '%s\n' "$found" | grep -E '^(UNPINNED|BARE-PIN|DESIGN-KEY|DESIGN-NONE|DESIGN-MISSING) ' || true)"
 case "$rc" in
   0|1) [ -n "$found" ] || exit 0
