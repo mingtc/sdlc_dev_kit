@@ -1387,6 +1387,32 @@ case_switching_a_canvas_mode_rejudges_its_approvals_and_rewrites_none() {
 }
 
 # =============================================================================
+# CASE — THE DOCS NAME THE WIREFRAME MODE AND THE ATTRIBUTES THE CHECKER LEAVES OUT OF STRUCTURE, ONE LIST CITED FROM THE OTHER.
+#   Operand: the module's own files. The checker's STRUCT_IGNORED is read out of the script; every name in it is in the README's
+#   Wireframe mode section, and the README, the Designer role, the QA fragment and the canvas template each name the Mode line.
+# =============================================================================
+case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
+  cf_reset
+  local L="the design module's README names the Mode line and every attribute the checker's STRUCT_IGNORED leaves out of a wireframe canvas's structure, and the Designer role, the QA fragment and the canvas template name the wireframe mode"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  local M="$REAL_REPO_ROOT/modules/design" ign a f text
+  ign="$(sed -n "s/^STRUCT_IGNORED = (\(.*\))\$/\1/p" "$M/scripts/design/check-design-links.py" | tr -d "' ")"
+  [ -n "$ign" ] || cf "(prereq) the checker has no STRUCT_IGNORED list this case can read"
+  text="$(cat "$M/requirements/design/README.md")"
+  _dm_has "$text" "### Wireframe mode" || cf "(a) the README has no Wireframe mode section"
+  _dm_has "$text" '`- **Mode:** wireframe [decision: D-NN]`' || cf "(a) the README does not give the Mode line"
+  local IFS=,
+  for a in $ign; do
+    _dm_has "$text" "\`$a\`" || cf "(b) the README does not name \`$a\`, which the checker leaves out of structure"
+  done
+  IFS=$' \t\n'
+  for f in _claude/roles/designer.md _claude/templates/design/QA-verdict-design.fragment.md _claude/templates/design/CANVAS.template.md; do
+    _dm_has "$(cat "$M/$f")" "wireframe" || cf "(c) $f does not name the wireframe mode"
+  done
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — THE TOOLS READ WHAT A REAL PULL HOLDS: A :ROOT VALUE IS HELD TO ITS TOKEN, A NEW STATE IS NOT A CHANGE, A SHEET THE TOOLS
 #   CANNOT READ IS SAID, A ROOT-RELATIVE SHEET IS READ, A STATE LOADS WHAT ITS OWN MARKUP LOADS, A SHEET'S OWN PROPERTIES ARE NOT "NO TOKEN".
 #   Operand: scripts/design/check-design-links.py and scripts/design/pin-drift.py over a canvas shaped like a real export (a helmet with
