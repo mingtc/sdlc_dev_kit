@@ -106,8 +106,10 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
   fi
   teardown
 
-  # (c)+(d): a clean trunk, so any `clean` is a claim over nothing.
+  # (c)+(d): a clean trunk with one well-formed card (arm [d] reads cards only when there is one), so
+  # any `clean` is a claim over nothing.
   make_sandbox
+  seed_issue todo "$SB_PREFIX-873" fine chore "A well-formed card" >/dev/null
   publish_sandbox
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(c0) control: a clean sandbox does not read clean: $(printf '%s' "$out" | /usr/bin/grep '⚠' | head -3 | tr '\n' '|')"
@@ -121,6 +123,7 @@ case_check_board_does_not_read_clean_over_a_check_that_did_not_run() {
   teardown
 
   make_sandbox
+  seed_issue todo "$SB_PREFIX-873" fine chore "A well-formed card" >/dev/null
   publish_sandbox
   _nr_shim_awk "$SB_TMP/shim"
   export PATH="$SB_TMP/shim:$PATH"
