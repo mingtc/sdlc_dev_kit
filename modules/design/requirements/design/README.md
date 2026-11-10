@@ -120,7 +120,9 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   carries in `design:`, both images are PNGs committed on the trunk (by Dev or the project's tooling, never by QA's leaf worker), the build image is
   not the pin image, and the pin image is the render the pin commit holds for that screen and state. A card cannot reach
   `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites. For a pin to a wireframe canvas
-  `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared (§ 6).
+  `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared (§ 6). Whether
+  a pin is to a wireframe canvas is read at the pin commit: its `CANVAS.md` there carries the Mode line and `requirements/DECISIONS.md`
+  there holds the ruling it cites (the link check, run in a checkout of the pin, prints a `MODE` line for it). Without both, compare as the default.
 
 ## 6. Fidelity: one artifact, two gates
 
@@ -161,11 +163,11 @@ row (its title cell), the same marker and the same register as a card's waiver o
 
 A canvas that is a wireframe of flow and content, kept current as part of the PRD, with the build as the visual anchor, says so in its
 header: `- **Mode:** wireframe [decision: D-NN]`. Without the mode such a canvas is either frozen, to keep its approvals, or its
-approvals reset at every sync until they mean nothing. The decision is a ruling `requirements/DECISIONS.md` holds with a current
-ruling (the check a waiver gets); without one the mode is not in effect and the link check reports `WAIVER`. No line, or `none`, is the
+approvals reset at every sync until they mean nothing. The decision is an entry of `requirements/DECISIONS.md` whose Ruling is not
+WITHDRAWN (the check a waiver gets); without one the mode is not in effect and the link check reports `WAIVER`. No line, or `none`, is the
 default model above; any other value is a `REGISTRY` finding. The mode is per canvas.
 
-- **Gate 1 is structure and flow**: the screens, their states, the elements that carry an id, and the links. It is approved per
+- **Gate 1 is structure and flow**: the screens, their states, every element (its ids, states and links among its attributes), and the flow. It is approved per
   **round**. A round is one Designer take-in commit; the human approves once for the rows that read `STALE-APPROVAL` or `open` after it,
   and the Designer writes that commit's sha as `approved@<sha>` into those rows only. A row whose structure did not move stays
   approved at its older sha.
@@ -174,11 +176,12 @@ default model above; any other value is a `REGISTRY` finding. The mode is per ca
   `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy), classes, styles, a sheet, a
   token, an image, the component script and its props are content: the approval stands, and the link check lists the row on one
   `CONTENT-ONLY` line. An attribute not named above counts as structure. Script or props logic that changes which branch shows is
-  the build's, not gate 1's.
+  the build's, not gate 1's; a board whose elements its component script builds has little structure to compare, so its gate 1 is in effect the build's.
 - **Gate 2 is taken on the build.** Its cell reads `build`, valid only in this mode, and is not judged (nor is a gate 2 approval
   written before). No contrast or target audit is run. The build is accepted by the QA design row of each (UI) AC (§ 5).
-- **`--strict`** prints a `MODE` line, shows an `UNCOVERED` or `STALE-PENDING` finding as `UNCOVERED-WIRE` or `STALE-PENDING-WIRE` when
-  every row it reaches is in a wireframe canvas, and counts them on its summary line; nothing else is demoted. A story that a default
+- **The link check** prints a `MODE` line, shows an `UNCOVERED` or `STALE-PENDING` finding as `UNCOVERED-WIRE` or `STALE-PENDING-WIRE` when
+  every row it reaches is in a wireframe canvas, and counts them on its summary line, with or without `--strict` (which only sets the exit
+  status); nothing else is demoted. A story that a default
   canvas's row also lists keeps its findings.
 - **Unchanged**: a card still pins (`design:` entries, `@<commit>`, the render at the pin, gate 1 approved or waived), a change to a
   pinned state still needs a `D-NN`, the pin-drift report compares bytes, and a colour or token finding still fails the gate.

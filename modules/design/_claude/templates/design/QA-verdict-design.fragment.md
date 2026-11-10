@@ -11,7 +11,7 @@ The pointer is one cell, holding one entry per pinned state (a further cell is r
 
 - `identical` or `diffs: <element ids>`, one per state the AC cites; it names only elements outside the card's
   `design-scope:`.
-- For a pin to a wireframe canvas (its `CANVAS.md` says `Mode: wireframe`), `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared, and a diff in colour, type or spacing is not a `diffs:` entry.
+- For a pin to a canvas in wireframe mode at the pin commit (its `CANVAS.md` there has the Mode line and `requirements/DECISIONS.md` there holds the ruling it cites; the link check, run in a checkout of the pin, prints a `MODE` line for it), `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared, and a diff in colour, type or spacing is not a `diffs:` entry.
 - The pinned side is the PNG committed at the pin, taken with
   `git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`, never from the working tree. A screen file is
   never rendered by hand. The build side is a screenshot of the build at the same width, from the project's own tools.
