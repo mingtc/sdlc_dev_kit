@@ -985,6 +985,17 @@ case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
   [ "$(cat "$SB_WORK/process/KIT-VERSION")" = 0.1.0 ] || cf "(b) process/KIT-VERSION was stamped though a Verify: line failed"
   [ -f "$cl" ] || cf "(b) the checklist was removed by a refused --finish"
 
+  # (b2) the staged copy of the module's notes edited and committed: its sha256 is no file the new kit's manifest holds for the module.
+  cp "$SB_WORK/.kit-upgrade/module-notes/example.kit-new" "$SB_TMP/example-notes-staged"
+  sed -i.bak 's/Verify: \[ -f module-verify-marker \]/Verify: true/' "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"; rm -f "$SB_WORK/.kit-upgrade/module-notes/example.kit-new.bak"
+  _mu_land "the staged module notes, edited"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin3" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b2) --finish over edited staged module notes exited $rc, want the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  grep -h 'refusal=upgrade-staging-edited' "$SB_TMP"/rec-fin3/*.tsv >/dev/null 2>&1 || cf "(b2) no refusal=upgrade-staging-edited record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(cat "$SB_WORK/process/KIT-VERSION")" = 0.1.0 ] || cf "(b2) process/KIT-VERSION was stamped over edited staged module notes"
+  cp "$SB_TMP/example-notes-staged" "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"
+  _mu_land "the staged module notes, restored"
+
   # (c) the action done, --finish stamps and the archive records the passing line.
   : > "$SB_WORK/module-verify-marker"
   rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin2" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?

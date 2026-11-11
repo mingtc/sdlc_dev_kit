@@ -1230,6 +1230,13 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   _ku_810_stage u7; grep -v 'Verify:' "$KU_SN" > "$SB_TMP/sn" && cp "$SB_TMP/sn" "$KU_SN"
   git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u7 upgrade-staging-edited
 
+  # The notes and the staged manifest's row edited together, uncommitted: the sha256 agrees, the uncommitted edit is what refuses.
+  local tsha
+  _ku_810_stage u9; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  tsha="$(_ku_sha "$KU_SN")"
+  sed -i.bak "s|^[0-9a-f]*  process/KIT-RELEASE-NOTES.md|$tsha  process/KIT-RELEASE-NOTES.md|" "$KU_T/.kit-upgrade/KIT-MANIFEST" && rm -f "$KU_T/.kit-upgrade/KIT-MANIFEST.bak"
+  _ku_810_refused u9 upgrade-staging-edited
+
   # Untouched: the marker made, the run stamps, and the archive carries the notes' sha256.
   _ku_810_stage u8; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
   local want arch="$KU_T/process/upgrades/0.1.0-to-0.2.0.md"; want="$(_ku_sha "$KU_NEW/process/KIT-RELEASE-NOTES.md")"
