@@ -130,7 +130,7 @@ MODES = ('', 'none', 'wireframe')
 # The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
 # attribute nobody listed here moves the structure and sends the row back to review.
 STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
-# quote-aware: a `>` inside a quoted attribute value does not end the tag (TAG, which tags_of and the default model read, is not)
+# quote-aware: a `>` inside a quoted attribute value does not end the tag; structure() and tags_of() both read tags with it
 TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:"[^"]*"|\'[^\']*\'|[^\'"<>])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 META_B = re.compile(rb' data-stories="[^"]*"')
@@ -146,7 +146,6 @@ HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
 STYLE_BLOCK = re.compile(r'<style\b[^>]*>(.*?)</style>', re.S | re.I)
 SCRIPT_BLOCK = re.compile(r'<script\b.*?</script>', re.S | re.I)
 SCRIPT_BODY = re.compile(r'(<script\b[^>]*>).*?</script>', re.S | re.I)
-TAG = re.compile(r'<\s*([A-Za-z][\w:-]*)([^<>]*)>')
 ATTR = re.compile(r'(?<![\w:.-])([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'>]+))')
 CSS_COMMENT = re.compile(r'/\*.*?\*/', re.S)
 CSS_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"|\'(?:[^\'\\\n]|\\.)*\'')
@@ -218,15 +217,24 @@ def is_ancestor(root, older, newer):
 
 
 def same_name_at(root, rev, rel, now):
-    """The bytes at `rev` of a file named like `rel` that match `now` (the root's data-stories aside), else None."""
+    """The text at `rev` of a file named like `rel`: the one that matches `now` (the root's data-stories aside), else the only one of
+    that name that is no longer at its own path at HEAD (a canvas moved together with an edit), else None."""
     rc, out = git(root, '-c', 'core.quotePath=false', 'ls-tree', '-r', '--name-only', '-z', rev, '--', str(Path(rel).parents[2]))
     base = Path(rel).name
-    for p in out.decode('utf-8', 'replace').split('\0'):
-        if p and Path(p).name == base:
-            text = git_blob(root, rev, p)
-            if text is not None and META.sub('', text) == META.sub('', now):
-                return text
-    return None
+    named = [p for p in out.decode('utf-8', 'replace').split('\0') if p and Path(p).name == base]
+    for p in named:
+        text = git_blob(root, rev, p)
+        if text is not None and META.sub('', text) == META.sub('', now):
+            return text
+    left = [p for p in named if git_blob(root, HEAD_REV, p) is None]
+    return git_blob(root, rev, left[0]) if len(left) == 1 else None
+
+
+def raw_differs(root, sha, rel):
+    """True when the artboard's bytes at `sha` and at HEAD differ beyond the root's data-stories, though the tolerant reading of both
+    gives one text (two different invalid byte sequences both read as U+FFFD)."""
+    a, b = git_bytes(root, sha, rel), git_bytes(root, HEAD_REV, rel)
+    return a is not None and b is not None and META_B.sub(b'', a) != META_B.sub(b'', b)
 
 
 def artboard_rel(root, r):
@@ -265,7 +273,7 @@ def approval_problems(root, r, gates=None):
         if rel is None:
             continue
         if not is_commit(root, sha):
-            out.append(('APPROVAL-UNRESOLVED', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: not a commit here (a shallow clone cannot see it)"))
+            out.append(('APPROVAL-UNRESOLVED', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: not a commit here (a shallow clone cannot see it). Next: fetch the history that holds it (`git fetch --unshallow` in a shallow clone), or write the sha of a commit this repository has"))
             continue
         then, now = git_blob(root, sha, rel), git_blob(root, HEAD_REV, rel)
         if then is None and now is not None:
@@ -283,7 +291,7 @@ def approval_problems(root, r, gates=None):
                 if META.sub('', then) != META.sub('', now) or (ba is not None and bb is not None and META_B.sub(b'', ba) != META_B.sub(b'', bb)) \
                         or (ba is not None and loaded_stale(root, sha, rel, then, now)):
                     out.append(('CONTENT-ONLY', r['ux']))
-        elif META.sub('', then) != META.sub('', now):
+        elif META.sub('', then) != META.sub('', now) or raw_differs(root, sha, rel):
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}, but {rel} differs at HEAD; back to review"))
         elif git_blob(root, sha, rel) is not None:
             extra = loaded_stale(root, sha, rel, then, now)
@@ -295,7 +303,8 @@ def approval_problems(root, r, gates=None):
 def tags_of(markup):
     """[(tag name, {attribute: value})] of the start tags of markup, comments and script bodies left out, attributes in any quoting."""
     h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
-    return [(m.group(1).lower(), {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(2))}) for m in TAG.finditer(h)]
+    return [(m.group(2).lower(), {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(3))})
+            for m in TAG_ANY.finditer(h) if not m.group(1)]
 
 
 def structure(markup):
@@ -556,6 +565,7 @@ def loaded_files(root, art, markup):
 
 # ---- tokens, read at a revision: the DTCG files <design>/tokens/*.tokens.json (the one reader, for the gate, the approvals and pin-drift)
 ALIAS = re.compile(r'^\{([^{}]+)\}$')
+EMBEDDED = re.compile(r'\{([^{}]+)\}')
 UNRESOLVED = '\x00unresolved'
 
 
@@ -579,7 +589,21 @@ def _resolve(value, own, merged, seen=()):
     if isinstance(value, str):
         m = ALIAS.match(value)
         if not m:
-            return value, False
+            if '{' not in value:
+                return value, False
+            bad = []
+
+            def inner(g):                       # an alias inside a longer string: replaced by the scalar it names
+                tgt = own.get(g.group(1), merged.get(g.group(1)))
+                if g.group(1) in seen or tgt is None:
+                    bad.append(1)
+                    return g.group(0)
+                val, nope = _resolve(tgt, own, merged, seen + (g.group(1),))
+                if nope or isinstance(val, (dict, list)):
+                    bad.append(1)
+                    return g.group(0)
+                return str(val)
+            return EMBEDDED.sub(inner, value), bool(bad)
         name = m.group(1)
         target = own.get(name, merged.get(name))
         if name in seen or target is None:

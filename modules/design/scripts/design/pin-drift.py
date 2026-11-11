@@ -87,6 +87,23 @@ P_CLOSERS = {'address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset
              'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'}   # a start tag that ends an open <p>
 
 
+# An open cell, row or item that the next one ends, as the HTML rules say: {start tag: (tags it ends, tags it may not look past)}.
+IMPLIED = {'td': (('td', 'th'), ('tr', 'table')), 'th': (('td', 'th'), ('tr', 'table')), 'tr': (('tr',), ('table',)), 'li': (('li',), ('ul', 'ol'))}
+
+
+def implied_end(tag, open_tags):
+    """The open tag a start tag `tag` ends by the HTML rules, or None; `open_tags` is the names of the open elements, innermost last."""
+    if tag not in IMPLIED:
+        return None
+    ends, stops = IMPLIED[tag]
+    for t in reversed(open_tags):
+        if t in ends:
+            return t
+        if t in stops:
+            return None
+    return None
+
+
 def git(*args, check=False):
     r = subprocess.run(['git', '-C', str(ROOT), '-c', 'core.quotePath=false', *args], capture_output=True)
     if check and r.returncode:
@@ -163,6 +180,9 @@ class Sig(HTMLParser):
         a = dict(attrs)
         if tag in P_CLOSERS and self.stack and self.stack[-1][0] == 'p':
             self.handle_endtag('p')
+        end = implied_end(tag, [t for t, _ in self.stack])
+        if end:
+            self.handle_endtag(end)
         text = '<%s %s>' % (tag, ' '.join(f'{k}={v}' for k, v in sorted(attrs, key=lambda kv: (kv[0], kv[1] or ''))))
         pushed, sc = None, self.scope[-1]
         if a.get('data-state'):
@@ -233,6 +253,9 @@ class Tree(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag in P_CLOSERS and self.stack[-1].tag == 'p':
             self.stack.pop()
+        end = implied_end(tag, [n.tag for n in self.stack[1:]])
+        if end:
+            self.handle_endtag(end)
         n = Node(tag, attrs)
         self.stack[-1].kids.append(n)
         if tag not in VOID:
@@ -421,7 +444,7 @@ def check(card_id, ux, state, pin, head):
         return {**base, 'verdict': 'unresolved', 'why': 'no @<commit> on a card past todo/'}
     full = rev(pin)
     if not full:
-        return {**base, 'verdict': 'unresolved', 'why': f'{pin} is not a commit'}
+        return {**base, 'verdict': 'unresolved', 'why': f'{pin} is not a commit. Next: `git fetch --unshallow` if this clone is shallow, else write the sha of a commit this repository has'}
     row_p = registry_at(full).get(ux)
     if not row_p:
         return {**base, 'verdict': 'unresolved', 'why': f'no registry row {ux} at {pin}'}
@@ -448,7 +471,11 @@ def check(card_id, ux, state, pin, head):
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
     meta_only = False
     if not same_bytes and META.sub('', old_html) == META.sub('', new_html):
-        same_bytes, meta_only = True, True      # only data-stories differs: registry bookkeeping, not the design
+        if cdl.META_B.sub(b'', old) == cdl.META_B.sub(b'', new):
+            same_bytes, meta_only = True, True  # only data-stories differs: registry bookkeeping, not the design
+        else:
+            same_bytes = True
+            why.append('the bytes differ where the text read does not show it (invalid UTF-8). Next: open the artboard in the design tool and save it, or re-pin after a human has looked')
     ids_all = [] if same_bytes else changed_ids(old_html, new_html)
     drift_art, aside, added = False, [], []
     if not same_bytes:
@@ -486,7 +513,7 @@ def check(card_id, ux, state, pin, head):
     if verdict == 'drift':
         rc, out = git('log', '--follow', '--format=%h %s', f'{full}..{head}', '--', path_h)
         commits = [l[:90] for l in out.decode().splitlines()]
-    res = {**base, 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
+    res = {**base, **({'superseded': True} if row_h.get('superseded') else {}), 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
            'ids': ids_all if drift_art else [], 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'new_states': added if aside else [], 'tokens': toks, 'refs': refs, 'render': render,
            'uncompared': why}
     if verdict == 'uncompared':
@@ -566,7 +593,7 @@ def main(argv):
             extra = f" {r['path_pin']} -> {r['path_head']}"
         elif r.get('why'):
             extra = ' ' + r['why']
-        print(f"{r['card']:9} {r['ux']}#{r.get('state') or '*'}@{(r['pin'] or '-')[:7]:8} {r['verdict']:10}" + (f" render:{r['render']}" if 'render' in r else '') + (f' {Path(loc).name}' if loc and r['verdict'] in ('clean', 'drift') else '') + extra)
+        print(f"{r['card']:9} {r['ux']}#{r.get('state') or '*'}@{(r['pin'] or '-')[:7]:8} {r['verdict']:10}" + (f" render:{r['render']}" if 'render' in r else '') + (f' {Path(loc).name}' if loc and r['verdict'] in ('clean', 'drift') else '') + extra + (' (screen superseded)' if r.get('superseded') else ''))
     counts = {}
     for r in results:
         counts[r['verdict']] = counts.get(r['verdict'], 0) + 1
