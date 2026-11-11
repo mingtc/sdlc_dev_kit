@@ -334,11 +334,14 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    reader's own last words and which side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
    or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an
-   unknown is not a clean answer, reports-only arms included; their findings still never set it), and
+   unknown is not a clean answer, reports-only arms included; their findings still never set it; of [c] the
+   § Log slice reader is the one checked, the other two read a byte count and git), arm [g]'s blank reader of
+   `PROJECT.md` (its FILL line says `NOT COUNTED` and `COMPLETE` is withheld), and
    `verify.sh --quick` (it refuses when no gate is one it runs). **The remaining arms**
-   ([b] [e] [f] [h] [k] [o] [s]) read byte-wise (`LC_ALL=C`), which removes the one trigger
-   observed, a byte the locale cannot decode, but do not check a reader's exit status: that is a known gap,
-   not a property. An arm in
+   ([b] [e] [f] [h] [k] [o] [s], and [g]'s other reads) read byte-wise (`LC_ALL=C`), which removes the one
+   trigger observed, a byte the locale cannot decode, but do not check a reader's exit status: that is a known
+   gap, not a property. ([f] names branches and worktrees from their names and git's own output; it opens no
+   card.) An arm in
    `scripts/check-board.d/` keeps the caller's locale. *Why:* "found nothing" and "could not read" otherwise
    print the same words, and the verdict becomes a claim about files nobody opened.
 

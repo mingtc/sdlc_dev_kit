@@ -385,11 +385,12 @@ cb_bp_run() {
 # sets `drift`, because an arm that read nothing has not answered and an unknown is not a clean answer.
 # With no temp file to record in, nothing can be said about a reader, so every such arm says so.
 CB_RD_FAIL="$(mktemp 2>/dev/null || true)"
+CB_RD_WHAT=""   # what the next cb_awk reads, when its own message would not say (a pipeline's stdin)
 cb_awk() {
   local rc err
   { err="$(awk "$@" 2>&1 1>&3)"; rc=$?; } 3>&1
   if [ "$rc" -ne 0 ] && [ -n "${CB_RD_FAIL:-}" ]; then
-    printf 'awk exited %s: %s\n' "$rc" "$(printf '%s' "$err" | tail -n 2 | tr '\n' ' ')" >> "$CB_RD_FAIL"
+    printf 'awk exited %s%s: %s\n' "$rc" "${CB_RD_WHAT:+ (reading $CB_RD_WHAT)}" "$(printf '%s' "$err" | tail -n 2 | tr '\n' ' ')" >> "$CB_RD_FAIL"
   fi
   return "$rc"   # return-class: internal
 }
@@ -399,10 +400,15 @@ cb_rd_begin() { [ -z "${CB_RD_FAIL:-}" ] || : > "$CB_RD_FAIL"; KIT_CARD_FAIL_FIL
 cb_rd_dead() { [ -z "${CB_RD_FAIL:-}" ] || [ -s "$CB_RD_FAIL" ]; }
 # cb_rd_say <indent> — the line that replaces an arm's answer when a reader failed.
 cb_rd_say() {
-  local why
-  if [ -z "${CB_RD_FAIL:-}" ]; then why="no temp file could be made to watch its readers with"
-  else why="a reader failed ($(head -1 "$CB_RD_FAIL" | cut -c1-200))"; fi
-  echo "${1}⚠ this check DID NOT RUN to its end — $why; nothing printed for it is a clean answer, so the verdict below is not clean  (nothing was checked, which is not a pass). Next: fix the file the failure names, then rerun ./scripts/check-board.sh"
+  local why next
+  if [ -z "${CB_RD_FAIL:-}" ]; then
+    why="the temp file that records a reader's failure could not be made, so no reader could be watched"
+    next="make TMPDIR writable (or free space there), then rerun ./scripts/check-board.sh"
+  else
+    why="a reader failed ($(head -1 "$CB_RD_FAIL" | cut -c1-200))"
+    next="fix the file the failure names, then rerun ./scripts/check-board.sh"
+  fi
+  echo "${1}⚠ this check DID NOT RUN to its end — $why; nothing printed for it is a clean answer, so the verdict below is not clean  (nothing was checked, which is not a pass). Next: $next"
   drift=1
 }
 
@@ -462,7 +468,7 @@ fi
 CB_TREE="$REPO_ROOT"
 CB_TMP=""
 CB_IDX=""
-cb_cleanup() { [ -z "$CB_IDX" ] || rm -f "$CB_IDX" 2>/dev/null; [ -z "${CB_BP_FAIL:-}" ] || rm -f "$CB_BP_FAIL" 2>/dev/null; [ -z "${CB_BP_RUNF:-}" ] || rm -f "$CB_BP_RUNF" 2>/dev/null; [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
+cb_cleanup() { [ -z "$CB_IDX" ] || rm -f "$CB_IDX" 2>/dev/null; [ -z "${CB_BP_FAIL:-}" ] || rm -f "$CB_BP_FAIL" 2>/dev/null; [ -z "${CB_BP_RUNF:-}" ] || rm -f "$CB_BP_RUNF" 2>/dev/null; [ -z "${CB_RD_FAIL:-}" ] || rm -f "$CB_RD_FAIL" 2>/dev/null; [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
 trap cb_cleanup EXIT
 # The signals are trapped so the cleanup waits for the checkout below: with EXIT alone, a
 # TERM or HUP runs cb_cleanup mid-copy and tar re-creates part of the temp dir. Signals not listed
@@ -638,7 +644,7 @@ if [ -f "$pmd" ]; then
       inlog { print }
     ' "$pmd" | wc -c | tr -d ' ')"
     if cb_rd_dead; then
-      echo "[c] progress.md § Log SLICE: THIS CHECK DID NOT RUN — the reader of the slice failed, so no byte count was taken  (not measured) — $(cb_src)"
+      echo "[c] progress.md § Log SLICE: THIS CHECK DID NOT RUN — no byte count was taken, the reason follows  (not measured) — $(cb_src)"
       cb_rd_say "      "
     elif [ "$logbytes" -gt "$PROGRESS_LOG_BYTE_THRESHOLD" ]; then
       echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ⚠ over — run ./scripts/archive-progress.sh — $(cb_src)"
@@ -1721,7 +1727,7 @@ fi
 # ---------------------------------------------------------------------------
 DQ_FILE="${DQ_FILE:-dev/downtime-queue.md}"   # relative to the repository root
 echo
-echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never changes the verdict) — $(cb_src):"
+echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never changes the verdict unless it could not run) — $(cb_src):"
 if [ ! -f "$CB_TREE/$DQ_FILE" ]; then
   # A READING WHOSE SUBJECT IS ABSENT STILL PRINTS, naming what was absent.
   echo "      – $DQ_FILE not present  (skipped — no queue to read)"
@@ -1846,14 +1852,14 @@ for col in $m_read; do
   done
 done
 if ! command -v kit_card_field >/dev/null 2>&1; then
-  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below unless it could not run): THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
 elif [ -n "$m_cols" ] && cb_rd_dead; then
-  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): THIS CHECK DID NOT RUN — a card's reader failed, so no count was taken  (not measured) — $(cb_src)"
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below unless it could not run): THIS CHECK DID NOT RUN — no count was taken, the reason follows  (not measured) — $(cb_src)"
   cb_rd_say "      "
 elif [ -z "$m_cols" ]; then
-  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): no landed column in this source  (skipped) — $(cb_src)"
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below unless it could not run): no landed column in this source  (skipped) — $(cb_src)"
 else
-  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason; $m_neither give neither a prd: nor a prd_reason: ($m_cols) — $(cb_src)"
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below unless it could not run): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason; $m_neither give neither a prd: nor a prd_reason: ($m_cols) — $(cb_src)"
   if [ "$m_neither" -gt 0 ]; then
     echo "      ⚠ $m_neither landed issue(s) name no PRD and give no reason: $m_neither_ids"
   fi
@@ -1871,7 +1877,7 @@ fi
 #      Removable: delete this block, BEGIN to END, with the rest of that section's lines.
 # ---------------------------------------------------------------------------
 echo
-echo "[n] kit-feedback line (reports only — a missing line is reported, never refused, and never changes the verdict below) — $(cb_src):"
+echo "[n] kit-feedback line (reports only — a missing line is reported, never refused, and never changes the verdict below unless it could not run) — $(cb_src):"
 n_set=""
 cb_rd_begin
 [ -f "$CB_TREE/PROJECT.md" ] && n_set="$(cb_awk 'match($0, /^[[:space:]]*[-*][[:space:]]*`?kit-feedback:[[:space:]]*[A-Za-z]+/) {
@@ -2065,7 +2071,7 @@ fi
 #     Removable: delete this block, BEGIN to END.
 # ---------------------------------------------------------------------------
 echo
-echo "[t] Answered, not reconciled (reports only; never changes the verdict below) — $(cb_src):"
+echo "[t] Answered, not reconciled (reports only; never changes the verdict below unless it could not run) — $(cb_src):"
 t_pm="$CB_TREE/PROJECT.md"
 t_line=""; t_tok=""; t_dir=""; t_skip=""; t_dead=""
 cb_rd_begin
@@ -2121,15 +2127,14 @@ T_REGS
         if git -C "$REPO_ROOT" merge-base --is-ancestor "$t_ans" "$t_c" 2>/dev/null; then t_cited=1; break; fi
       done <<T_COMMITS
 $(git -C "$REPO_ROOT" log -G"$t_re" -p -U0 --no-color --format='commit %H' "$t_href" -- "$t_rpath" 2>/dev/null \
-    | cb_awk -v p="$t_rel" -v hdr="+++ b/$t_rpath" '/^commit [0-9a-f]+$/ { h = $2; next } $0 == hdr { next } /^\+/ && index($0, p) { print h }' | sort -u)
+    | CB_RD_WHAT="the history of $t_rpath for $t_rel" cb_awk -v p="$t_rel" -v hdr="+++ b/$t_rpath" '/^commit [0-9a-f]+$/ { h = $2; next } $0 == hdr { next } /^\+/ && index($0, p) { print h }' | sort -u)
 T_COMMITS
       [ "$t_cited" -eq 0 ] || break
     done <<T_CITES
 $t_regs
 T_CITES
     [ "$t_cited" -eq 0 ] || continue
-    t_card="$(cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null || true)"
-    if cb_rd_dead; then t_card="unread: a reader failed"; fi
+    t_card="$(cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null)" || t_card="unread: its reader failed"
     echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it since the answer"
     t_found=$((t_found + 1))
   done
@@ -2155,8 +2160,9 @@ T_CITES
         if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$t_rel" 2>/dev/null)" ]; then t_state="uncommitted"
         else t_state="committed on a branch other than $CB_TRUNK"; fi
       else continue; fi
-      t_card="$(printf '%s\n' "$t_wt_blob$t_lref_blob" | cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' || true)"
-      if cb_rd_dead; then t_card="unread: a reader failed"; fi
+      CB_RD_WHAT="the Parks card of $t_rel"
+      t_card="$(printf '%s\n' "$t_wt_blob$t_lref_blob" | cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }')" || t_card="unread: its reader failed"
+      CB_RD_WHAT=""
       echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered but not on $CB_REF ($t_state)"
       t_local=$((t_local + 1))
       [ "$t_state" = "committed, unpushed" ] && t_local_push=1 || t_local_land=1
@@ -2171,10 +2177,11 @@ T_NAMES
   if [ -n "$t_local_push" ]; then
     echo "      Push the committed ones: git push $remote $def ([f1] above names the checkout)."
   fi
-  if cb_rd_dead; then cb_rd_say "      "; fi
-  if [ "$t_found" -gt 0 ]; then
+  if cb_rd_dead; then
+    cb_rd_say "      "   # a dead reader makes the list above unreliable: no dispatch line over it
+  elif [ "$t_found" -gt 0 ]; then
     echo "      The Orchestrator dispatches the PM-hat leg for each (.claude/roles/orchestrator.md § An answered question is ready work)."
-  elif [ "$t_local" -eq 0 ] && ! cb_rd_dead; then
+  elif [ "$t_local" -eq 0 ]; then
     echo "      ✓ none: $t_read question file(s) read in $t_dir/"
   fi
 fi
@@ -2190,7 +2197,7 @@ fi
 #     refuse on. Removable: delete this block, BEGIN to END.
 # ---------------------------------------------------------------------------
 echo
-echo "[u] Card titles that are not valid plain YAML (reports only; never changes the verdict below) — $(cb_src):"
+echo "[u] Card titles that are not valid plain YAML (reports only; never changes the verdict below unless it could not run) — $(cb_src):"
 # BEGIN unquoted-title arm
 u_found=0; u_read=0
 cb_rd_begin
