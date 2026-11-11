@@ -996,6 +996,15 @@ case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
   cp "$SB_TMP/example-notes-staged" "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"
   _mu_land "the staged module notes, restored"
 
+  # (b3) the staged copy swapped for another file the module ships (its manifest row is real): the checklist's item has no entry in it.
+  cp "$MU_NEW/modules/example/SETUP.md" "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"
+  _mu_land "the staged module notes, swapped"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin4" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b3) --finish over swapped staged module notes exited $rc, want the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  grep -h 'refusal=upgrade-staging-edited' "$SB_TMP"/rec-fin4/*.tsv >/dev/null 2>&1 || cf "(b3) no refusal=upgrade-staging-edited record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  cp "$SB_TMP/example-notes-staged" "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"
+  _mu_land "the staged module notes, restored again"
+
   # (c) the action done, --finish stamps and the archive records the passing line.
   : > "$SB_WORK/module-verify-marker"
   rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin2" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?

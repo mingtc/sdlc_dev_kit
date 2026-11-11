@@ -1181,7 +1181,7 @@ case_kit_upgrade_finish_runs_verify_commands() {
 # Untouched, a run that passes records the notes' sha256 in the archive. And a write that fails after the
 # archive and KIT-VERSION are written leaves a tree the printed recovery, followed as told, finishes from.
 # =============================================================================
-_ku_810_stage() {   # <tag> — a fresh pair, staged, marked, committed; sets KU_CL and KU_SN
+_ku_judge_stage() {   # <tag> — a fresh pair, staged, marked, committed; sets KU_CL and KU_SN
   _ku_pair 0.1.0 0.2.0
   {
     printf '# The process kit — release notes\n\n## [0.2.0] — 2026-01-02\n\n### Action required\n\n'
@@ -1195,8 +1195,8 @@ _ku_810_stage() {   # <tag> — a fresh pair, staged, marked, committed; sets KU
   sed 's/^- \[ \] /- [x] /' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
   git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark" >/dev/null 2>&1
 }
-# _ku_810_refused <tag> <rule> — --finish was refused with the rule, stamped nothing, wrote no archive.
-_ku_810_refused() {
+# _ku_judge_refused <tag> <rule> — --finish was refused with the rule, stamped nothing, wrote no archive.
+_ku_judge_refused() {
   _ku_run "$1-fin" --finish --into "$KU_T"
   [ "$(_ku_rc "$1-fin")" != 0 ] || cf "$1: --finish exited 0 over the edit: $(_ku_out "$1-fin")"
   [ "$(_ku_recs "$KU_T/.progress-records" "$2")" -eq 1 ] || cf "$1: no single refusal=$2 record: $(_ku_out "$1-fin")"
@@ -1209,36 +1209,36 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   local L="kit-upgrade.sh --finish refuses a checklist that lost, renumbered or re-worded an Action required item, and staged notes that were edited, deleted or stripped of their Verify: line, records the notes' sha256 in the archive, and leaves a failed write in a state the printed recovery finishes from"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
-  _ku_810_stage u0
+  _ku_judge_stage u0
   _ku_run u0-fin --finish --into "$KU_T"
   [ "$(_ku_rc u0-fin)" != 0 ] || cf "u0: the control finished though DONE-MARKER is absent"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-verify-failed)" -eq 1 ] || cf "u0: the control is not refused as upgrade-verify-failed: $(_ku_out u0-fin)"
 
-  _ku_810_stage u1; sed '/item 1:/d' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
-  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u1 upgrade-checklist-item-missing
-  _ku_810_stage u2; sed 's/item 1:/item 2:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
-  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u2 upgrade-checklist-item-missing
-  _ku_810_stage u3; sed 's/Action required, \[0.2.0\] item 1:/[0.2.0] item 1:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
-  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u3 upgrade-checklist-item-missing
+  _ku_judge_stage u1; sed '/item 1:/d' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused u1 upgrade-checklist-item-missing
+  _ku_judge_stage u2; sed 's/item 1:/item 2:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused u2 upgrade-checklist-item-missing
+  _ku_judge_stage u3; sed 's/Action required, \[0.2.0\] item 1:/[0.2.0] item 1:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused u3 upgrade-checklist-item-missing
 
-  _ku_810_stage u4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
-  _ku_810_refused u4 upgrade-staging-edited
-  _ku_810_stage u5; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
-  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u5 upgrade-staging-edited
-  _ku_810_stage u6; rm -f "$KU_SN"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
-  _ku_810_refused u6 upgrade-staging-missing
-  _ku_810_stage u7; grep -v 'Verify:' "$KU_SN" > "$SB_TMP/sn" && cp "$SB_TMP/sn" "$KU_SN"
-  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u7 upgrade-staging-edited
+  _ku_judge_stage u4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  _ku_judge_refused u4 upgrade-staging-edited
+  _ku_judge_stage u5; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused u5 upgrade-staging-edited
+  _ku_judge_stage u6; rm -f "$KU_SN"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
+  _ku_judge_refused u6 upgrade-staging-missing
+  _ku_judge_stage u7; grep -v 'Verify:' "$KU_SN" > "$SB_TMP/sn" && cp "$SB_TMP/sn" "$KU_SN"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused u7 upgrade-staging-edited
 
   # The notes and the staged manifest's row edited together, uncommitted: the sha256 agrees, the uncommitted edit is what refuses.
   local tsha
-  _ku_810_stage u9; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  _ku_judge_stage u9; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
   tsha="$(_ku_sha "$KU_SN")"
   sed -i.bak "s|^[0-9a-f]*  process/KIT-RELEASE-NOTES.md|$tsha  process/KIT-RELEASE-NOTES.md|" "$KU_T/.kit-upgrade/KIT-MANIFEST" && rm -f "$KU_T/.kit-upgrade/KIT-MANIFEST.bak"
-  _ku_810_refused u9 upgrade-staging-edited
+  _ku_judge_refused u9 upgrade-staging-edited
 
   # Untouched: the marker made, the run stamps, and the archive carries the notes' sha256.
-  _ku_810_stage u8; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  _ku_judge_stage u8; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
   local want arch="$KU_T/process/upgrades/0.1.0-to-0.2.0.md"; want="$(_ku_sha "$KU_NEW/process/KIT-RELEASE-NOTES.md")"
   _ku_run u8-fin --finish --into "$KU_T"
   [ "$(_ku_rc u8-fin)" = 0 ] || cf "u8: the untouched upgrade exited $(_ku_rc u8-fin): $(_ku_out u8-fin)"
@@ -1248,18 +1248,64 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   if [ "$(id -u)" = 0 ]; then
     cf "the failed-write row cannot run as root, where a read-only file is still writable"
   else
-    _ku_810_stage w; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+    _ku_judge_stage w; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
     chmod a-w "$KU_T/process/KIT-MANIFEST"
     _ku_run w-fin --finish --into "$KU_T"
     [ "$(_ku_rc w-fin)" != 0 ] || cf "w: --finish exited 0 though KIT-MANIFEST is read-only"
     [ "$(_ku_recs "$KU_T/.progress-records" upgrade-write-failed)" -eq 1 ] || cf "w: no refusal=upgrade-write-failed record: $(_ku_out w-fin)"
     chmod u+w "$KU_T/process/KIT-MANIFEST"
-    # The recovery the Next prints, as written: the permission fixed, any partial archive deleted, then --finish again.
-    rm -f "$KU_T/process/upgrades/0.1.0-to-0.2.0.md"
+    # The refused run put the tree back itself: no archive, the old version, a clean status but the records.
+    [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "w: the failed write left the archive behind"
+    [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "w: the failed write left KIT-VERSION stamped"
+    [ -z "$(git -C "$KU_T" status --porcelain -- process 2>/dev/null)" ] || cf "w: the failed write left process/ changed: $(git -C "$KU_T" status --porcelain -- process | tr '\n' '|')"
+    # The recovery the Next prints, as written: the permission fixed, then --finish again.
     _ku_run w-fin2 --finish --into "$KU_T"
     [ "$(_ku_rc w-fin2)" = 0 ] || cf "w: --finish after the printed recovery exited $(_ku_rc w-fin2): $(_ku_out w-fin2)"
     [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "w: the recovered --finish did not stamp 0.2.0"
+
+    # A copy that fails before any write refuses with nothing changed, and deletes nothing: a cp that fails only
+    # for the scratch copy of KIT-MANIFEST.
+    _ku_judge_stage x; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+    mkdir -p "$SB_TMP/cpshim"
+    printf '#!/bin/sh\nfor a in "$@"; do last="$a"; done\ncase "$last" in */kit-upgrade-undo.*/KIT-MANIFEST) exit 1 ;; esac\nexec /bin/cp "$@"\n' > "$SB_TMP/cpshim/cp"; chmod +x "$SB_TMP/cpshim/cp"
+    local rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" PATH="$SB_TMP/cpshim:$PATH" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/x-fin.out" 2>&1 || rc=$?
+    [ "$rc" != 0 ] || cf "x: --finish exited 0 though the scratch copy failed"
+    [ "$(_ku_recs "$KU_T/.progress-records" upgrade-write-failed)" -eq 1 ] || cf "x: no refusal=upgrade-write-failed record: $(tr '\n' '|' < "$SB_TMP/x-fin.out" | cut -c1-300)"
+    [ -f "$KU_T/process/KIT-MANIFEST" ] || cf "x: process/KIT-MANIFEST was deleted"
+    [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "x: KIT-VERSION was stamped"
+    [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "x: the archive was written before the copy failed"
+    [ -z "$(git -C "$KU_T" status --porcelain -- process 2>/dev/null)" ] || cf "x: process/ changed: $(git -C "$KU_T" status --porcelain -- process | tr '\n' '|')"
   fi
+
+  # The item list is derived again from the staged notes: a key deleted with its checklist line is refused.
+  _ku_judge_stage f1; sed '/item 1$/d' "$KU_T/.kit-upgrade/action-items" > "$SB_TMP/ai" && cp "$SB_TMP/ai" "$KU_T/.kit-upgrade/action-items"
+  sed '/item 1:/d' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_judge_refused f1 upgrade-staging-edited
+  # A merge copy --finish never reads, removed and not committed, is not an edit it refuses.
+  _ku_judge_stage f5; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  local mc; mc="$(find "$KU_T/.kit-upgrade/files" -type f | sed -n 1p)"
+  [ -n "$mc" ] || cf "f5: the first run staged no merge copy to remove"
+  rm -f "$mc"
+  _ku_run f5-fin --finish --into "$KU_T"
+  [ "$(_ku_rc f5-fin)" = 0 ] || cf "f5: removing an unread merge copy, uncommitted, was refused: $(_ku_out f5-fin)"
+  # The Next of a committed edit, run as printed, gets past the refusal; so does the Next of a missing item list.
+  _ku_judge_stage f4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1
+  _ku_run f4-fin --finish --into "$KU_T"
+  local cmd; cmd="$(/usr/bin/grep -E '^  git -C' "$SB_TMP/f4-fin.out" | sed -n 1p)"
+  [ -n "$cmd" ] || cf "f4: the refusal prints no restore command: $(_ku_out f4-fin)"
+  [ -z "$cmd" ] || bash -c "$cmd" >/dev/null 2>&1
+  _ku_run f4-fin2 --finish --into "$KU_T"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-verify-failed)" -eq 1 ] || cf "f4: after the printed restore, --finish did not reach the Verify: step: $(_ku_out f4-fin2)"
+  _ku_judge_stage f6; rm -f "$KU_T/.kit-upgrade/action-items"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
+  _ku_run f6-fin --finish --into "$KU_T"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-missing)" -eq 1 ] || cf "f6: no refusal=upgrade-staging-missing record: $(_ku_out f6-fin)"
+  cmd="$(/usr/bin/grep -E '^  rm -f' "$SB_TMP/f6-fin.out" | sed -n 1p)"
+  [ -n "$cmd" ] || cf "f6: the refusal prints no discard command: $(_ku_out f6-fin)"
+  [ -z "$cmd" ] || bash -c "$cmd" >/dev/null 2>&1
+  [ -z "$(git -C "$KU_T" status --porcelain -- . ':!.progress-records' 2>/dev/null)" ] || cf "f6: after the printed command the tree is not clean: $(git -C "$KU_T" status --porcelain | tr '\n' '|')"
+  _ku_run f6-up --into "$KU_T"
+  { [ "$(_ku_rc f6-up)" = 0 ] && [ -f "$KU_CL" ] && [ -f "$KU_T/.kit-upgrade/action-items" ]; } || cf "f6: the first run after the printed command did not stage again: $(_ku_out f6-up)"
   finish "$L"
   teardown
 }
