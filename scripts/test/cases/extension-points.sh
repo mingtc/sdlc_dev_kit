@@ -663,7 +663,8 @@ ARM
   printf '%s\n' "$out" | grep -F 'UNDECLARED-RAN' >/dev/null && cf "(c4) an arm that declares neither advisory nor deciding was run"
   printf '%s\n' "$out" | grep -F '33-bare.sh' | grep -F 'check-board-arm' >/dev/null || cf "(c4) the report does not name the declaration line the arm lacks: $(printf '%s' "$out" | grep -F '33-bare' | head -2)"
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c4) the report names no next step for the undeclared arm"
-  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(c4) an undeclared arm moved the verdict line"
+  # An arm whose kind is unknown cannot be called advisory, so it fails closed: the verdict is not clean.
+  case "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" in *clean*) cf "(c4) an arm declaring neither kind left the verdict clean" ;; esac
   rm -f "$dir/33-bare.sh"
 
   # (c5) THROUGH THE REAL CONSUMER: kit-init's board self-check filter, read out of kit-init.sh now.
@@ -694,7 +695,8 @@ ARM
   out="$( cb_run )"
   printf '%s\n' "$out" | grep -F 'ODD-NAME-RAN' >/dev/null && cf "(c7) an arm whose name holds a space was run"
   printf '%s\n' "$out" | grep -F '35-odd name.sh' | grep -F 'did not run' >/dev/null || cf "(c7) the report does not say the oddly named arm did not run: $(printf '%s' "$out" | grep -F 'odd name' | head -2)"
-  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(c7) an oddly named arm moved the verdict line"
+  # The arm declares itself deciding, so not running it must not leave the board clean.
+  case "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" in *clean*) cf "(c7) an oddly named deciding arm left the verdict clean" ;; esac
   rm -f "$dir/35-odd name.sh"
 
   # (d) an ADVISORY arm's other status = did not run, printed, never read as clean, exit still 0.
@@ -793,6 +795,69 @@ case_a_deciding_check_board_d_arm_that_did_not_run_to_a_verdict_makes_the_verdic
   grep -q -- 'board-drift: clean' <<< "$out" || cf "(c) (control) the same test finds no clean marker once the crashed arm is removed"
 
   finish "a deciding check-board.d arm that exits with anything but 0 or 3 sets the verdict line to findings, names itself and its next act on a ⚠ line, and leaves check-board's exit at 0, so release.sh's gate (d) refuses; an advisory arm in the same state stays report-only; a deciding arm that exits 0 is unchanged"
+  teardown
+}
+
+# =============================================================================
+# CASE — A check-board.d ARM THAT CANNOT BE RUN BECAUSE OF ITS FILE NAME OR ITS DECLARATION DOES NOT
+# LEAVE THE VERDICT CLEAN, unless it declares itself advisory.
+#   A bad name with a readable deciding kind, a bad name with no readable kind, and a declaration
+#   spelled wrong or absent each dirty the verdict with a ⚠ line naming the file and a Next: that
+#   re-runs check-board.sh. A bad-named advisory arm stays report-only. The ⚠ line sits under a
+#   [+name] heading kit-init's self-check filter can find.
+# =============================================================================
+case_a_check_board_d_arm_with_a_bad_name_or_declaration_does_not_leave_the_verdict_clean() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local dir="$SB_WORK/scripts/check-board.d" out rc base_verdict verdict f row filt keep
+  mkdir -p "$dir"
+  out="$( cb_run )"
+  base_verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+  case "$base_verdict" in
+    *clean*) : ;;
+    *) _fixture_die "case_a_check_board_d_arm_with_a_bad_name_or_declaration_does_not_leave_the_verdict_clean: the sandbox baseline verdict is not clean ('$base_verdict')" ;;
+  esac
+  filt="$(awk '/KI_FINDINGS="\$\(printf/ { f = 1; next } f && /^[[:space:]]*'"'"' \| grep/ { exit } f { print }' "$SB_WORK/scripts/kit-init.sh")"
+  [ -n "$filt" ] || _fixture_die "case_a_check_board_d_arm_with_a_bad_name_or_declaration_does_not_leave_the_verdict_clean: could not extract kit-init's advisory filter"
+
+  # Rows that must dirty the verdict: <file name>|<first line of the file>.
+  for row in \
+    '51-bad name.sh|# check-board-arm: deciding' \
+    '52-bad name.sh|# no declaration at all' \
+    '53-bad name.sh|# check-board-arm: decidng' \
+    '54-typo.sh|# check-board-arm: decidng' \
+    '55-bare.sh|# a comment only'; do
+    f="${row%%|*}"
+    printf '%s\nexit 0\n' "${row#*|}" > "$dir/$f"
+    out="$( cb_run )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "($f) check-board exited $rc — no arm may change the exit"
+    verdict="$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)"
+    case "$verdict" in
+      *clean*) cf "($f) the verdict reads '$verdict' with an arm that did not run" ;;
+      '') cf "($f) no closing verdict line" ;;
+    esac
+    printf '%s\n' "$out" | grep -F '⚠' | grep -F "$f" >/dev/null || cf "($f) no ⚠ line names the file (release.sh's refusal prints only ⚠ lines)"
+    printf '%s\n' "$out" | grep -F 'Next:' | grep -F 'check-board.sh' >/dev/null || cf "($f) no Next: line sends the reader back through check-board.sh"
+    keep="$(printf '%s\n' "$out" | awk "$filt" | grep '⚠' || true)"
+    printf '%s\n' "$keep" | grep -F "$f" >/dev/null || cf "($f) kit-init's self-check filter dropped the finding: $(printf '%s' "$keep" | head -2 | tr '\n' '|')"
+    rm -f "$dir/$f"
+  done
+
+  # A bad-named ADVISORY arm stays report-only: the verdict does not move.
+  printf '# check-board-arm: advisory\nexit 0\n' > "$dir/56-bad name.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(advisory) a bad-named advisory arm moved the verdict line"
+  printf '%s\n' "$out" | grep -F '56-bad name.sh' | grep -F 'did not run' >/dev/null || cf "(advisory) the report does not say the arm did not run"
+  rm -f "$dir/56-bad name.sh"
+
+  # Control: a well-named, declared arm that exits 0 leaves the verdict where it was.
+  printf '# check-board-arm: deciding\nexit 0\n' > "$dir/57-fine.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] || cf "(control) a well-formed deciding arm moved the verdict line"
+  rm -f "$dir/57-fine.sh"
+
+  finish "an arm with a bad file name and a deciding or unreadable kind, or with a misspelled or missing declaration, makes the verdict not clean with a ⚠ line and a Next: and stays visible to kit-init's filter; a bad-named advisory arm stays report-only"
   teardown
 }
 
