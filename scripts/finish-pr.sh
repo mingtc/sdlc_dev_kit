@@ -474,7 +474,9 @@ kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}
 #    The branch tip is resolved once: the gate reads that commit and the Activity note names it.
 #    An `artifact` row is QA's own file, committed on the trunk, so it is read at the trunk, never at
 #    the branch the work's author controls.
-QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH}^{commit}" 2>/dev/null || true)"
+#    It is read through $BRANCH_REF (refs/heads/…), never the short name, which a tag of the
+#    same name would win; and the squash below merges this same sha, after the branch is shown not to have moved.
+QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{commit}" 2>/dev/null || true)"
 QA_READ_SHORT=""
 [ -z "$QA_READ_FULL" ] || QA_READ_SHORT="$(git -C "$MAIN_ROOT" rev-parse --short "$QA_READ_FULL" 2>/dev/null || true)"
 kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}" "${KWT_REMOTE}/${DEFAULT_BRANCH}"
@@ -668,12 +670,26 @@ else
   fi
 fi
 
+# ── THE BRANCH MUST STILL BE THE REVISION THAT WAS READ. The QA Verdict, the gate checkout and the
+#    gate all used the tip resolved above; the gate can run long, and a commit that reached the branch
+#    meanwhile would be squashed unread under an Activity note that names the earlier revision.
+#    Merging the read sha alone would land what was read and strand the late commit, so it refuses.
+_moved_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{commit}" 2>/dev/null || true)"
+if [ -z "$QA_READ_FULL" ] || [ "$_moved_tip" != "$QA_READ_FULL" ]; then
+  kit_refuse 1 branch-moved-during-gate \
+    "Error: '${BRANCH}' moved while the pre-merge gate ran: it was read and gated at ${QA_READ_FULL:0:9} and is now at ${_moved_tip:0:9}." \
+    "       Refusing BEFORE any destructive step: no squash, no push, no branch deletion, no issue advance." \
+    "       The commits that arrived were not read by QA and not gated." \
+    "Next: re-run ./scripts/finish-pr.sh ${ISSUE_ID} to read and gate the branch as it now is; if those commits should not be on '${BRANCH}', move the branch back first."
+fi
+
 # ── Squash-merge inside the detached kanban worktree (already synced to trunk).
 #    --squash stages the branch's net changes onto the trunk tip WITHOUT moving
 #    HEAD or recording a merge; we then make one [Role]-prefixed commit.
+#    It merges the sha that was read and gated, which the check above showed is the branch's tip.
 echo ""
 echo "Squash-merging '${BRANCH}' → ${DEFAULT_BRANCH}..."
-if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
+if ! git -C "$KWT" merge --squash "$QA_READ_FULL" >/dev/null 2>&1; then
   # Name the issue file only when it IS a conflicted path, matched by basename (the mover may
   # already have moved it on the trunk).
   _fpr_conflicted="$(git -C "$KWT" diff --name-only --diff-filter=U 2>/dev/null)"

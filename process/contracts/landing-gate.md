@@ -129,7 +129,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   on the item does not cover it) ⇒ refuse, naming the bullet's AC id.
 - The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
   refuse, naming what the section lacks.
-- The branch is stacked on a base that has not landed, or has already squash-landed, or the squash
+- The branch is stacked on a base that has not landed, or has already squash-landed, or it moved while
+  the gate ran (the squash merges the revision that was read and gated, never the name), or the squash
   hits conflicts, or leaves no net change against the trunk ⇒ refuse before any destructive step.
   Each condition's rule id is named where the reference implementation raises it (§ 6).
 - The identity (session, agent) recorded for the commit that wrote the item's review verdict is
