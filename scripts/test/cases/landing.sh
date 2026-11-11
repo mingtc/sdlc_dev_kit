@@ -2905,3 +2905,47 @@ case_finish_pr_lands_the_branch_not_a_tag_of_its_name() {
   finish "finish-pr.sh: a tag with the branch's short name is not what is read or squashed; the branch lands"
   teardown
 }
+
+# =============================================================================
+# CASE — A TAG WITH THE BRANCH'S SHORT NAME DOES NOT HIDE THE BRANCH FROM THE LANDING CHECKS.
+#
+# The ablation, forks and board-property checks read the branch's diff. Given the short name they
+# read a same-named tag's. The branch here touches a declared test path with no '## Ablation'
+# section; the tag points at a commit that touches nothing the check looks at. Asserted: the
+# landing refuses on the missing section and merges nothing.
+# =============================================================================
+case_finish_pr_checks_read_the_branch_not_a_tag_of_its_name() {
+  cf_reset
+  make_sandbox
+  _declare_test_globs 'tests/*'
+  local id="$SB_PREFIX-809" br out rc tagc
+  br="feature/$id-work"
+  seed_issue dev_complete "$id" hidden chore "A tag hides a test change" "$br"
+  publish_sandbox
+  git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1 \
+    && mkdir -p "$SB_WORK/tests" \
+    && echo "a real change" > "$SB_WORK/tests/CHANGE809.txt" \
+    && git -C "$SB_WORK" add tests/CHANGE809.txt >/dev/null 2>&1 \
+    && sbcommit -q -m "[Dev] $id: add a real change" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q -u origin "$br" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" checkout -q -b "scratch-809" "$SB_TRUNK" >/dev/null 2>&1 \
+    && echo "harmless" > "$SB_WORK/BENIGN809.txt" \
+    && git -C "$SB_WORK" add BENIGN809.txt >/dev/null 2>&1 \
+    && sbcommit -q -m "a harmless commit" >/dev/null 2>&1 \
+    && tagc="$(git -C "$SB_WORK" rev-parse HEAD)" \
+    && git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" tag "$br" "$tagc" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_checks_read_the_branch_not_a_tag_of_its_name: could not set up the branch and the tag."
+  [ "$(git -C "$SB_WORK" rev-parse "$br^{commit}" 2>/dev/null)" = "$tagc" ] \
+    || _fixture_die "case_finish_pr_checks_read_the_branch_not_a_tag_of_its_name: the tag does not win the short name, so the row tests nothing."
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a branch that touches a test path with no '## Ablation' section landed behind a same-named tag (rc=0)"
+  case "$out" in *"Ablation"*) : ;; *) cf "the refusal does not name 'Ablation': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "tests/CHANGE809.txt" && cf "the branch was merged before the refusal"
+  origin_has_path "progress/qa_complete/$id-hidden.md" && cf "the card advanced despite the refusal"
+
+  finish "finish-pr.sh: the ablation check reads the branch, not a tag that shares its name"
+  teardown
+}

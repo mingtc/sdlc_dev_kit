@@ -424,6 +424,7 @@ CASES=(
   case_finish_pr_premerge_names_a_refused_gate
   case_finish_pr_refuses_a_branch_that_moved_during_the_gate
   case_finish_pr_lands_the_branch_not_a_tag_of_its_name
+  case_finish_pr_checks_read_the_branch_not_a_tag_of_its_name
   case_finish_pr_empty_merge
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
