@@ -2856,7 +2856,7 @@ STUB
   [ -e "$SB_TMP/gate-moved-it" ] \
     || cf "the gate stub did not move the branch, so the row tests nothing: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
   [ "$rc" -ne 0 ] || cf "a branch that moved during the gate landed (rc=0): $out"
-  printf '%s\n' "$out" | grep 'branch-moved-during-gate' >/dev/null \
+  printf '%s\n' "$out" | grep 'moved while the pre-merge gate ran' >/dev/null \
     || cf "the refusal is not the branch-moved one: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
   printf '%s\n' "$out" | grep '^Next:' >/dev/null \
     || cf "the branch-moved refusal names no Next: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
