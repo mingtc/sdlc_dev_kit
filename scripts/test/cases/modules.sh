@@ -1073,6 +1073,7 @@ case_module_enable_refuses_a_host_or_directory_in_another_case_and_a_role_the_ba
     done
     _md_snap "$SB_WORK" > "$s1"
     cmp -s "$s0" "$s1" || cf "($label) the refusal changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+    if [ "$_md_rc" -eq 0 ]; then _md_mod disable fab; fi   # a row that was not refused leaves the module enabled; the next row starts clean
   }
   _row "a block host in another case" "project.md" "PROJECT.md" -- "block: project.md gates g.md"
   _row "a new file under a directory in another case" "DOCS/new.md" "docs" -- "file: f.txt -> DOCS/new.md"
