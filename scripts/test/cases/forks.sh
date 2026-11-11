@@ -1574,10 +1574,16 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   (p) a hyphenated id and a shared id;  (q) numbered and quoted bullets;  (r) a half-struck bullet;  (s) comments and indented
 #   fences;  (t) a struck bullet citing a live ruling is skipped by the forks: derivation;
 #   (u) comments cut out of a line, not the line;  (v) a second strike;  (w) hyphenated ids in the todo copy;  (x) whitespace alone;
-#   (y) a heading that only begins with the section name;  (x2) whitespace added.
+#   (y) a heading that only begins with the section name;  (x2) whitespace added;
+#   (z1) an unchanged card with a Tasks checklist;  (z2) id-less todo criteria given ids;  (z3, z4) a comment on the old line;
+#   (z5) several blanks after the hashes in the forks: reader.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
-  printf '# card\n\n## %s\n\n%s\n\n## Activity\n\n%s\n' "${_AC808_HEAD:-Acceptance Criteria}" "$1" "${2:-${_AC808_OLDACT:-- opened}}" \
+  printf '# card\n\n## %s\n\n%s\n\n%s## Activity\n\n%s\n' "${_AC808_HEAD:-Acceptance Criteria}" "$1" "${_AC808_TASKS:+## Tasks
+
+$_AC808_TASKS
+
+}" "${2:-${_AC808_OLDACT:-- opened}}" \
     | { if [ -n "${_AC808_CRLF:-}" ]; then sed 's/$/\r/'; else cat; fi; }
 }
 _ac808_run() {  # <old-acs> <new-acs> <new-activity|-> <leave: yes|no> — prints "rc=N" then the output
@@ -1722,6 +1728,29 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n* [ ] a note, not a criterion')" - yes)"
   _ac808_want y "$out" 0
   unset _AC808_HEAD
+  # An unchanged card is never refused for a checklist elsewhere on it, however its lines read.
+  _AC808_TASKS="$(printf -- '- [ ] Re-enable login\n- [ ] Follow-up — file a ticket\n- [ ] E-mail is sent')"
+  out="$(_ac808_run "$three" "$three" - yes)"
+  _ac808_want z1 "$out" 0
+  case "$out" in *"Next:"*) cf "(z1) an unchanged card with a Tasks checklist was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+  unset _AC808_TASKS
+  # Id-less todo criteria rewritten as the refusal's Next says are not read as removed ids.
+  out="$(_ac808_run "$(printf -- '- [ ] Re-enable login after a reset\n- [ ] E-mail is sent')" "$(printf -- '- [ ] AC1 — Re-enable login after a reset.\n- [ ] AC2 — E-mail is sent.')" - yes)"
+  _ac808_want z2 "$out" 0
+  case "$out" in *"Next:"*) cf "(z2) id-less todo criteria rewritten with ids were refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+  # A comment on the old Activity line does not make the line new.
+  _AC808_OLDACT='- scoped AC3 per [decision: D-02] <!-- note -->'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
+  _ac808_want z3 "$out" 2 'AC3'
+  _AC808_OLDACT=$'- scoped AC3 per [decision: D-02] <!-- a\n   still a comment -->'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
+  _ac808_want z4 "$out" 2 'AC3'
+  unset _AC808_OLDACT
+  # The forks: derivation's heading takes any run of blanks after '##'.
+  printf '# c\n\n## Acceptance Criteria\n\n- [ ] AC1 — one.\n\n##  Activity\n\n- applies [decision: D-01]\n\n##\tOut of Scope\n\n- applies [decision: D-01]\n' > "$SB_TMP/ac808/blanks.md"
+  out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_cited_ids "$2" "$3" "$4" progress/todo/X-001-a.md "D-[0-9]+" "$5"' \
+    _ "$REAL_SCRIPTS" "$SB_TMP/ac808/blanks.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "D-01" 2>&1 </dev/null)"
+  [ -z "$out" ] || cf "(z5) an Activity and an Out of Scope heading with several blanks after the hashes were not read as the sections: [$out]"
   out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
   case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
