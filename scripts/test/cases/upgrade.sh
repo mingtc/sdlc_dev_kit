@@ -1172,6 +1172,92 @@ case_kit_upgrade_finish_runs_verify_commands() {
 }
 
 # =============================================================================
+# CASE — --finish JUDGES WITH THE NEW KIT'S FILES, NOT WITH FILES THE MARKER CAN EDIT.
+#
+# One new kit: item 1 carries `Verify: test -e DONE-MARKER`, item 2 carries none, and the marker is never
+# made. Staged, marked and committed, --finish refuses (control). Each edit below must also be refused,
+# stamping nothing: item 1 deleted from the checklist, renumbered, or its "Action required," words dropped;
+# the staged notes given `Verify: true` (uncommitted, and committed), deleted, or stripped of the line.
+# Untouched, a run that passes records the notes' sha256 in the archive. And a write that fails after the
+# archive and KIT-VERSION are written leaves a tree the printed recovery, followed as told, finishes from.
+# =============================================================================
+_ku_810_stage() {   # <tag> — a fresh pair, staged, marked, committed; sets KU_CL and KU_SN
+  _ku_pair 0.1.0 0.2.0
+  {
+    printf '# The process kit — release notes\n\n## [0.2.0] — 2026-01-02\n\n### Action required\n\n'
+    printf -- '- **Marked item.** Create DONE-MARKER.\n  Verify: test -e DONE-MARKER\n\n'
+    printf -- '- **Plain item.** Judge it yourself.\n\n### Added\n\n- **Not an item.**\n'
+  } > "$KU_NEW/process/KIT-RELEASE-NOTES.md"
+  _ku_manifest "$KU_NEW"
+  KU_CL="$KU_T/$KU_CHECKLIST_REL"; KU_SN="$KU_T/.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new"
+  _ku_run "$1-up" --into "$KU_T"
+  [ "$(_ku_rc "$1-up")" = 0 ] || cf "$1: staging exited $(_ku_rc "$1-up"): $(_ku_out "$1-up")"
+  sed 's/^- \[ \] /- [x] /' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark" >/dev/null 2>&1
+}
+# _ku_810_refused <tag> <rule> — --finish was refused with the rule, stamped nothing, wrote no archive.
+_ku_810_refused() {
+  _ku_run "$1-fin" --finish --into "$KU_T"
+  [ "$(_ku_rc "$1-fin")" != 0 ] || cf "$1: --finish exited 0 over the edit: $(_ku_out "$1-fin")"
+  [ "$(_ku_recs "$KU_T/.progress-records" "$2")" -eq 1 ] || cf "$1: no single refusal=$2 record: $(_ku_out "$1-fin")"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "$1: a refused --finish stamped the version"
+  [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "$1: a refused --finish wrote the archive"
+}
+case_kit_upgrade_finish_judges_with_the_new_kits_files() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh --finish refuses a checklist that lost, renumbered or re-worded an Action required item, and staged notes that were edited, deleted or stripped of their Verify: line, records the notes' sha256 in the archive, and leaves a failed write in a state the printed recovery finishes from"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_810_stage u0
+  _ku_run u0-fin --finish --into "$KU_T"
+  [ "$(_ku_rc u0-fin)" != 0 ] || cf "u0: the control finished though DONE-MARKER is absent"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-verify-failed)" -eq 1 ] || cf "u0: the control is not refused as upgrade-verify-failed: $(_ku_out u0-fin)"
+
+  _ku_810_stage u1; sed '/item 1:/d' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u1 upgrade-checklist-item-missing
+  _ku_810_stage u2; sed 's/item 1:/item 2:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u2 upgrade-checklist-item-missing
+  _ku_810_stage u3; sed 's/Action required, \[0.2.0\] item 1:/[0.2.0] item 1:/' "$KU_CL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$KU_CL"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u3 upgrade-checklist-item-missing
+
+  _ku_810_stage u4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  _ku_810_refused u4 upgrade-staging-edited
+  _ku_810_stage u5; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u5 upgrade-staging-edited
+  _ku_810_stage u6; rm -f "$KU_SN"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
+  _ku_810_refused u6 upgrade-staging-missing
+  _ku_810_stage u7; grep -v 'Verify:' "$KU_SN" > "$SB_TMP/sn" && cp "$SB_TMP/sn" "$KU_SN"
+  git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1; _ku_810_refused u7 upgrade-staging-edited
+
+  # Untouched: the marker made, the run stamps, and the archive carries the notes' sha256.
+  _ku_810_stage u8; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  local want arch="$KU_T/process/upgrades/0.1.0-to-0.2.0.md"; want="$(_ku_sha "$KU_NEW/process/KIT-RELEASE-NOTES.md")"
+  _ku_run u8-fin --finish --into "$KU_T"
+  [ "$(_ku_rc u8-fin)" = 0 ] || cf "u8: the untouched upgrade exited $(_ku_rc u8-fin): $(_ku_out u8-fin)"
+  grep -F "$want" "$arch" >/dev/null || cf "u8: the archive does not carry the staged notes' sha256: $(tail -6 "$arch" | tr '\n' '|')"
+
+  # A write that fails after the archive and KIT-VERSION are written: the printed recovery, as told, finishes.
+  if [ "$(id -u)" = 0 ]; then
+    cf "the failed-write row cannot run as root, where a read-only file is still writable"
+  else
+    _ku_810_stage w; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+    chmod a-w "$KU_T/process/KIT-MANIFEST"
+    _ku_run w-fin --finish --into "$KU_T"
+    [ "$(_ku_rc w-fin)" != 0 ] || cf "w: --finish exited 0 though KIT-MANIFEST is read-only"
+    [ "$(_ku_recs "$KU_T/.progress-records" upgrade-write-failed)" -eq 1 ] || cf "w: no refusal=upgrade-write-failed record: $(_ku_out w-fin)"
+    chmod u+w "$KU_T/process/KIT-MANIFEST"
+    # The recovery the Next prints, as written: the permission fixed, any partial archive deleted, then --finish again.
+    rm -f "$KU_T/process/upgrades/0.1.0-to-0.2.0.md"
+    _ku_run w-fin2 --finish --into "$KU_T"
+    [ "$(_ku_rc w-fin2)" = 0 ] || cf "w: --finish after the printed recovery exited $(_ku_rc w-fin2): $(_ku_out w-fin2)"
+    [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "w: the recovered --finish did not stamp 0.2.0"
+  fi
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE OLDER RELEASES' ACTION REQUIRED ENTRIES LIVE IN KIT-RELEASE-HISTORY.md, AND ARE STILL READ.
 #
 # A project on 0.1.0 upgrades to 0.3.0. The new kit's notes hold only 0.3.0; the entry of the release
