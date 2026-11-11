@@ -1575,7 +1575,7 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   fences;  (t) a struck bullet citing a live ruling is skipped by the forks: derivation;
 #   (u) comments cut out of a line, not the line;  (v) a second strike;  (w) hyphenated ids in the todo copy;  (x) whitespace alone;
 #   (y) a heading that only begins with the section name;  (x2) whitespace added;
-#   (z1) an unchanged card with a Tasks checklist;  (z2) id-less todo criteria given ids;  (z3, z4) a comment on the old line;
+#   (z1) an unchanged card with a Tasks checklist;  (z6) a Tasks line dropped after todo/;  (z2) id-less todo criteria given ids;  (z3, z4) a comment on the old line;
 #   (z5) several blanks after the hashes in the forks: reader.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
@@ -1590,7 +1590,7 @@ _ac808_run() {  # <old-acs> <new-acs> <new-activity|-> <leave: yes|no> — print
   local old="$1" new="$2" act="$3" leave="$4" d out rc lc=""
   d="$SB_TMP/ac808"; rm -rf "$d"; mkdir -p "$d/r/progress/todo" "$d/r/progress/in_progress"
   git -C "$d/r" init -q . >/dev/null 2>&1
-  _ac808_card "$old" > "$d/r/progress/todo/X-001-a.md"   # the todo copy carries _AC808_OLDACT, the new card the same unless it names its own
+  _AC808_TASKS="${_AC808_TASKS_OLD-${_AC808_TASKS:-}}" _ac808_card "$old" > "$d/r/progress/todo/X-001-a.md"   # the todo copy carries _AC808_OLDACT, the new card the same unless it names its own
   git -C "$d/r" add -A >/dev/null 2>&1
   git -C "$d/r" -c user.name=t -c user.email=t@t commit -q -m todo >/dev/null 2>&1
   git -C "$d/r" mv progress/todo/X-001-a.md progress/in_progress/X-001-a.md >/dev/null 2>&1
@@ -1734,6 +1734,12 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   _ac808_want z1 "$out" 0
   case "$out" in *"Next:"*) cf "(z1) an unchanged card with a Tasks checklist was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
   unset _AC808_TASKS
+  # A checklist line elsewhere on the todo copy that the new card no longer has is no removed AC.
+  _AC808_TASKS_OLD="$(printf -- '- [ ] Follow-up — file a ticket')"
+  out="$(_ac808_run "$three" "$three" - yes)"
+  _ac808_want z6 "$out" 0
+  case "$out" in *"Next:"*) cf "(z6) a Tasks line dropped after todo/ was read as a removed AC: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+  unset _AC808_TASKS_OLD
   # Id-less todo criteria rewritten as the refusal's Next says are not read as removed ids.
   out="$(_ac808_run "$(printf -- '- [ ] Re-enable login after a reset\n- [ ] E-mail is sent')" "$(printf -- '- [ ] AC1 — Re-enable login after a reset.\n- [ ] AC2 — E-mail is sent.')" - yes)"
   _ac808_want z2 "$out" 0

@@ -237,21 +237,22 @@ _qav_ac_ids() {
     | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
 }
 
-# _qav_ac_ids_then <body> — the ids of a card as it stood when it left 'todo/': the same bullet shapes,
-# but an id may carry '-' and alphanumerics ('AC-1'), so a card that left 'todo/' with such ids still has
-# them frozen when the gate now refuses the shape in the card.
+# _qav_ac_ids_then <body> — the ids <body>'s '## Acceptance Criteria' section declares, read for the
+# freeze: the same bullet shapes as _qav_ac_ids, but the id is the leading token with any '-alphanumeric'
+# runs in it ('AC-1'), and a token counts only when the separator follows it ('Re-enable login' has no
+# id; 'E-mail is sent' has none). The old copy and the new one are both read by this, so a hyphenated
+# id still on the card is never read as removed, and one the card no longer lists is.
 _qav_ac_ids_then() {
-  { printf '%s\n' "$1" | grep -oE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)*${KIT_AC_SEP}" \
-    | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
+  { printf '%s\n' "$1" | _qav_section_lines 'acceptance criteria' \
+    | { grep -E "^${KIT_AC_LEAD}" || true; } | sed -E "s/^${KIT_AC_LEAD}//" \
+    | LC_ALL=C awk '{ if (match($0, /^[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)*/)) { t = substr($0, 1, RLENGTH); r = substr($0, RLENGTH + 1); if (r ~ /^[ \t]*(—|-|:)/) print t } }' \
+    | sort -u; } || true
 }
 
-# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased, is
-# <heading> or <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
-# 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'). A carriage
-# return is stripped; a fenced block (indented or not) is skipped; an HTML comment is cut out of the
-# line (a trailing one, an inline one, one running over several lines) and what is left of the line is read.
-_qav_section_lines() {
-  LC_ALL=C awk -v want="$1" '
+# _qav_cut_comments — stdin with the carriage returns stripped and every HTML comment cut out of its
+# line (a trailing one, an inline one, one running over several lines); what is left of a line is kept.
+_qav_cut_comments() {
+  LC_ALL=C awk '
     { sub(/\r$/, ""); line = $0; out = ""
       while (line != "") {
         if (incom) { i = index(line, "-->"); if (!i) { line = ""; break }; line = substr(line, i + 3); incom = 0; continue }
@@ -259,7 +260,15 @@ _qav_section_lines() {
         if (!i) { out = out line; line = ""; break }
         out = out substr(line, 1, i - 1); line = substr(line, i + 4); incom = 1
       }
-      $0 = out }
+      print out }'
+}
+
+# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased, is
+# <heading> or <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
+# 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'), read through
+# _qav_cut_comments; a fenced block (indented or not) is skipped.
+_qav_section_lines() {
+  _qav_cut_comments | LC_ALL=C awk -v want="$1" '
     /^[ \t]*(```|~~~)/ { fence = !fence; next }
     fence { next }
     /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = (h == want || index(h, want " (") == 1); next }
@@ -1049,7 +1058,7 @@ kit_card_leave_todo() {
 #   '## Acceptance Criteria' the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
-  local new_body old_body ac_ids old_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+'
+  local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+'
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   # The population first, on every route: a checklist line the QA gate's reader would drop is never
@@ -1081,7 +1090,7 @@ kit_ac_drift_check() {
   # refuses, never passes).
   scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || scratch=""
   old_card="$(mktemp "${TMPDIR:-/tmp}/forks-ac-old.XXXXXX")" || old_card=""
-  [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | tr -d '\r' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' > "$old_card" || true
+  [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | _qav_cut_comments | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' > "$old_card" || true
   ac_ids="$(_qav_ac_ids "$new_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
@@ -1100,9 +1109,10 @@ kit_ac_drift_check() {
   # An AC the card had when it left todo/ and no longer lists was removed or renamed: that is a
   # ruling too. Its bullet is gone, so the citation is read where text still exists on the card.
   old_ids="$(_qav_ac_ids_then "$old_body")"
+  new_then_ids="$(_qav_ac_ids_then "$new_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
-    grep -qx -- "$ac" <<< "$ac_ids" && continue
+    grep -qx -- "$ac" <<< "$new_then_ids" && continue
     _qav_ac_removal_cited "$src" "$new_body" "$ac" "$id_shape" "$scratch" "$old_card" || removed="${removed}${removed:+, }$ac"
   done <<< "$old_ids"
   rm -f "$scratch" "$old_card"
@@ -1170,8 +1180,9 @@ _forks_cited_ids() {
     if [ "$in_fence" = 0 ]; then
       hd="${line%$'\r'}"; hd="${hd%"${hd##*[![:space:]]}"}"
       case "$hd" in
-        "## "*)
-          hd="$(printf '%s' "${hd#\#\# }" | tr '[:upper:]' '[:lower:]')"
+        "##"[[:space:]]*)
+          hd="${hd#\#\#}"; hd="${hd#"${hd%%[![:space:]]*}"}"
+          hd="$(printf '%s' "$hd" | tr '[:upper:]' '[:lower:]')"
           case "$hd" in
             "activity"|"activity ("*|"out of scope"|"out of scope ("*) in_sec=1 ;;
             *) in_sec=0 ;;
