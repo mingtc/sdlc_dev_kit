@@ -879,7 +879,7 @@ DIRTY_EOF
   [ -z "$dirty" ] || kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths this upgrade would write:" \
     "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
-    "Next: commit them, or stash only them ('git stash push -u -- $(printf '%s\n' "$dirty" | cut -c4- | tr '\n' ' ' | sed 's/ $//')'; a bare 'git stash' also takes what an earlier, killed run of this upgrade wrote), so that undoing the upgrade can never discard work of yours, then run this again."
+    "Next: commit them, or stash only them ('git stash push -u -- $(printf '%s\n' "$dirty" | cut -c4- | tr '\n' ' ' | sed 's/ $//')'; a bare 'git stash' also takes what an earlier, killed run of this upgrade wrote), so that undoing the upgrade can never discard work of yours, then run this again; once it has finished, commit the upgrade's changes first and only then run 'git stash pop' (git refuses a pop over uncommitted changes to the same paths)."
 fi
 
 # ── WRITE ─────────────────────────────────────────────────────────────────────

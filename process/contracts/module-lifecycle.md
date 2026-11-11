@@ -111,7 +111,8 @@ what "enabled" and "disabled" must mean.
   file of the module, a source carrying an armed name, a path not in canonical form, two entries on one
   path or two blocks in one slot of one file) ⇒ refuse, naming the line.
 - A target that is not the module's to take (see § 2) ⇒ refuse, naming every such path. A path under a
-  symbolic link, a symbolic-link host, and `.git/` or the record spelt in another case are among them.
+  symbolic link, a symbolic-link host, `.git/` or the record spelt in another case, a block host or a directory above a new
+  file spelt in another case than the project's, and a `role:` tag the project's role set already carries are among them.
 - A module whose files carry the blanks, in a project not yet stamped ⇒ refuse, pointing at kit-init.
 - A disable that cannot rewrite a shared file ⇒ refuse before removing anything.
 - An extension point whose reader is missing from the project's copy of the kit ⇒ refuse, naming each file.
@@ -121,7 +122,8 @@ what "enabled" and "disabled" must mean.
 - No sha256 tool on the machine ⇒ refuse: without one the record cannot be written or checked. An upgrade
   over enabled modules refuses the same way, before it writes.
 - A day-one `--with` naming a module that does not exist, an empty name, one enable would refuse for, or two that
-  place one path ⇒ refuse in the preflight, writing nothing, naming the module and each cause.
+  place one path, one a file below the other's file, or one under a path the other's `.gitignore` block ignores ⇒ refuse in the
+  preflight, writing nothing, naming the module and each cause.
 - Every refusal carries a `Next:` line, and leaves a progress record.
 
 ## 4. WHAT GREEN MEANS

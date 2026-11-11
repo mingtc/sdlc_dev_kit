@@ -43,6 +43,8 @@
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
 # shellcheck source=marker-block.sh
 . "$(dirname "${BASH_SOURCE[0]}")/marker-block.sh" || return 1   # return-class: internal
+# shellcheck source=role-set.sh
+. "$(dirname "${BASH_SOURCE[0]}")/role-set.sh" || return 1   # return-class: internal
 
 KIT_MOD_STATE_REL='process/MODULES'
 # The names a harness reads. A module stores them disarmed (`_claude/`, not `.claude/`); a source
@@ -674,6 +676,60 @@ _kit_mod_rec_sha() {
   printf '%s\n' "$1" | awk -v k="$2" -v p="$3" -v s="${4:-}" '$1 == k && $3 == p && (k == "file" || $4 == s) { print $2; exit }'
 }
 
+# _kit_mod_case_problem <target> <file|block> — why a path is spelt in another case than the project spells it, or nothing: a
+# directory above the target, or a block's host, whose name differs only in case from an entry the project has. Placed as
+# written, the record would carry a spelling no path of the project has (and, where case counts, a file the project does not
+# read). A new file's own name is not asked: one that exists is refused as occupied, one that does not is the module's to name.
+_kit_mod_case_problem() {
+  local rest="$1" d="" comp ents e exact twin
+  while [ -n "$rest" ]; do
+    comp="${rest%%/*}"
+    if [ "$rest" = "$comp" ]; then
+      [ "$2" = block ] || return 0
+      rest=""
+    else rest="${rest#*/}"; fi
+    ents="$(ls -A "$KIT_MOD_ROOT${d:+/${d%/}}" 2>/dev/null || true)"
+    exact=""; twin=""
+    while IFS= read -r e; do
+      [ -n "$e" ] || continue
+      if [ "$e" = "$comp" ]; then exact=1
+      elif [ -z "$twin" ] && [ "$(_kit_mod_lc "$e")" = "$(_kit_mod_lc "$comp")" ]; then twin="$e"; fi
+    done <<CASE_ENTS_EOF
+$ents
+CASE_ENTS_EOF
+    if [ -z "$exact" ] && [ -n "$twin" ]; then
+      echo "$1 spells '$d$comp' where this project has '$d$twin': the record would carry a spelling no path here has, and status and disable would not find it. Use the project's spelling in the module's manifest."
+      return 0
+    fi
+    d="$d$comp/"
+  done
+  return 0
+}
+
+# _kit_mod_role_clash <role layer file> — one line per role tag the layer declares that the project's role set already carries
+# (scripts/githooks/commit-msg's base set, or process/ROLES; any case), or nothing. Such a tag stays in force when the module
+# is disabled, and a disable keeps the whole layer for as long as history carries it.
+_kit_mod_role_clash() {
+  local t b where base
+  base="$(_kit_role_base "$KIT_MOD_ROOT")"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    where=""
+    case "|$(_kit_mod_lc "$base")|" in *"|$(_kit_mod_lc "$t")|"*) where="the base set in scripts/githooks/commit-msg" ;; esac
+    if [ -z "$where" ]; then
+      while IFS= read -r b; do
+        [ -n "$b" ] && [ "$(_kit_mod_lc "$b")" = "$(_kit_mod_lc "$t")" ] && where="process/ROLES"
+      done <<ROLE_CLASH_EOF
+$(_kit_mod_role_tags "$KIT_MOD_ROOT/process/ROLES")
+ROLE_CLASH_EOF
+    fi
+    [ -z "$where" ] || echo "  the role '$t' is already in this project's role set ($where), so the module would add nothing and a disable would keep its layer while history carries the tag. Drop the role line from the module's manifest, or give the seat a tag of its own."
+  done <<ROLE_LAYER_EOF
+$(_kit_mod_role_tags "$1")
+ROLE_LAYER_EOF
+  return 0
+}
+
 # _kit_mod_conflicts <plan> <name> — print one line per row that cannot be placed; nothing when
 # all can. A target that EXISTS is a conflict whatever it holds: enable cannot tell a file it wrote from one
 # the project had, or one another module placed, so it takes none of them. The one exception is a path THIS
@@ -686,6 +742,12 @@ _kit_mod_conflicts() {
     dst="$KIT_MOD_ROOT/$tgt"
     prob="$(_kit_mod_ancestor_problem "$tgt")"
     if [ -n "$prob" ]; then echo "  $prob"; continue; fi
+    prob="$(_kit_mod_case_problem "$tgt" "$kind")"
+    if [ -n "$prob" ]; then echo "  $prob"; continue; fi
+    if [ "$kind" = file ] && [ "$tgt" = "process/roles.d/$name" ]; then
+      prob="$(_kit_mod_role_clash "$rend")"
+      if [ -n "$prob" ]; then echo "$prob"; continue; fi
+    fi
     if [ "$kind" = file ]; then
       if _kit_mod_is_core "$tgt"; then echo "  $tgt is one of the kit's own files (process/KIT-MANIFEST lists it)"; continue; fi
       if [ -d "$dst" ]; then echo "  $tgt is a directory"; continue; fi
@@ -793,31 +855,68 @@ kit_mod_would_place() {
 }
 
 # _kit_mod_same_path <a> <b> — status 0 when two relative paths name one file here: the same spelling, or, on a
-# filesystem that reads upper and lower case as one (the project's `.git` is found under `.GIT`), the same in lower case.
+# filesystem that reads upper and lower case as one (the project's `.git` is found under `.GIT`, as the same directory), the same
+# in lower case. A directory a project made and named `.GIT` on a filesystem that tells the two apart is not that.
 _kit_mod_same_path() {
   [ "$1" = "$2" ] && return 0
-  [ -e "$KIT_MOD_ROOT/.GIT" ] && [ "$(_kit_mod_lc "$1")" = "$(_kit_mod_lc "$2")" ]
+  [ "$KIT_MOD_ROOT/.GIT" -ef "$KIT_MOD_ROOT/.git" ] && [ "$(_kit_mod_lc "$1")" = "$(_kit_mod_lc "$2")" ]
 }
 
-# kit_mod_plans_collide <name>… — one line per pair of modules that place a file on one path, nothing when none does:
-# the question kit_mod_would_place cannot ask of one module alone. Reads the plans kit_mod_would_place left in
-# $KIT_MOD_TMP; a name with no plan (a module it refused) is left out.
+# _kit_mod_path_under <path> <directory> — status 0 when <path> is below <directory> (one path here, in the sense above).
+_kit_mod_path_under() {
+  local d="$1"
+  while [ "$d" != . ] && [ "$d" != / ]; do
+    d="$(dirname "$d")"
+    [ "$d" != . ] || return 1   # return-class: predicate
+    _kit_mod_same_path "$d" "$2" && return 0
+  done
+  return 1   # return-class: predicate
+}
+
+# _kit_mod_ignores <ignore block file> <path> — status 0 when git would ignore <path> under the patterns in the file.
+_kit_mod_ignores() {
+  local g="$KIT_MOD_TMP/ignore-probe"
+  rm -rf "${g:?}"; mkdir -p "$g" && git -C "$g" init -q . >/dev/null 2>&1 && cp "$1" "$g/.gitignore" || return 1   # return-class: predicate
+  git -C "$g" check-ignore -q --no-index -- "$2" 2>/dev/null
+}
+
+# kit_mod_plans_collide <name>… — one line per pair of modules whose plans cannot both be placed, nothing when none does: a
+# file on one path, a file below another's file (a directory the second cannot make), and an ignore block that covers a path
+# the other places (the initialization commit would leave it out) — the questions kit_mod_would_place cannot ask of one
+# module alone. Reads the plans kit_mod_would_place left in $KIT_MOD_TMP; a name with no plan (a module it refused) is left out.
 kit_mod_plans_collide() {
-  local n kind tgt tab i j nm=() tg=()
+  local n kind tgt rend extra tab i j nm=() tg=() gn=() gr=()
   tab="$(printf '\t')"
   for n in "$@"; do
     [ -f "$KIT_MOD_TMP/would-$n" ] || continue
-    while IFS="$tab" read -r kind tgt _ _; do
-      [ "$kind" = file ] || continue
-      nm+=("$n"); tg+=("$tgt")
+    while IFS="$tab" read -r kind tgt rend extra; do
+      if [ "$kind" = file ]; then nm+=("$n"); tg+=("$tgt")
+      elif [ "$kind" = block ] && [ "$tgt" = .gitignore ] && [ "$extra" = gitignore ]; then gn+=("$n"); gr+=("$rend"); fi
     done < "$KIT_MOD_TMP/would-$n"
   done
   i=0
   while [ "$i" -lt "${#nm[@]}" ]; do
     j=$((i + 1))
     while [ "$j" -lt "${#nm[@]}" ]; do
-      if [ "${nm[$i]}" != "${nm[$j]}" ] && _kit_mod_same_path "${tg[$i]}" "${tg[$j]}"; then
-        echo "  module ${nm[$i]} places ${tg[$i]} and module ${nm[$j]} places ${tg[$j]}: one path here, so the second would find it occupied"
+      if [ "${nm[$i]}" != "${nm[$j]}" ]; then
+        if _kit_mod_same_path "${tg[$i]}" "${tg[$j]}"; then
+          echo "  module ${nm[$i]} places ${tg[$i]} and module ${nm[$j]} places ${tg[$j]}: one path here, so the second would find it occupied"
+        elif _kit_mod_path_under "${tg[$j]}" "${tg[$i]}"; then
+          echo "  module ${nm[$i]} places ${tg[$i]} and module ${nm[$j]} places ${tg[$j]}: the first is a file, so the second has no directory to go in"
+        elif _kit_mod_path_under "${tg[$i]}" "${tg[$j]}"; then
+          echo "  module ${nm[$j]} places ${tg[$j]} and module ${nm[$i]} places ${tg[$i]}: the first is a file, so the second has no directory to go in"
+        fi
+      fi
+      j=$((j + 1))
+    done
+    i=$((i + 1))
+  done
+  i=0
+  while [ "$i" -lt "${#gn[@]}" ]; do
+    j=0
+    while [ "$j" -lt "${#nm[@]}" ]; do
+      if [ "${gn[$i]}" != "${nm[$j]}" ] && _kit_mod_ignores "${gr[$i]}" "${tg[$j]}"; then
+        echo "  module ${gn[$i]}'s .gitignore block ignores ${tg[$j]}, which module ${nm[$j]} places: the initialization commit would leave it out"
       fi
       j=$((j + 1))
     done
@@ -880,7 +979,7 @@ kit_mod_enable() {
     if [ "$resuming" = 1 ]; then
       next_text="run ./scripts/module.sh disable $name to take back the unfinished enable (it keeps and names what you changed), or put each path named above back as it was, then run ./scripts/module.sh enable $name again."
     else
-      next_text="for a path left by an earlier disable, restore the module's copy over it (./scripts/module.sh status $name shows what it kept) or delete it; for any other path named above, move or merge it yourself (it is not the module's); then run ./scripts/module.sh enable $name again."
+      next_text="for a path left by an earlier disable, restore the module's copy over it (./scripts/module.sh status $name shows what it kept) or delete it; for any other path named above, move or merge it yourself (it is not the module's); for a spelling or a role the line itself says to change, fix modules/$name/module.manifest; then run ./scripts/module.sh enable $name again."
     fi
     kit_refuse 1 module-enable-conflict \
       "Error: module $name cannot be placed; these paths are not its to take:" \

@@ -1086,6 +1086,16 @@ case_module_enable_refuses_a_host_or_directory_in_another_case_and_a_role_the_ba
   [ "$_md_rc" -eq 0 ] || cf "(control) the same module spelt as the project spells it exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   [ -f "$SB_WORK/docs/new.md" ] || cf "(control) the file was not placed"
   unset -f _row _fab
+  # (case-blindness) two spellings are one path only where the filesystem reads them as one: a project's `.git` found under
+  # `.GIT` says so, and a directory a project made and named `.GIT` beside it, on a filesystem that tells the two apart, does not
+  local cb="$SB_TMP/case-probe" ans
+  rm -rf "$cb"; mkdir -p "$cb/.git"
+  if [ -e "$cb/.GIT" ]; then ans=same; else mkdir -p "$cb/.GIT"; ans=apart; fi
+  if ( KIT_MOD_ROOT="$cb"; . "$SB_WORK/scripts/lib/modules.sh" && _kit_mod_same_path docs/a.txt docs/A.txt ); then
+    [ "$ans" = same ] || cf "(case-blindness) a directory named .GIT beside .git, on a filesystem that keeps them apart, made docs/a.txt and docs/A.txt one path"
+  else
+    [ "$ans" = apart ] || cf "(case-blindness) on a filesystem that reads .GIT as .git, docs/a.txt and docs/A.txt were two paths"
+  fi
   finish "$L"
   teardown
 }

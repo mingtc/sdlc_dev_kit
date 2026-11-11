@@ -161,6 +161,11 @@ runs. `list` shows the ids and never runs a check.
 - **A script a module places under `scripts/`** is the project's, not the kit's; [`contracts/README.md`](contracts/README.md)
   says how the self-test treats it.
 - **Paths** in the manifest are in one canonical form: no `./`, `//`, `.` or `..` component and no trailing `/`.
+  A block's host and the directories above a new file are spelt as the project spells them (`enable` refuses `project.md`
+  where the project has `PROJECT.md`). Two modules named together do not place a file below the other's file or under a
+  path the other's `.gitignore` block ignores.
+- **A `role:` tag is one the project's role set does not carry yet** (the commit-msg hook's base set and `process/ROLES`, in any
+  case): `enable` refuses one that is, because the tag would outlive the module's disable for as long as history uses it.
 - **Stack-specific material** is what a module is for, but it states what it needs; the core may not.
 
 **A module ships its own self-test cases.** `test/cases/*.sh` define `case_<name>() {` functions and
