@@ -10,8 +10,10 @@
 # It, in order:
 #   1. writes the question in the channel PROJECT.md declares, a path inside the repository:
 #      a directory gets ONE FILE per question, named so it sorts and is unique
-#      (dev/questions/<UTC-timestamp>-<role>-ask.md); a channel that names a file has each
-#      question appended to it. An absolute or `..` channel is refused. Each question carries
+#      (dev/questions/<UTC-timestamp>-<role>-ask.md, the name claimed by creating it exclusively, so
+#      two asks in one second take two files); a channel that names a file has each
+#      question appended to it. An absolute or `..` channel, or one that resolves through a symbolic
+#      link to a place outside the repository, is refused. Each question carries
 #      the asker, the time, the card it parks (if --card named one), the question, the working
 #      default, how the answer is recorded (the register entry, if --decision named one; the file
 #      itself, if not) and how to answer in this file: one `**Answer (...)**` block
@@ -206,6 +208,24 @@ case "$_rc" in
        "Next: the project's owner corrects PROJECT.md's \"Their channel\" line to a repo-relative path (e.g. \"dev/questions/\"), then re-run. Nothing was written; if you are not the owner, stop and hand off." ;;
 esac
 
+# The check above is on the WORDS of the path. A component that is a symbolic link can still carry the
+# question out of the tree, so the deepest component that exists is resolved before anything is created,
+# and a channel FILE that is itself a link is refused: neither is followed.
+_anc="$CHANNEL_DIR"
+until [ -e "$_anc" ] || [ -L "$_anc" ]; do _anc="$(dirname "$_anc")"; done
+_real="$(cd "$_anc" 2>/dev/null && pwd -P)" || _real=""
+_link_why=""
+case "$_real" in
+  "$ROOT"|"$ROOT"/*) : ;;
+  *) _link_why="the declared channel ($CHANNEL_TOKEN) resolves through a symbolic link to ${_real:-nowhere that exists}, outside the repository" ;;
+esac
+if [ -z "$_link_why" ] && [ "$CHANNEL_IS_DIR" -eq 0 ] && [ -L "$ROOT/$CHANNEL_TOKEN" ]; then
+  _link_why="the declared channel file ($CHANNEL_TOKEN) is a symbolic link, and a question appended to it would land wherever it points"
+fi
+[ -z "$_link_why" ] || kit_refuse 1 ask-channel-unusable \
+  "Error: $_link_why." \
+  "Next: the project's owner corrects PROJECT.md's \"Their channel\" line to a path whose every component is a real directory inside the repository (or a real file, not a link), then re-run. Nothing was written; if you are not the owner, stop and hand off."
+
 if ! mkdir -p "$CHANNEL_DIR" 2>/dev/null || [ ! -w "$CHANNEL_DIR" ]; then
   kit_refuse 1 ask-channel-unusable \
     "Error: the declared channel ($CHANNEL_TOKEN → $CHANNEL_DIR) cannot be created or is not writable." \
@@ -215,11 +235,15 @@ fi
 TS="$(date -u +%Y-%m-%dT%H%M%SZ)"
 SAFE_ROLE="$(printf '%s' "$ROLE" | tr -c 'A-Za-z0-9' '-')"
 if [ "$CHANNEL_IS_DIR" -eq 1 ]; then
-  QFILE="$CHANNEL_DIR/${TS}-${SAFE_ROLE}-ask.md"
-  # One file per question: a second ask in the same second takes the next free suffix.
-  _n=1
-  while [ -e "$QFILE" ]; do
-    _n=$((_n + 1)); QFILE="$CHANNEL_DIR/${TS}-${SAFE_ROLE}-${_n}-ask.md"
+  # One file per question: the name is CLAIMED by creating it exclusively, so two asks in the same
+  # second cannot both take it; the loser takes the next free suffix.
+  _n=1; QFILE="$CHANNEL_DIR/${TS}-${SAFE_ROLE}-ask.md"
+  until ( set -C; : > "$QFILE" ) 2>/dev/null; do
+    _n=$((_n + 1))
+    [ "$_n" -le 1000 ] || kit_refuse 1 ask-write-failed \
+      "Error: could not claim a question file name in $CHANNEL_DIR." \
+      "Next: check that the channel's directory is writable and holds no thousand files of this second, then re-run. If it still fails, stop and hand off with the question in your report."
+    QFILE="$CHANNEL_DIR/${TS}-${SAFE_ROLE}-${_n}-ask.md"
   done
 else
   QFILE="$ROOT/$CHANNEL_TOKEN"
@@ -238,7 +262,8 @@ DEC="$ROOT/requirements/DECISIONS.md"
 DECISION_STATE="none"        # none | withdrawn | standing
 CUR_RULING=""
 if [ -n "$DECISION" ] && [ -f "$DEC" ] && grep -qE "^### ${DECISION}( |—|$)" "$DEC" 2>/dev/null; then
-  CUR_RULING="$(awk -v id="$DECISION" '
+  CUR_RULING="$(KIT_ASK_ID="$DECISION" awk '
+    BEGIN { id = ENVIRON["KIT_ASK_ID"] }
     /^### / { in_entry = ($0 ~ ("^### " id "( |—|$)")) }
     in_entry && /^\*\*Ruling\.\*\*/ { sub(/^\*\*Ruling\.\*\* /, ""); print; exit }
   ' "$DEC")"
@@ -293,8 +318,9 @@ if [ "$DECISION_STATE" = "withdrawn" ]; then
   # Provenance) is untouched; the working-default text replaces the ruling's own words, never
   # appended beside them (DECISIONS.md § The FOURTH state). The pointer to the question file is
   # IN the token, so a reader of the register alone can find it.
-  awk -v id="$DECISION" -v tok="WORKING DEFAULT (provisional, asked $TODAY, $QREL) — $DEFAULT_TXT" '
-    BEGIN { in_entry = 0; done = 0 }
+  # The text reaches awk through the environment: `-v` would process backslash escapes in it.
+  KIT_ASK_ID="$DECISION" KIT_ASK_TOK="WORKING DEFAULT (provisional, asked $TODAY, $QREL) — $DEFAULT_TXT" awk '
+    BEGIN { in_entry = 0; done = 0; id = ENVIRON["KIT_ASK_ID"]; tok = ENVIRON["KIT_ASK_TOK"] }
     /^### / { in_entry = ($0 ~ ("^### " id "( |—|$)")) }
     in_entry && /^\*\*Ruling\.\*\*/ && !done {
       print "**Ruling.** " tok

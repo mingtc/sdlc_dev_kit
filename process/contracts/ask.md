@@ -18,12 +18,14 @@ interactive prompt nothing will answer.
   unfilled principal or channel is a refusal, not a default channel invented on the spot.
   *Why:* a question sent somewhere nobody declared is a question nobody will find.
 - **One question, one file.** Each call into a directory channel writes exactly one file, named so it
-  sorts by time and never collides with another question from the same or a different role. A
+  sorts by time and never collides with another question from the same or a different role, even one
+  made in the same second: the name is claimed by creating the file exclusively. A
   channel that names a file is the declared exception: each question is appended to it, which is
   why PROJECT.md leads with the directory form.
   *Why:* a question folded into an existing file is a question a later reader can miss; a
   collision silently drops one question's record.
-- **The channel is a path inside the repository.** An absolute channel or one with a `..` component is
+- **The channel is a path inside the repository.** An absolute channel, one with a `..` component, or one whose
+  existing components resolve through a symbolic link to a place outside the repository is
   refused (`ask-channel-unusable`), never re-rooted under the repository or written beside it.
   *Why:* a question filed outside the tree is one no later session of this project will find.
 - **A STANDING RULING IS NEVER TOUCHED.** `--decision D-NN` writes the register only when that
@@ -61,7 +63,7 @@ interactive prompt nothing will answer.
 | `ask-no-principal` | `PROJECT.md`'s `principal:` is missing or still `<angle-bracket>` |
 | `ask-no-channel` | `PROJECT.md`'s channel line is missing or still `<angle-bracket>` |
 | `ask-role-is-principal` | `--role` names the seat `PROJECT.md` declares as principal — the asker may not be the seat that answers; `Next:` re-run with the asking seat's own role, or decide it and record the ruling |
-| `ask-channel-unusable` | the declared channel is not a path inside the repository, or cannot be created, or is not writable |
+| `ask-channel-unusable` | the declared channel is not a path inside the repository (by its words, or through a symbolic link), or cannot be created, or is not writable |
 | `ask-card-malformed` | `--card` names something that is not a card id (`<PREFIX>-N`, or a slice's `<PREFIX>-N-sM`); `Next:` re-run with the parked card's id (`ls progress/*/`), or leave `--card` off |
 | `ask-card-not-found` | `--card` is shaped like a card id but names no card under `progress/` in this checkout; `Next:` check the id, pull the trunk if the card is newer, or leave `--card` off |
 | `ask-write-failed` | the question file could not be written |
