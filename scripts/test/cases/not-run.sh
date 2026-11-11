@@ -424,3 +424,72 @@ case_check_board_says_did_not_run_when_mktemp_fails() {
   finish "check-board.sh says DID NOT RUN, and the verdict is not clean, when it cannot make the temp file its readers' failures are recorded in"
   teardown
 }
+
+# =============================================================================
+# CASE — THE REPORT'S OTHER ARMS DO NOT READ clean OVER A READER THAT FAILED.
+# The board-property arms were made status-checked first; the arms that read a card, progress.md,
+# PROJECT.md or the downtime queue with their own awk were not. One awk shim per arm exits 2 for that
+# arm's own call only (the shim is told a fragment of the awk program, so nothing else fails). Each row
+# must show the arm's DID NOT RUN line, none of the clean-reading text it printed before, and a verdict
+# that is not clean; the control, the same board with the real awk, shows that text.
+# =============================================================================
+# _nr_arm_section <letter> — one arm's lines out of a report on stdin.
+_nr_arm_section() {
+  awk -v t="[$1]" 'index($0, t) == 1 { f = 1; print; next } f && /^(\[|──)/ { exit } f'
+}
+# _nr_shim_awk_for <dir> <fragment> — an awk that exits 2 when its arguments hold <fragment>.
+_nr_shim_awk_for() {
+  local real
+  real="$(command -v awk)"
+  mkdir -p "$1"
+  printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*) exit 2 ;; esac\nexec %s "$@"\n' "$2" "$real" > "$1/awk"
+  chmod +x "$1/awk"
+}
+case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
+  cf_reset
+  make_sandbox
+  local id="$SB_PREFIX-951"
+  seed_issue todo "$id" fine chore "A well-formed card" >/dev/null
+  seed_issue done "$SB_PREFIX-952" landed chore "A landed card" >/dev/null
+  mkdir -p "$SB_WORK/dev/questions"
+  { _ask_pm_section 'Nadia, shop manager' 'dev/questions/'; printf -- '- `kit-feedback: auto` — the kit default\n'; } > "$SB_WORK/PROJECT.md"
+  printf '# progress.md\n\n## Log\n\n### 2026-01-02 [Dev] a session\n\n- did the work.\n- `kit-feedback: none`\n' > "$SB_WORK/progress.md"
+  printf '| Item | Origin | Size | Why deferred | Wake condition | Status |\n|---|---|---|---|---|---|\n| **Live** | audit | S | — | now | open (claimed by %s) |\n' "$id" > "$SB_WORK/dev/downtime-queue.md"
+  printf '# a question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** Yes.\n' "$id" > "$SB_WORK/dev/questions/2026-01-01-q-ask.md"
+  publish_sandbox
+
+  local out sec oldp="$PATH" row letter frag clean ctl why
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(control) the fixture board does not read clean: $(printf '%s' "$out" | grep '⚠' | head -4 | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null && cf "(control) an arm says DID NOT RUN on a healthy board: $(printf '%s' "$out" | grep -F 'DID NOT RUN' | head -3 | tr '\n' '|' | cut -c1-300)"
+
+  # <row>|<arm letter>|<a fragment of the arm's awk program>|<text a dead arm must not print>|<1 if the control prints it>
+  while IFS='|' read -r row letter frag clean ctl; do
+    [ -n "$row" ] || continue
+    sec="$(printf '%s\n' "$out" | _nr_arm_section "$letter")"
+    if [ "$ctl" = 1 ]; then
+      printf '%s\n' "$sec" | grep -F -- "$clean" >/dev/null || cf "($row, control) arm [$letter] does not print '$clean': $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+    fi
+    _nr_shim_awk_for "$SB_TMP/shim-$row" "$frag"
+    PATH="$SB_TMP/shim-$row:$oldp"
+    why="$(cb_run)"
+    PATH="$oldp"
+    sec="$(printf '%s\n' "$why" | _nr_arm_section "$letter")"
+    printf '%s\n' "$why" | grep -F 'board-drift: clean' >/dev/null && cf "($row) a reader of arm [$letter] exited 2 — the verdict reads clean"
+    printf '%s\n' "$sec" | grep -F 'DID NOT RUN' >/dev/null || cf "($row) arm [$letter] does not say DID NOT RUN although its reader exited 2: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$sec" | grep -F -- "$clean" >/dev/null && cf "($row) arm [$letter] printed '$clean' although its reader exited 2"
+  done <<'NR_ROWS'
+a|a|Activity|✓ none across|1
+c|c|if (inlog) exit|Log SLICE: 0 /|0
+j|j|Wake condition|no open row claims a landed issue ✓|1
+m|m|index($0, k ":")|landed issue(s) carry prd|1
+nproject|n|kit-feedback:[[:space:]]|newest entry|1
+nlog|n|have = 1|newest entry|1
+tchannel|t|marker|does not cite it since the answer|1
+tcard|t|Parks card|no card named|0
+u|u|index($0, "title:") == 1|✓ none:|1
+NR_ROWS
+
+  finish "check-board.sh arms [a] [c] [j] [m] [n] [t] [u] each say DID NOT RUN, print none of their clean-reading text and leave the verdict not clean when their own reader exits non-zero, while the control reads clean with the real awk"
+  teardown
+}
