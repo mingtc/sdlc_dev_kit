@@ -126,7 +126,11 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   paragraph, else the subject of the commit that added it, names the item), leaves such an added entry attributed to no
   work item (its Provenance names no card on the trunk and does not say `no work item`), or the
   item's AC text changed after it left `todo/` and the changed bullet carries no `[decision: D-NN]` of its own (a citation elsewhere
-  on the item does not cover it) ⇒ refuse, naming the bullet's AC id.
+  on the item does not cover it), or an AC it had then is no longer on it (removed or renamed) and no `[decision: D-NN]`
+  on an Activity line naming it, or on the bullet kept struck through (`- [ ] ~~AC3 — …~~`), covers the removal
+  ⇒ refuse, naming the AC id. The item's acceptance criteria are read first, whatever its history: a checklist line of
+  `## Acceptance Criteria` that is not `- [ ] <id> — <text>` (another marker, an indent, an id with a dot, no id) ⇒
+  refuse, naming each such line; an item with no acceptance criterion ⇒ refuse.
 - The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
   refuse, naming what the section lacks.
 - The branch is stacked on a base that has not landed, or has already squash-landed, or it moved while

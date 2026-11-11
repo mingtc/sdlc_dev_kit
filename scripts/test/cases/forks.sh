@@ -1569,7 +1569,7 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   Activity on the line naming it: passes;  (h) removed as a struck bullet carrying the citation: passes;
 #   (i) struck with no citation: refused;  (j) a citation in the Activity on a line that does not name the id:
 #   refused;  (k) a reworded bullet is still the changed-bullet refusal;  (l) a card with no id bullet no longer
-#   ends the caller silently.
+#   ends the caller silently;  (m) the todo copy had no AC line at all: no old id, no drift, no silent exit.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
   printf '# card\n\n## Acceptance Criteria\n\n%s\n\n## Activity\n\n%s\n' "$1" "${2:-- opened}"
@@ -1629,6 +1629,9 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   _ac808_want k "$out" 2 'AC text' 'AC2'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two, reworded. [decision: D-01]\n- [ ] AC3 — three.')" - yes)"
   _ac808_want k2 "$out" 0
+  out="$(_ac808_run 'a todo copy with prose only.' "$three" - yes)"
+  _ac808_want m "$out" 0
+  case "$out" in *"Next:"*) cf "(m) a card whose todo copy had no AC line was refused" ;; esac
   out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
   case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"

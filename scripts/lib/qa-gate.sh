@@ -62,7 +62,13 @@
 #     register entry and no citation, is invisible to the derivation above. The bullet is its one
 #     checklist line ('- [ ] <id> — …'); a continuation line below it is neither compared nor read for
 #     a citation, and a citation elsewhere on the card (another AC, the Activity) never covers it.
-#     The refusal names each changed, uncited bullet by AC id. A card whose
+#     The refusal names each changed, uncited bullet by AC id. An AC the card had then and has not
+#     now (removed or renamed) is drift too, covered by a '[decision: D-NN]' on an '## Activity' line
+#     that names it or on a struck bullet ('- [ ] ~~AC3 — …~~ [decision: D-NN]'). The population is read
+#     first, on every route, even when the history shows no todo/ departure: a checklist line of
+#     '## Acceptance Criteria' that '_qav_ac_ids' would not read (another marker, an indent, an id with a
+#     dot, no id) is refused by name (forks-ac-ungraded), and a card with no AC is refused (forks-ac-none).
+#     A card whose
 #     history never shows it leaving a 'todo/' column (minted straight into another one) makes
 #     this half UNRUNNABLE, printed on stdout the same way kit_ablation_check reports an
 #     undeclared TEST_GLOBS. This history is read from <old-rev> (the TRUNK), never <new-rev>:
@@ -85,7 +91,7 @@
 #     this half UNRUNNABLE, printed on stdout.
 #     Refuses through kit_refuse with: forks-missing, forks-malformed, forks-register-undeclared,
 #     forks-register-unreadable, forks-unresolved, forks-contradicted, forks-attribution-unclear,
-#     forks-ac-changed-uncited.
+#     forks-ac-changed-uncited, forks-ac-ungraded, forks-ac-none.
 #     The AC-drift half is kit_ac_drift_check <card-file> <card-id> <repo> <leave-commit>
 #     <leave-path>, callable alone (move-issue.sh calls it at qa_complete); kit_card_leave_todo
 #     <card-id> <repo> <old-rev> prints its last two operands, tab-separated, or nothing.
@@ -214,8 +220,35 @@ KIT_AC_SEP='[[:space:]]*(—|-|:)'
 # _qav_ac_ids <body> — every AC id a checklist bullet declares, one per line, sorted and
 # de-duplicated. The population kit_qa_verdict_check's table must match one for one.
 _qav_ac_ids() {
-  printf '%s\n' "$1" | grep -oE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
-    | sed -E "s/^- \[[ xX]\] //; s/${KIT_AC_SEP}\$//" | sort -u
+  { printf '%s\n' "$1" | grep -oE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+    | sed -E "s/^- \[[ xX]\] //; s/${KIT_AC_SEP}\$//" | sort -u; } || true   # no match: an empty population, never an exit under pipefail
+}
+
+# _qav_ac_stray_bullets <body> — the checklist lines of '## Acceptance Criteria' (any marker, any
+# indent, outside a code fence) that _qav_ac_ids does not read, one per line, trimmed. A struck
+# bullet ('- [ ] ~~AC3 — …~~') is a recorded removal, not a stray.
+_qav_ac_stray_bullets() {
+  { printf '%s\n' "$1" | LC_ALL=C awk '
+      /^(```|~~~)/ { fence = !fence; next }
+      fence { next }
+      /^##[ \t]/ { sect = ($0 ~ /^##[ \t]+Acceptance Criteria[ \t]*$/); next }
+      sect && /^[ \t]*[-*+][ \t]+\[[ xX]\]/ { print }' \
+    | grep -vE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+    | grep -vE '^[[:space:]]*[-*+][[:space:]]+\[[ xX]\][[:space:]]+~~' \
+    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | cut -c1-80; } || true
+}
+
+# _qav_ac_removal_cited <card-file> <body> <id> <id-shape> <scratch> — success when AC <id>, gone from
+# <body>, has its removal cited: a '[decision: D-NN]' on a struck bullet of <body> that names it, or on a
+# line of the card's '## Activity' that names it. A citation elsewhere on the card does not cover it.
+_qav_ac_removal_cited() {
+  local file="$1" body="$2" id="$3" shape="$4" scratch="$5"
+  [ -n "$scratch" ] || return 1   # return-class: predicate
+  { printf '%s\n' "$body" | grep -E "^[[:space:]]*[-*+][[:space:]]+\[[ xX]\][[:space:]]+~~[[:space:]]*${id}([^A-Za-z0-9]|\$)" || true
+    LC_ALL=C awk '/^##[ \t]/ { sect = ($0 ~ /^##[ \t]+Activity[ \t]*$/); next } sect { print }' "$file" \
+      | grep -E "(^|[^A-Za-z0-9])${id}([^A-Za-z0-9]|\$)" || true
+  } > "$scratch"
+  [ -n "$(kit_decisions_cited "$scratch" "$shape")" ]   # return-class: predicate
 }
 
 # _qav_ac_bullet_text <body> <id> — the NORMALISED text of AC <id>'s own checklist bullet (the
@@ -967,13 +1000,29 @@ kit_card_leave_todo() {
 #   Refuses through kit_refuse with forks-ac-changed-uncited.
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
-  local new_body old_body ac_ids ac ac_old ac_new scratch drift="" id_shape='D-[0-9]+'
+  local new_body old_body ac_ids old_ids ac ac_old ac_new scratch drift="" removed="" stray id_shape='D-[0-9]+'
 
+  new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+  # The population first, on every route: a checklist line the QA gate's reader would drop is never
+  # graded, and a card with no AC has nothing to grade — whether or not the card ever sat in todo/.
+  stray="$(_qav_ac_stray_bullets "$new_body")"
+  if [ -n "$stray" ]; then
+    kit_refuse 2 forks-ac-ungraded \
+      "Error: ${issue_id}'s '## Acceptance Criteria' has checklist lines the QA gate does not read as acceptance criteria, so no verdict row would ever grade them:" \
+      "$(printf '%s\n' "$stray" | sed 's/^/         /')" \
+      "       An AC is a line that starts '- [ ] <id> — ' (an id of letters and digits, then a dash, em-dash or colon), flush left." \
+      "Next: rewrite each line above as '- [ ] AC<n> — <text>' (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
+  fi
+  if [ -z "$(_qav_ac_ids "$new_body")" ]; then
+    kit_refuse 2 forks-ac-none \
+      "Error: ${issue_id} has no acceptance criterion: no '- [ ] <id> — <text>' line before its QA Verdict, so there is nothing for QA to grade." \
+      "       (the card template's '## Acceptance Criteria' section.)" \
+      "Next: add the card's acceptance criteria to '## Acceptance Criteria' as '- [ ] AC1 — <text>' lines, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
+  fi
   if [ -z "$leave_commit" ]; then
     echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
     return 0
   fi
-  new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
     | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
   # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
@@ -997,8 +1046,23 @@ kit_ac_drift_check() {
     fi
     drift="${drift}${drift:+, }$ac"
   done <<< "$(printf '%s\n' "$ac_ids")"
+  # An AC the card had when it left todo/ and no longer lists was removed or renamed: that is a
+  # ruling too. Its bullet is gone, so the citation is read where text still exists on the card.
+  old_ids="$(_qav_ac_ids "$old_body")"
+  while IFS= read -r ac; do
+    [ -n "$ac" ] || continue
+    grep -qx -- "$ac" <<< "$ac_ids" && continue
+    _qav_ac_removal_cited "$src" "$new_body" "$ac" "$id_shape" "$scratch" || removed="${removed}${removed:+, }$ac"
+  done <<< "$old_ids"
   [ -z "$scratch" ] || rm -f "$scratch"
 
+  if [ -n "$removed" ]; then
+    kit_refuse 2 forks-ac-changed-uncited \
+      "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}): ${removed} was on the card then and is not now, and no '[decision: D-NN]' citation covers the removal." \
+      "       Dropping or renaming an AC is a ruling as much as rewording one — the criterion is frozen once the card leaves 'todo/'." \
+      "       (process/MANUAL.md § Execution discipline item 6.)" \
+      "Next: cite the ruling that removed ${removed} in either form: a line in the card's '## Activity' that names it and carries '[decision: D-NN]', or keep the bullet on the card struck through — '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC. Then commit the card to the trunk with ./scripts/register-commit.sh and re-run the command that refused. NOTHING WAS CHANGED."
+  fi
   if [ -n "$drift" ]; then
     kit_refuse 2 forks-ac-changed-uncited \
       "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${drift}" \

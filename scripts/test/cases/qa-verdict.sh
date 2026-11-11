@@ -302,14 +302,14 @@ case_finish_pr_qa_verdict_well_formed_lands() {
   origin_has_path "progress/qa_complete/$ida-clean.md" || cf "(a) the card did not advance to qa_complete/"
   origin_has_path "CHANGE659A.txt" || cf "(a) the squash-merged change is not on the trunk"
 
-  # (b) two AC rows beside a non-AC checklist bullet, PASS_AC_CORRECTED alongside PASS, a shadow-check naming a real
+  # (b) two AC rows beside a plain prose line, PASS_AC_CORRECTED alongside PASS, a shadow-check naming a real
   #     removed assertion — the closed list and the FAIL check both stay quiet on a genuine PASS.
   local idb="$SB_PREFIX-660"
   seed_issue dev_complete "$idb" tworow chore "Two AC rows, one PASS_AC_CORRECTED" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-tworow.md"
-  # A checklist bullet that is not an AC (no `<id> —`) is not read as one. ^...$ anchors to the
+  # A line of prose is not an AC (a non-id checklist line in the AC section is refused, not skipped). ^...$ anchors to the
   # bullet's OWN line, never the QA Verdict row that now quotes this same text verbatim.
-  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second, independently graded criterion.\n- [x] Tests pass locally/' "$fb"
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second, independently graded criterion.\nTests pass locally./' "$fb"
   # AC1's pointer: CHANGE659A.txt:1 — a real file already on $SB_TRUNK (merged by (a)'s landing,
   # above, before this branch is cut from it), line 1 is "a real change" (seed_branch's own
   # marker content), quoted verbatim. AC2 is gate-diff, exempt from the quote by item 2.
