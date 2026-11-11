@@ -1078,13 +1078,23 @@ case_module_enable_refuses_a_host_or_directory_in_another_case_and_a_role_the_ba
   _row "a new file under a directory in another case" "DOCS/new.md" "docs" -- "file: f.txt -> DOCS/new.md"
   _row "a role the base set carries" "PM" "role" -- "role: PM   a seat" "file: f.txt -> docs/new.md"
   _row "a role the base set carries, in another case" "Pm" "role" -- "role: Pm   a seat" "file: f.txt -> docs/new.md"
-  printf 'Keeper   a seat the project declared\n' > "$SB_WORK/process/ROLES"
+  mkdir -p "$SB_WORK/process"; printf 'Keeper   a seat the project declared\n' > "$SB_WORK/process/ROLES"
   _row "a role process/ROLES carries" "Keeper" "role" -- "role: Keeper   a seat" "file: f.txt -> docs/new.md"
   # (control) the project's spelling and a role of its own
   _fab "block: PROJECT.md gates g.md" "role: Fabber   a seat" "file: f.txt -> docs/new.md"
   _md_mod enable fab
   [ "$_md_rc" -eq 0 ] || cf "(control) the same module spelt as the project spells it exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   [ -f "$SB_WORK/docs/new.md" ] || cf "(control) the file was not placed"
+  # (control, case-sensitive) where `docs` and `Docs` are two directories, the exact spelling is the project's and enables
+  _md_mod disable fab
+  if [ ! -e "$SB_WORK/Docs" ]; then
+    mkdir "$SB_WORK/Docs"
+    if [ -d "$SB_WORK/Docs" ] && [ "$(ls -A "$SB_WORK" | grep -c '^[Dd]ocs$')" = 2 ]; then
+      _fab "file: f.txt -> docs/two.md"
+      _md_mod enable fab
+      [ "$_md_rc" -eq 0 ] || cf "(control, case-sensitive) docs/two.md, where docs and Docs are both directories, exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    fi
+  fi
   unset -f _row _fab
   # (case-blindness) two spellings are one path only where the filesystem reads them as one: a project's `.git` found under
   # `.GIT` says so, and a directory a project made and named `.GIT` beside it, on a filesystem that tells the two apart, does not
