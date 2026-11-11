@@ -5,6 +5,15 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.1]
+
+### Fixed
+
+- **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`.
+- **The checkers no longer read rare shapes as `clean`.** A token whose value holds an alias inside a longer string (`0 0 1px {base.c}`) follows the alias; a change between two different invalid byte sequences is `uncompared` for a pin and a stale approval; a `<td>`, `<th>`, `<tr>` or `<li>` ends the open one before it, so a shared element after an unclosed cell is no longer read as inside a state's branch.
+- **An artboard whose canvas directory moved together with an edit** reads `differs at HEAD` (back to review) instead of `missing at that commit`.
+- **A screen superseded at HEAD** prints `(screen superseded)` on its pinned state's line, and a sha or pin this clone cannot see names `git fetch --unshallow`; `SETUP.md` says the gate needs full history.
+
 ## [0.6.0]
 
 ### Added

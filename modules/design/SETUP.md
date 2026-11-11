@@ -1,7 +1,7 @@
 <!-- KIT-CLASS: KIT — the human steps to start using the design module. Stays in modules/design/; nothing here is placed into a project. See process/EXTRACTION.md. -->
 # Setting up the design module
 
-What you do, once, before the Designer is useful. The checkers need Python 3.9 or later (standard library only): `enable` refuses without it and names how to get it, and `./scripts/module.sh status design` says whether it still holds.
+What you do, once, before the Designer is useful. The checkers need Python 3.9 or later (standard library only): `enable` refuses without it and names how to get it, and `./scripts/module.sh status design` says whether it still holds. The link check and the drift check read git history: a CI job that runs the gate needs a full clone (`git fetch --unshallow` on a shallow one), or every approval and pin older than the clone reads as not a commit.
 
 1. **Enable it and push.** `./scripts/module.sh enable design`, commit the paths it prints, push the trunk. Until the push,
    `check-board.sh` does not know the `[Designer]` tag.

@@ -1,6 +1,6 @@
 # KIT-CLASS: KIT — the design module's manifest. Every line is `<key>: <value>`; process/MODULES.md says what each key takes. See process/EXTRACTION.md.
 name: design
-version: 0.6.0
+version: 0.6.1
 purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true.
 release-notes: RELEASE-NOTES.md
 requires: python3 | python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' | install Python 3.9 or later from your system's packages | required
