@@ -1572,13 +1572,14 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   ends the caller silently;  (m) the todo copy had no AC line at all: no old id, no drift, no silent exit.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
-  printf '# card\n\n## Acceptance Criteria\n\n%s\n\n## Activity\n\n%s\n' "$1" "${2:-- opened}"
+  printf '# card\n\n## %s\n\n%s\n\n## Activity\n\n%s\n' "${_AC808_HEAD:-Acceptance Criteria}" "$1" "${2:-${_AC808_OLDACT:-- opened}}" \
+    | { if [ -n "${_AC808_CRLF:-}" ]; then sed 's/$/\r/'; else cat; fi; }
 }
 _ac808_run() {  # <old-acs> <new-acs> <new-activity|-> <leave: yes|no> — prints "rc=N" then the output
   local old="$1" new="$2" act="$3" leave="$4" d out rc lc=""
   d="$SB_TMP/ac808"; rm -rf "$d"; mkdir -p "$d/r/progress/todo" "$d/r/progress/in_progress"
   git -C "$d/r" init -q . >/dev/null 2>&1
-  _ac808_card "$old" > "$d/r/progress/todo/X-001-a.md"
+  _ac808_card "$old" > "$d/r/progress/todo/X-001-a.md"   # the todo copy carries _AC808_OLDACT, the new card the same unless it names its own
   git -C "$d/r" add -A >/dev/null 2>&1
   git -C "$d/r" -c user.name=t -c user.email=t@t commit -q -m todo >/dev/null 2>&1
   git -C "$d/r" mv progress/todo/X-001-a.md progress/in_progress/X-001-a.md >/dev/null 2>&1
@@ -1632,6 +1633,47 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   out="$(_ac808_run 'a todo copy with prose only.' "$three" - yes)"
   _ac808_want m "$out" 0
   case "$out" in *"Next:"*) cf "(m) a card whose todo copy had no AC line was refused" ;; esac
+  # F1: a citation written BEFORE the removal, on an Activity line that names the AC, is not the removal's citation.
+  _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
+  _ac808_want n1 "$out" 2 'AC text' 'AC3'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" "$(printf -- '- scoped AC3 per [decision: D-02]\n- dropped AC3 [decision: D-03]')" yes)"
+  _ac808_want n2 "$out" 0
+  unset _AC808_OLDACT
+  # F2: the subtask card's heading, a lower-case heading and a CRLF card are read like the template's.
+  _AC808_HEAD='Acceptance Criteria (sliced from the parent)'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want o1 "$out" 2 'AC2 — two'
+  _AC808_HEAD='Acceptance criteria'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want o2 "$out" 2 'AC2 — two'
+  unset _AC808_HEAD
+  _AC808_CRLF=1
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want o3 "$out" 2 'AC2 — two'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped AC3 [decision: D-01]' yes)"
+  _ac808_want o4 "$out" 0
+  unset _AC808_CRLF
+  # F3: a hyphenated id and an id on two lines are refused, each named.
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC-1 — one.\n- [ ] AC-2 — two.')" - yes)"
+  _ac808_want p1 "$out" 2 'AC-1 — one' 'AC-2 — two' 'Next:'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC2 — two again.')" - yes)"
+  _ac808_want p2 "$out" 2 'AC2 (on more than one line)' 'Next:'
+  # F4: a numbered or quoted checklist line with an id is graded (and so cannot be dropped silently); without an id it is refused.
+  out="$(_ac808_run "$three" "$(printf -- '1. [ ] AC1 — one.\n> - [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want q1 "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n1. [ ] a numbered line of no id')" - yes)"
+  _ac808_want q2 "$out" 2 'a numbered line of no id'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n> - [ ] a quoted line of no id')" - yes)"
+  _ac808_want q3 "$out" 2 'a quoted line of no id'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n1. [ ] AC2 — two.')" - yes)"
+  _ac808_want q4 "$out" 2 'AC3'
+  # F8: only a bullet struck through completely is a recorded removal.
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n- [ ] ~~old~~ the login form must work')" - yes)"
+  _ac808_want r "$out" 2 'the login form must work'
+  # F9: an example inside an HTML comment or an indented fence is not a checklist line of the card.
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n<!--\n- [ ] an example shape\n-->\n  ```\n  - [ ] another example\n  ```')" - yes)"
+  _ac808_want s "$out" 0
   out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
   case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
