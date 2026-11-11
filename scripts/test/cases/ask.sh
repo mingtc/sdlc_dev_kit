@@ -391,13 +391,13 @@ EOS
   for f in "$SB_WORK/dev/questions"/*-ask.md; do
     [ -f "$f" ] || continue
     n_files=$((n_files + 1))
-    n_q="$(/usr/bin/grep -c '^\*\*Question' "$f")"
+    n_q="$(grep -c '^\*\*Question' "$f")"
     [ "$n_q" -eq 1 ] || bad=$((bad + 1))
   done
   [ "$n_files" -eq 6 ] || cf "six same-second asks left $n_files file(s) in dev/questions/, want 6 (one per question)"
   [ "$bad" -eq 0 ] || cf "$bad question file(s) hold other than one **Question line — two asks shared a file"
   for i in 1 2 3 4 5 6; do
-    /usr/bin/grep -q "ask.sh: question written to" "$SB_TMP/out-$i" || cf "ask $i did not report writing its question: $(tr '\n' '|' < "$SB_TMP/out-$i" | cut -c1-200)"
+    grep -q "ask.sh: question written to" "$SB_TMP/out-$i" || cf "ask $i did not report writing its question: $(tr '\n' '|' < "$SB_TMP/out-$i" | cut -c1-200)"
   done
 
   finish "six concurrent same-second asks by one role file six question files of one question each"
@@ -436,14 +436,14 @@ EOF
     rm -rf "$SB_WORK/dev/questions"
     out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role Dev "q?" --default "$dflt" --decision D-07 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] || cf "default '$dflt': exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-    line="$(/usr/bin/grep '^\*\*Ruling\.\*\*' "$SB_WORK/requirements/DECISIONS.md")"
+    line="$(grep '^\*\*Ruling\.\*\*' "$SB_WORK/requirements/DECISIONS.md")"
     case "$line" in
       "**Ruling.** WORKING DEFAULT (provisional, asked $today, dev/questions/"*"-Dev-ask.md) — $dflt") : ;;
       *) cf "default '$dflt': the Ruling line is not the typed bytes: $(printf '%s' "$line" | od -c | head -3 | tr '\n' '|')" ;;
     esac
     nlines="$(wc -l < "$SB_WORK/requirements/DECISIONS.md" | tr -d ' ')"
     [ "$nlines" -eq 11 ] || cf "default '$dflt': the register has $nlines lines, want 11 — the Ruling field was split"
-    /usr/bin/grep -qF -- "$dflt" "$SB_WORK"/dev/questions/*-ask.md || cf "default '$dflt': the question file does not hold it as typed"
+    grep -qF -- "$dflt" "$SB_WORK"/dev/questions/*-ask.md || cf "default '$dflt': the question file does not hold it as typed"
   done
 
   finish "a working default with a backslash, a trailing backslash or an & lands in the register's Ruling line byte for byte, on one line"
@@ -470,7 +470,7 @@ case_ask_channel_through_a_symlink_out_of_the_repository_is_refused() {
     _ask_pm_section 'Nadia, shop manager' "$chan" > "$SB_WORK/PROJECT.md"
     out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
     [ "$rc" -ne 0 ] || cf "channel '$chan': exited 0 — a question left the repository"
-    /usr/bin/grep -q 'refusal=ask-channel-unusable' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+    grep -q 'refusal=ask-channel-unusable' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
       || cf "channel '$chan': no refusal=ask-channel-unusable record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
     case "$out" in *Next:*) : ;; *) cf "channel '$chan': the refusal names no Next" ;; esac
   done
