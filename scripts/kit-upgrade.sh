@@ -430,8 +430,8 @@ st_sha() {
   elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" 2>/dev/null | awk '{print $1}'
   fi
 }
-# kit_refuse_undo — kit_refuse, after removing the scratch copy --finish keeps of what the stamp writes.
-kit_refuse_undo() { [ -z "${UNDO_DIR:-}" ] || rm -rf "$UNDO_DIR"; kit_refuse "$@"; }
+# undo_gone — remove the scratch copy --finish keeps of what the stamp writes.
+undo_gone() { [ -z "${UNDO_DIR:-}" ] || rm -rf "$UNDO_DIR"; }
 # st_discard_cmd — the one command line that discards a staged upgrade the way the first run can start over from: the
 # checklist and everything in .kit-upgrade/ but the record of what the first run was writing, with the deletion committed.
 st_discard_cmd() {
@@ -608,12 +608,12 @@ if [ "$FINISH" = true ]; then
       cp -p "$TGT/process/$f" "$UNDO_DIR/$f" 2>/dev/null && cmp -s "$TGT/process/$f" "$UNDO_DIR/$f" || backed=""
     else : > "$UNDO_DIR/$f.absent" || backed=""; fi
   done
-  [ -n "$backed" ] || kit_refuse_undo 1 upgrade-write-failed \
+  [ -n "$backed" ] || { undo_gone; kit_refuse 1 upgrade-write-failed \
     "Error: could not save a copy of process/KIT-VERSION and process/KIT-MANIFEST under ${TMPDIR:-/tmp}, which --finish keeps to put them back if a write fails. Nothing was written." \
-    "Next: free space under ${TMPDIR:-/tmp} (or point TMPDIR at a directory with room), then run --finish again."
+    "Next: free space under ${TMPDIR:-/tmp} (or point TMPDIR at a directory with room), then run --finish again."; }
   mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
-    || kit_refuse_undo 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."
-  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse_undo 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."
+    || { undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."; }
+  vf_record >> "$TGT/$ARCHIVE_REL" || { undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."; }
   # A failure here has the archive written and KIT-VERSION possibly stamped, which the next run would refuse as
   # uncommitted: put the tree back as it was, so that "run --finish again" is the whole recovery.
   if ! { cp "$ST/KIT-VERSION" "$TGT/process/KIT-VERSION" && cp "$ST/KIT-MANIFEST" "$TGT/process/KIT-MANIFEST"; }; then
@@ -624,9 +624,9 @@ if [ "$FINISH" = true ]; then
     done
     rm -f "$TGT/$ARCHIVE_REL" 2>/dev/null || undone=""
     if [ -n "$undone" ]; then
-      kit_refuse_undo 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT; they and $ARCHIVE_REL are back as they were." "Next: fix the write permission or free space under $TGT/process/, then run --finish again."
+      undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT; they and $ARCHIVE_REL are back as they were." "Next: fix the write permission or free space under $TGT/process/, then run --finish again."
     fi
-    kit_refuse_undo 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT, and could not put them back." "Next: fix the write permission or free space under $TGT/process/, then run: rm -f $TGT/$ARCHIVE_REL && git -C $TGT checkout -- process/KIT-VERSION process/KIT-MANIFEST ; then run --finish again."
+    undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT, and could not put them back." "Next: fix the write permission or free space under $TGT/process/, then run: rm -f $TGT/$ARCHIVE_REL && git -C $TGT checkout -- process/KIT-VERSION process/KIT-MANIFEST ; then run --finish again."
   fi
   rm -rf "$UNDO_DIR"
   rm -rf "$ST" && rm -f "$CL"

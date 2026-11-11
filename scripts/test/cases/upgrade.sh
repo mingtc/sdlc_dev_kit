@@ -1292,7 +1292,7 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   _ku_judge_stage f4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
   git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1
   _ku_run f4-fin --finish --into "$KU_T"
-  local cmd; cmd="$(/usr/bin/grep -E '^  git -C' "$SB_TMP/f4-fin.out" | sed -n 1p)"
+  local cmd; cmd="$(grep -E '^  git -C' "$SB_TMP/f4-fin.out" | sed -n 1p)"
   [ -n "$cmd" ] || cf "f4: the refusal prints no restore command: $(_ku_out f4-fin)"
   [ -z "$cmd" ] || bash -c "$cmd" >/dev/null 2>&1
   _ku_run f4-fin2 --finish --into "$KU_T"
@@ -1300,7 +1300,7 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   _ku_judge_stage f6; rm -f "$KU_T/.kit-upgrade/action-items"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
   _ku_run f6-fin --finish --into "$KU_T"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-missing)" -eq 1 ] || cf "f6: no refusal=upgrade-staging-missing record: $(_ku_out f6-fin)"
-  cmd="$(/usr/bin/grep -E '^  rm -f' "$SB_TMP/f6-fin.out" | sed -n 1p)"
+  cmd="$(grep -E '^  rm -f' "$SB_TMP/f6-fin.out" | sed -n 1p)"
   [ -n "$cmd" ] || cf "f6: the refusal prints no discard command: $(_ku_out f6-fin)"
   [ -z "$cmd" ] || bash -c "$cmd" >/dev/null 2>&1
   [ -z "$(git -C "$KU_T" status --porcelain -- . ':!.progress-records' 2>/dev/null)" ] || cf "f6: after the printed command the tree is not clean: $(git -C "$KU_T" status --porcelain | tr '\n' '|')"
