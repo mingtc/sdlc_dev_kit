@@ -9,10 +9,10 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Fixed
 
-- **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`.
-- **The checkers no longer read rare shapes as `clean`.** A token whose value holds an alias inside a longer string (`0 0 1px {base.c}`) follows the alias; a change between two different invalid byte sequences is `uncompared` for a pin and a stale approval; a `<td>`, `<th>`, `<tr>` or `<li>` ends the open one before it, so a shared element after an unclosed cell is no longer read as inside a state's branch.
-- **An artboard whose canvas directory moved together with an edit** reads `differs at HEAD` (back to review) instead of `missing at that commit`.
-- **A screen superseded at HEAD** prints `(screen superseded)` on its pinned state's line, and a sha or pin this clone cannot see names `git fetch --unshallow`; `SETUP.md` says the gate needs full history.
+- **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`. A quote opens a value only after `=`, so an apostrophe in an unquoted value or a stray quote in a name hides nothing after it.
+- **The checkers no longer read rare shapes as `clean`.** A token whose value holds an alias inside a longer string (`0 0 1px {base.c}`) follows the alias; a change between two different invalid byte sequences is `uncompared` for a pin and a stale approval; a `<td>`, `<th>`, `<tr>`, `<li>`, `<dt>`, `<dd>`, `<option>`, `<rt>` or `<rp>` ends the open one before it (an `<li>` is not ended across a section or a table), so a shared element after an unclosed cell is no longer read as inside a state's branch.
+- **An artboard whose canvas directory moved together with an edit** reads `differs at HEAD` (back to review) instead of `missing at that commit`; in a wireframe canvas the file it was approved at must carry the row's UX id.
+- **A screen superseded at HEAD** prints `(screen superseded)` with a Next (re-pin to the row that replaces it) on its pinned state's line, and an approval's sha or a card's pin this clone cannot see names `git fetch --unshallow`; `SETUP.md` says the gate needs full history.
 
 ## [0.6.0]
 

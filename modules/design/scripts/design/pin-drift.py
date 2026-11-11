@@ -59,8 +59,10 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
        uncompared   something it could not compare, said on the line: a var() with no token at either revision, an alias that does
                not resolve, a tokens file that is not JSON, a state the registry row does not list at the pin or at --head, a
                data-state mark naming a state the row does not list (it cannot be set aside), more files loaded than are
-               followed, a `design:` value that is not `none` or a list, a file it could not read. A pinned state that is `drift` stays drift;
+               followed, a `design:` value that is not `none` or a list, a file it could not read, an artboard whose bytes differ where
+               the text read shows nothing (invalid UTF-8). A pinned state that is `drift` stays drift;
                `uncompared` is never `clean`
+     A line for a screen whose registry row is `superseded` at --head ends `(screen superseded). Next: re-pin to the row that replaces it`.
      One more column is evidence, not verdict: `render` says whether the committed render of THIS state
      (renders/<Stem>-<state>.png) is byte-identical at the pin and at --head. All states of one screen share one
      source file, so the verdict is the file's; `render: identical` beside `drift` means the change is in markup this
@@ -87,8 +89,11 @@ P_CLOSERS = {'address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset
              'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'}   # a start tag that ends an open <p>
 
 
-# An open cell, row or item that the next one ends, as the HTML rules say: {start tag: (tags it ends, tags it may not look past)}.
-IMPLIED = {'td': (('td', 'th'), ('tr', 'table')), 'th': (('td', 'th'), ('tr', 'table')), 'tr': (('tr',), ('table',)), 'li': (('li',), ('ul', 'ol'))}
+# An open cell, row, item, term, option or ruby text that the next one ends, as the HTML rules say: {start tag: (tags it ends, tags it may not look past)}.
+LI_STOPS = ('ul', 'ol', 'menu', 'section', 'article', 'aside', 'nav', 'header', 'footer', 'main', 'table', 'td', 'th', 'blockquote', 'dl', 'form', 'fieldset', 'details')
+IMPLIED = {'td': (('td', 'th'), ('tr', 'table')), 'th': (('td', 'th'), ('tr', 'table')), 'tr': (('tr',), ('table',)), 'li': (('li',), LI_STOPS),
+           'dt': (('dt', 'dd'), ('dl',)), 'dd': (('dt', 'dd'), ('dl',)), 'option': (('option',), ('select', 'datalist', 'optgroup')),
+           'rt': (('rt', 'rp'), ('ruby',)), 'rp': (('rt', 'rp'), ('ruby',))}
 
 
 def implied_end(tag, open_tags):
@@ -593,7 +598,7 @@ def main(argv):
             extra = f" {r['path_pin']} -> {r['path_head']}"
         elif r.get('why'):
             extra = ' ' + r['why']
-        print(f"{r['card']:9} {r['ux']}#{r.get('state') or '*'}@{(r['pin'] or '-')[:7]:8} {r['verdict']:10}" + (f" render:{r['render']}" if 'render' in r else '') + (f' {Path(loc).name}' if loc and r['verdict'] in ('clean', 'drift') else '') + extra + (' (screen superseded)' if r.get('superseded') else ''))
+        print(f"{r['card']:9} {r['ux']}#{r.get('state') or '*'}@{(r['pin'] or '-')[:7]:8} {r['verdict']:10}" + (f" render:{r['render']}" if 'render' in r else '') + (f' {Path(loc).name}' if loc and r['verdict'] in ('clean', 'drift') else '') + extra + (' (screen superseded). Next: re-pin to the row that replaces it' if r.get('superseded') else ''))
     counts = {}
     for r in results:
         counts[r['verdict']] = counts.get(r['verdict'], 0) + 1

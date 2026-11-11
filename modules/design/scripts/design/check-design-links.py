@@ -130,8 +130,9 @@ MODES = ('', 'none', 'wireframe')
 # The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
 # attribute nobody listed here moves the structure and sends the row back to review.
 STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
-# quote-aware: a `>` inside a quoted attribute value does not end the tag; structure() and tags_of() both read tags with it
-TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:"[^"]*"|\'[^\']*\'|[^\'"<>])*)>')
+# quote-aware: a `>` inside a quoted attribute value does not end the tag, and a quote opens a value only after `=` (an apostrophe in an
+# unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it
+TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 META_B = re.compile(rb' data-stories="[^"]*"')
 
@@ -216,24 +217,28 @@ def is_ancestor(root, older, newer):
     return git(root, 'merge-base', '--is-ancestor', older, newer)[0] == 0
 
 
-def same_name_at(root, rev, rel, now):
-    """The text at `rev` of a file named like `rel`: the one that matches `now` (the root's data-stories aside), else the only one of
-    that name that is no longer at its own path at HEAD (a canvas moved together with an edit), else None."""
+def same_name_at(root, rev, rel, now, ux=None):
+    """(text, path) at `rev` of a file named like `rel`: the one that matches `now` (the root's data-stories aside), else the only one of
+    that name that is no longer at its own path at HEAD (a canvas moved together with an edit) and, when `ux` is given, that carries
+    that UX id; else (None, None)."""
     rc, out = git(root, '-c', 'core.quotePath=false', 'ls-tree', '-r', '--name-only', '-z', rev, '--', str(Path(rel).parents[2]))
     base = Path(rel).name
     named = [p for p in out.decode('utf-8', 'replace').split('\0') if p and Path(p).name == base]
     for p in named:
         text = git_blob(root, rev, p)
         if text is not None and META.sub('', text) == META.sub('', now):
-            return text
+            return text, p
     left = [p for p in named if git_blob(root, HEAD_REV, p) is None]
-    return git_blob(root, rev, left[0]) if len(left) == 1 else None
+    text = git_blob(root, rev, left[0]) if len(left) == 1 else None
+    if text is not None and ux and not re.search(r'data-ux\s*=\s*["\']?' + re.escape(ux) + r'(?![\w-])', text):
+        return None, None
+    return (text, left[0]) if text is not None else (None, None)
 
 
-def raw_differs(root, sha, rel):
+def raw_differs(root, sha, then_rel, rel):
     """True when the artboard's bytes at `sha` and at HEAD differ beyond the root's data-stories, though the tolerant reading of both
     gives one text (two different invalid byte sequences both read as U+FFFD)."""
-    a, b = git_bytes(root, sha, rel), git_bytes(root, HEAD_REV, rel)
+    a, b = git_bytes(root, sha, then_rel), git_bytes(root, HEAD_REV, rel)
     return a is not None and b is not None and META_B.sub(b'', a) != META_B.sub(b'', b)
 
 
@@ -276,8 +281,10 @@ def approval_problems(root, r, gates=None):
             out.append(('APPROVAL-UNRESOLVED', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: not a commit here (a shallow clone cannot see it). Next: fetch the history that holds it (`git fetch --unshallow` in a shallow clone), or write the sha of a commit this repository has"))
             continue
         then, now = git_blob(root, sha, rel), git_blob(root, HEAD_REV, rel)
+        then_rel = rel
         if then is None and now is not None:
-            then = same_name_at(root, sha, rel, now)       # the canvas moved with its bytes: the approval holds
+            # the canvas moved: with its bytes the approval holds; moved with an edit, it reads as differing below
+            then, then_rel = same_name_at(root, sha, rel, now, r['ux'] if wire else None)
         if then is None or now is None:
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}: {rel} is missing at {'that commit' if then is None else 'HEAD'}; back to review"))
         elif wire:
@@ -291,7 +298,7 @@ def approval_problems(root, r, gates=None):
                 if META.sub('', then) != META.sub('', now) or (ba is not None and bb is not None and META_B.sub(b'', ba) != META_B.sub(b'', bb)) \
                         or (ba is not None and loaded_stale(root, sha, rel, then, now)):
                     out.append(('CONTENT-ONLY', r['ux']))
-        elif META.sub('', then) != META.sub('', now) or raw_differs(root, sha, rel):
+        elif META.sub('', then) != META.sub('', now) or (then_rel and raw_differs(root, sha, then_rel, rel)):
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}, but {rel} differs at HEAD; back to review"))
         elif git_blob(root, sha, rel) is not None:
             extra = loaded_stale(root, sha, rel, then, now)
@@ -1377,7 +1384,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('UNRESOLVED', f'{where}: pinned {tag}: the registry lists {sorted(row["states"]) or "none"}'))
             pin_ok = bool(pin) and is_commit(root, pin)
             if pin and not pin_ok:
-                out.append(line('UNRESOLVED', f'{where}: pin @{pin} of {tag} is not a commit'))
+                out.append(line('UNRESOLVED', f'{where}: pin @{pin} of {tag} is not a commit. Next: `git fetch --unshallow` if this clone is shallow, else write the sha of a commit this repository has'))
             if not leave or row is None:
                 continue
             rel = artboard_rel(root, row)
