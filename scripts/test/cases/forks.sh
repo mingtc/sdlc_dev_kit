@@ -1788,3 +1788,99 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
   teardown
 }
+
+# _forks_midwork_entry <id> <slug> <entry-id> <forks-value> — the card is picked up, its branch is cut,
+# and only then does a ruling naming the card land on the trunk, published; the card's trunk copy gets
+# <forks-value>. The branch never holds the entry and is not merged with the trunk.
+_forks_midwork_entry() {
+  local id="$1" slug="$2" eid="$3" fv="$4"
+  _forks_pickup "$id" "$slug"
+  seed_branch "$id" work "CHANGE-$id.txt"
+  _forks_add_entry "$eid" "Product owner message, 2026-10-16; $id." "[PM] $id: record $eid"
+  _forks_set_forks "$id" "$slug" "$fv"
+}
+
+# =============================================================================
+# CASE — A RULING THAT LANDS ON THE TRUNK AFTER THE BRANCH WAS CUT IS LIVE, AND A CHANGED AC THAT
+# CITES A LIVE RULING APPLIES IT.
+#   (a) hand-off: a ruling naming the card is on the trunk only; 'forks: [D-NN]' passes with no merge;
+#   (b) the same under 'forks: none' still refuses, and the Next names the exit (no merge needed);
+#   (c) an id live on neither side is still unresolved, and its Next says both registers are read;
+#   (d) the landing agrees with the hand-off;
+#   (e) an AC rewritten with '[decision: D-01]' on its own bullet, D-01 live and unchanged, under
+#       'forks: none' lands: it applies the ruling;
+#   (f) the same rewrite with the citation only in the Activity is refused for the bullet, and (e)'s
+#       form clears it: the two refusals never send the card back and forth;
+#   (g) a changed bullet citing an id the register does not hold still counts as a fork;
+#   (h) the landing agrees with the hand-off on (e).
+# RED FIRST: (a), (b)'s Next, (c)'s Next, (d), (e), (h) fail on a check that reads the live set from the
+# branch's register alone and counts every citation on a changed bullet.
+# =============================================================================
+case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_and_a_changed_ac_applying_one_is_no_fork() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-881" idb="$SB_PREFIX-882" idc="$SB_PREFIX-883" idd="$SB_PREFIX-884" out rc
+  seed_issue todo "$ida" mid chore "A ruling lands on the trunk mid-work" "feature/$ida-work"
+  seed_issue todo "$idb" none chore "The same, under forks none" "feature/$idb-work"
+  seed_issue todo "$idc" ghost chore "Names an id on neither side" "feature/$idc-work"
+  seed_issue todo "$idd" land chore "The same, through the landing" "feature/$idd-work"
+  publish_sandbox
+
+  _forks_midwork_entry "$ida" mid D-02 "[D-02]"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) 'forks: [D-02]' over a ruling on the trunk since the cut refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$ida-mid.md" || cf "(a) the card did not reach dev_complete/"
+  _forks_sync
+
+  _forks_midwork_entry "$idb" none D-03 "none"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) 'forks: none' over a ruling naming the card moved (exit 0)"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-b"/*.tsv 2>/dev/null || cf "(b) no progress record carries refusal=forks-contradicted"
+  case "$out" in *"no merge of the trunk"*) : ;; *) cf "(b) the Next does not say a merge of the trunk is not the exit: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  _forks_sync
+
+  _forks_pickup "$idc" ghost
+  seed_branch "$idc" work "CHANGE-$idc.txt"
+  _forks_set_forks "$idc" ghost "[D-77]"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/move-issue.sh "$idc" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) an id live on neither side moved (exit 0)"
+  grep -q 'refusal=forks-unresolved' "$SB_TMP/rec-c"/*.tsv 2>/dev/null || cf "(c) no progress record carries refusal=forks-unresolved"
+  case "$out" in *"no merge of the trunk"*) : ;; *) cf "(c) the Next does not say both registers are read and no merge is needed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  _forks_sync
+
+  _forks_midwork_entry "$idd" land D-04 "[D-04]"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idd" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the hand-off refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _forks_sync
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idd" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the landing refused a ruling on the trunk since the cut (exit $rc): $(printf '%s' "$out" | tail -8 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$idd-land.md" || cf "(d) the card did not advance to qa_complete/"
+  teardown
+
+  local id ac1_new="- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too."
+  id="$SB_PREFIX-885"
+  _forks_drift_land work-e "$id" ac-cited 0 "$ac1_new per [decision: D-01]." "" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(e) a changed AC citing live D-01 on its bullet, 'forks: none', refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-ac-cited.md" || cf "(e) the card did not reach dev_complete/"
+  teardown
+
+  id="$SB_PREFIX-886"
+  _forks_drift_land work-f "$id" ac-act 0 "$ac1_new" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(f) a changed AC with the citation only in the Activity landed"
+  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(f) the refusal is not forks-ac-changed-uncited: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-887"
+  _forks_drift_land work-g "$id" ac-ghost 0 "$ac1_new per [decision: D-98]." "" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(g) a changed AC citing an id the register does not hold landed under 'forks: none'"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(g) the refusal is not forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-888"
+  _forks_drift_land work-h "$id" ac-cited-fin 0 "$ac1_new per [decision: D-01]." "" "none" finish
+  [ "$_FDL_RC" -eq 0 ] || cf "(h) finish-pr.sh refused a changed AC citing live D-01 (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  finish "forks: reads the live register set from the branch's and the trunk's copy, so a ruling that landed on the trunk after the cut passes under forks: [D-NN] with no merge and still refuses under 'forks: none' with a Next that says no merge is the exit; a changed AC bullet that cites a live, unchanged ruling applies it and does not need forks:, the uncited-bullet refusal and the contradiction never refuse into each other, and a changed bullet citing an unknown id still counts"
+}
