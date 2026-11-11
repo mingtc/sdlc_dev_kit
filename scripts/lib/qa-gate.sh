@@ -217,37 +217,71 @@ KIT_QAV_MIN_QUOTE=8
 # separator reformat reads the same way to all of them.
 KIT_AC_SEP='[[:space:]]*(—|-|:)'
 
+# The line shapes an AC checklist bullet may open with: '- [ ] ', a numbered '1. [ ] ' or a quoted
+# '> - [ ] ' — ONE fragment for every reader, like KIT_AC_SEP. A bullet of any of these shapes that
+# carries an id is graded; one without is refused (_qav_ac_stray_bullets).
+KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
+
+# _qav_ac_idlines <body> — the id-shaped bullet lines of <body>, in order. An id directly followed by
+# '-' and an alphanumeric ('AC-1', 'S1-AC1') is not one: the separator rule would read it as the id
+# 'AC', and every such line would fold into one graded id.
+_qav_ac_idlines() {
+  { printf '%s\n' "$1" | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+    | grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]"; } || true   # no match: empty, never an exit under pipefail
+}
+
 # _qav_ac_ids <body> — every AC id a checklist bullet declares, one per line, sorted and
 # de-duplicated. The population kit_qa_verdict_check's table must match one for one.
 _qav_ac_ids() {
-  { printf '%s\n' "$1" | grep -oE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
-    | sed -E "s/^- \[[ xX]\] //; s/${KIT_AC_SEP}\$//" | sort -u; } || true   # no match: an empty population, never an exit under pipefail
+  { _qav_ac_idlines "$1" | grep -oE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+    | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
 }
 
-# _qav_ac_stray_bullets <body> — the checklist lines of '## Acceptance Criteria' (any marker, any
-# indent, outside a code fence) that _qav_ac_ids does not read, one per line, trimmed. A struck
-# bullet ('- [ ] ~~AC3 — …~~') is a recorded removal, not a stray.
+# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased,
+# begins with <heading> (a lower-case prefix: 'acceptance criteria' also reads a subtask card's
+# 'Acceptance Criteria (sliced from the parent)'). A carriage return is stripped; a fenced block
+# (indented or not) and an HTML comment are skipped.
+_qav_section_lines() {
+  LC_ALL=C awk -v want="$1" '
+    { sub(/\r$/, "") }
+    incom { if ($0 ~ /-->/) incom = 0; next }
+    /<!--/ { if ($0 !~ /-->/) incom = 1; next }
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    fence { next }
+    /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sect = (index(h, want) == 1); next }
+    sect { print }'
+}
+
+# _qav_ac_stray_bullets <body> — what in '## Acceptance Criteria' the QA gate cannot grade one for one,
+# one per line, trimmed: a checklist line (any marker, any indent) that is not id-shaped, an id directly
+# followed by '-' and an alphanumeric, and an id two lines share ('<id> (on more than one line)').
+# A bullet struck through completely ('- [ ] ~~AC3 — …~~', optionally ending '[decision: D-NN]') is a
+# recorded removal, not a stray.
 _qav_ac_stray_bullets() {
-  { printf '%s\n' "$1" | LC_ALL=C awk '
-      /^(```|~~~)/ { fence = !fence; next }
-      fence { next }
-      /^##[ \t]/ { sect = ($0 ~ /^##[ \t]+Acceptance Criteria[ \t]*$/); next }
-      sect && /^[ \t]*[-*+][ \t]+\[[ xX]\]/ { print }' \
-    | grep -vE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
-    | grep -vE '^[[:space:]]*[-*+][[:space:]]+\[[ xX]\][[:space:]]+~~' \
-    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | cut -c1-80; } || true
+  local cand dup
+  cand="$(printf '%s\n' "$1" | _qav_section_lines 'acceptance criteria' \
+    | { grep -E '^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\[[ xX]\]' || true; } \
+    | { grep -vE '\[[ xX]\][[:space:]]+~~.*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' || true; })"
+  dup="$(_qav_ac_idlines "$1" | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}.*\$//" | sort | uniq -d)"
+  {
+    printf '%s\n' "$cand" | { grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" || true; }
+    printf '%s\n' "$cand" | { grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]" || true; }
+    [ -z "$dup" ] || printf '%s\n' "$dup" | sed 's/$/ (on more than one line)/'
+  } | { grep . || true; } | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | cut -c1-80
 }
 
-# _qav_ac_removal_cited <card-file> <body> <id> <id-shape> <scratch> — success when AC <id>, gone from
-# <body>, has its removal cited: a '[decision: D-NN]' on a struck bullet of <body> that names it, or on a
-# line of the card's '## Activity' that names it. A citation elsewhere on the card does not cover it.
+# _qav_ac_removal_cited <card-file> <body> <id> <id-shape> <scratch> <old-card-file> — success when AC
+# <id>, gone from <body>, has its removal cited: a '[decision: D-NN]' on a struck bullet of <body> that
+# names it, or on a line of the card's '## Activity' that names it, in either case a line the card did
+# NOT hold when it left 'todo/' (<old-card-file>). A citation elsewhere on the card, or one written
+# before the removal, does not cover it.
 _qav_ac_removal_cited() {
-  local file="$1" body="$2" id="$3" shape="$4" scratch="$5"
-  [ -n "$scratch" ] || return 1   # return-class: predicate
-  { printf '%s\n' "$body" | grep -E "^[[:space:]]*[-*+][[:space:]]+\[[ xX]\][[:space:]]+~~[[:space:]]*${id}([^A-Za-z0-9]|\$)" || true
-    LC_ALL=C awk '/^##[ \t]/ { sect = ($0 ~ /^##[ \t]+Activity[ \t]*$/); next } sect { print }' "$file" \
-      | grep -E "(^|[^A-Za-z0-9])${id}([^A-Za-z0-9]|\$)" || true
-  } > "$scratch"
+  local file="$1" body="$2" id="$3" shape="$4" scratch="$5" old="$6"
+  [ -n "$scratch" ] && [ -f "$old" ] || return 1   # return-class: predicate
+  {
+    printf '%s\n' "$body" | tr -d '\r' | { grep -E "\[[ xX]\][[:space:]]+~~[[:space:]]*${id}([^A-Za-z0-9]|\$)" || true; }
+    _qav_section_lines 'activity' < "$file" | { grep -E "(^|[^A-Za-z0-9])${id}([^A-Za-z0-9]|\$)" || true; }
+  } | { grep -vxFf "$old" || true; } > "$scratch"
   [ -n "$(kit_decisions_cited "$scratch" "$shape")" ]   # return-class: predicate
 }
 
@@ -258,9 +292,9 @@ _qav_ac_removal_cited() {
 # changed, not whether the punctuation did.
 _qav_ac_bullet_text() {
   local body="$1" id="$2" _line _text
-  _line="$(printf '%s\n' "$body" | grep -E "^- \\[[ xX]\\] ${id}${KIT_AC_SEP}" | head -1)"
+  _line="$(printf '%s\n' "$body" | grep -E "^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" | head -1)"
   [ -n "$_line" ] || return 0
-  _text="$(printf '%s' "$_line" | sed -E "s/^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*//")"
+  _text="$(printf '%s' "$_line" | sed -E "s/^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*//")"
   printf '%s' "$_text" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }
 
@@ -997,10 +1031,11 @@ kit_card_leave_todo() {
 #   touches the register and never adds a '[decision: D-NN]' citation, so the register derivation
 #   cannot see it; the only trace is the AC TEXT itself changing after the card was underway, and
 #   "underway" is the card's own file history, never a commit subject a hand edit could spoof.
-#   Refuses through kit_refuse with forks-ac-changed-uncited.
+#   Refuses through kit_refuse with forks-ac-changed-uncited, forks-ac-ungraded (a checklist line of
+#   '## Acceptance Criteria' the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
-  local new_body old_body ac_ids old_ids ac ac_old ac_new scratch drift="" removed="" stray id_shape='D-[0-9]+'
+  local new_body old_body ac_ids old_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+'
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   # The population first, on every route: a checklist line the QA gate's reader would drop is never
@@ -1008,10 +1043,10 @@ kit_ac_drift_check() {
   stray="$(_qav_ac_stray_bullets "$new_body")"
   if [ -n "$stray" ]; then
     kit_refuse 2 forks-ac-ungraded \
-      "Error: ${issue_id}'s '## Acceptance Criteria' has checklist lines the QA gate does not read as acceptance criteria, so no verdict row would ever grade them:" \
+      "Error: ${issue_id}'s '## Acceptance Criteria' holds lines the QA gate cannot grade one for one, so no verdict row would ever cover them:" \
       "$(printf '%s\n' "$stray" | sed 's/^/         /')" \
-      "       An AC is a line that starts '- [ ] <id> — ' (an id of letters and digits, then a dash, em-dash or colon), flush left." \
-      "Next: rewrite each line above as '- [ ] AC<n> — <text>' (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
+      "       An AC is a line that starts '- [ ] <id> — ' (or '1. [ ] <id> — '): an id of letters and digits that is not followed by '-' and a letter or digit, then a dash, em-dash or colon. One id, one line." \
+      "Next: rewrite each line above as '- [ ] AC<n> — <text>', one distinct id per line (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
   fi
   if [ -z "$(_qav_ac_ids "$new_body")" ]; then
     kit_refuse 2 forks-ac-none \
@@ -1031,6 +1066,8 @@ kit_ac_drift_check() {
   # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
   # refuses, never passes).
   scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || scratch=""
+  old_card="$(mktemp "${TMPDIR:-/tmp}/forks-ac-old.XXXXXX")" || old_card=""
+  [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | tr -d '\r' > "$old_card" || true
   ac_ids="$(_qav_ac_ids "$new_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
@@ -1052,9 +1089,9 @@ kit_ac_drift_check() {
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
     grep -qx -- "$ac" <<< "$ac_ids" && continue
-    _qav_ac_removal_cited "$src" "$new_body" "$ac" "$id_shape" "$scratch" || removed="${removed}${removed:+, }$ac"
+    _qav_ac_removal_cited "$src" "$new_body" "$ac" "$id_shape" "$scratch" "$old_card" || removed="${removed}${removed:+, }$ac"
   done <<< "$old_ids"
-  [ -z "$scratch" ] || rm -f "$scratch"
+  rm -f "$scratch" "$old_card"
 
   if [ -n "$removed" ]; then
     kit_refuse 2 forks-ac-changed-uncited \
@@ -1124,6 +1161,10 @@ _forks_cited_ids() {
       esac
     fi
     if [ "$in_sec" = 1 ]; then printf '%s\n' "$line" >> "$sec_scratch"; continue; fi
+    # A bullet struck through completely is a recorded removal: like the Activity, it cites a ruling already made.
+    if [ "$in_body" = 1 ] && grep -qE '\[[ xX]\][[:space:]]+~~.*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' <<< "$line"; then
+      printf '%s\n' "$line" >> "$sec_scratch"; continue
+    fi
     if [ "$in_body" = 1 ]; then
       ids="$(_qav_ac_ids "$line")"
       if [ -n "$ids" ] && ! grep -qx -- "$ids" <<< "$seen"; then

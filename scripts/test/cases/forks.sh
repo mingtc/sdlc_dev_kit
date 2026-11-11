@@ -1570,6 +1570,9 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   (i) struck with no citation: refused;  (j) a citation in the Activity on a line that does not name the id:
 #   refused;  (k) a reworded bullet is still the changed-bullet refusal;  (l) a card with no id bullet no longer
 #   ends the caller silently;  (m) the todo copy had no AC line at all: no old id, no drift, no silent exit.
+#   (n) a citation written before the removal does not cover it;  (o) a subtask heading, a lower-case heading and a CRLF card are read;
+#   (p) a hyphenated id and a shared id;  (q) numbered and quoted bullets;  (r) a half-struck bullet;  (s) comments and indented
+#   fences;  (t) a struck bullet citing a live ruling is skipped by the forks: derivation.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
   printf '# card\n\n## %s\n\n%s\n\n## Activity\n\n%s\n' "${_AC808_HEAD:-Acceptance Criteria}" "$1" "${2:-${_AC808_OLDACT:-- opened}}" \
@@ -1653,6 +1656,10 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   _ac808_want o3 "$out" 2 'AC2 — two'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped AC3 [decision: D-01]' yes)"
   _ac808_want o4 "$out" 0
+  _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
+  _ac808_want o5 "$out" 2 'AC text' 'AC3'
+  unset _AC808_OLDACT
   unset _AC808_CRLF
   # F3: a hyphenated id and an id on two lines are refused, each named.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC-1 — one.\n- [ ] AC-2 — two.')" - yes)"
@@ -1674,6 +1681,14 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   # F9: an example inside an HTML comment or an indented fence is not a checklist line of the card.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n<!--\n- [ ] an example shape\n-->\n  ```\n  - [ ] another example\n  ```')" - yes)"
   _ac808_want s "$out" 0
+  # F12: a struck bullet cites a ruling already made like the Activity does: skipped when the register held it, counted when not.
+  _ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] ~~AC3 — three.~~ [decision: D-01]')" - yes >/dev/null
+  out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_cited_ids "$2" "$3" "$4" progress/todo/X-001-a.md "D-[0-9]+" "$5"' \
+    _ "$REAL_SCRIPTS" "$SB_TMP/ac808/new.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "D-01" 2>&1 </dev/null)"
+  [ -z "$out" ] || cf "(t1) a struck bullet's citation of a ruling the register held was counted: $out"
+  out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_cited_ids "$2" "$3" "$4" progress/todo/X-001-a.md "D-[0-9]+" "$5"' \
+    _ "$REAL_SCRIPTS" "$SB_TMP/ac808/new.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "" 2>&1 </dev/null)"
+  [ "$out" = "D-01" ] || cf "(t2) a struck bullet's citation of an id the register did not hold was not counted: [$out]"
   out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
   case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
