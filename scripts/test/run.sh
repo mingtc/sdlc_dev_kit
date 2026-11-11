@@ -392,6 +392,9 @@ CASES=(
   case_ask_refuses_when_asker_is_principal
   case_ask_principal_phrase_is_normalised
   case_ask_channel_stays_inside_the_repository
+  case_ask_same_second_asks_file_one_question_each
+  case_ask_default_reaches_the_register_byte_for_byte
+  case_ask_channel_through_a_symlink_out_of_the_repository_is_refused
   case_ask_writes_one_file_and_returns
   case_ask_never_overwrites_a_standing_ruling
   case_ask_standing_note_names_no_wrong_direction

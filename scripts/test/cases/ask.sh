@@ -364,6 +364,131 @@ case_ask_channel_stays_inside_the_repository() {
 }
 
 # =============================================================================
+# CASE — SIX ASKS BY ONE ROLE IN ONE SECOND FILE SIX QUESTIONS IN SIX FILES. `date` is frozen so every ask
+# draws the same second; the six start together. One file per question is what the contract promises and what
+# an answer is tied to, so each file must hold exactly one `**Question` line and the six names must differ.
+# =============================================================================
+case_ask_same_second_asks_file_one_question_each() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_same_second_asks_file_one_question_each: scripts/ask.sh is not in the sandbox or not executable"
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_TMP/frozen"
+  cat > "$SB_TMP/frozen/date" <<'EOS'
+#!/bin/sh
+case "$*" in *%H%M%S*) echo 2026-01-02T030405Z ;; *) exec /bin/date "$@" ;; esac
+EOS
+  chmod +x "$SB_TMP/frozen/date"
+
+  local i
+  for i in 1 2 3 4 5 6; do
+    ( cd "$SB_WORK" && PATH="$SB_TMP/frozen:$PATH" KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/ask.sh --role Dev "q$i?" --default "d$i" >"$SB_TMP/out-$i" 2>&1 ) &
+  done
+  wait
+
+  local n_files=0 f n_q bad=0
+  for f in "$SB_WORK/dev/questions"/*-ask.md; do
+    [ -f "$f" ] || continue
+    n_files=$((n_files + 1))
+    n_q="$(/usr/bin/grep -c '^\*\*Question' "$f")"
+    [ "$n_q" -eq 1 ] || bad=$((bad + 1))
+  done
+  [ "$n_files" -eq 6 ] || cf "six same-second asks left $n_files file(s) in dev/questions/, want 6 (one per question)"
+  [ "$bad" -eq 0 ] || cf "$bad question file(s) hold other than one **Question line — two asks shared a file"
+  for i in 1 2 3 4 5 6; do
+    /usr/bin/grep -q "ask.sh: question written to" "$SB_TMP/out-$i" || cf "ask $i did not report writing its question: $(tr '\n' '|' < "$SB_TMP/out-$i" | cut -c1-200)"
+  done
+
+  finish "six concurrent same-second asks by one role file six question files of one question each"
+  teardown
+}
+
+# =============================================================================
+# CASE — A BACKSLASH IN THE WORKING DEFAULT REACHES THE REGISTER AS TYPED. The default is passed to awk
+# through the environment, never `-v`, which turns `\n` into a newline and `\t` into a tab and split the
+# Ruling field over two lines. The rows are the escape-shaped default, a trailing backslash, and `&`.
+# =============================================================================
+case_ask_default_reaches_the_register_byte_for_byte() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_default_reaches_the_register_byte_for_byte: scripts/ask.sh is not in the sandbox or not executable"
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  local dflt out rc n=0 today line nlines
+  today="$(date -u +%Y-%m-%d)"
+  for dflt in 'read C:\new\table first' 'trailing\' 'a&b \1 plain'; do
+    n=$((n+1))
+    cat > "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+# DECISIONS.md
+
+## A. test bucket
+
+### D-07 — shared folder policy
+
+**Ruling.** WITHDRAWN 2026-09-20 — revoked pending a new one.
+**Why.** No replacement is ruled yet.
+**Provenance.** withdrawn 2026-09-20, project log.
+
+---
+EOF
+    rm -rf "$SB_WORK/dev/questions"
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role Dev "q?" --default "$dflt" --decision D-07 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "default '$dflt': exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    line="$(/usr/bin/grep '^\*\*Ruling\.\*\*' "$SB_WORK/requirements/DECISIONS.md")"
+    case "$line" in
+      "**Ruling.** WORKING DEFAULT (provisional, asked $today, dev/questions/"*"-Dev-ask.md) — $dflt") : ;;
+      *) cf "default '$dflt': the Ruling line is not the typed bytes: $(printf '%s' "$line" | od -c | head -3 | tr '\n' '|')" ;;
+    esac
+    nlines="$(wc -l < "$SB_WORK/requirements/DECISIONS.md" | tr -d ' ')"
+    [ "$nlines" -eq 11 ] || cf "default '$dflt': the register has $nlines lines, want 11 — the Ruling field was split"
+    /usr/bin/grep -qF -- "$dflt" "$SB_WORK"/dev/questions/*-ask.md || cf "default '$dflt': the question file does not hold it as typed"
+  done
+
+  finish "a working default with a backslash, a trailing backslash or an & lands in the register's Ruling line byte for byte, on one line"
+  teardown
+}
+
+# =============================================================================
+# CASE — A CHANNEL THAT RESOLVES OUTSIDE THE REPOSITORY IS REFUSED. A symlinked component, in the directory
+# form or the file form, would carry the question out of the tree; a dangling link and a link as the channel
+# file are the same. The control is a symlink that resolves INSIDE the repository, which files its question.
+# =============================================================================
+case_ask_channel_through_a_symlink_out_of_the_repository_is_refused() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_channel_through_a_symlink_out_of_the_repository_is_refused: scripts/ask.sh is not in the sandbox or not executable"
+  local outside="$SB_TMP/outside"; mkdir -p "$outside"
+  ln -s "$outside" "$SB_WORK/lnk"
+  ln -s "$SB_TMP/nowhere" "$SB_WORK/dangling"
+  ln -s "$outside/target.md" "$SB_WORK/filelink.md"
+  local chan out rc n=0
+  for chan in 'lnk/q/' 'lnk/q' 'dangling/q/' 'filelink.md'; do
+    n=$((n+1))
+    _ask_pm_section 'Nadia, shop manager' "$chan" > "$SB_WORK/PROJECT.md"
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "channel '$chan': exited 0 — a question left the repository"
+    /usr/bin/grep -q 'refusal=ask-channel-unusable' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+      || cf "channel '$chan': no refusal=ask-channel-unusable record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    case "$out" in *Next:*) : ;; *) cf "channel '$chan': the refusal names no Next" ;; esac
+  done
+  [ -z "$(ls -A "$outside")" ] || cf "something was written outside the repository: $(ls -A "$outside" | tr '\n' ' ')"
+
+  # THE CONTROL: a symlink that stays inside the tree files its question.
+  mkdir -p "$SB_WORK/real-q"; ln -s real-q "$SB_WORK/inlnk"
+  _ask_pm_section 'Nadia, shop manager' 'inlnk/' > "$SB_WORK/PROJECT.md"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) an in-repository symlink channel exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  set -- "$SB_WORK"/real-q/*-ask.md
+  [ -f "$1" ] || cf "(control) the question did not land in the symlink's target inside the repository"
+
+  finish "a channel resolving outside the repository through a symlinked component, a dangling link or a linked file is refused with ask-channel-unusable and a Next, writing nothing; an in-repository symlink still files"
+  teardown
+}
+
+# =============================================================================
 # CASE — ask.sh, DECLARED: ONE FILE, ONE PROVISIONAL DEFAULT, ONE PROGRESS RECORD, EXIT 0.
 # GREEN: writes exactly one question file in the declared channel,
 # records the provisional default ONLY over a WITHDRAWN entry, writes one progress record,
