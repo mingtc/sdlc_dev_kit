@@ -456,6 +456,7 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
   printf '# progress.md\n\n## Log\n\n### 2026-01-02 [Dev] a session\n\n- did the work.\n- `kit-feedback: none`\n' > "$SB_WORK/progress.md"
   printf '| Item | Origin | Size | Why deferred | Wake condition | Status |\n|---|---|---|---|---|---|\n| **Live** | audit | S | — | now | open (claimed by %s) |\n' "$id" > "$SB_WORK/dev/downtime-queue.md"
   printf '# a question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** Yes.\n' "$id" > "$SB_WORK/dev/questions/2026-01-01-q-ask.md"
+  printf '# another question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** No.\n' "$SB_PREFIX-952" > "$SB_WORK/dev/questions/2026-01-02-r-ask.md"
   publish_sandbox
 
   local out sec oldp="$PATH" row letter frag clean ctl why
@@ -479,16 +480,55 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
     printf '%s\n' "$sec" | grep -F 'DID NOT RUN to its end' >/dev/null || cf "($row) arm [$letter] does not say DID NOT RUN although its reader exited 2: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
     printf '%s\n' "$sec" | grep -F -- "$clean" >/dev/null && cf "($row) arm [$letter] printed '$clean' although its reader exited 2"
   done <<'NR_ROWS'
-a|a|Activity|✓ none across|1
+a|a|END{print l}|✓ none across|1
 c|c|if (inlog) exit|Log SLICE: 0 /|0
 j|j|Wake condition|no open row claims a landed issue ✓|1
-m|m|index($0, k ":")|landed issue(s) carry prd|1
+m|m|k=prd|landed issue(s) carry prd|1
 nproject|n|kit-feedback:[[:space:]]|newest entry|1
 nlog|n|have = 1|newest entry|1
 tchannel|t|marker|does not cite it since the answer|1
 tcard|t|Parks card|no card named|0
 u|u|index($0, "title:") == 1|✓ none:|1
 NR_ROWS
+
+  # (cleanup) a run leaves none of its own temp files behind, in either presentation. An mktemp shim records
+  # every path it hands out, so the row does not depend on where this platform's mktemp writes.
+  local real_mk mklog="$SB_TMP/mk.log" left="" p_
+  real_mk="$(command -v mktemp)"
+  mkdir -p "$SB_TMP/mkshim"
+  printf '#!/bin/sh\nout="$(%s "$@")" || exit $?\nprintf "%%s\\n" "$out" >> "%s"\nprintf "%%s\\n" "$out"\n' "$real_mk" "$mklog" > "$SB_TMP/mkshim/mktemp"
+  chmod +x "$SB_TMP/mkshim/mktemp"
+  : > "$mklog"
+  ( cd "$SB_WORK" && PATH="$SB_TMP/mkshim:$oldp" env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full >/dev/null 2>&1 )
+  ( cd "$SB_WORK" && PATH="$SB_TMP/mkshim:$oldp" env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh >/dev/null 2>&1 )
+  [ -s "$mklog" ] || cf "(cleanup) the mktemp shim recorded no path — the row would pass over a script that made no temp file"
+  while IFS= read -r p_; do
+    [ -n "$p_" ] || continue
+    [ -e "$p_" ] && left="$left $p_"
+  done < "$mklog"
+  [ -z "$left" ] || cf "(cleanup) check-board.sh left temp file(s) behind:$left"
+
+  # (notemp) with no temp file the arms say so and the Next says to make TMPDIR writable; none claims a reader failed
+  local mkfail="$SB_TMP/mkfail"
+  mkdir -p "$mkfail"
+  printf '#!/bin/sh\nexit 1\n' > "$mkfail/mktemp"; chmod +x "$mkfail/mktemp"
+  PATH="$mkfail:$oldp"
+  why="$(cb_run)"
+  PATH="$oldp"
+  printf '%s\n' "$why" | grep -F 'TMPDIR' >/dev/null || cf "(notemp) no Next names TMPDIR: $(printf '%s' "$why" | grep -F 'DID NOT RUN to its end' | head -1 | cut -c1-300)"
+  printf '%s\n' "$why" | grep -F 'a reader failed' >/dev/null && cf "(notemp) a line says a reader failed although none ran"
+  printf '%s\n' "$why" | grep -F 'the reader of the slice failed' >/dev/null && cf "(notemp) [c] says a reader failed although none ran"
+
+  # (tlabel) one question's card read fails: only that question is labelled unread, the other keeps its card,
+  # and no line sends a leg after a list a dead reader made unreliable
+  _nr_shim_awk_for "$SB_TMP/shim-tl" "Parks card'*'2026-01-01-q-ask"
+  PATH="$SB_TMP/shim-tl:$oldp"
+  why="$(cb_run)"
+  PATH="$oldp"
+  sec="$(printf '%s\n' "$why" | _nr_arm_section t)"
+  printf '%s\n' "$sec" | grep -F '2026-01-01-q-ask.md' | grep -F 'unread' >/dev/null || cf "(tlabel) the question whose card read failed is not labelled unread: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$sec" | grep -F '2026-01-02-r-ask.md' | grep -F "card: $SB_PREFIX-952" >/dev/null || cf "(tlabel) the other question lost its own card: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$sec" | grep -F 'dispatches the PM-hat leg' >/dev/null && cf "(tlabel) a dispatch line follows a list a dead reader made unreliable"
 
   finish "check-board.sh arms [a] [c] [j] [m] [n] [t] [u] each say DID NOT RUN, print none of their clean-reading text and leave the verdict not clean when their own reader exits non-zero, while the control reads clean with the real awk"
   teardown
