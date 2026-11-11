@@ -464,6 +464,11 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
   printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(control) the fixture board does not read clean: $(printf '%s' "$out" | grep '⚠' | head -4 | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -F 'DID NOT RUN to its end' >/dev/null && cf "(control) an arm says DID NOT RUN to its end on a healthy board: $(printf '%s' "$out" | grep -F 'DID NOT RUN' | head -3 | tr '\n' '|' | cut -c1-300)"
 
+  # a reports-only arm that can set the verdict says so in its header
+  for letter in j m n t u; do
+    printf '%s\n' "$out" | grep -E "^\[$letter\] " | head -1 | grep -F 'unless it could not run' >/dev/null || cf "(header) arm [$letter]'s header does not say it can change the verdict when it could not run: $(printf '%s' "$out" | grep -E "^\[$letter\] " | head -1 | cut -c1-200)"
+  done
+
   # <row>|<arm letter>|<a fragment of the arm's awk program>|<text a dead arm must not print>|<1 if the control prints it>
   while IFS='|' read -r row letter frag clean ctl; do
     [ -n "$row" ] || continue
