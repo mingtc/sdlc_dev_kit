@@ -357,12 +357,14 @@ identifier gives and a timestamp does not.*
 here). After its lettered arms the report runs each `scripts/check-board.d/<NN>-<name>.sh`, in
 file-name order, as a `[+<name>]` arm, reading the files from beside the script, never from the tree
 it reports on. An absent or empty directory runs nothing. A `<name>` is letters, digits, `.`, `_` and
-`-`; any other file name is not run, and the report says so.
+`-`; any other file name is not run, and the report says so. *A file name that cannot run an arm must not read as a clean board:* when the file declares `deciding`, or its kind cannot be read, the report prints a `⚠` line naming the file with a `Next:` that renames it, and the verdict is not `clean`; a bad-named `advisory` arm stays report-only.
 
 - **The arm declares itself**, on a line of its own in the file: `# check-board-arm: advisory` or
   `# check-board-arm: deciding`. *Why in the file:* an arm placed by hand has no manifest, and the
-  declaration travels with the code it describes. An arm with neither line is not run; the report
-  says so and names the line to add. An `advisory` arm's header carries the token `reports only`
+  declaration travels with the code it describes. An arm with neither line (or a misspelled one) is not run, and its kind is unknown, so it cannot be called
+  advisory: the report prints a `⚠` line and a `Next:` naming the line to add or correct, and the verdict is not
+  `clean` until it does. *Why:* a typo in the one word that makes an arm decide would otherwise remove its effect
+  while the board read clean. An `advisory` arm's header carries the token `reports only`
   (§ 4 item 5), so `kit-init.sh`'s self-check drops its `⚠` lines as it does a lettered advisory
   arm's; a `deciding` arm's header does not, so its `⚠` lines count. Both header shapes are
   `[+<name>]`, which `kit-init.sh` and the SessionStart hook read as an arm heading like `[x]`.

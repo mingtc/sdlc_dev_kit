@@ -2177,19 +2177,32 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
   echo
   case "$cb_arm_name" in
     ''|*[!A-Za-z0-9._-]*)
-      # kit-init.sh and the session-start hook key on a `[+name]` header of this shape.
-      echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):"
-      echo "      – scripts/check-board.d/${cb_arm_file} is named outside letters, digits, '.', '_' and '-' — this arm did not run  (skipped)"
-      echo "      Next: rename it to <NN>-<name>.sh with such a name (process/contracts/drift-report.md § 5), then re-run."
+      # kit-init.sh and the session-start hook key on a `[+name]` header of this shape, so the header
+      # names a cleaned copy of the name; the finding line below carries the real file name.
+      cb_arm_hdr="$(printf '%s' "$cb_arm_name" | tr -c 'A-Za-z0-9._-' '_')"; [ -n "$cb_arm_hdr" ] || cb_arm_hdr="_"
+      case "$cb_arm_kind" in
+        advisory)
+          echo "[+${cb_arm_hdr}] arm (scripts/check-board.d/${cb_arm_file}; reports only — it never changes the verdict below) — $(cb_src):"
+          echo "      – scripts/check-board.d/${cb_arm_file} is named outside letters, digits, '.', '_' and '-' — this arm did not run  (skipped)"
+          echo "      Next: rename it to <NN>-<name>.sh with such a name (process/contracts/drift-report.md § 5), then re-run." ;;
+        *)
+          # A DECIDING ARM, OR ONE WHOSE KIND CANNOT BE READ, THAT DID NOT RUN MUST NOT LEAVE THE BOARD CLEAN.
+          drift=1
+          echo "[+${cb_arm_hdr}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):"
+          echo "      ⚠ scripts/check-board.d/${cb_arm_file} is named outside letters, digits, '.', '_' and '-' — this arm did not run, so the board is not called clean"
+          echo "      Next: rename it to <NN>-<name>.sh with such a name (process/contracts/drift-report.md § 5), then re-run ./scripts/check-board.sh." ;;
+      esac
       continue ;;
   esac
   case "$cb_arm_kind" in
     advisory) echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}; reports only — it never changes the verdict below) — $(cb_src):" ;;
     deciding) echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):" ;;
     *)
+      # The kind is unknown, so the arm cannot be called advisory: it fails closed.
+      drift=1
       echo "[+${cb_arm_name}] arm (scripts/check-board.d/${cb_arm_file}) — $(cb_src):"
-      echo "      – scripts/check-board.d/${cb_arm_file} declares neither \`# check-board-arm: advisory\` nor \`# check-board-arm: deciding\` — this arm did not run  (skipped)"
-      echo "      Next: add one of those two lines to the arm (process/contracts/drift-report.md § 5), then re-run."
+      echo "      ⚠ scripts/check-board.d/${cb_arm_file} declares neither \`# check-board-arm: advisory\` nor \`# check-board-arm: deciding\` (spelled exactly) — this arm did not run, so the board is not called clean"
+      echo "      Next: add or correct that line in the arm (process/contracts/drift-report.md § 5), then re-run ./scripts/check-board.sh."
       continue ;;
   esac
   cb_arm_rc=0
@@ -2216,7 +2229,7 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
       fi ;;
   esac
 done
-unset cb_arm cb_arm_file cb_arm_name cb_arm_kind cb_arm_rc
+unset cb_arm cb_arm_file cb_arm_name cb_arm_kind cb_arm_rc cb_arm_hdr
 
 echo
 if [ "$drift" -eq 0 ]; then
