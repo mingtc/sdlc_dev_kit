@@ -129,7 +129,7 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) Â
 | `upgrade-modules-no-sha` | the tree has enabled modules and the machine has no sha256 tool, so their files cannot be told from the project's edits; nothing is written |
 | `upgrade-nothing-to-finish` | finishing was asked for and no upgrade is in progress |
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest, the staged notes (and history, when the manifest lists one) or the staged item list do not |
-| `upgrade-staging-edited` | finishing was asked for while a staged copy has uncommitted edits, or a staged copy of the new kit's notes no longer hashes to the staged manifest's row for it |
+| `upgrade-staging-edited` | finishing was asked for while a staged file it reads has uncommitted edits, a staged copy of the new kit's notes no longer hashes to the staged manifest's row for it, the item list differs from the one the staged notes give, or a module item has no entry in its staged notes |
 | `upgrade-checklist-item-missing` | finishing was asked for and the checklist no longer holds an Action required item the first run wrote to it (deleted, renumbered, or re-worded past its key) |
 | `upgrade-checklist-unmarked` | finishing was asked for with an item still unmarked |
 | `upgrade-open-card-refused` | finishing was asked for while an open card would still be refused by the new kit's landing checks |
@@ -189,16 +189,20 @@ is `notes_items` in `scripts/kit-upgrade.sh`.
 
 - **First run:** the item for that entry ends `Verify: <command>`, and the new kit's notes and history are staged as
   `.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new` and `.kit-upgrade/KIT-RELEASE-HISTORY.md.kit-new`, with the
-  key of each Action required item written (`.kit-upgrade/action-items`, one `[<section>] item <n>` per line).
+  key of each Action required item written (`.kit-upgrade/action-items`, one line per item: `Action required,
+  [<section>] item <n>`, led by `module <name>, ` for a module's).
 - **Finishing:** each command runs with `bash -c`, in the project's top level, with no input. It is read
   from the staged copies of the new kit's notes and history, never from the checklist's text, which whoever marks the
   item can edit; and which items run is read from the staged key list, never from the checklist, so removing,
   renumbering or re-wording an item there changes nothing it runs and is refused (`upgrade-checklist-item-missing`).
-  **What this does not do:** a staged copy lives in the tree of the party being checked, so it is trusted as
-  committed, not as tamper-proof. It is refused when it has uncommitted edits, or when its sha256 differs from
-  the row the staged `KIT-MANIFEST` holds for it (`upgrade-staging-edited`); someone who edits the staged notes
-  and the staged manifest together passes. The archived checklist therefore records the sha256 of each staged
-  copy, so a reviewer can compare it with the kit. It runs with the authority of whoever runs the upgrade, so a kit not trusted that far
+  The kit's own keys are derived again from the staged notes and the version the tree still records (it is stamped
+  last), and a list that differs is refused (`upgrade-staging-edited`); a module's key must have an entry in its
+  module's staged notes. **What this does not do:** a staged copy lives in the tree of the party being checked, so it
+  is trusted as committed, not as tamper-proof. It is refused when a file `--finish` reads has uncommitted edits, or
+  when its sha256 differs from the row the staged `KIT-MANIFEST` holds for it; someone who edits the staged notes and
+  the staged manifest together, and commits, passes, and so does someone who removes a module's key together with its
+  checklist line (the module's earlier version is not kept). The archived checklist therefore records the sha256 of
+  each staged copy that has a counterpart in the kit, so a reviewer can compare it with the kit. It runs with the authority of whoever runs the upgrade, so a kit not trusted that far
   is not upgraded to. A failing command is `upgrade-verify-failed`, naming the item, the command and its
   exit status; there is no override, because a command that fails where the entry does not apply is a
   defect in the entry.

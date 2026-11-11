@@ -72,10 +72,12 @@
 # --finish runs each command, in the project's top level, with bash, and refuses while one exits
 # non-zero. The command is read from that staged copy of the NEW kit's notes, never from the
 # checklist's text, which whoever marks the item can edit; which items run is read from
-# .kit-upgrade/action-items, staged beside them, and a checklist that lost one is refused. The staged
-# copies are trusted as committed, not as tamper-proof: --finish refuses one edited since it was staged,
-# or one whose sha256 differs from the staged KIT-MANIFEST's row, and the archive records each sha256 so a
-# reviewer can compare it with the kit. An item with no Verify: is declared by
+# .kit-upgrade/action-items, staged beside them, and a checklist that lost one is refused. --finish derives
+# the kit's items again from the staged notes and refuses a list that differs, and a module item needs an entry
+# in its staged notes. The staged copies are trusted as committed, not as tamper-proof: --finish refuses one
+# edited since it was staged, or one whose sha256 differs from the staged KIT-MANIFEST's row, and the archive
+# records each sha256 so a reviewer can compare it with the kit; edits to the notes and the manifest together,
+# committed, pass. An item with no Verify: is declared by
 # whoever marked it: the archived checklist says so, item by item. An enabled module's own notes are
 # staged as .kit-upgrade/module-notes/<name>.kit-new and read the same way.
 #
@@ -388,29 +390,136 @@ vf_run() {
 $(cat "$ST/$STAGED_ITEMS")
 VF_EOF
 }
+# select_core_items <old version> <new version> <notes> [<history>] — the Action required entries of the new kit that an
+# upgrade from the old version carries, one row each: <section> TAB <n> TAB <title> TAB <file> TAB <held: 1 or -> TAB <Verify:
+# command, or empty>. The first run writes its checklist items from these rows, and --finish derives the same set from the
+# staged copies; one function, so the two cannot differ. Every section newer than the tree up to the new kit; Unreleased
+# only when the new kit is a build. From a build (X.Y.Z+<tree>), the release after X.Y.Z may already be held, and so may
+# Unreleased when both are builds after one release.
+select_core_items() {
+  local cur_v="$1" new_v="$2" items cur_b new_b next_rel="" sec n t srcf vcmd held
+  shift 2
+  [ "$cur_v" != "$new_v" ] || return 0
+  cur_b="$(ver_base "$cur_v")"; new_b="$(ver_base "$new_v")"
+  items="$(notes_items "$@")"
+  while IFS="$(printf '\t')" read -r sec _ _ _; do
+    [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
+    [ "$(ver_cmp "$sec" "$cur_b")" = 1 ] || continue
+    if [ -z "$next_rel" ] || [ "$(ver_cmp "$sec" "$next_rel")" = -1 ]; then next_rel="$sec"; fi
+  done <<SCI_EOF
+$items
+SCI_EOF
+  while IFS="$(printf '\t')" read -r sec n t srcf vcmd; do
+    [ -n "$sec" ] || continue
+    held="-"
+    if [ "$sec" = Unreleased ]; then
+      ver_is_build "$new_v" || continue
+      ver_is_build "$cur_v" && [ "$cur_b" = "$new_b" ] && held=1
+    else
+      [ "$(ver_cmp "$sec" "$cur_b")" = 1 ] && [ "$(ver_cmp "$sec" "$new_b")" != 1 ] || continue
+      ver_is_build "$cur_v" && [ "$sec" = "$next_rel" ] && held=1
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$sec" "$n" "$t" "$srcf" "$held" "$vcmd"
+  done <<SCI_EOF
+$items
+SCI_EOF
+}
 # st_sha <file> — its sha256, or nothing when the machine has no tool.
 st_sha() {
   if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
   elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" 2>/dev/null | awk '{print $1}'
   fi
 }
-# st_check — the staged copies --finish reads are what the first run staged: every one is present, none is an
-# uncommitted edit of a committed file, and each of the new kit's notes still hashes to the row the staged
-# KIT-MANIFEST holds for it. Every item the first run wrote to the checklist is still there (a deleted, renumbered
-# or re-worded one is refused). Fills ST_SHAS (one "<sha>  <path>" line each) and ST_NOTE (what could not be compared).
-ST_SHAS=(); ST_NOTE=""
+# kit_refuse_undo — kit_refuse, after removing the scratch copy --finish keeps of what the stamp writes.
+kit_refuse_undo() { [ -z "${UNDO_DIR:-}" ] || rm -rf "$UNDO_DIR"; kit_refuse "$@"; }
+# st_discard_cmd — the one command line that discards a staged upgrade the way the first run can start over from: the
+# checklist and everything in .kit-upgrade/ but the record of what the first run was writing, with the deletion committed.
+st_discard_cmd() {
+  printf "  rm -f '%s/%s' && find '%s/%s' -mindepth 1 -maxdepth 1 ! -name '%s' -exec rm -rf {} + ; git -C '%s' add -A -- '%s' '%s' && git -C '%s' commit -q -m 'Discard the staged kit upgrade' -- '%s' '%s'" \
+    "$TGT" "$UPGRADE_CHECKLIST" "$TGT" "$STAGE_DIR" "$STAGED_ARRIVED" "$TGT" "$UPGRADE_CHECKLIST" "$STAGE_DIR" "$TGT" "$UPGRADE_CHECKLIST" "$STAGE_DIR"
+}
+# st_restore_cmd <path under the stage> — a command line restoring a staged file from the commit that added it, and committing
+# that; nothing when git knows no such commit.
+st_restore_cmd() {
+  local rel="$STAGE_DIR/$1" c
+  c="$(cd "$TGT" && git log --diff-filter=A --format=%H -1 -- "$rel" 2>/dev/null)"
+  [ -z "$c" ] || printf "  git -C '%s' checkout %s -- '%s' && git -C '%s' commit -q -m 'Restore the staged %s' -- '%s'" "$TGT" "$c" "$rel" "$TGT" "$1" "$rel"
+}
+# st_edited <message> <path under the stage> — refuse a staged copy that is not what the first run staged.
+st_edited() {
+  local cmd; cmd="$(st_restore_cmd "$2")"
+  if [ -n "$cmd" ]; then
+    kit_refuse 1 upgrade-staging-edited "$1" "Next: run this (it restores the file from the commit that added it, and commits that), then run --finish again:" "$cmd" \
+      "If --finish refuses the same way, the first run's own commit held the edit: discard the staged upgrade and run the NEW kit's copy again:" "$(st_discard_cmd)"
+  fi
+  kit_refuse 1 upgrade-staging-edited "$1" "Next: discard the staged upgrade and run the NEW kit's copy again; this is the command:" "$(st_discard_cmd)"
+}
+# st_check — the staged copies --finish reads are what the first run staged. Every one is present; none read is an
+# uncommitted edit of a committed file; each of the new kit's notes hashes to the row the staged KIT-MANIFEST holds for it;
+# the core items derived from those notes are the ones the first run listed, and every module item has a row in its module's
+# notes; and every listed item is still on the checklist. Fills ST_SHAS ("<sha>  <path>", the kit's own files) and ST_NOTE.
+ST_SHAS=(); ST_NOTE=""; ST_SHA_TOOL=""
 st_check() {
-  local miss="" f d want got mn k dirty hist_row row_sha bad=""
+  local miss="" f d want got mn k dirty hist_row row_sha bad="" old_v new_v derived have extra short rows sec n
   hist_row="$(awk '$2 == "process/KIT-RELEASE-HISTORY.md" { print $1; exit }' "$ST/KIT-MANIFEST")"
   for f in "$STAGED_ITEMS" "$STAGED_NOTES"; do [ -f "$ST/$f" ] || miss="${miss:+$miss, }$STAGE_DIR/$f"; done
   [ -z "$hist_row" ] || [ -f "$ST/$STAGED_HISTORY" ] || miss="${miss:+$miss, }$STAGE_DIR/$STAGED_HISTORY"
   [ -z "$miss" ] || kit_refuse 1 upgrade-staging-missing \
     "Error: $UPGRADE_CHECKLIST exists but $STAGE_DIR/ does not hold what the first run staged: $miss." \
-    "Next: delete $UPGRADE_CHECKLIST and $STAGE_DIR/, then run the NEW kit's copy again: its first run is safe to repeat."
-  dirty="$(cd "$TGT" && git status --porcelain -- "$STAGE_DIR" 2>/dev/null | awk 'substr($0, 1, 2) != "??"')"
+    "Next: run this, which discards the staged upgrade and commits that (the file that records what the first run wrote is kept), then run the NEW kit's copy again; that re-run starts over, and re-lists the files it replaced from what it finds:" \
+    "$(st_discard_cmd)"
+  dirty="$(cd "$TGT" && git status --porcelain -- "$STAGE_DIR/$STAGED_ITEMS" "$STAGE_DIR/$STAGED_NOTES" "$STAGE_DIR/$STAGED_HISTORY" "$STAGE_DIR/$STAGED_MODULE_NOTES" \
+    "$STAGE_DIR/KIT-VERSION" "$STAGE_DIR/KIT-MANIFEST" "$STAGE_DIR/lib" 2>/dev/null | awk 'substr($0, 1, 2) != "??"')"
   [ -z "$dirty" ] || kit_refuse 1 upgrade-staging-edited \
-    "Error: $STAGE_DIR/ holds uncommitted edits of committed files; --finish reads each Verify: command from it:" "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
-    "Next: restore them (git checkout -- $STAGE_DIR), or, if the first run itself is stale, delete $UPGRADE_CHECKLIST and $STAGE_DIR/ and run the NEW kit's copy again."
+    "Error: files in $STAGE_DIR/ that --finish reads have uncommitted edits:" "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
+    "Next: restore them with git checkout -- <path> for each path above, then run --finish again. If the first run itself is stale, run this and then the NEW kit's copy again:" "$(st_discard_cmd)"
+  command -v shasum >/dev/null 2>&1 || command -v sha256sum >/dev/null 2>&1 && ST_SHA_TOOL=1
+  if [ -z "$ST_SHA_TOOL" ]; then
+    ST_NOTE="no sha256 tool (shasum or sha256sum) is on this machine, so no staged notes (the kit's, its history, a module's) were compared with the new kit's manifest"
+  else
+    for f in "$STAGED_NOTES|process/KIT-RELEASE-NOTES.md" "$STAGED_HISTORY|process/KIT-RELEASE-HISTORY.md"; do
+      d="${f%%|*}"; want="$(awk -v p="${f#*|}" '$2 == p { print $1; exit }' "$ST/KIT-MANIFEST")"
+      [ -f "$ST/$d" ] || continue
+      got="$(st_sha "$ST/$d")"; ST_SHAS+=("$got  $STAGE_DIR/$d")
+      if [ -z "$want" ]; then ST_NOTE="${ST_NOTE:+$ST_NOTE; }${f#*|} has no row in the new kit's manifest, so $STAGE_DIR/$d was not compared"
+      elif [ "$got" != "$want" ]; then
+        st_edited "Error: $STAGE_DIR/$d is not the new kit's ${f#*|}: its sha256 is $got, the staged manifest's row says $want; --finish reads each Verify: command from it." "$d"
+      fi
+    done
+    for f in "$ST/$STAGED_MODULE_NOTES/"*.kit-new; do
+      [ -f "$f" ] || continue
+      mn="$(basename "$f" .kit-new)"; got="$(st_sha "$f")"; ST_SHAS+=("$got  $STAGE_DIR/$STAGED_MODULE_NOTES/$mn.kit-new")
+      row_sha="$(awk -v p="modules/$mn/" 'index($2, p) == 1 { print $1 }' "$ST/KIT-MANIFEST")"
+      if [ -z "$row_sha" ]; then ST_NOTE="${ST_NOTE:+$ST_NOTE; }the new kit's manifest has no row under modules/$mn/, so module $mn's staged notes were not compared"
+      elif ! printf '%s\n' "$row_sha" | grep -Fx -- "$got" >/dev/null; then
+        st_edited "Error: $STAGE_DIR/$STAGED_MODULE_NOTES/$mn.kit-new is not a file the new kit's manifest holds for module $mn (its sha256 is $got); --finish reads each Verify: command from it." "$STAGED_MODULE_NOTES/$mn.kit-new"
+      fi
+    done
+  fi
+  # The core items are derived again from the staged notes and the version the tree still records (it is stamped last).
+  old_v="$(read_version "$TGT/process/KIT-VERSION")"; new_v="$(read_version "$ST/KIT-VERSION")"
+  if ver_ok "$old_v" && ver_ok "$new_v"; then
+    if [ -f "$ST/$STAGED_HISTORY" ]; then rows="$(select_core_items "$old_v" "$new_v" "$ST/$STAGED_NOTES" "$ST/$STAGED_HISTORY")"
+    else rows="$(select_core_items "$old_v" "$new_v" "$ST/$STAGED_NOTES")"; fi
+    derived="$(printf '%s\n' "$rows" | awk -F'\t' 'NF >= 2 && $1 != "" { printf "Action required, [%s] item %s\n", $1, $2 }' | LC_ALL=C sort)"
+    have="$(awk '!/^module / && NF' "$ST/$STAGED_ITEMS" | LC_ALL=C sort)"
+    if [ "$derived" != "$have" ]; then
+      extra="$(comm -3 <(printf '%s\n' "$derived") <(printf '%s\n' "$have") | awk '/^\t/ { sub(/^\t/, ""); print "  only in the staged list: " $0; next } { print "  only in the staged notes: " $0 }')"
+      st_edited "Error: the Action required items the staged notes give for $old_v to $new_v are not the ones the first run listed in $STAGE_DIR/$STAGED_ITEMS:
+$extra" "$STAGED_ITEMS"
+    fi
+  else
+    ST_NOTE="${ST_NOTE:+$ST_NOTE; }a version did not read as X.Y.Z, so the core items were not derived again from the staged notes"
+  fi
+  # A module item must have a row in its module's staged notes: the first run wrote it from that row.
+  while IFS= read -r k; do
+    case "$k" in "module "*", Action required, ["*) ;; *) continue ;; esac
+    mn="${k#module }"; mn="${mn%%,*}"
+    sec="${k#*, Action required, \[}"; sec="${sec%%]*}"; n="${k##* item }"
+    rows=""; [ ! -f "$ST/$STAGED_MODULE_NOTES/$mn.kit-new" ] || rows="$(notes_items "$ST/$STAGED_MODULE_NOTES/$mn.kit-new")"
+    printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { f = 1 } END { exit !f }' \
+      || st_edited "Error: $STAGE_DIR/$STAGED_ITEMS lists \"$k\", and the module's staged notes hold no such entry." "$STAGED_MODULE_NOTES/$mn.kit-new"
+  done < "$ST/$STAGED_ITEMS"
   while IFS= read -r k; do
     [ -n "$k" ] || continue
     awk -v k="$k" 'substr($0, 1, 3) == "- [" && index($0, "] " k ":") == 5 { found = 1 } END { exit !found }' "$CL" \
@@ -420,33 +529,6 @@ st_check() {
   [ -z "$bad" ] || kit_refuse 1 upgrade-checklist-item-missing \
     "Error: $UPGRADE_CHECKLIST no longer holds Action required item(s) the first run wrote to it:" "$bad" \
     "Next: put each line above back as the first run wrote it (git log -p -- $UPGRADE_CHECKLIST shows it), mark it when done, commit, then run --finish again."
-  ST_SHAS+=("$(st_sha "$ST/$STAGED_ITEMS")  $STAGE_DIR/$STAGED_ITEMS")
-  if [ -z "$(st_sha "$ST/$STAGED_NOTES")" ]; then
-    ST_NOTE="no sha256 tool (shasum or sha256sum) is on this machine, so the staged notes were not compared with the new kit's manifest"
-    return 0
-  fi
-  for f in "$STAGED_NOTES|process/KIT-RELEASE-NOTES.md" "$STAGED_HISTORY|process/KIT-RELEASE-HISTORY.md"; do
-    d="${f%%|*}"; want="$(awk -v p="${f#*|}" '$2 == p { print $1; exit }' "$ST/KIT-MANIFEST")"
-    [ -f "$ST/$d" ] || continue
-    got="$(st_sha "$ST/$d")"; ST_SHAS+=("$got  $STAGE_DIR/$d")
-    if [ -z "$want" ]; then ST_NOTE="${ST_NOTE:+$ST_NOTE; }${f#*|} has no row in the new kit's manifest, so $STAGE_DIR/$d was not compared"
-    elif [ "$got" != "$want" ]; then
-      kit_refuse 1 upgrade-staging-edited \
-        "Error: $STAGE_DIR/$d is not the new kit's ${f#*|}: its sha256 is $got, the staged manifest's row says $want; --finish reads each Verify: command from it." \
-        "Next: restore it (git checkout -- $STAGE_DIR/$d), or delete $UPGRADE_CHECKLIST and $STAGE_DIR/ and run the NEW kit's copy again."
-    fi
-  done
-  for f in "$ST/$STAGED_MODULE_NOTES/"*.kit-new; do
-    [ -f "$f" ] || continue
-    mn="$(basename "$f" .kit-new)"; got="$(st_sha "$f")"; ST_SHAS+=("$got  $STAGE_DIR/$STAGED_MODULE_NOTES/$mn.kit-new")
-    row_sha="$(awk -v p="modules/$mn/" 'index($2, p) == 1 { print $1 }' "$ST/KIT-MANIFEST")"
-    if [ -z "$row_sha" ]; then ST_NOTE="${ST_NOTE:+$ST_NOTE; }the new kit's manifest has no row under modules/$mn/, so module $mn's staged notes were not compared"
-    elif ! printf '%s\n' "$row_sha" | grep -Fx -- "$got" >/dev/null; then
-      kit_refuse 1 upgrade-staging-edited \
-        "Error: $STAGE_DIR/$STAGED_MODULE_NOTES/$mn.kit-new is not a file the new kit's manifest holds for module $mn (its sha256 is $got); --finish reads each Verify: command from it." \
-        "Next: restore it (git checkout -- $STAGE_DIR/$STAGED_MODULE_NOTES/$mn.kit-new), or delete $UPGRADE_CHECKLIST and $STAGE_DIR/ and run the NEW kit's copy again."
-    fi
-  done
 }
 # vf_record — the archived checklist's closing section: what --finish ran, and what it could not.
 vf_record() {
@@ -456,7 +538,7 @@ vf_record() {
   for l in ${VF_NONE[@]+"${VF_NONE[@]}"}; do printf -- '- declared, unverified (no Verify: line): %s\n' "$l"; done
   for l in ${VF_SKIPPED[@]+"${VF_SKIPPED[@]}"}; do printf -- '- declared, not run: %s\n' "$l"; done
   printf '\nEvery other item, merge, removal and kept file included, is declared by whoever marked it; --finish verified none of them.\n'
-  printf '\nThe staged copies the commands were read from, by sha256 (compare with the new kit'"'"'s own files):\n\n'
+  printf '\nThe staged copies the commands were read from, by sha256 (each equals the new kit'"'"'s own file of that name):\n\n'
   for l in ${ST_SHAS[@]+"${ST_SHAS[@]}"}; do printf -- '- %s\n' "$l"; done
   [ -z "$ST_NOTE" ] || printf '\nNot compared: %s.\n' "$ST_NOTE"
 }
@@ -468,7 +550,8 @@ if [ "$FINISH" = true ]; then
     "Next: start one with the NEW kit's copy: <scratch>/scripts/kit-upgrade.sh --into $TGT"
   { [ -f "$ST/KIT-VERSION" ] && [ -f "$ST/KIT-MANIFEST" ]; } || kit_refuse 1 upgrade-staging-missing \
     "Error: $UPGRADE_CHECKLIST exists but $STAGE_DIR/ does not hold the new KIT-VERSION and KIT-MANIFEST." \
-    "Next: delete $UPGRADE_CHECKLIST and $STAGE_DIR/, then run the NEW kit's copy again: its first run is safe to repeat."
+    "Next: run this, which discards the staged upgrade and commits that (the file that records what the first run wrote is kept), then run the NEW kit's copy again; that re-run starts over:" \
+    "$(st_discard_cmd)"
   open_n="$(grep -c '^- \[ \]' "$CL" || true)"
   if [ "${open_n:-0}" -gt 0 ]; then
     kit_refuse 1 upgrade-checklist-unmarked \
@@ -515,32 +598,37 @@ if [ "$FINISH" = true ]; then
   [ ! -e "$TGT/$ARCHIVE_REL" ] || kit_refuse 1 upgrade-archive-exists \
     "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
     "Next: move or rename it (commit that), then run --finish again."
+  # What the stamp writes is saved first, before anything is written: a copy that fails refuses here, with nothing changed.
+  UNDO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-undo.XXXXXX" 2>/dev/null)" || UNDO_DIR=""
+  backed=1
+  [ -n "$UNDO_DIR" ] || backed=""
+  for f in KIT-VERSION KIT-MANIFEST; do
+    [ -n "$backed" ] || break
+    if [ -e "$TGT/process/$f" ]; then
+      cp -p "$TGT/process/$f" "$UNDO_DIR/$f" 2>/dev/null && cmp -s "$TGT/process/$f" "$UNDO_DIR/$f" || backed=""
+    else : > "$UNDO_DIR/$f.absent" || backed=""; fi
+  done
+  [ -n "$backed" ] || kit_refuse_undo 1 upgrade-write-failed \
+    "Error: could not save a copy of process/KIT-VERSION and process/KIT-MANIFEST under ${TMPDIR:-/tmp}, which --finish keeps to put them back if a write fails. Nothing was written." \
+    "Next: free space under ${TMPDIR:-/tmp} (or point TMPDIR at a directory with room), then run --finish again."
   mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
-    || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."
-  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."
+    || kit_refuse_undo 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."
+  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse_undo 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."
   # A failure here has the archive written and KIT-VERSION possibly stamped, which the next run would refuse as
   # uncommitted: put the tree back as it was, so that "run --finish again" is the whole recovery.
-  UNDO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-undo.XXXXXX" 2>/dev/null)" || UNDO_DIR=""
-  if [ -n "$UNDO_DIR" ]; then
-    cp -p "$TGT/process/KIT-VERSION" "$UNDO_DIR/KIT-VERSION" 2>/dev/null; cp -p "$TGT/process/KIT-MANIFEST" "$UNDO_DIR/KIT-MANIFEST" 2>/dev/null
-  fi
   if ! { cp "$ST/KIT-VERSION" "$TGT/process/KIT-VERSION" && cp "$ST/KIT-MANIFEST" "$TGT/process/KIT-MANIFEST"; }; then
-    undone=""
-    if [ -n "$UNDO_DIR" ]; then
-      undone=1
-      for f in KIT-VERSION KIT-MANIFEST; do
-        if [ -f "$UNDO_DIR/$f" ]; then cmp -s "$UNDO_DIR/$f" "$TGT/process/$f" || cp "$UNDO_DIR/$f" "$TGT/process/$f" 2>/dev/null || undone=""
-        else rm -f "$TGT/process/$f" 2>/dev/null || undone=""; fi
-      done
-      rm -f "$TGT/$ARCHIVE_REL" 2>/dev/null || undone=""
-      rm -rf "$UNDO_DIR"
-    fi
+    undone=1
+    for f in KIT-VERSION KIT-MANIFEST; do
+      if [ -e "$UNDO_DIR/$f.absent" ]; then rm -f "$TGT/process/$f" 2>/dev/null || undone=""
+      else cmp -s "$UNDO_DIR/$f" "$TGT/process/$f" || cp "$UNDO_DIR/$f" "$TGT/process/$f" 2>/dev/null || undone=""; fi
+    done
+    rm -f "$TGT/$ARCHIVE_REL" 2>/dev/null || undone=""
     if [ -n "$undone" ]; then
-      kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT; they and $ARCHIVE_REL are back as they were." "Next: fix the write permission or free space under $TGT/process/, then run --finish again."
+      kit_refuse_undo 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT; they and $ARCHIVE_REL are back as they were." "Next: fix the write permission or free space under $TGT/process/, then run --finish again."
     fi
-    kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT, and could not put them back." "Next: fix the write permission or free space under $TGT/process/, then run: rm -f $TGT/$ARCHIVE_REL && git -C $TGT checkout -- process/KIT-VERSION process/KIT-MANIFEST ; then run --finish again."
+    kit_refuse_undo 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT, and could not put them back." "Next: fix the write permission or free space under $TGT/process/, then run: rm -f $TGT/$ARCHIVE_REL && git -C $TGT checkout -- process/KIT-VERSION process/KIT-MANIFEST ; then run --finish again."
   fi
-  [ -z "$UNDO_DIR" ] || rm -rf "$UNDO_DIR"
+  rm -rf "$UNDO_DIR"
   rm -rf "$ST" && rm -f "$CL"
   echo "kit-upgrade: $TGT now records kit $new_v (process/KIT-VERSION, process/KIT-MANIFEST)."
   echo "  The marked checklist is kept as $ARCHIVE_REL; $UPGRADE_CHECKLIST and $STAGE_DIR/ are removed."
@@ -688,44 +776,22 @@ $JOINED
 JOINED_EOF
 
 # ── THE ACTION REQUIRED ITEMS ─────────────────────────────────────────────────
-# Every section newer than the tree up to the new kit; Unreleased only when the new kit is a build.
-# From a build (X.Y.Z+<tree>), the release after X.Y.Z may already be held — and so may Unreleased,
-# when both are builds after one release.
+# select_core_items (above) says which entries; this writes each as a checklist line.
 if [ -f "$SRC/process/KIT-RELEASE-HISTORY.md" ]; then
-  ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md" "$SRC/process/KIT-RELEASE-HISTORY.md")"
+  ITEMS="$(select_core_items "$CUR_V" "$NEW_V" "$SRC/process/KIT-RELEASE-NOTES.md" "$SRC/process/KIT-RELEASE-HISTORY.md")"
 else
-  ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md")"
+  ITEMS="$(select_core_items "$CUR_V" "$NEW_V" "$SRC/process/KIT-RELEASE-NOTES.md")"
 fi
-
-NEXT_REL=""   # the smallest released section above the tree's base
-while IFS="$(printf '\t')" read -r sec _ _ _; do
-  [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
-  [ "$(ver_cmp "$sec" "$CUR_B")" = 1 ] || continue
-  if [ -z "$NEXT_REL" ] || [ "$(ver_cmp "$sec" "$NEXT_REL")" = -1 ]; then NEXT_REL="$sec"; fi
+ACTION=()
+while IFS="$(printf '\t')" read -r sec n t srcf held vcmd; do
+  [ -n "$sec" ] || continue
+  line="Action required, [$sec] item $n: $t — $srcf § [$sec]"
+  [ "$held" = - ] || line="$line (this tree is a build after $CUR_B, so it may already hold this: diff before applying)"
+  [ -z "$vcmd" ] || line="$line — Verify: $vcmd"
+  ACTION+=("$line")
 done <<ITEMS_EOF
 $ITEMS
 ITEMS_EOF
-
-ACTION=()
-if [ "$CUR_V" != "$NEW_V" ]; then
-  while IFS="$(printf '\t')" read -r sec n t srcf vcmd; do
-    [ -n "$sec" ] || continue
-    held=""
-    if [ "$sec" = Unreleased ]; then
-      ver_is_build "$NEW_V" || continue
-      ver_is_build "$CUR_V" && [ "$CUR_B" = "$NEW_B" ] && held=1
-    else
-      [ "$(ver_cmp "$sec" "$CUR_B")" = 1 ] && [ "$(ver_cmp "$sec" "$NEW_B")" != 1 ] || continue
-      ver_is_build "$CUR_V" && [ "$sec" = "$NEXT_REL" ] && held=1
-    fi
-    line="Action required, [$sec] item $n: $t — $srcf § [$sec]"
-    [ -z "$held" ] || line="$line (this tree is a build after $CUR_B, so it may already hold this: diff before applying)"
-    [ -z "$vcmd" ] || line="$line — Verify: $vcmd"
-    ACTION+=("$line")
-  done <<ITEMS_EOF
-$ITEMS
-ITEMS_EOF
-fi
 
 # ── THE ENABLED MODULES: what the new kit changes in the files they placed. ───
 # Scanned now, and written with the other files below. MOD_NAMES is every module process/MODULES records as
