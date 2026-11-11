@@ -167,6 +167,9 @@ refusal above.
   rebase-onto-remote-tip retry instead of a single bare push. Sourced by the worktree library, and
   usable standalone by any other script that publishes a trunk commit outside the auxiliary
   checkout (a hand-made direct-to-trunk commit), under the same contract.
+- `scripts/lib/hold-output.sh` — KIT-CLASS: KIT. `kwt_hold_output`: keeps a script's stdout and stderr
+  writable after its reader has closed the pipe (`op | head -1`), so the op is not stopped between
+  its commit and its push. Sourced by the worktree library; `scripts/release.sh` sources it too.
 - The trunk-confirmation invariant in § 2 is a standing finding in
   [`../EXTRACTION.md`](../EXTRACTION.md) § 2: a resolution chain that ends in a hard-coded name
   can only guess (it warns, but cannot know it is right), so the **initializer** confirms the trunk up front.

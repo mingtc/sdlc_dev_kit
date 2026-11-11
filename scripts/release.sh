@@ -86,6 +86,10 @@ cd "$REPO_ROOT"
 # commit with no declared hat.
 # shellcheck source=lib/hat-file.sh
 . "$SCRIPT_DIR/lib/hat-file.sh"
+# A reader that closes our output (`| head -1`) must not stop a cut between its commit, its tag and its
+# pushes: kwt_hold_output keeps every write below succeeding.
+# shellcheck source=lib/hold-output.sh
+. "$SCRIPT_DIR/lib/hold-output.sh"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CONFIG BLOCK — everything a project declares lives between here and the END
@@ -266,6 +270,10 @@ if [ -z "$RAW_VERSION" ]; then
     usage >&2; exit 2
   fi
 fi
+
+# Every write from here on, the cut's and the publish's alike, goes through the drain: what the reader has
+# not read is not shown, and the cut still completes.
+kwt_hold_output
 
 # THE PUBLICATION REMOTE: RELEASE_REMOTE (narrow, this push only) beats KWT_REMOTE (shared by
 # every kit operation, and the fork recipe) beats origin.

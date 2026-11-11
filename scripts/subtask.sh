@@ -69,6 +69,7 @@ lib/card-head.sh
 lib/decision-register.sh
 lib/exit-trap.sh
 lib/glob-array.sh
+lib/hold-output.sh
 lib/kanban-worktree.sh
 lib/progress-record.sh
 lib/push-retry.sh

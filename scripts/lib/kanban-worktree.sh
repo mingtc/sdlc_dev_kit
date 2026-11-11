@@ -25,7 +25,7 @@
 #   # must show:  …/.kanban-wt   <sha>  (detached HEAD)
 #
 # Public API (all operate on the globals exported by kwt_resolve):
-#   kwt_hold_output        → call in a script that commits here, before its first write that follows
+#   kwt_hold_output        → (lib/hold-output.sh) call in a script that commits here, before its first write that follows
 #                            a commit or the lock (a refusal-only preamble may come first): its stdout
 #                            and stderr then survive a caller that closes its pipe (`op | head -1`)
 #   kwt_resolve            → sets MAIN_ROOT, KWT, KWT_LOCK, DEFAULT_BRANCH
@@ -107,6 +107,16 @@ if [ ! -f "$KWT_LIB_DIR/refuse.sh" ] || ! . "$KWT_LIB_DIR/refuse.sh"; then
   echo "       Restore it:  git checkout -- scripts/lib/refuse.sh" >&2
   return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
+# kwt_hold_output, which a script that commits here calls so `<op> | head -1` cannot stop it between
+# its commit and its push (hold-output.sh says how).
+# shellcheck source=hold-output.sh
+if [ ! -f "$KWT_LIB_DIR/hold-output.sh" ] || ! . "$KWT_LIB_DIR/hold-output.sh" \
+   || ! command -v kwt_hold_output >/dev/null 2>&1; then
+  echo "Error: scripts/lib/kanban-worktree.sh could not load kwt_hold_output from $KWT_LIB_DIR/hold-output.sh." >&2
+  echo "       Without it a closed output pipe stops a board op between its commit and its push." >&2
+  echo "       Next: restore it with  git checkout -- scripts/lib/hold-output.sh  (or from the release zip), then re-run." >&2
+  return 1 2>/dev/null || exit 1   # exit-class: internal
+fi
 # ...and REACHABLE: a file that sources without defining these is the same outage.
 if ! command -v git_push_with_retry >/dev/null 2>&1 \
    || ! command -v git_report_ahead_behind >/dev/null 2>&1; then
@@ -118,42 +128,6 @@ if ! command -v git_push_with_retry >/dev/null 2>&1 \
   } >&2
   return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
-
-# ---------------------------------------------------------------------------
-# A CLOSED OUTPUT PIPE MUST NOT STOP AN OP BETWEEN ITS COMMIT AND ITS PUSH. A caller that reads
-# `<op> | head -1` closes the pipe after one line, and the op's next write then fails: SIGPIPE
-# kills it, and with that signal ignored the write returns EPIPE and `set -e` exits on the same
-# line. Either way the commit made in $KWT is never pushed. So ignoring the signal is no cure; the
-# writes must not fail. A script that commits here calls kwt_hold_output before its first write: its
-# stdout and stderr then go through a drain that copies to the caller until the caller's pipe
-# closes and reads and discards after that. What the caller never read is not shown.
-# Only a pipe or a socket is drained (a terminal or a file does not close under its writer); a stream
-# closed outright (`>&-`) is pointed at /dev/null. Stdout and stderr that are one pipe (`2>&1`) share
-# one drain, which keeps their order. The drain runs with `set +e`: it inherits the caller's, and the
-# copying `cat` dies of the closed pipe, which would end the drain. It ignores TERM and HUP: a signal
-# to the whole process group would otherwise take it down with the op, and the op's exit trap would
-# then write to a closed pipe.
-# ---------------------------------------------------------------------------
-kwt_hold_output() {
-  # A stream closed outright (`>&-`) fails every write with EBADF, which no drain can serve: send it
-  # to /dev/null. A pipe or a socket is what a reader closes under the writer.
-  [ -e /dev/fd/1 ] || exec >/dev/null
-  [ -e /dev/fd/2 ] || exec 2>/dev/null
-  local out=false err=false
-  { [ -p /dev/stdout ] || [ -S /dev/stdout ]; } && out=true
-  { [ -p /dev/stderr ] || [ -S /dev/stderr ]; } && err=true
-  if [ "$out" = true ] && [ "$err" = true ] && [ /dev/stdout -ef /dev/stderr ]; then
-    exec > >(trap '' TERM HUP; set +e; cat 2>/dev/null; cat >/dev/null 2>&1) 2>&1
-    return 0
-  fi
-  if [ "$out" = true ]; then
-    exec > >(trap '' TERM HUP; set +e; cat 2>/dev/null; cat >/dev/null 2>&1)
-  fi
-  if [ "$err" = true ]; then
-    exec 2> >(trap '' TERM HUP; set +e; cat >&2 2>/dev/null; cat >/dev/null 2>&1)
-  fi
-  return 0
-}
 
 # ---------------------------------------------------------------------------
 # Root + trunk resolution, from the main worktree, a feature worktree or .kanban-wt: the common
