@@ -3003,7 +3003,8 @@ case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name() {
   br="feature/$id-work"
   seed_issue dev_complete "$id" bphide chore "A tag hides a dangling citation" "$br"
   publish_sandbox
-  git -C "$SB_WORK" checkout -q -b "$br" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1
   printf 'See [decision: D-77].\n' > "$SB_WORK/docs/note811.md"
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[Dev] $id: the work" --quiet >/dev/null 2>&1
