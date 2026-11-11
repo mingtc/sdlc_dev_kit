@@ -2987,7 +2987,7 @@ case_finish_pr_forks_check_reads_the_branch_not_a_tag_of_its_name() {
 
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a branch adding D-02 under 'forks: none' landed behind a same-named tag (rc=0)"
-  case "$out" in *D-02*) : ;; *) cf "the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"shows a fork"*D-02*) : ;; *) cf "the refusal is not the forks check naming D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "progress/qa_complete/$id-forkhide.md" && cf "the card advanced despite the refusal"
 
   finish "finish-pr.sh: the forks check reads the branch, not a tag that shares its name"
