@@ -945,8 +945,8 @@ _forks_ablate_amended_live() {
 }
 _forks_ablate_heading_prefix() {
   local lib="$SB_WORK/scripts/lib/qa-gate.sh"
-  grep -q '"## Activity"|"## Out of Scope")' "$lib" || { _control_did_not_run "find the exact section headings in lib/qa-gate.sh"; return 0; }
-  sed -i.bak 's/"## Activity"|"## Out of Scope")/"## Activity"*|"## Out of Scope"*)/' "$lib" && rm -f "$lib.bak"
+  grep -qF '"activity"|"activity ("*|"out of scope"|"out of scope ("*)' "$lib" || { _control_did_not_run "find the exact section headings in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/"activity"|"activity ("\*|"out of scope"|"out of scope ("\*)/"activity"*|"out of scope"*)/' "$lib" && rm -f "$lib.bak"
   return 0
 }
 _forks_ablate_fence() {
@@ -1574,7 +1574,7 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 #   (p) a hyphenated id and a shared id;  (q) numbered and quoted bullets;  (r) a half-struck bullet;  (s) comments and indented
 #   fences;  (t) a struck bullet citing a live ruling is skipped by the forks: derivation;
 #   (u) comments cut out of a line, not the line;  (v) a second strike;  (w) hyphenated ids in the todo copy;  (x) whitespace alone;
-#   (y) a heading that only begins with the section name.
+#   (y) a heading that only begins with the section name;  (x2) whitespace added.
 # =============================================================================
 _ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
   printf '# card\n\n## %s\n\n%s\n\n## Activity\n\n%s\n' "${_AC808_HEAD:-Acceptance Criteria}" "$1" "${2:-${_AC808_OLDACT:-- opened}}" \
@@ -1691,6 +1691,10 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_cited_ids "$2" "$3" "$4" progress/todo/X-001-a.md "D-[0-9]+" "$5"' \
     _ "$REAL_SCRIPTS" "$SB_TMP/ac808/new.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "" 2>&1 </dev/null)"
   [ "$out" = "D-01" ] || cf "(t2) a struck bullet's citation of an id the register did not hold was not counted: [$out]"
+  printf '# c\n\n## Acceptance Criteria\n\n- [ ] AC1 — one.\n\n## activity (notes)\r\n\n- applies [decision: D-01]\r\n' > "$SB_TMP/ac808/lower.md"
+  out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_cited_ids "$2" "$3" "$4" progress/todo/X-001-a.md "D-[0-9]+" "$5"' \
+    _ "$REAL_SCRIPTS" "$SB_TMP/ac808/lower.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "D-01" 2>&1 </dev/null)"
+  [ -z "$out" ] || cf "(t3) an Activity heading in lower case with a suffix and a carriage return was not read as the Activity: [$out]"
   # A comment trailing a checklist line, one inside the line, and one over several lines leave the line itself to be read.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n* [ ] the login must work <!-- note -->')" - yes)"
   _ac808_want u1 "$out" 2 'the login must work'
@@ -1709,6 +1713,9 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   _AC808_OLDACT='- scoped AC3 per [decision: D-02]  '
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- scoped AC3 per [decision: D-02]' yes)"
   _ac808_want x "$out" 2 'AC3'
+  _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '-   scoped AC3 per [decision: D-02]   ' yes)"
+  _ac808_want x2 "$out" 2 'AC3'
   unset _AC808_OLDACT
   # A heading that only begins with the section name is another section.
   _AC808_HEAD='Acceptance Criteria notes'

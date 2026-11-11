@@ -237,18 +237,32 @@ _qav_ac_ids() {
     | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
 }
 
-# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased,
-# begins with <heading> (a lower-case prefix: 'acceptance criteria' also reads a subtask card's
-# 'Acceptance Criteria (sliced from the parent)'). A carriage return is stripped; a fenced block
-# (indented or not) and an HTML comment are skipped.
+# _qav_ac_ids_then <body> — the ids of a card as it stood when it left 'todo/': the same bullet shapes,
+# but an id may carry '-' and alphanumerics ('AC-1'), so a card that left 'todo/' with such ids still has
+# them frozen when the gate now refuses the shape in the card.
+_qav_ac_ids_then() {
+  { printf '%s\n' "$1" | grep -oE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)*${KIT_AC_SEP}" \
+    | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
+}
+
+# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased, is
+# <heading> or <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
+# 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'). A carriage
+# return is stripped; a fenced block (indented or not) is skipped; an HTML comment is cut out of the
+# line (a trailing one, an inline one, one running over several lines) and what is left of the line is read.
 _qav_section_lines() {
   LC_ALL=C awk -v want="$1" '
-    { sub(/\r$/, "") }
-    incom { if ($0 ~ /-->/) incom = 0; next }
-    /<!--/ { if ($0 !~ /-->/) incom = 1; next }
+    { sub(/\r$/, ""); line = $0; out = ""
+      while (line != "") {
+        if (incom) { i = index(line, "-->"); if (!i) { line = ""; break }; line = substr(line, i + 3); incom = 0; continue }
+        i = index(line, "<!--")
+        if (!i) { out = out line; line = ""; break }
+        out = out substr(line, 1, i - 1); line = substr(line, i + 4); incom = 1
+      }
+      $0 = out }
     /^[ \t]*(```|~~~)/ { fence = !fence; next }
     fence { next }
-    /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sect = (index(h, want) == 1); next }
+    /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = (h == want || index(h, want " (") == 1); next }
     sect { print }'
 }
 
@@ -261,7 +275,7 @@ _qav_ac_stray_bullets() {
   local cand dup
   cand="$(printf '%s\n' "$1" | _qav_section_lines 'acceptance criteria' \
     | { grep -E '^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\[[ xX]\]' || true; } \
-    | { grep -vE '\[[ xX]\][[:space:]]+~~.*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' || true; })"
+    | { grep -vE '\[[ xX]\][[:space:]]+~~([^~]|~[^~])*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' || true; })"
   dup="$(_qav_ac_idlines "$1" | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}.*\$//" | sort | uniq -d)"
   {
     printf '%s\n' "$cand" | { grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" || true; }
@@ -281,7 +295,7 @@ _qav_ac_removal_cited() {
   {
     printf '%s\n' "$body" | tr -d '\r' | { grep -E "\[[ xX]\][[:space:]]+~~[[:space:]]*${id}([^A-Za-z0-9]|\$)" || true; }
     _qav_section_lines 'activity' < "$file" | { grep -E "(^|[^A-Za-z0-9])${id}([^A-Za-z0-9]|\$)" || true; }
-  } | { grep -vxFf "$old" || true; } > "$scratch"
+  } | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' | { grep -vxFf "$old" || true; } > "$scratch"
   [ -n "$(kit_decisions_cited "$scratch" "$shape")" ]   # return-class: predicate
 }
 
@@ -1067,7 +1081,7 @@ kit_ac_drift_check() {
   # refuses, never passes).
   scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || scratch=""
   old_card="$(mktemp "${TMPDIR:-/tmp}/forks-ac-old.XXXXXX")" || old_card=""
-  [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | tr -d '\r' > "$old_card" || true
+  [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | tr -d '\r' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' > "$old_card" || true
   ac_ids="$(_qav_ac_ids "$new_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
@@ -1085,7 +1099,7 @@ kit_ac_drift_check() {
   done <<< "$(printf '%s\n' "$ac_ids")"
   # An AC the card had when it left todo/ and no longer lists was removed or renamed: that is a
   # ruling too. Its bullet is gone, so the citation is read where text still exists on the card.
-  old_ids="$(_qav_ac_ids "$old_body")"
+  old_ids="$(_qav_ac_ids_then "$old_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
     grep -qx -- "$ac" <<< "$ac_ids" && continue
@@ -1154,15 +1168,19 @@ _forks_cited_ids() {
     # A heading counts outside a code fence, and the two sections are named exactly (trailing blanks aside).
     case "$line" in '```'*|'~~~'*) in_fence=$((1 - in_fence)) ;; esac
     if [ "$in_fence" = 0 ]; then
-      hd="${line%"${line##*[![:space:]]}"}"
+      hd="${line%$'\r'}"; hd="${hd%"${hd##*[![:space:]]}"}"
       case "$hd" in
-        "## Activity"|"## Out of Scope") in_sec=1 ;;
-        "## "*) in_sec=0 ;;
+        "## "*)
+          hd="$(printf '%s' "${hd#\#\# }" | tr '[:upper:]' '[:lower:]')"
+          case "$hd" in
+            "activity"|"activity ("*|"out of scope"|"out of scope ("*) in_sec=1 ;;
+            *) in_sec=0 ;;
+          esac ;;
       esac
     fi
     if [ "$in_sec" = 1 ]; then printf '%s\n' "$line" >> "$sec_scratch"; continue; fi
     # A bullet struck through completely is a recorded removal: like the Activity, it cites a ruling already made.
-    if [ "$in_body" = 1 ] && grep -qE '\[[ xX]\][[:space:]]+~~.*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' <<< "$line"; then
+    if [ "$in_body" = 1 ] && grep -qE '\[[ xX]\][[:space:]]+~~([^~]|~[^~])*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' <<< "$line"; then
       printf '%s\n' "$line" >> "$sec_scratch"; continue
     fi
     if [ "$in_body" = 1 ]; then
