@@ -4330,3 +4330,119 @@ EOF
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE LINK CHECK READS A TAG WHOSE QUOTED VALUE HOLDS A `>`, STALES AN APPROVAL ON A CHANGE OF BYTES THE TEXT READ HIDES, FOLLOWS A
+# CANVAS MOVED TOGETHER WITH AN EDIT, AND NAMES WHAT TO RUN WHEN A SHA IS PAST A SHALLOW CLONE.
+#   Operand: scripts/design/check-design-links.py over the links fixture plus one screen of each shape, each answer fixed in the case.
+# =============================================================================
+case_the_link_check_reads_a_quoted_gt_in_a_tag_stales_a_byte_change_follows_a_move_with_an_edit_and_names_the_unshallow_fetch() {
+  cf_reset
+  local L="check-design-links.py reads the style and the href of a tag whose earlier attribute holds a '>' inside quotes (a colour literal outside :root is found, a linked sheet that changes stales the approval), stales an approval when only the invalid bytes differ, says an artboard that moved with an edit differs at HEAD rather than that it is missing, and tells an unresolved sha to fetch the history"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md" W V
+  # (a) a colour literal after a '>' inside a quoted value
+  printf '| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title" title="a>b" style="color: #ff0000">Lit</h1>'
+  _dm_commit "a tag with a > in a quoted value"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(a) a colour literal in the style of a tag whose title holds a '>' is not found: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (b) the same shape on a link: the sheet it names is part of what the approval covers
+  printf 'h1 { margin: 16px }\n' > "$D/s.css"
+  _dm_art "$D/D.dc.html" 004 '--color-primary: #485d92;' '<link title="a>b" rel="stylesheet" href="s.css"><h1 id="ux-004-title" style="color: var(--color-primary)">Sheet</h1>'
+  printf '| UX-004 | D.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_commit "a screen that links a sheet"; W="$_DM_SHA"
+  _dm_edit "$C" "s/^\\(| UX-004 .*\\)| open | open |\$/\\1| approved@$W | open |/"
+  _dm_commit "approve UX-004"
+  printf 'h1 { margin: 90px }\n' > "$D/s.css"
+  _dm_commit "the sheet changes"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "UX-004 gate1 approved@${W:0:7}, but s.css differs at HEAD" || cf "(b) a sheet linked by a tag whose title holds a '>' changing after the approval does not stale it naming s.css: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (c) two different invalid byte sequences read as one text
+  _dm_art "$D/E.dc.html" 005 '--color-primary: #485d92;' "$(printf '<h1 id="ux-005-title">a\377b</h1>')"
+  printf '| UX-005 | E.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_commit "a screen with an invalid byte"; V="$_DM_SHA"
+  _dm_edit "$C" "s/^\\(| UX-005 .*\\)| open | open |\$/\\1| approved@$V | open |/"
+  _dm_commit "approve UX-005"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "UX-005 gate1 approved@${V:0:7}" && cf "(c) the approval of UX-005 reads stale before anything changed"
+  perl -pi -e 's/\xff/\xfe/' "$D/E.dc.html"
+  _dm_commit "the invalid byte changes"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "UX-005 gate1 approved@${V:0:7}, but" || cf "(c) a change from one invalid byte to another leaves the approval good: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (d) a sha nothing here holds, as a shallow clone sees an old one
+  printf '| UX-006 | F.dc.html | t | phone |  | default | PRD-001-F1-S2 | approved@deadbee | open |\n' >> "$C"
+  _dm_commit "an approval past the history"
+  _dm_py scripts/design/check-design-links.py
+  { _dm_has "$_dm_out" "APPROVAL-UNRESOLVED" && _dm_has "$_dm_out" "git fetch --unshallow"; } || cf "(d) an approval at a sha this clone lacks does not name git fetch --unshallow: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  # (e) the canvas directory moves in the same commit that edits an approved artboard
+  git -C "$SB_WORK" mv requirements/design/app requirements/design/app2
+  _dm_edit "$SB_WORK/requirements/design/app2/project/A.dc.html" 's|>List<|>Lists<|'
+  _dm_commit "the canvas moves with an edit"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "UX-001 gate1 approved@${_DM_X:0:7}, but" || cf "(e) the approval of an artboard moved with an edit is not judged: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  _dm_has "$_dm_out" "missing at that commit" && cf "(e) an artboard moved together with an edit reads missing at that commit"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — pin-drift.py RESOLVES AN ALIAS INSIDE A STRING, DOES NOT CALL TWO INVALID BYTE SEQUENCES BOOKKEEPING, CLOSES AN OPEN td, tr AND
+# li WHEN THE NEXT ONE STARTS, SAYS A SCREEN IS SUPERSEDED, AND NAMES THE UNSHALLOW FETCH FOR A PIN IT CANNOT SEE.
+#   Operand: scripts/design/pin-drift.py over a pin commit and one later commit; every screen has one fixed answer, written in the case.
+# =============================================================================
+case_pin_drift_reads_an_embedded_alias_invalid_bytes_an_unclosed_cell_a_superseded_screen_and_a_pin_past_a_shallow_clone() {
+  cf_reset
+  local L="pin-drift.py reads a changed alias inside a longer token value as drift, a change between two invalid byte sequences as uncompared, a shared element after an unclosed td, tr or li as outside the state's branch (drift for the other state), prints (screen superseded) on a retired screen's line and names git fetch --unshallow for a pin that is not a commit"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  _dm_land "enable the design module"
+  local D="$SB_WORK/requirements/design/app/project" r p p7 c="$SB_PREFIX-801" n
+  _dm_tokens '{"shadow":{"card":{"$value":"0 0 1px {base.c}"}}}'
+  _dm_tokens '{"base":{"c":{"$value":"#111111"}}}' base.tokens.json
+  _dm_art "$D/A.dc.html" 001 '' '<h1 id="ux-001-title" style="box-shadow: var(--shadow-card)">Alias</h1>'
+  _dm_art "$D/B.dc.html" 002 '' "$(printf '<h1 id="ux-002-title">a\377b</h1>')"
+  _dm_art "$D/T3.dc.html" 003 '' '<table><tr><td data-state="a">alpha<td data-state="b">beta<td id="ux-003-shared">Shared</table>'
+  _dm_art "$D/T4.dc.html" 004 '' '<ul><li data-state="a">alpha<li data-state="b">beta<li id="ux-004-shared">Shared</ul>'
+  _dm_art "$D/T5.dc.html" 005 '' '<table><tr data-state="a"><td>alpha<tr data-state="b"><td>beta<tr><td id="ux-005-shared">Shared</table>'
+  _dm_art "$D/F.dc.html" 006 '' '<h1 id="ux-006-title">Retired</h1>'
+  _dm_art "$D/G.dc.html" 007 '' '<h1 id="ux-007-title">Plain</h1>'
+  _dm_registry "$SB_WORK/requirements/design/app" \
+    'UX-001|A.dc.html|default|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-003|T3.dc.html|a, b|PRD-001-F1-S1|open|open' 'UX-004|T4.dc.html|a, b|PRD-001-F1-S1|open|open' \
+    'UX-005|T5.dc.html|a, b|PRD-001-F1-S1|open|open' 'UX-006|F.dc.html|default|PRD-001-F1-S1|open|open' \
+    'UX-007|G.dc.html|default|PRD-001-F1-S1|open|open'
+  _dm_commit "the design at its pin"; p="$_DM_SHA"; p7="${p:0:7}"
+  _dm_card 801 in_progress "design: [UX-001#default@$p, UX-002#default@$p, UX-003#b@$p, UX-004#b@$p, UX-005#b@$p, UX-006#default@$p, UX-007#default@$p, UX-099#default@deadbee]"
+  _dm_commit "pin the card"
+  _dm_tokens '{"base":{"c":{"$value":"#222222"}}}' base.tokens.json
+  perl -pi -e 's/\xff/\xfe/' "$D/B.dc.html"
+  for n in 3 4 5; do _dm_edit "$D/T$n.dc.html" 's|>Shared<|>Shared two<|'; done
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" 's/^\(| UX-006 .*\)| open | open |$/\1| open | superseded |/'
+  _dm_commit "the design moves on"
+  _dm_py scripts/design/pin-drift.py
+  r="$(_dm_row "$_dm_out" "$c" "UX-001#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-001#default@$p7")" = drift ] && _dm_has "$r" "tokens: --shadow-card"; } || cf "(a) UX-001, whose token holds {base.c} inside a longer value and base.c changed, does not read drift on --shadow-card: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-002#default@$p7")"
+  [ "$(_dm_verdict "$_dm_out" "$c" "UX-002#default@$p7")" = uncompared ] || cf "(b) UX-002, whose invalid byte became another, does not read uncompared: $r"
+  _dm_has "$r" "registry bookkeeping" && cf "(b) UX-002 is called registry bookkeeping: $r"
+  for n in 3 4 5; do
+    r="$(_dm_row "$_dm_out" "$c" "UX-00$n#b@$p7")"
+    { [ "$(_dm_verdict "$_dm_out" "$c" "UX-00$n#b@$p7")" = drift ] && _dm_has "$r" "~ux-00$n-shared"; } || cf "(c) UX-00$n#b, whose shared element follows an unclosed cell of state a, does not read drift on it: $r"
+  done
+  r="$(_dm_row "$_dm_out" "$c" "UX-006#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-006#default@$p7")" = clean ] && _dm_has "$r" "(screen superseded)"; } || cf "(d) UX-006, superseded at HEAD, does not read clean with (screen superseded) on its line: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-007#default@$p7")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-007#default@$p7")" = clean ] && ! _dm_has "$r" "superseded"; } || cf "(d) UX-007, not superseded, does not read clean without the mark: $r"
+  r="$(_dm_row "$_dm_out" "$c" "UX-099#default@deadbee")"
+  { [ "$(_dm_verdict "$_dm_out" "$c" "UX-099#default@deadbee")" = unresolved ] && _dm_has "$r" "git fetch --unshallow"; } || cf "(e) a pin that is not a commit does not name git fetch --unshallow: $r"
+  finish "$L"
+  teardown
+}
