@@ -461,7 +461,7 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
   local out sec oldp="$PATH" row letter frag clean ctl why
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(control) the fixture board does not read clean: $(printf '%s' "$out" | grep '⚠' | head -4 | tr '\n' '|' | cut -c1-300)"
-  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null && cf "(control) an arm says DID NOT RUN on a healthy board: $(printf '%s' "$out" | grep -F 'DID NOT RUN' | head -3 | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN to its end' >/dev/null && cf "(control) an arm says DID NOT RUN to its end on a healthy board: $(printf '%s' "$out" | grep -F 'DID NOT RUN' | head -3 | tr '\n' '|' | cut -c1-300)"
 
   # <row>|<arm letter>|<a fragment of the arm's awk program>|<text a dead arm must not print>|<1 if the control prints it>
   while IFS='|' read -r row letter frag clean ctl; do
@@ -476,7 +476,7 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
     PATH="$oldp"
     sec="$(printf '%s\n' "$why" | _nr_arm_section "$letter")"
     printf '%s\n' "$why" | grep -F 'board-drift: clean' >/dev/null && cf "($row) a reader of arm [$letter] exited 2 — the verdict reads clean"
-    printf '%s\n' "$sec" | grep -F 'DID NOT RUN' >/dev/null || cf "($row) arm [$letter] does not say DID NOT RUN although its reader exited 2: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$sec" | grep -F 'DID NOT RUN to its end' >/dev/null || cf "($row) arm [$letter] does not say DID NOT RUN although its reader exited 2: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
     printf '%s\n' "$sec" | grep -F -- "$clean" >/dev/null && cf "($row) arm [$letter] printed '$clean' although its reader exited 2"
   done <<'NR_ROWS'
 a|a|Activity|✓ none across|1
