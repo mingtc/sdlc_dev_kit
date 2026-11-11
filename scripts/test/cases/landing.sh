@@ -2846,14 +2846,15 @@ t="$(GIT_INDEX_FILE="$ix" git write-tree)" || exit 9
 n="$(git commit-tree "$t" -p "$b" -m 'a commit that arrived during the gate')" || exit 9
 git update-ref "refs/heads/$W807_BRANCH" "$n" "$b" || exit 9
 rm -f "$ix"
+: > "$W807_MARK"
 exit 0
 STUB
   chmod +x "$SB_TMP/gate-moves-the-branch"
 
-  out="$( cd "$SB_WORK" && W807_BRANCH="$br" FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-moves-the-branch" \
+  out="$( cd "$SB_WORK" && W807_MARK="$SB_TMP/gate-moved-it" W807_BRANCH="$br" FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-moves-the-branch" \
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-807" 2>&1 )"; rc=$?
-  git -C "$SB_WORK" cat-file -e "refs/heads/$br:LATE.txt" 2>/dev/null \
-    || cf "the stub did not move the branch, so the row tests nothing: $out"
+  [ -e "$SB_TMP/gate-moved-it" ] \
+    || cf "the gate stub did not move the branch, so the row tests nothing: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
   [ "$rc" -ne 0 ] || cf "a branch that moved during the gate landed (rc=0): $out"
   printf '%s\n' "$out" | grep 'branch-moved-during-gate' >/dev/null \
     || cf "the refusal is not the branch-moved one: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
