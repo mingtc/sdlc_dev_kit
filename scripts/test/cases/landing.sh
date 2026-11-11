@@ -2949,3 +2949,74 @@ case_finish_pr_checks_read_the_branch_not_a_tag_of_its_name() {
   finish "finish-pr.sh: the ablation check reads the branch, not a tag that shares its name"
   teardown
 }
+
+# =============================================================================
+# CASES — THE SAME TAG DOES NOT HIDE A BRANCH FROM THE FORKS CHECK OR THE BOARD-PROPERTY CHECK.
+#
+# Each runs the shape of an existing refusal (a branch that adds a register entry under 'forks: none';
+# a branch that cites a decision that is no entry) with a tag of the branch's name at a harmless
+# commit. The refusal must still fire, and nothing may land.
+# =============================================================================
+_w807_tag_branch() {  # <branch> <scratch-branch> <file>: tag <branch> at a commit holding only <file>
+  git -C "$SB_WORK" checkout -q -b "$2" "$SB_TRUNK" >/dev/null 2>&1 \
+    && echo "harmless" > "$SB_WORK/$3" \
+    && git -C "$SB_WORK" add "$3" >/dev/null 2>&1 \
+    && sbcommit -q -m "a harmless commit" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" tag "$1" HEAD >/dev/null 2>&1 \
+    && git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+}
+
+case_finish_pr_forks_check_reads_the_branch_not_a_tag_of_its_name() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  publish_sandbox
+  local id="$SB_PREFIX-810" br out rc
+  br="feature/$id-work"
+  seed_issue dev_complete "$id" forkhide chore "A tag hides a register entry" "$br"
+  publish_sandbox
+  git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1
+  printf '\n### D-02\n\n**Ruling.** A brand new fork, resolved on this branch.\n' >> "$SB_WORK/requirements/DECISIONS.md"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: add D-02" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+  _w807_tag_branch "$br" scratch-810 BENIGN810.txt \
+    || _fixture_die "case_finish_pr_forks_check_reads_the_branch_not_a_tag_of_its_name: could not plant the tag."
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a branch adding D-02 under 'forks: none' landed behind a same-named tag (rc=0)"
+  case "$out" in *D-02*) : ;; *) cf "the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$id-forkhide.md" && cf "the card advanced despite the refusal"
+
+  finish "finish-pr.sh: the forks check reads the branch, not a tag that shares its name"
+  teardown
+}
+
+case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  publish_sandbox
+  local id="$SB_PREFIX-811" br out rc
+  br="feature/$id-work"
+  seed_issue dev_complete "$id" bphide chore "A tag hides a dangling citation" "$br"
+  publish_sandbox
+  git -C "$SB_WORK" checkout -q -b "$br" "$SB_TRUNK" >/dev/null 2>&1
+  printf 'See [decision: D-77].\n' > "$SB_WORK/docs/note811.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: the work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+  _w807_tag_branch "$br" scratch-811 BENIGN811.txt \
+    || _fixture_die "case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name: could not plant the tag."
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a branch citing D-77, which is no entry, landed behind a same-named tag (rc=0)"
+  case "$out" in *D-77*) : ;; *) cf "the refusal does not name D-77: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "docs/note811.md" && cf "the branch was merged before the refusal"
+
+  finish "finish-pr.sh: the board-property check reads the branch, not a tag that shares its name"
+  teardown
+}
