@@ -331,10 +331,14 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    or `✓`. **Where that holds today, and no further:** the board-property arms ([d] [i] [l] [p] [q] [r]) and the
    landing's check of the same properties (a function the arms call that is not defined, or a reader that
    exited non-zero, marks the arm not run; the landing refuses `board-property-unreadable`, naming the
-   reader's own last words and which side it failed on), and `verify.sh --quick` (it refuses when no gate is one
-   it runs). **Every other arm** reads byte-wise (`LC_ALL=C`), which removes the one trigger observed, a byte
-   the locale cannot decode, but does not check its readers' exit status: a reader that fails for another
-   reason still reads as no finding there, and that is a known gap, not a property. An arm in
+   reader's own last words and which side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
+   or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
+   withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an
+   unknown is not a clean answer, reports-only arms included; their findings still never set it), and
+   `verify.sh --quick` (it refuses when no gate is one it runs). **The remaining arms**
+   ([b] [e] [f] [h] [k] [o] [s]) read byte-wise (`LC_ALL=C`), which removes the one trigger
+   observed, a byte the locale cannot decode, but do not check a reader's exit status: that is a known gap,
+   not a property. An arm in
    `scripts/check-board.d/` keeps the caller's locale. *Why:* "found nothing" and "could not read" otherwise
    print the same words, and the verdict becomes a claim about files nobody opened.
 

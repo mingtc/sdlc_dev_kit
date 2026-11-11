@@ -360,6 +360,7 @@ CB_BP_RUNF=""
 cb_bp_run() {
   : > "${CB_BP_FAIL:-/dev/null}" 2>/dev/null
   KIT_BP_FAIL_FILE="$CB_BP_FAIL"
+  KIT_CARD_FAIL_FILE="$CB_BP_FAIL"
   CB_BP_RUNF="$(mktemp 2>/dev/null || true)"
   if [ -z "$CB_BP_FAIL" ] || [ -z "$CB_BP_RUNF" ]; then
     echo "      ⚠ this arm DID NOT RUN — no temp file could be made to watch its readers with, so the verdict below is not clean  (nothing was checked, which is not a pass)"
@@ -375,6 +376,34 @@ cb_bp_run() {
     cat "$CB_BP_RUNF"
   fi
   rm -f "$CB_BP_RUNF"; CB_BP_RUNF=""
+}
+
+# The arms outside the board-property set read their files through cb_awk: an awk that exits non-zero
+# (a file it cannot read, a byte it cannot decode) writes one line to CB_RD_FAIL, a file because a
+# failure inside $( ) is otherwise unseen. An arm calls cb_rd_begin before its readers and cb_rd_dead
+# after them: a dead arm withholds its "✓" and "nothing found" lines, says DID NOT RUN (cb_rd_say) and
+# sets `drift`, because an arm that read nothing has not answered and an unknown is not a clean answer.
+# With no temp file to record in, nothing can be said about a reader, so every such arm says so.
+CB_RD_FAIL="$(mktemp 2>/dev/null || true)"
+cb_awk() {
+  local rc err
+  { err="$(awk "$@" 2>&1 1>&3)"; rc=$?; } 3>&1
+  if [ "$rc" -ne 0 ] && [ -n "${CB_RD_FAIL:-}" ]; then
+    printf 'awk exited %s: %s\n' "$rc" "$(printf '%s' "$err" | tail -n 2 | tr '\n' ' ')" >> "$CB_RD_FAIL"
+  fi
+  return "$rc"   # return-class: internal
+}
+# cb_rd_note <text> — records a reader failure that was not an awk's (a library reader's own status).
+cb_rd_note() { [ -z "${CB_RD_FAIL:-}" ] || printf '%s\n' "$1" >> "$CB_RD_FAIL"; }
+cb_rd_begin() { [ -z "${CB_RD_FAIL:-}" ] || : > "$CB_RD_FAIL"; KIT_CARD_FAIL_FILE="${CB_RD_FAIL:-}"; }
+cb_rd_dead() { [ -z "${CB_RD_FAIL:-}" ] || [ -s "$CB_RD_FAIL" ]; }
+# cb_rd_say <indent> — the line that replaces an arm's answer when a reader failed.
+cb_rd_say() {
+  local why
+  if [ -z "${CB_RD_FAIL:-}" ]; then why="no temp file could be made to watch its readers with"
+  else why="a reader failed ($(head -1 "$CB_RD_FAIL" | cut -c1-200))"; fi
+  echo "${1}⚠ this check DID NOT RUN to its end — $why; nothing printed for it is a clean answer, so the verdict below is not clean  (nothing was checked, which is not a pass). Next: fix the file the failure names, then rerun ./scripts/check-board.sh"
+  drift=1
 }
 
 
@@ -529,6 +558,7 @@ if [ "${#a_cols_list[@]}" -eq 0 ]; then
   echo "    ⚠ (control) no column survived the STATUS_FOLDERS derivation — this arm checked NOTHING; STATUS_FOLDERS is '$STATUS_FOLDERS' and the skip list is '$A_SKIP_COLS'${CB_STATUS_LIB_ERR:+; $CB_STATUS_LIB_ERR}"
   drift=1
 fi
+cb_rd_begin
 for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
   dir="$CB_TREE/progress/$folder"
   # A missing column is a SKIP, never a pass (contracts/drift-report.md § 2-3).
@@ -541,7 +571,7 @@ for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
     [ -e "$f" ] || continue
     # Last Activity bullet: within the "## Activity" section, the last line that
     # begins (after optional space) with "- ".
-    last="$(awk '/^##[[:space:]]+Activity/{a=1; next} a && /^[[:space:]]*-[[:space:]]/{l=$0} END{print l}' "$f")"
+    last="$(cb_awk '/^##[[:space:]]+Activity/{a=1; next} a && /^[[:space:]]*-[[:space:]]/{l=$0} END{print l}' "$f")"
     [ -z "$last" ] && continue
     # PRECEDENCE, NOT A WIDER PATTERN: the arrow first, a backtick only when there is no arrow, so
     # "→ dev_complete: see `blocked`" reads as dev_complete. This arm is the guarantee, not the
@@ -561,7 +591,9 @@ for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
     fi
   done
 done
-if [ "$a_cols" -eq 0 ]; then
+if [ "$a_cols" -gt 0 ] && cb_rd_dead; then
+  cb_rd_say "    "
+elif [ "$a_cols" -eq 0 ]; then
   echo "    – none of the columns this arm reads exists in this source — nothing was checked  (skipped)"
 elif [ "$a_hits" -eq 0 ]; then
   echo "    ✓ none across $a_cols column(s) (every judgeable last-Activity entry matches its folder)"
@@ -600,11 +632,15 @@ if [ -f "$pmd" ]; then
     # The heading is declared in scripts/lib/lived-probe.sh; without it there is no § Log to find.
     echo "[c] progress.md § Log SLICE: THIS CHECK DID NOT RUN — ${CB_LIVED_LIB_ERR:-scripts/lib/lived-probe.sh declares no KIT_LOG_HEADING_ERE}, and that file declares the '## Log' heading  (skipped) — $(cb_src)"
   elif grep -qE "$KIT_LOG_HEADING_ERE" "$pmd"; then
-    logbytes="$(awk -v re="$KIT_LOG_HEADING_ERE" '
+    cb_rd_begin
+    logbytes="$(cb_awk -v re="$KIT_LOG_HEADING_ERE" '
       /^##[[:space:]]/ { if (inlog) exit; if ($0 ~ re) inlog=1 }
       inlog { print }
     ' "$pmd" | wc -c | tr -d ' ')"
-    if [ "$logbytes" -gt "$PROGRESS_LOG_BYTE_THRESHOLD" ]; then
+    if cb_rd_dead; then
+      echo "[c] progress.md § Log SLICE: THIS CHECK DID NOT RUN — the reader of the slice failed, so no byte count was taken  (not measured) — $(cb_src)"
+      cb_rd_say "      "
+    elif [ "$logbytes" -gt "$PROGRESS_LOG_BYTE_THRESHOLD" ]; then
       echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ⚠ over — run ./scripts/archive-progress.sh — $(cb_src)"
       drift=1
     else
@@ -1690,8 +1726,9 @@ if [ ! -f "$CB_TREE/$DQ_FILE" ]; then
   # A READING WHOSE SUBJECT IS ABSENT STILL PRINTS, naming what was absent.
   echo "      – $DQ_FILE not present  (skipped — no queue to read)"
 else
+  cb_rd_begin
   j_out="$(
-    awk -F'|' -v folders="$STATUS_FOLDERS" '
+    cb_awk -F'|' -v folders="$STATUS_FOLDERS" '
       /^\|/ {
         n = NF
         # Header, separator and the angle-bracket SHAPE row are not data.
@@ -1719,12 +1756,15 @@ else
         echo "      – $id claims an OPEN row, but its card is in progress/$landed/ — strike the row or say why it is still open"
       done
   )"
-  if [ -z "$j_out" ]; then
-    echo "      – no open row claims a landed issue ✓"
-  else
+  if [ -n "$j_out" ]; then
     printf '%s\n' "$j_out"
   fi
-  # NO `drift=1` HERE, DELIBERATELY. See the ruling in the header.
+  if cb_rd_dead; then
+    cb_rd_say "      "
+  elif [ -z "$j_out" ]; then
+    echo "      – no open row claims a landed issue ✓"
+  fi
+  # NO `drift=1` FOR A FINDING, DELIBERATELY. See the ruling in the header. A reader that failed is not a finding: it sets it.
 fi
 
 # ---------------------------------------------------------------------------
@@ -1781,6 +1821,7 @@ fi
 # ---------------------------------------------------------------------------
 echo
 m_total=0; m_na=0; m_noreason=0; m_cols=""; m_neither=0; m_neither_ids=""
+cb_rd_begin
 m_read=""; command -v kit_card_field >/dev/null 2>&1 && m_read="qa_complete done"   # no reader loaded, no columns read
 for col in $m_read; do
   [ -d "$CB_TREE/progress/$col" ] || continue
@@ -1806,6 +1847,9 @@ for col in $m_read; do
 done
 if ! command -v kit_card_field >/dev/null 2>&1; then
   echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
+elif [ -n "$m_cols" ] && cb_rd_dead; then
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): THIS CHECK DID NOT RUN — a card's reader failed, so no count was taken  (not measured) — $(cb_src)"
+  cb_rd_say "      "
 elif [ -z "$m_cols" ]; then
   echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): no landed column in this source  (skipped) — $(cb_src)"
 else
@@ -1829,8 +1873,12 @@ fi
 echo
 echo "[n] kit-feedback line (reports only — a missing line is reported, never refused, and never changes the verdict below) — $(cb_src):"
 n_set=""
-[ -f "$CB_TREE/PROJECT.md" ] && n_set="$(awk 'match($0, /^[[:space:]]*[-*][[:space:]]*`?kit-feedback:[[:space:]]*[A-Za-z]+/) {
+cb_rd_begin
+[ -f "$CB_TREE/PROJECT.md" ] && n_set="$(cb_awk 'match($0, /^[[:space:]]*[-*][[:space:]]*`?kit-feedback:[[:space:]]*[A-Za-z]+/) {
     v = substr($0, RSTART, RLENGTH); sub(/.*kit-feedback:[[:space:]]*/, "", v); print v; exit }' "$CB_TREE/PROJECT.md" 2>/dev/null || true)"
+if cb_rd_dead; then
+  cb_rd_say "      "
+else
 case "$n_set" in
   manual|off)
     echo "      kit-feedback: $n_set — not checked (no capture moment fires, and no line is written, under $n_set)" ;;
@@ -1842,13 +1890,15 @@ case "$n_set" in
       echo "      THIS CHECK DID NOT RUN — ${CB_LIVED_LIB_ERR:-scripts/lib/lived-probe.sh declares no KIT_LOG_HEADING_ERE}, and that file declares the '## Log' heading  (skipped)"
     else
       # The NEWEST dated entry: the last `### YYYY-MM-DD` block under `## Log` (entries are appended).
-      n_entry="$(awk -v re="$KIT_LOG_HEADING_ERE" '
+      n_entry="$(cb_awk -v re="$KIT_LOG_HEADING_ERE" '
           $0 ~ re { inlog = 1; next }
           inlog && /^##[[:space:]]/ && !/^###/ { inlog = 0 }
           inlog && /^###[[:space:]]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { buf = ""; have = 1 }
           inlog && have { buf = buf $0 "\n" }
           END { printf "%s", buf }' "$CB_TREE/progress.md" 2>/dev/null || true)"
-      if [ -z "$n_entry" ]; then
+      if cb_rd_dead; then
+        cb_rd_say "      "
+      elif [ -z "$n_entry" ]; then
         echo "      no session entry yet — nothing to check"
       else
         n_head="$(printf '%s\n' "$n_entry" | sed -n '1s/^###[[:space:]]*//p')"
@@ -1869,6 +1919,7 @@ case "$n_set" in
   *)
     echo "      ⚠ kit-feedback: '$n_set' in PROJECT.md is not auto, manual or off — not checked" ;;
 esac
+fi
 # END kit-feedback arm
 
 # BEGIN kit-upgrade arm — `process/KIT-RELEASE-NOTES.md` § How to upgrade an adopted project
@@ -2016,14 +2067,17 @@ fi
 echo
 echo "[t] Answered, not reconciled (reports only; never changes the verdict below) — $(cb_src):"
 t_pm="$CB_TREE/PROJECT.md"
-t_line=""; t_tok=""; t_dir=""; t_skip=""
+t_line=""; t_tok=""; t_dir=""; t_skip=""; t_dead=""
+cb_rd_begin
 if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1 || ! command -v kit_pm_channel_dir >/dev/null 2>&1; then
   t_skip="scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load"
 elif [ ! -f "$t_pm" ]; then
   t_skip="no PROJECT.md in this source, so no channel is declared"
 else
-  t_line="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$t_pm")"
-  if kit_pm_blank "$t_line"; then
+  t_line="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$t_pm")" || cb_rd_note "the reader of $t_pm exited non-zero"
+  if cb_rd_dead; then
+    t_dead=1
+  elif kit_pm_blank "$t_line"; then
     t_skip="PROJECT.md declares no channel"
   else
     t_tok="$(kit_pm_channel_token "$t_line")"
@@ -2031,7 +2085,9 @@ else
     if [ "$t_rc" -eq 0 ]; then t_dir="$t_why"; else t_skip="$t_why"; fi
   fi
 fi
-if [ -n "$t_skip" ]; then
+if [ -n "$t_dead" ]; then
+  cb_rd_say "      "
+elif [ -n "$t_skip" ]; then
   echo "      – $t_skip  (skipped)"
 else
   t_regs=""; t_reg_names=""
@@ -2065,14 +2121,15 @@ T_REGS
         if git -C "$REPO_ROOT" merge-base --is-ancestor "$t_ans" "$t_c" 2>/dev/null; then t_cited=1; break; fi
       done <<T_COMMITS
 $(git -C "$REPO_ROOT" log -G"$t_re" -p -U0 --no-color --format='commit %H' "$t_href" -- "$t_rpath" 2>/dev/null \
-    | awk -v p="$t_rel" -v hdr="+++ b/$t_rpath" '/^commit [0-9a-f]+$/ { h = $2; next } $0 == hdr { next } /^\+/ && index($0, p) { print h }' | sort -u)
+    | cb_awk -v p="$t_rel" -v hdr="+++ b/$t_rpath" '/^commit [0-9a-f]+$/ { h = $2; next } $0 == hdr { next } /^\+/ && index($0, p) { print h }' | sort -u)
 T_COMMITS
       [ "$t_cited" -eq 0 ] || break
     done <<T_CITES
 $t_regs
 T_CITES
     [ "$t_cited" -eq 0 ] || continue
-    t_card="$(awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null || true)"
+    t_card="$(cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null || true)"
+    if cb_rd_dead; then t_card="unread: a reader failed"; fi
     echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it since the answer"
     t_found=$((t_found + 1))
   done
@@ -2098,7 +2155,8 @@ T_CITES
         if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$t_rel" 2>/dev/null)" ]; then t_state="uncommitted"
         else t_state="committed on a branch other than $CB_TRUNK"; fi
       else continue; fi
-      t_card="$(printf '%s\n' "$t_wt_blob$t_lref_blob" | awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }')"
+      t_card="$(printf '%s\n' "$t_wt_blob$t_lref_blob" | cb_awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' || true)"
+      if cb_rd_dead; then t_card="unread: a reader failed"; fi
       echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered but not on $CB_REF ($t_state)"
       t_local=$((t_local + 1))
       [ "$t_state" = "committed, unpushed" ] && t_local_push=1 || t_local_land=1
@@ -2113,9 +2171,10 @@ T_NAMES
   if [ -n "$t_local_push" ]; then
     echo "      Push the committed ones: git push $remote $def ([f1] above names the checkout)."
   fi
+  if cb_rd_dead; then cb_rd_say "      "; fi
   if [ "$t_found" -gt 0 ]; then
     echo "      The Orchestrator dispatches the PM-hat leg for each (.claude/roles/orchestrator.md § An answered question is ready work)."
-  elif [ "$t_local" -eq 0 ]; then
+  elif [ "$t_local" -eq 0 ] && ! cb_rd_dead; then
     echo "      ✓ none: $t_read question file(s) read in $t_dir/"
   fi
 fi
@@ -2134,13 +2193,14 @@ echo
 echo "[u] Card titles that are not valid plain YAML (reports only; never changes the verdict below) — $(cb_src):"
 # BEGIN unquoted-title arm
 u_found=0; u_read=0
+cb_rd_begin
 IFS='|' read -r -a u_cols <<< "$STATUS_FOLDERS"
 for folder in ${u_cols[@]+"${u_cols[@]}"}; do
   [ -d "$CB_TREE/progress/$folder" ] || continue
   for f in "$CB_TREE/progress/$folder"/*.md; do
     [ -e "$f" ] || continue
     u_read=$((u_read + 1))
-    u_why="$(awk '
+    u_why="$(cb_awk '
       /^---[[:space:]]*$/ { n++; if (n == 2) exit; next }
       n == 1 && index($0, "title:") == 1 {
         v = $0; sub(/^title:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)   # card-read-exempt: judges the stored text, which the quote-stripping of the reader would hide
@@ -2157,7 +2217,9 @@ for folder in ${u_cols[@]+"${u_cols[@]}"}; do
     u_found=$((u_found + 1))
   done
 done
-if [ "$u_found" -eq 0 ]; then
+if cb_rd_dead; then
+  cb_rd_say "      "
+elif [ "$u_found" -eq 0 ]; then
   echo "      ✓ none: $u_read card(s) read"
 fi
 # END unquoted-title arm

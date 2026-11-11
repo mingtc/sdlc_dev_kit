@@ -44,8 +44,18 @@ _kit_card_scan() {
     }
     END { exit !found }' "$1"
 }
+# A reader whose awk died (status 2, not "key absent") reads as an empty value. A caller that must not
+# answer over a failed read names a file in KIT_CARD_FAIL_FILE and finds one line per failure there.
+KIT_CARD_FAIL_FILE=""
+_kit_card_note() {
+  [ "$1" -lt 2 ] || [ -z "${KIT_CARD_FAIL_FILE:-}" ] || printf 'awk exited %s reading %s\n' "$1" "$2" >> "$KIT_CARD_FAIL_FILE"
+  return 0
+}
 kit_card_field() {
-  _kit_card_scan "$1" "$2" "$([ "${3:-}" = --raw ] && echo raw || echo value)" || true
+  local _kcf_rc=0
+  _kit_card_scan "$1" "$2" "$([ "${3:-}" = --raw ] && echo raw || echo value)" || _kcf_rc=$?
+  _kit_card_note "$_kcf_rc" "$1"
+  return 0
 }
 kit_card_has_field() {
   _kit_card_scan "$1" "$2" has
@@ -86,5 +96,6 @@ kit_card_list() {
       }
       if (inlist && line ~ /^[[:space:]]*-[[:space:]]+[^[:space:]]/) { sub(/^[[:space:]]*-[[:space:]]*/, "", line); add(line); next }
       if (inlist && line !~ /^[[:space:]]*$/) inlist = 0
-    }' "$1" || true
+    }' "$1" || _kit_card_note "$?" "$1"
+  return 0
 }
