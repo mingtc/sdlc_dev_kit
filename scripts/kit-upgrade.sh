@@ -435,7 +435,7 @@ undo_gone() { [ -z "${UNDO_DIR:-}" ] || rm -rf "$UNDO_DIR"; }
 # st_discard_cmd — the one command line that discards a staged upgrade the way the first run can start over from: the
 # checklist and everything in .kit-upgrade/ but the record of what the first run was writing, with the deletion committed.
 st_discard_cmd() {
-  printf "  rm -f '%s/%s' && find '%s/%s' -mindepth 1 -maxdepth 1 ! -name '%s' -exec rm -rf {} + ; git -C '%s' add -A -- '%s' '%s' && git -C '%s' commit -q -m 'Discard the staged kit upgrade' -- '%s' '%s'" \
+  printf "  rm -f '%s/%s' && find '%s/%s' -mindepth 1 -maxdepth 1 ! -name '%s' -exec rm -rf {} + ; git -C '%s' add -A -- '%s' '%s' && MSG_OK=1 git -C '%s' commit -q -m '[PM] Discard the staged kit upgrade' -- '%s' '%s'" \
     "$TGT" "$UPGRADE_CHECKLIST" "$TGT" "$STAGE_DIR" "$STAGED_ARRIVED" "$TGT" "$UPGRADE_CHECKLIST" "$STAGE_DIR" "$TGT" "$UPGRADE_CHECKLIST" "$STAGE_DIR"
 }
 # st_restore_cmd <path under the stage> — a command line restoring a staged file from the commit that added it, and committing
@@ -443,7 +443,12 @@ st_discard_cmd() {
 st_restore_cmd() {
   local rel="$STAGE_DIR/$1" c
   c="$(cd "$TGT" && git log --diff-filter=A --format=%H -1 -- "$rel" 2>/dev/null)"
-  [ -z "$c" ] || printf "  git -C '%s' checkout %s -- '%s' && git -C '%s' commit -q -m 'Restore the staged %s' -- '%s'" "$TGT" "$c" "$rel" "$TGT" "$1" "$rel"
+  [ -z "$c" ] || printf "  git -C '%s' checkout %s -- '%s' && MSG_OK=1 git -C '%s' commit -q -m '[PM] Restore the staged %s' -- '%s'" "$TGT" "$c" "$rel" "$TGT" "$1" "$rel"
+}
+# st_changed <path under the stage> — status 0 when git holds that file differently from the commit that added it.
+st_changed() {
+  local c; c="$(cd "$TGT" && git log --diff-filter=A --format=%H -1 -- "$STAGE_DIR/$1" 2>/dev/null)"
+  [ -n "$c" ] && ! (cd "$TGT" && git diff --quiet "$c" -- "$STAGE_DIR/$1" 2>/dev/null)
 }
 # st_edited <message> <path under the stage> — refuse a staged copy that is not what the first run staged.
 st_edited() {
@@ -518,7 +523,8 @@ $extra" "$STAGED_ITEMS"
     sec="${k#*, Action required, \[}"; sec="${sec%%]*}"; n="${k##* item }"
     rows=""; [ ! -f "$ST/$STAGED_MODULE_NOTES/$mn.kit-new" ] || rows="$(notes_items "$ST/$STAGED_MODULE_NOTES/$mn.kit-new")"
     printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { f = 1 } END { exit !f }' \
-      || st_edited "Error: $STAGE_DIR/$STAGED_ITEMS lists \"$k\", and the module's staged notes hold no such entry." "$STAGED_MODULE_NOTES/$mn.kit-new"
+      || st_edited "Error: $STAGE_DIR/$STAGED_ITEMS lists \"$k\", and the module's staged notes hold no such entry." \
+        "$(st_changed "$STAGED_MODULE_NOTES/$mn.kit-new" && printf '%s' "$STAGED_MODULE_NOTES/$mn.kit-new" || printf '%s' "$STAGED_ITEMS")"
   done < "$ST/$STAGED_ITEMS"
   while IFS= read -r k; do
     [ -n "$k" ] || continue
@@ -538,8 +544,10 @@ vf_record() {
   for l in ${VF_NONE[@]+"${VF_NONE[@]}"}; do printf -- '- declared, unverified (no Verify: line): %s\n' "$l"; done
   for l in ${VF_SKIPPED[@]+"${VF_SKIPPED[@]}"}; do printf -- '- declared, not run: %s\n' "$l"; done
   printf '\nEvery other item, merge, removal and kept file included, is declared by whoever marked it; --finish verified none of them.\n'
-  printf '\nThe staged copies the commands were read from, by sha256 (each equals the new kit'"'"'s own file of that name):\n\n'
-  for l in ${ST_SHAS[@]+"${ST_SHAS[@]}"}; do printf -- '- %s\n' "$l"; done
+  if [ "${#ST_SHAS[@]}" -gt 0 ]; then
+    printf '\nThe staged copies the commands were read from, by sha256 (each equals the new kit'"'"'s own file of that name):\n\n'
+    for l in "${ST_SHAS[@]}"; do printf -- '- %s\n' "$l"; done
+  fi
   [ -z "$ST_NOTE" ] || printf '\nNot compared: %s.\n' "$ST_NOTE"
 }
 
@@ -591,13 +599,6 @@ if [ "$FINISH" = true ]; then
       "${VF_FAILED[@]}" \
       "Next: do the action each names (the command ran in $TGT), then run --finish again."
   fi
-  finish_module_records
-  new_v="$(read_version "$ST/KIT-VERSION")"
-  old_v="$(read_version "$TGT/process/KIT-VERSION")"
-  ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
-  [ ! -e "$TGT/$ARCHIVE_REL" ] || kit_refuse 1 upgrade-archive-exists \
-    "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
-    "Next: move or rename it (commit that), then run --finish again."
   # What the stamp writes is saved first, before anything is written: a copy that fails refuses here, with nothing changed.
   UNDO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-undo.XXXXXX" 2>/dev/null)" || UNDO_DIR=""
   backed=1
@@ -611,6 +612,13 @@ if [ "$FINISH" = true ]; then
   [ -n "$backed" ] || { undo_gone; kit_refuse 1 upgrade-write-failed \
     "Error: could not save a copy of process/KIT-VERSION and process/KIT-MANIFEST under ${TMPDIR:-/tmp}, which --finish keeps to put them back if a write fails. Nothing was written." \
     "Next: free space under ${TMPDIR:-/tmp} (or point TMPDIR at a directory with room), then run --finish again."; }
+  finish_module_records
+  new_v="$(read_version "$ST/KIT-VERSION")"
+  old_v="$(read_version "$TGT/process/KIT-VERSION")"
+  ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
+  [ ! -e "$TGT/$ARCHIVE_REL" ] || { undo_gone; kit_refuse 1 upgrade-archive-exists \
+    "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
+    "Next: move or rename it (commit that), then run --finish again."; }
   mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
     || { undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."; }
   vf_record >> "$TGT/$ARCHIVE_REL" || { undo_gone; kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."; }
