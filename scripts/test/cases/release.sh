@@ -1047,6 +1047,74 @@ case_release_local_only_recovery() {
 }
 
 # =============================================================================
+# CASE — A CLOSED OUTPUT PIPE DOES NOT STOP A CUT BETWEEN ITS RELEASE COMMIT AND ITS TAG.
+#
+# `./scripts/release.sh X.Y.Z 2>&1 | head -1` closes the pipe after one line. The script's next
+# write used to kill it of SIGPIPE, with the release commit made and no tag, and the recovery text
+# it prints for exactly that state was never read. It now keeps reading its own output after the
+# reader has gone, so the cut completes. Rows: (merged, split, shut) stdout and stderr one pipe
+# read for one line, stdout alone read with stderr in a file, both streams closed outright;
+# (publish) the same with the distribution publish on; (publish-only) --publish-only; (killed) a
+# cut stopped by a planted kill after its local acts ends by that status, not a broken pipe, with
+# the tag local and nothing pushed. Each row asserts where the tag and the bump landed, never
+# what was printed.
+# =============================================================================
+_rel_sb_release() {  # <release.sh args…> — in the sandbox, with the gate seams
+  cd "$SB_WORK" || return 99
+  RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
+    RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" "$SB_WORK/scripts/release.sh" "$@"
+}
+_rel_closed_run() {  # <merged|split|shut> <sed script the reader runs> <release.sh args…> → prints the status
+  local style="$1" reader="$2" rcf="$SB_TMP/closed.rc"; shift 2
+  rm -f "$rcf"
+  case "$style" in
+    merged) ( rc=0; _rel_sb_release "$@" 2>&1 || rc=$?; echo "$rc" > "$rcf" ) | sed "$reader" >/dev/null ;;
+    split)  ( rc=0; _rel_sb_release "$@" 2>"$SB_TMP/closed.err" || rc=$?; echo "$rc" > "$rcf" ) | sed "$reader" >/dev/null ;;
+    shut)   ( rc=0; _rel_sb_release "$@" >&- 2>&- || rc=$?; echo "$rc" > "$rcf" ) ;;
+  esac
+  cat "$rcf" 2>/dev/null || echo none
+}
+_rel_cut_complete() {  # <label> <status> <version>
+  [ "$2" = 0 ] || cf "($1) release.sh ended with status $2, not 0"
+  [ -n "$(git -C "$SB_WORK" ls-remote --tags origin "v$3" 2>/dev/null)" ] || cf "($1) the tag v$3 is not on the remote"
+  origin_file_contains "VERSION" "$3" || cf "($1) the bump is not on the remote's trunk"
+}
+case_release_a_closed_output_pipe_does_not_stop_the_cut() {
+  cf_reset
+  if ! has_release; then skp "a closed output pipe does not stop release.sh" "scripts/release.sh absent"; return; fi
+  local rc leg
+
+  for leg in merged split shut; do
+    make_sandbox; seed_release_files 1.1.0; publish_sandbox
+    write_board_stub "$SB_TMP/board-clean.sh" clean; write_build_stub "$SB_TMP/build-stub.sh"
+    rc="$(_rel_closed_run "$leg" 1q 1.1.0)"
+    _rel_cut_complete "$leg" "$rc" 1.1.0
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "($leg) the tree is not clean after the cut"
+    teardown
+  done
+
+  make_sandbox; seed_release_files 1.1.0; enable_publish; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean; write_build_stub "$SB_TMP/build-stub.sh"
+  rc="$(_rel_closed_run merged 1q 1.1.0)"
+  _rel_cut_complete publish "$rc" 1.1.0
+  [ -n "$(dist_files)" ] || cf "(publish) the distribution branch was not published"
+  rc="$(_rel_closed_run merged 1q 1.1.0 --publish-only)"
+  [ "$rc" = 0 ] || cf "(publish-only) release.sh ended with status $rc, not 0"
+  [ "$(dist_commit_count)" = 1 ] || cf "(publish-only) the distribution branch holds $(dist_commit_count) commits, not 1"
+  teardown
+
+  make_sandbox; seed_release_files 1.1.0; rel_plant_midrun_kill; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean; write_build_stub "$SB_TMP/build-stub.sh"
+  rc="$(_rel_closed_run merged '/^── release commit/q' 1.1.0)"
+  [ "$rc" = 143 ] || cf "(killed) release.sh ended with status $rc, not 143 (141 is a broken pipe)"
+  [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" = "tag" ] || cf "(killed) no local annotated tag"
+  [ -z "$(git -C "$SB_WORK" ls-remote --tags origin v1.1.0 2>/dev/null)" ] || cf "(killed) the tag reached the remote"
+  teardown
+
+  finish "a reader that closes release.sh's output after one line (stdout and stderr one pipe, stdout alone, the publish on, --publish-only), and both streams closed outright, leave a complete cut; a cut killed after its local acts ends by that status, not a broken pipe"
+}
+
+# =============================================================================
 # CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER.
 #
 # self-test-harness.md § 2: "a test-only relaxation of a production rule is reachable

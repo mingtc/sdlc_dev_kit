@@ -820,6 +820,7 @@ CASES=(
   case_release_publish_recovery
   case_release_publish_only_dry_run_predicts_the_run
   case_release_local_only_recovery
+  case_release_a_closed_output_pipe_does_not_stop_the_cut
   case_release_a_signalled_cut_stops
   case_release_bash_n
   case_release_spaced_path
