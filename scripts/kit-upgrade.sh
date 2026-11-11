@@ -39,7 +39,8 @@
 # file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path,
 # and one "stamp what arrived" item whenever any file was added or replaced.
 # The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
-# while the marked checklist is uncommitted, or while an Action required item that carries a Verify:
+# while the marked checklist is uncommitted or lacks an item the first run wrote, or while a staged
+# copy of the new kit's notes is missing or edited, or while an Action required item that carries a Verify:
 # command fails it (below); then it writes the new process/KIT-VERSION and
 # process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (the
 # record of what was done, which survives any merge strategy), and removes .kit-upgrade/.
