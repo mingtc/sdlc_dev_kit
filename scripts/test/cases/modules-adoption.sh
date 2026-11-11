@@ -283,6 +283,16 @@ _mu_ki_sandbox() {
     printf 'name: %s\nversion: 0.1.0\npurpose: A fixture module that places %s.\nfile: f.txt -> %s\n' "${c%% *}" "${c#* }" "${c#* }" > "$SB_WORK/modules/${c%% *}/module.manifest"
     printf 'from %s\n' "${c%% *}" > "$SB_WORK/modules/${c%% *}/f.txt"
   done
+  # fixture modules for two that collide without sharing a spelling: pa places docs/x, which pb places a file under; ga's ignore
+  # block covers the path gb places
+  for c in "pa docs/x" "pb docs/x/y" "gb docs/g/f.txt"; do
+    mkdir -p "$SB_WORK/modules/${c%% *}"
+    printf 'name: %s\nversion: 0.1.0\npurpose: A fixture module that places %s.\nfile: f.txt -> %s\n' "${c%% *}" "${c#* }" "${c#* }" > "$SB_WORK/modules/${c%% *}/module.manifest"
+    printf 'from %s\n' "${c%% *}" > "$SB_WORK/modules/${c%% *}/f.txt"
+  done
+  mkdir -p "$SB_WORK/modules/ga"
+  printf 'name: ga\nversion: 0.1.0\npurpose: A fixture module whose ignore block covers a path.\ngitignore: ignore.txt\n' > "$SB_WORK/modules/ga/module.manifest"
+  printf 'docs/g/\n' > "$SB_WORK/modules/ga/ignore.txt"
   printf '{}\n' > "$SB_WORK/.claude/settings.json.example"
   printf '# <project name> — PROJECT.md (sandbox)\n\nIssue ids are <PREFIX>-NNN on <trunk>.\n\n| Gate | Your command | The contract it implements |\n|---|---|---|\n| g | `x` | y |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$SB_WORK/PROJECT.md"
   publish_sandbox
@@ -368,6 +378,9 @@ case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
   _row "a path kit-init copies (--enable-hooks)" "--with hooky" ".claude/settings.json" "kit-init writes it" -- --enable-hooks --with hooky
   _row "a path kit-init creates (progress.md)" "--with notey" "progress.md" "kit-init writes it" -- --with notey
   _row "two modules that place one path" "--with ca,cb" "module ca places docs/same.txt" "module cb places docs/same.txt" -- --with ca,cb
+  _row "one module's file under another's file" "--with pa,pb" "module pa places docs/x" "module pb places docs/x/y" -- --with pa,pb
+  _row "the same, named the other way round" "--with pb,pa" "module pa places docs/x" "module pb places docs/x/y" -- --with pb,pa
+  _row "one module's ignore block over another's path" "--with ga,gb" "module ga" "docs/g/f.txt" "module gb" -- --with ga,gb
   # whether docs/SAME.txt is docs/same.txt is the filesystem's to say: the top level's `.git` is found under `.GIT` where it reads case as one
   if [ -n "$ci" ]; then
     _row "two modules that place one path in two cases" "--with ca,cc" "module ca places docs/same.txt" "module cc places docs/SAME.txt" -- --with ca,cc
@@ -905,7 +918,7 @@ case_kit_upgrade_refuses_before_it_writes_when_an_enabled_module_cannot_be_judge
   printf 'an edit the project has not committed\n' >> "$SB_WORK/PROJECT.md"
   _md_snap "$SB_WORK" > "$s0"
   _mu_up "$SB_WORK"
-  _refused "an uncommitted block host" upgrade-target-dirty "PROJECT.md" --
+  _refused "an uncommitted block host" upgrade-target-dirty "PROJECT.md" "git stash pop" "commit" --
   git -C "$SB_WORK" checkout -q -- PROJECT.md
 
   # (e) the record names a path outside the project.

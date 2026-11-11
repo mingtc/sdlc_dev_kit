@@ -1042,3 +1042,50 @@ case_module_gitignore_block_is_appended_to_gitignore_and_taken_back() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A MANIFEST THAT NAMES A HOST OR A DIRECTORY IN ANOTHER CASE THAN THE PROJECT'S, OR A ROLE THE BASE SET CARRIES, IS REFUSED.
+#   Placed as written, the first is recorded in a spelling the project does not use (a row `status` then calls missing and
+#   `disable` ignores), and the second is kept by every disable for as long as history carries the tag. Each is met at
+#   enable, before anything is written; the same manifest spelt as the project spells it enables.
+# =============================================================================
+case_module_enable_refuses_a_host_or_directory_in_another_case_and_a_role_the_base_set_carries() {
+  cf_reset
+  local L="module.sh enable refuses, before it writes and with a Next: line, a block host spelt in another case than the file the project has, a new file under a directory spelt in another case, a role tag the base role set carries (in either case) and one process/ROLES carries; the same module spelt as the project spells it, with a role of its own, enables"
+  if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _md_sandbox
+  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" d="$SB_WORK/modules/fab"
+  mkdir -p "$d" "$SB_WORK/docs"; printf 'x\n' > "$d/f.txt"; printf 'a row\n' > "$d/g.md"; printf 'mine\n' > "$SB_WORK/docs/keep.md"
+  # _fab <manifest lines…> — the fabricated module's manifest, with the header every row shares.
+  _fab() { { printf 'name: fab\nversion: 0.1.0\npurpose: A fixture module.\n'; printf '%s\n' "$@"; } > "$d/module.manifest"; }
+  # _row <label> <must name…> -- <manifest lines…>: refused, naming every word, a Next: line, nothing written.
+  _row() {
+    local label="$1" want; shift
+    local names=()
+    while [ "$1" != -- ]; do names+=("$1"); shift; done; shift
+    _fab "$@"; _md_snap "$SB_WORK" > "$s0"
+    _md_mod enable fab
+    [ "$_md_rc" -eq 1 ] || cf "($label) exit $_md_rc, want 1: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$_md_out" | grep '^Next:' >/dev/null || cf "($label) no Next: line"
+    for want in "${names[@]}"; do
+      printf '%s\n' "$_md_out" | grep -F -- "$want" >/dev/null || cf "($label) the refusal does not name '$want': $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    done
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || cf "($label) the refusal changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+  }
+  _row "a block host in another case" "project.md" "PROJECT.md" -- "block: project.md gates g.md"
+  _row "a new file under a directory in another case" "DOCS/new.md" "docs" -- "file: f.txt -> DOCS/new.md"
+  _row "a role the base set carries" "PM" "role" -- "role: PM   a seat" "file: f.txt -> docs/new.md"
+  _row "a role the base set carries, in another case" "Pm" "role" -- "role: Pm   a seat" "file: f.txt -> docs/new.md"
+  printf 'Keeper   a seat the project declared\n' > "$SB_WORK/process/ROLES"
+  _row "a role process/ROLES carries" "Keeper" "role" -- "role: Keeper   a seat" "file: f.txt -> docs/new.md"
+  # (control) the project's spelling and a role of its own
+  _fab "block: PROJECT.md gates g.md" "role: Fabber   a seat" "file: f.txt -> docs/new.md"
+  _md_mod enable fab
+  [ "$_md_rc" -eq 0 ] || cf "(control) the same module spelt as the project spells it exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  [ -f "$SB_WORK/docs/new.md" ] || cf "(control) the file was not placed"
+  unset -f _row _fab
+  finish "$L"
+  teardown
+}
