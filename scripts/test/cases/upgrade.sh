@@ -1203,6 +1203,12 @@ _ku_judge_refused() {
   [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "$1: a refused --finish stamped the version"
   [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "$1: a refused --finish wrote the archive"
 }
+# _ku_hook_live — the kit's own commit-msg hook, live in the target (its path outside the tree), and proven live by a refusal.
+_ku_hook_live() {
+  mkdir -p "$SB_TMP/hooks"; cp "$REAL_SCRIPTS/githooks/commit-msg" "$SB_TMP/hooks/commit-msg" 2>/dev/null; chmod +x "$SB_TMP/hooks/commit-msg"
+  git -C "$KU_T" config core.hooksPath "$SB_TMP/hooks"
+  git -C "$KU_T" commit -q --allow-empty -m "no role tag here" >/dev/null 2>&1 && cf "the hook is not live: an untagged subject was committed"
+}
 case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   cf_reset
   make_sandbox
@@ -1291,6 +1297,7 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   # The Next of a committed edit, run as printed, gets past the refusal; so does the Next of a missing item list.
   _ku_judge_stage f4; sed -i.bak 's/Verify: test -e DONE-MARKER/Verify: true/' "$KU_SN" && rm -f "$KU_SN.bak"
   git -C "$KU_T" commit -qam "edit" >/dev/null 2>&1
+  _ku_hook_live
   _ku_run f4-fin --finish --into "$KU_T"
   local cmd; cmd="$(grep -E '^  git -C' "$SB_TMP/f4-fin.out" | sed -n 1p)"
   [ -n "$cmd" ] || cf "f4: the refusal prints no restore command: $(_ku_out f4-fin)"
@@ -1298,6 +1305,7 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   _ku_run f4-fin2 --finish --into "$KU_T"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-verify-failed)" -eq 1 ] || cf "f4: after the printed restore, --finish did not reach the Verify: step: $(_ku_out f4-fin2)"
   _ku_judge_stage f6; rm -f "$KU_T/.kit-upgrade/action-items"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
+  _ku_hook_live
   _ku_run f6-fin --finish --into "$KU_T"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-missing)" -eq 1 ] || cf "f6: no refusal=upgrade-staging-missing record: $(_ku_out f6-fin)"
   cmd="$(grep -E '^  rm -f' "$SB_TMP/f6-fin.out" | sed -n 1p)"
@@ -1306,6 +1314,15 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   [ -z "$(git -C "$KU_T" status --porcelain -- . ':!.progress-records' 2>/dev/null)" ] || cf "f6: after the printed command the tree is not clean: $(git -C "$KU_T" status --porcelain | tr '\n' '|')"
   _ku_run f6-up --into "$KU_T"
   { [ "$(_ku_rc f6-up)" = 0 ] && [ -f "$KU_CL" ] && [ -f "$KU_T/.kit-upgrade/action-items" ]; } || cf "f6: the first run after the printed command did not stage again: $(_ku_out f6-up)"
+  # With no sha256 tool the archive says what was not compared, and prints no list headed as equal to the kit's files.
+  _ku_judge_stage n; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  local nb="$SB_TMP/nosha" nf nn
+  mkdir -p "$nb"
+  for nf in /usr/bin/* /bin/*; do nn="${nf##*/}"; case "$nn" in shasum|sha256sum|sha*sum) continue ;; esac; ln -s "$nf" "$nb/$nn" 2>/dev/null; done
+  local nrc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" PATH="$nb" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/n-fin.out" 2>&1 || nrc=$?
+  [ "$nrc" = 0 ] || cf "n: --finish with no sha256 tool exited $nrc: $(tr '\n' '|' < "$SB_TMP/n-fin.out" | cut -c1-300)"
+  grep -F 'Not compared:' "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" >/dev/null || cf "n: the archive does not say what was not compared"
+  grep -F 'each equals' "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" >/dev/null && cf "n: the archive heads an empty list as equal to the kit's files"
   finish "$L"
   teardown
 }

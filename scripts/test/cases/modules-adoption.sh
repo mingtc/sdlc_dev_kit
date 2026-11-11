@@ -1005,6 +1005,17 @@ case_finish_runs_the_verify_lines_of_an_enabled_modules_release_notes() {
   cp "$SB_TMP/example-notes-staged" "$SB_WORK/.kit-upgrade/module-notes/example.kit-new"
   _mu_land "the staged module notes, restored again"
 
+  # (b4) the module's key renumbered in the item list only: the module's notes are untouched, so the printed restore names the item list.
+  sed -i.bak 's/^\(module example, Action required, \[[^]]*\] item \)[0-9][0-9]*$/\19/' "$SB_WORK/.kit-upgrade/action-items"; rm -f "$SB_WORK/.kit-upgrade/action-items.bak"
+  _mu_land "the staged item list, renumbered"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin5" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b4) --finish over a renumbered module key exited $rc, want the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  restore="$(printf '%s\n' "$out" | grep -E '^  git -C' | sed -n 1p)"
+  case "$restore" in *action-items*) ;; *) cf "(b4) the printed restore does not name the item list: $restore" ;; esac
+  [ -z "$restore" ] || bash -c "$restore" >/dev/null 2>&1
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin6" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
+  grep -h 'refusal=upgrade-verify-failed' "$SB_TMP"/rec-fin6/*.tsv >/dev/null 2>&1 || cf "(b4) after the printed restore, --finish did not reach the Verify: step: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
   # (c) the action done, --finish stamps and the archive records the passing line.
   : > "$SB_WORK/module-verify-marker"
   rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec-fin2" ./scripts/kit-upgrade.sh --finish --into "$SB_WORK" 2>&1 </dev/null )" || rc=$?
