@@ -1556,3 +1556,81 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
   finish "move-issue --help names the blocked_by warning; both stacked-branch refusals hand the rebase to the Dev"
   teardown
 }
+
+# =============================================================================
+# CASE — THE AC POPULATION: kit_ac_drift_check READS EVERY CHECKLIST LINE OF '## Acceptance Criteria',
+# REFUSES A CARD WITH NO AC OR A BULLET THE QA GATE'S READER WOULD DROP, AND ASKS A RULING FOR AN AC
+# REMOVED OR RENAMED AFTER todo/. Operand: the shipped lib run over a scratch repository whose commit
+# history leaves the card's old body at 'todo/', one fixed answer per row. A refusal prints a Next: line
+# and never exits with nothing on stderr.
+#   (a) only non-id bullets: refused, each named;  (b) id bullets beside four of other shapes: all four named;
+#   (c) no AC at all, no todo/ history: refused (not 'did not run');  (d) control: three id bullets, unchanged;
+#   (e) an AC removed: refused naming it;  (f) renamed: the old id named;  (g) removed with the ruling cited in the
+#   Activity on the line naming it: passes;  (h) removed as a struck bullet carrying the citation: passes;
+#   (i) struck with no citation: refused;  (j) a citation in the Activity on a line that does not name the id:
+#   refused;  (k) a reworded bullet is still the changed-bullet refusal;  (l) a card with no id bullet no longer
+#   ends the caller silently.
+# =============================================================================
+_ac808_card() {  # <ac lines> [<activity lines>] — a card body on stdout
+  printf '# card\n\n## Acceptance Criteria\n\n%s\n\n## Activity\n\n%s\n' "$1" "${2:-- opened}"
+}
+_ac808_run() {  # <old-acs> <new-acs> <new-activity|-> <leave: yes|no> — prints "rc=N" then the output
+  local old="$1" new="$2" act="$3" leave="$4" d out rc lc=""
+  d="$SB_TMP/ac808"; rm -rf "$d"; mkdir -p "$d/r/progress/todo" "$d/r/progress/in_progress"
+  git -C "$d/r" init -q . >/dev/null 2>&1
+  _ac808_card "$old" > "$d/r/progress/todo/X-001-a.md"
+  git -C "$d/r" add -A >/dev/null 2>&1
+  git -C "$d/r" -c user.name=t -c user.email=t@t commit -q -m todo >/dev/null 2>&1
+  git -C "$d/r" mv progress/todo/X-001-a.md progress/in_progress/X-001-a.md >/dev/null 2>&1
+  git -C "$d/r" -c user.name=t -c user.email=t@t commit -q -m leave >/dev/null 2>&1
+  [ "$leave" = no ] || lc="$(git -C "$d/r" rev-parse HEAD)"
+  if [ "$act" = - ]; then _ac808_card "$new" > "$d/new.md"; else _ac808_card "$new" "$act" > "$d/new.md"; fi
+  out="$(bash -c 'set -eo pipefail; . "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; kit_ac_drift_check "$2" X-001 "$3" "$4" "$5"' \
+    _ "$REAL_SCRIPTS" "$d/new.md" "$d/r" "$lc" progress/todo/X-001-a.md 2>&1 </dev/null)"; rc=$?
+  printf 'rc=%s\n%s\n' "$rc" "$out"
+}
+_ac808_want() {  # <label> <out> <rc> [<needle>…]
+  local lbl="$1" o="$2" want="$3" n; shift 3
+  case "$o" in "rc=$want"*) : ;; *) cf "($lbl) want rc=$want: $(printf '%s' "$o" | tr '\n' '|' | cut -c1-260)" ;; esac
+  for n in "$@"; do
+    case "$o" in *"$n"*) : ;; *) cf "($lbl) output lacks [$n]: $(printf '%s' "$o" | tr '\n' '|' | cut -c1-260)" ;; esac
+  done
+}
+case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling() {
+  cf_reset
+  make_sandbox
+  local three out
+  three="$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.')"
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] the login form must work\n- [ ] it is fast')" - yes)"
+  _ac808_want a "$out" 2 'Acceptance Criteria' 'the login form must work' 'it is fast' 'Next:'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n  - [ ] AC3 — three.\n- [ ] AC4.1 — four.\n- [ ] an unnamed bullet')" - yes)"
+  _ac808_want b "$out" 2 'Next:' 'AC2 — two' 'AC3 — three' 'AC4.1' 'an unnamed bullet'
+  out="$(_ac808_run "$three" "$(printf 'no criteria here.')" - no)"
+  _ac808_want c "$out" 2 'Next:'
+  case "$out" in *"did not run"*) cf "(c) a card with no AC read as 'did not run'" ;; esac
+  out="$(_ac808_run "$three" "$three" - yes)"
+  _ac808_want d "$out" 0
+  case "$out" in *"Next:"*) cf "(d) a card whose ACs never changed was refused" ;; esac
+  out="$(_ac808_run "$three" "$three" - no)"
+  _ac808_want d2 "$out" 0 'did not run'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
+  _ac808_want e "$out" 2 'AC text' 'AC3' 'Next:'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC9 — two.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want f "$out" 2 'AC text' 'AC2'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped AC3 [decision: D-01]' yes)"
+  _ac808_want g "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] ~~AC3 — three.~~ [decision: D-01]')" - yes)"
+  _ac808_want h "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] ~~AC3 — three.~~')" - yes)"
+  _ac808_want i "$out" 2 'AC text' 'AC3'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped something else [decision: D-01]' yes)"
+  _ac808_want j "$out" 2 'AC3'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two, reworded.\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want k "$out" 2 'AC text' 'AC2'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two, reworded. [decision: D-01]\n- [ ] AC3 — three.')" - yes)"
+  _ac808_want k2 "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
+  case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
+  teardown
+}
