@@ -130,7 +130,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 - The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
   refuse, naming what the section lacks.
 - The branch is stacked on a base that has not landed, or has already squash-landed, or it moved while
-  the gate ran (the squash merges the revision that was read and gated, never the name), or the squash
+  the gate ran (the landing resolves the branch once, as `refs/heads/<name>`, so a same-named tag decides nothing; every check reads that revision and the squash merges it), or the squash
   hits conflicts, or leaves no net change against the trunk ⇒ refuse before any destructive step.
   Each condition's rule id is named where the reference implementation raises it (§ 6).
 - The identity (session, agent) recorded for the commit that wrote the item's review verdict is
@@ -227,8 +227,8 @@ code-review object — the item's `## QA Verdict` table **is** the review record
 - The caller-supplied-gate-command invariant in § 2 is written as a refusal at the top of that
   file, before any state is read.
 - `scripts/lib/qa-gate.sh` — the QA-verdict, `forks:`, ablation and board-property checks of § 3, each a
-  `kit_refuse` call with its own rule id; the stacking, squash and no-net-change refusals are
-  `scripts/finish-pr.sh`'s own.
+  `kit_refuse` call with its own rule id; the stacking, moved-branch, squash and no-net-change
+  refusals are `scripts/finish-pr.sh`'s own.
 - `scripts/read-verdict.sh` — read-only: a card's column on the trunk, its QA-verdict rows through the same
   reader, and the § 3 check's own accept-or-refuse on that table at the trunk tip; it writes nothing.
 - `scripts/verify.sh` — the gate this kit hands it; contracted in

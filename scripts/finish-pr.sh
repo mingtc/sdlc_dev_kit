@@ -373,6 +373,16 @@ if ! BRANCH_REF="$(kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" -)"; then
     "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
 fi
 
+# THE REVISION EVERYTHING BELOW READS, resolved once and through refs/heads/…, never the short name
+# (a tag of the same name would win that lookup). Every check reads this sha; the squash merges it,
+# after the branch is shown not to have moved.
+QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{commit}" 2>/dev/null || true)"
+if [ -z "$QA_READ_FULL" ]; then
+  kit_refuse 1 branch-not-found \
+    "Error: local branch '$BRANCH' does not resolve to a commit." \
+    "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
+fi
+
 # ── A STACKED BRANCH LOSES ITS BASE WHEN THE BASE SQUASH-LANDS. `$BRANCH` was branched from
 #    another feature branch, not from the trunk directly. Two shapes, detected from git alone,
 #    before anything destructive:
@@ -390,10 +400,10 @@ fi
 #    done by cherry-pick rather than by branching: a cherry-picked commit is a NEW commit,
 #    reachable from no ref and with no patch-id relationship this check derives.
 _stk_trunk="$KWT_REMOTE/$DEFAULT_BRANCH"
-_stk_ahead="$(git -C "$MAIN_ROOT" log --reverse --format=%H "${_stk_trunk}..${BRANCH_REF}" 2>/dev/null || true)"
-_stk_branch_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "$BRANCH_REF" 2>/dev/null || true)"
-_stk_mb="$(git -C "$MAIN_ROOT" merge-base "$BRANCH_REF" "$_stk_trunk" 2>/dev/null || true)"
-_stk_trunk_only="$(git -C "$MAIN_ROOT" log --format=%H "${BRANCH_REF}..${_stk_trunk}" 2>/dev/null || true)"
+_stk_ahead="$(git -C "$MAIN_ROOT" log --reverse --format=%H "${_stk_trunk}..${QA_READ_FULL}" 2>/dev/null || true)"
+_stk_branch_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "$QA_READ_FULL" 2>/dev/null || true)"
+_stk_mb="$(git -C "$MAIN_ROOT" merge-base "$QA_READ_FULL" "$_stk_trunk" 2>/dev/null || true)"
+_stk_trunk_only="$(git -C "$MAIN_ROOT" log --format=%H "${QA_READ_FULL}..${_stk_trunk}" 2>/dev/null || true)"
 # _stk_refuse_if_squashed <candidate commits, one per line> [<base ref left behind>]
 #   Refuses `stacked-branch-squashed-base` when a candidate prefix of $BRANCH's own commits, diffed
 #   from the merge-base, has the same patch-id as a commit the trunk gained that $BRANCH never saw.
@@ -462,7 +472,7 @@ fi
 #    forks: process/MANUAL.md § Execution discipline item 6; `forks: none` on a branch that shows
 #    no fork is the only shape that lands clean; register set derived from check-board.sh's own
 #    REGISTERS= (arm [l]'s operand), never hard-coded.
-kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" "$SCRIPT_DIR/check-board.sh"
+kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$QA_READ_FULL" "$SCRIPT_DIR/check-board.sh"
 
 #    QA Verdict: .claude/roles/qa.md step 4 — a claim-by-claim walk that FOUND a mismatch and
 #    filed PASS anyway is the motivating case, so this also refuses on a row's OWN verdict, not
@@ -474,9 +484,7 @@ kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}
 #    The branch tip is resolved once: the gate reads that commit and the Activity note names it.
 #    An `artifact` row is QA's own file, committed on the trunk, so it is read at the trunk, never at
 #    the branch the work's author controls.
-#    It is read through $BRANCH_REF (refs/heads/…), never the short name, which a tag of the
-#    same name would win; and the squash below merges this same sha, after the branch is shown not to have moved.
-QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{commit}" 2>/dev/null || true)"
+#    $QA_READ_FULL is that sha, resolved once above.
 QA_READ_SHORT=""
 [ -z "$QA_READ_FULL" ] || QA_READ_SHORT="$(git -C "$MAIN_ROOT" rev-parse --short "$QA_READ_FULL" 2>/dev/null || true)"
 kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}" "${KWT_REMOTE}/${DEFAULT_BRANCH}"
@@ -484,14 +492,14 @@ kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}" 
 #    Ablation: process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.
 #    TEST_GLOBS (scripts/config.sh) read as the UNION of the trunk's copy and the branch's.
 #    Undeclared TEST_GLOBS makes the check UNRUNNABLE, reported on stdout, never a silent pass.
-kit_ablation_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH"
+kit_ablation_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$QA_READ_FULL"
 
 #    Board properties: check-board.sh's arms [d] [i] [l] [p] [r] [q] — the same functions, run on the
 #    tree this landing would produce (the trunk with the branch squash-merged and the card moved to
 #    qa_complete/). A finding the branch INTRODUCES refuses; one already on the trunk does not. An
 #    arm whose property the branch does not touch does not run. The operands come from the trunk's
 #    own check-board.sh and config.sh.
-kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" \
+kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$QA_READ_FULL" \
   "${SRC#"$KWT"/}" "progress/qa_complete/$(basename "$SRC")"
 
 #    The checker is not the author (process/contracts/agent-record.md): the (session, agent)
@@ -499,7 +507,7 @@ kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH
 #    recorded for the branch's code commits. Read before the squash, which replaces those commits. No record on
 #    either side prints AGENT_CHECK: UNRUNNABLE and lands.
 kit_agent_records_fetch "$MAIN_ROOT" "$KWT_REMOTE"
-kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "$BRANCH_REF"
+kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "$QA_READ_FULL"
 
 #    An add-on's move checks (scripts/move-check.d/qa_complete/, lib/addon-check.sh) for the move this
 #    landing ends with, run NOW, before the squash: a refusal after it would leave the code merged and the
@@ -516,7 +524,7 @@ kit_move_checks "$MAIN_ROOT" "refs/remotes/${KWT_REMOTE}/${DEFAULT_BRANCH}" "$IS
 #    the contract protects has been touched yet.
 if [ "$ALLOW_STUB" != "true" ]; then
   _gate_v="$GATE_WORKTREE/scripts/verify.sh"
-  _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "$BRANCH_REF" 2>/dev/null || true)"
+  _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "$QA_READ_FULL" 2>/dev/null || true)"
   _gate_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
   _gate_err=""
   # _gate_absent: no usable gate at all, as opposed to one at the wrong revision; the advice differs.
@@ -607,7 +615,7 @@ if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
 elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
-     && ! git -C "$KWT" diff --quiet HEAD "$BRANCH_REF" -- scripts/verify.sh 2>/dev/null; then
+     && ! git -C "$KWT" diff --quiet HEAD "$QA_READ_FULL" -- scripts/verify.sh 2>/dev/null; then
   if ! { _trunk_gate="$(mktemp "$GATE_WORKTREE/scripts/.verify-trunk.XXXXXX")" \
          && git -C "$KWT" show HEAD:scripts/verify.sh > "$_trunk_gate" && chmod +x "$_trunk_gate"; }; then
     [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
@@ -709,7 +717,7 @@ if ! git -C "$KWT" merge --squash "$QA_READ_FULL" >/dev/null 2>&1; then
     ${_fpr_card_note:+"$_fpr_card_note"} \
     "       Nothing was pushed." \
     "Next: resolve by hand, then push + move:" \
-    "         cd '$KWT' && git merge --squash '$BRANCH'   # resolve, then:" \
+    "         cd '$KWT' && git merge --squash ${QA_READ_FULL}   # '${BRANCH}' as it was read; resolve, then:" \
     "         git -C '$KWT' commit -m '${SQUASH_MSG}' && git -C '$KWT' push ${KWT_REMOTE} HEAD:${DEFAULT_BRANCH}"
 fi
 
