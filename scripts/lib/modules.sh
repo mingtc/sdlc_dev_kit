@@ -43,8 +43,6 @@
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
 # shellcheck source=marker-block.sh
 . "$(dirname "${BASH_SOURCE[0]}")/marker-block.sh" || return 1   # return-class: internal
-# shellcheck source=role-set.sh
-. "$(dirname "${BASH_SOURCE[0]}")/role-set.sh" || return 1   # return-class: internal
 
 KIT_MOD_STATE_REL='process/MODULES'
 # The names a harness reads. A module stores them disarmed (`_claude/`, not `.claude/`); a source
@@ -710,7 +708,11 @@ CASE_ENTS_EOF
 # (scripts/githooks/commit-msg's base set, or process/ROLES; any case), or nothing. Such a tag stays in force when the module
 # is disabled, and a disable keeps the whole layer for as long as history carries it.
 _kit_mod_role_clash() {
-  local t b where base
+  local t b where base rs
+  rs="$(dirname "${BASH_SOURCE[0]}")/role-set.sh"
+  [ -f "$rs" ] || return 0   # a copy of this library with no role-set reader beside it cannot read the base set, so it does not judge
+  # shellcheck source=role-set.sh
+  . "$rs" || return 0
   base="$(_kit_role_base "$KIT_MOD_ROOT")"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
