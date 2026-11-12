@@ -608,7 +608,7 @@ kit_qa_verdict_check() {
   _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
 
   if ! grep -qE '^## QA Verdict[[:space:]]*$' "$src"; then
-    kit_refuse 2 qa-verdict-missing \
+    kit_refuse 1 qa-verdict-missing \
       "Error: ${issue_id} has no '## QA Verdict' table." \
       "       QA fills one row per AC id plus the fixed 'shadow-check' row before a PASS lands." \
       "       (.claude/roles/qa.md step 4.)" \
@@ -774,7 +774,7 @@ kit_qa_verdict_check() {
   if [ -n "$_qav_evidence_bad" ]; then
     local _qav_malformed_next=""
     [ -z "$_qav_artifact_malformed" ] || _qav_malformed_next="for an artifact row, write each file as '<path> <full blob sha>' (git rev-parse origin/<trunk>:<path>) and put any note in double quotes, which the gate does not read; "
-    kit_refuse 2 qa-verdict-evidence-missing \
+    kit_refuse 1 qa-verdict-evidence-missing \
       "Error: ${issue_id}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
       "       A PASS needs an evidence kind from ${_qav_kinds// /|}, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
@@ -783,7 +783,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_self" ]; then
-    kit_refuse 2 qa-verdict-self-pointer \
+    kit_refuse 1 qa-verdict-self-pointer \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer is the card itself: ${_qav_self}" \
       "       The card records the review; it is not the content under review, and its path changes at" \
       "       every board move. (.claude/roles/qa.md step 4.)" \
@@ -797,7 +797,7 @@ kit_qa_verdict_check() {
     local _qav_name_next="" _qav_dir_next=""
     [ -z "$_qav_dir_bad" ] || _qav_dir_next="A pointer names a file, not a directory: cite the file inside it that shows the claim. "
     [ -z "$_qav_name_bad" ] || _qav_name_next="For a test named in a pointer (path:\"name\"), quote the name as the file spells it, enough of it that it occurs exactly once in the file, or cite its line as path:line; in a test row, prose that opens the cell or follows a ';' as word:\"...\" is read as a test name, so put a space after the colon. "
-    kit_refuse 2 qa-verdict-pointer-unresolved \
+    kit_refuse 1 qa-verdict-pointer-unresolved \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \
       "       landed, at a line (or range) within its length, or a path:\"name\" whose name occurs once in the file; an artifact row's '<path> <full blob sha>'" \
@@ -807,7 +807,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_quote_missing" ]; then
-    kit_refuse 2 qa-verdict-quote-missing \
+    kit_refuse 1 qa-verdict-quote-missing \
       "Error: ${issue_id}'s QA Verdict table has test/file:line row(s) with a pointer that has no quote of its own: ${_qav_quote_missing}" \
       "       Each path:line (or path:a-b) in a test or file:line row is followed by its own short verbatim" \
       "       quote in double quotes, e.g. 'src/add.js:12 \"return a + b\"'; a quote is checked only against" \
@@ -817,7 +817,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_quote_short" ]; then
-    kit_refuse 2 qa-verdict-quote-too-short \
+    kit_refuse 1 qa-verdict-quote-too-short \
       "Error: ${issue_id}'s QA Verdict table has quote(s) shorter than ${KIT_QAV_MIN_QUOTE} characters: ${_qav_quote_short}" \
       "       A quote is at least ${KIT_QAV_MIN_QUOTE} characters once whitespace is normalised: a shorter fragment" \
       "       is on almost any line, so finding it there shows nothing about the claim; a quote that is the" \
@@ -827,7 +827,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_quote_not_found" ]; then
-    kit_refuse 2 qa-verdict-quote-not-found \
+    kit_refuse 1 qa-verdict-quote-not-found \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose quote is not on the cited line: ${_qav_quote_not_found}" \
       "       The quote (surrounding whitespace normalised) must be a substring of the lines of the" \
       "       path:line/path:a-b it follows, at the revision being landed. (.claude/roles/qa.md step 4.)" \
@@ -836,7 +836,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_cell_bad" ]; then
-    kit_refuse 2 qa-verdict-cell-refused \
+    kit_refuse 1 qa-verdict-cell-refused \
       "Error: ${issue_id}'s QA Verdict table has row(s) a cell check refused: ${_qav_cell_bad}" \
       "       A cell check is the trunk's own code (scripts/qa-cell.d/<evidence kind>/), run against the" \
       "       revision being landed; what it printed is quoted above. (.claude/roles/qa.md step 4.)" \
@@ -845,7 +845,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_cell_broken" ]; then
-    kit_refuse 2 qa-verdict-cell-check-broken \
+    kit_refuse 1 qa-verdict-cell-check-broken \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose cell check did not run to an answer: ${_qav_cell_broken}" \
       "       A cell check exits 0 to pass or 3 to refuse; any other status is a check that could not look," \
       "       and a gate that cannot answer does not pass the row." \
@@ -858,7 +858,7 @@ kit_qa_verdict_check() {
     for _qav_k in $_qav_kinds; do
       case "$_qav_k" in test|file:line) ;; *) _qav_unquoted="${_qav_unquoted}${_qav_unquoted:+|}${_qav_k}" ;; esac
     done
-    kit_refuse 2 qa-verdict-no-observed \
+    kit_refuse 1 qa-verdict-no-observed \
       "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted}." \
       "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
       "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"', or use a kind whose qa-cell check passes." \
@@ -868,7 +868,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_token_bad" ]; then
-    kit_refuse 2 qa-verdict-token-invalid \
+    kit_refuse 1 qa-verdict-token-invalid \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose verdict is not one of the four tokens: ${_qav_token_bad}" \
       "       A row's verdict is exactly one of ${KIT_QAV_VERDICTS// / | }," \
       "       spelled so (case-sensitive) and nothing else. (.claude/roles/qa.md step 6.)" \
@@ -877,7 +877,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_fail_rows" ]; then
-    kit_refuse 2 qa-verdict-fail \
+    kit_refuse 1 qa-verdict-fail \
       "Error: ${issue_id}'s QA Verdict table has FAIL row(s) on a PASS landing: ${_qav_fail_rows}" \
       "       A row whose own verdict is FAIL_AC or FAIL_REGRESSION cannot ship under an overall PASS." \
       "       (.claude/roles/qa.md step 4, step 6.)" \
@@ -888,7 +888,7 @@ kit_qa_verdict_check() {
   local _qav_table_ids_sorted _qav_missing _qav_extra _qav_dups
   _qav_dups="$(printf '%s\n' "$_qav_table_ids" | grep -E '.' | sort | uniq -d | tr '\n' ' ' || true)"
   if [ -n "$_qav_dups" ]; then
-    kit_refuse 2 qa-verdict-ac-duplicate \
+    kit_refuse 1 qa-verdict-ac-duplicate \
       "Error: ${issue_id}'s QA Verdict table has more than one row for the same AC id: ${_qav_dups% }" \
       "       The table has exactly one row per AC id. An AC with several pieces of evidence is ONE row" \
       "       whose pointer cell lists them all, each pointer followed by its own quote. (.claude/roles/qa.md step 4.)" \
@@ -899,7 +899,7 @@ kit_qa_verdict_check() {
   if [ "$_qav_table_ids_sorted" != "$_qav_ac_ids" ]; then
     _qav_missing="$(comm -23 <(printf '%s\n' "$_qav_ac_ids") <(printf '%s\n' "$_qav_table_ids_sorted") | tr '\n' ' ')"
     _qav_extra="$(comm -13 <(printf '%s\n' "$_qav_ac_ids") <(printf '%s\n' "$_qav_table_ids_sorted") | tr '\n' ' ')"
-    kit_refuse 2 qa-verdict-ac-mismatch \
+    kit_refuse 1 qa-verdict-ac-mismatch \
       "Error: ${issue_id}'s QA Verdict table's AC ids do not match its AC checklist one for one." \
       "       Missing from the table: ${_qav_missing:-none}. Extra in the table: ${_qav_extra:-none}." \
       "       (.claude/roles/qa.md step 4.)" \
@@ -908,7 +908,7 @@ kit_qa_verdict_check() {
   fi
 
   if [ -z "$_qav_shadow_seen" ] || [ -n "$_qav_shadow_bad" ]; then
-    kit_refuse 2 qa-verdict-shadow-missing \
+    kit_refuse 1 qa-verdict-shadow-missing \
       "Error: ${issue_id}'s QA Verdict table has no filled 'shadow-check' row." \
       "       State 'assertions removed: none', or each removed/weakened assertion with its replacement." \
       "       (.claude/roles/qa.md step 4.)" \
@@ -1067,14 +1067,14 @@ kit_ac_drift_check() {
   # graded, and a card with no AC has nothing to grade — whether or not the card ever sat in todo/.
   stray="$(_qav_ac_stray_bullets "$new_body")"
   if [ -n "$stray" ]; then
-    kit_refuse 2 forks-ac-ungraded \
+    kit_refuse 1 forks-ac-ungraded \
       "Error: ${issue_id}'s '## Acceptance Criteria' holds lines the QA gate cannot grade one for one, so no verdict row would ever cover them:" \
       "$(printf '%s\n' "$stray" | sed 's/^/         /')" \
       "       An AC is a line that starts '- [ ] <id> — ' (or '1. [ ] <id> — '): an id of letters and digits that is not followed by '-' and a letter or digit, then a dash, em-dash or colon. One id, one line." \
       "Next: rewrite each line above as '- [ ] AC<n> — <text>', one distinct id per line (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
   fi
   if [ -z "$(_qav_ac_ids "$new_body")" ]; then
-    kit_refuse 2 forks-ac-none \
+    kit_refuse 1 forks-ac-none \
       "Error: ${issue_id} has no acceptance criterion: no '- [ ] <id> — <text>' line before its QA Verdict, so there is nothing for QA to grade." \
       "       (the card template's '## Acceptance Criteria' section.)" \
       "Next: add the card's acceptance criteria to '## Acceptance Criteria' as '- [ ] AC1 — <text>' lines, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
@@ -1120,14 +1120,14 @@ kit_ac_drift_check() {
   rm -f "$scratch" "$old_card"
 
   if [ -n "$removed" ]; then
-    kit_refuse 2 forks-ac-changed-uncited \
+    kit_refuse 1 forks-ac-changed-uncited \
       "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}): ${removed} was on the card then and is not now, and no '[decision: D-NN]' citation covers the removal." \
       "       Dropping or renaming an AC is a ruling as much as rewording one — the criterion is frozen once the card leaves 'todo/'." \
       "       (process/MANUAL.md § Execution discipline item 6.)" \
       "Next: cite the ruling that removed ${removed} in either form: a line in the card's '## Activity' that names it and carries '[decision: D-NN]', or keep the bullet on the card struck through — '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC. Then commit the card to the trunk with ./scripts/register-commit.sh and re-run the command that refused. NOTHING WAS CHANGED."
   fi
   if [ -n "$drift" ]; then
-    kit_refuse 2 forks-ac-changed-uncited \
+    kit_refuse 1 forks-ac-changed-uncited \
       "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${drift}" \
       "       A ruling written straight into an AC is still a fork — cite the id that decided it on the bullet that changed; a citation elsewhere on the card does not cover it." \
       "       (process/MANUAL.md § Execution discipline item 6.)" \
@@ -1230,7 +1230,7 @@ kit_forks_check() {
 
   _forks_line="$(kit_card_field "$src" forks)"
   if [ -z "$_forks_line" ]; then
-    kit_refuse 2 forks-missing \
+    kit_refuse 1 forks-missing \
       "Error: ${issue_id} has no 'forks:' field." \
       "       State the fork ids this card resolved ('forks: [D-NN, ...]') or 'forks: none' if it resolved none." \
       "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
@@ -1245,7 +1245,7 @@ kit_forks_check() {
       _forks_n_tokens="$(printf '%s' "$_forks_inner" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -c . || true)"
       _forks_n_ids="$(printf '%s\n' "$_forks_ids" | grep -c . || true)"
       if [ -z "$_forks_inner" ] || [ "${_forks_n_tokens:-0}" -eq 0 ] || [ "${_forks_n_tokens:-0}" -ne "${_forks_n_ids:-0}" ] 2>/dev/null; then
-        kit_refuse 2 forks-malformed \
+        kit_refuse 1 forks-malformed \
           "Error: ${issue_id}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
           "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
           "Next: rewrite the field as 'forks: none' or 'forks: [D-NN, ...]' and commit the card, then re-run the command that refused." \
@@ -1253,7 +1253,7 @@ kit_forks_check() {
       fi
       ;;
     *)
-      kit_refuse 2 forks-malformed \
+      kit_refuse 1 forks-malformed \
         "Error: ${issue_id}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
         "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
         "Next: rewrite the field as 'forks: none' or 'forks: [D-NN, ...]' and commit the card, then re-run the command that refused." \
@@ -1391,7 +1391,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     if [ -n "$_forks_bad" ]; then
       _forks_prd="$(kit_prd_surface "$(dirname "$check_board")/config.sh" || true)"
       _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
-      kit_refuse 2 forks-unresolved \
+      kit_refuse 1 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
         "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
         "Next: fix the id on the card (the check reads the register on the branch and on the trunk, so a ruling that landed on the trunk after the branch was cut needs no merge of the trunk), or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
@@ -1405,7 +1405,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     grep -qx -- "$_fid" <<< "$_forks_ids" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
   done <<< "$(printf '%s\n' "$_forks_derived")"
   if [ -n "$_forks_missing_ids" ]; then
-    kit_refuse 2 forks-contradicted \
+    kit_refuse 1 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
       "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/' or, in the Activity or Out of Scope, one of a ruling the register held then and has not changed since, or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
       "       'forks: ${_forks_line}' does not account for them." \
@@ -1424,7 +1424,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     _forks_unattr_first="${_forks_unattr_first:-$_fwi}"; _forks_unattr_reg="${_forks_unattr_reg:-$_fwp}"
   done <<< "$_forks_win_unattr"
   if [ -n "$_forks_unattr_msg" ]; then
-    kit_refuse 2 forks-attribution-unclear \
+    kit_refuse 1 forks-attribution-unclear \
       "Error: ${issue_id}: a register entry added on the trunk since this card left 'todo/' is attributed to no work item — its Provenance names no card on the trunk and does not say 'no work item', and neither does the subject of the commit that added it: ${_forks_unattr_msg}" \
       "       'forks: ${_forks_line}' cannot say whether this card resolved it." \
       "Next: pick the exit that is true. (1) ${issue_id} resolved it: add the id to 'forks:' on the card and commit it. (2) Another card did: name that card's id in the entry's Provenance paragraph. (3) No card owns it (a recorded answer, an ask.sh edit): end its Provenance paragraph with 'no work item'. For (2) and (3), edit ${_forks_unattr_reg} in a checkout at the trunk tip and run ./scripts/register-commit.sh --role <role> --message \"attribute ${_forks_unattr_first}\" ${_forks_unattr_reg} from that checkout (it refuses a stale one). Then re-run the command that refused." \
@@ -1481,7 +1481,7 @@ kit_ablation_check() {
 
     if [ -n "$_abl_touches_test" ]; then
       if ! grep -qE '^## Ablation[[:space:]]*$' "$src"; then
-        kit_refuse 2 ablation-missing \
+        kit_refuse 1 ablation-missing \
           "Error: ${issue_id}'s branch ('${new_rev}') touches a declared test path but has no '## Ablation' section." \
           "       Touched test path(s): $(printf '%s' "$_abl_touches_test" | tr '\n' ' ')" \
           "       State what was broken and the red line it produced." \
@@ -1495,7 +1495,7 @@ kit_ablation_check() {
       case "$_abl_broken" in ''|'<placeholder>') _abl_bad=1 ;; *) _abl_bad="" ;; esac
       case "$_abl_red" in ''|'<placeholder>') _abl_bad="${_abl_bad}1" ;; esac
       if [ -n "$_abl_bad" ]; then
-        kit_refuse 2 ablation-malformed \
+        kit_refuse 1 ablation-malformed \
           "Error: ${issue_id}'s '## Ablation' section is not well formed." \
           "       It needs a non-empty 'Broken: <what>' line and a non-empty 'Red line: <the output>' line." \
           "       (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.)" \
@@ -1726,7 +1726,7 @@ kit_board_property_check() {
   _bpc_cleanup
 
   if [ -n "$first_rule" ]; then
-    kit_refuse 2 "$first_rule" \
+    kit_refuse 1 "$first_rule" \
       "Error: landing '${new_rev}' onto ${old_rev} introduces a board-property finding that ${old_rev} does not have." \
       "${msg[@]}" \
       "       check-board.sh reports the same property; only a finding this landing introduces is refused," \

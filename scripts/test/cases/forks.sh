@@ -1640,11 +1640,11 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   local three out
   three="$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.')"
   out="$(_ac808_run "$three" "$(printf -- '- [ ] the login form must work\n- [ ] it is fast')" - yes)"
-  _ac808_want a "$out" 2 'Acceptance Criteria' 'the login form must work' 'it is fast' 'Next:'
+  _ac808_want a "$out" 1 'Acceptance Criteria' 'the login form must work' 'it is fast' 'Next:'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n  - [ ] AC3 — three.\n- [ ] AC4.1 — four.\n- [ ] an unnamed bullet')" - yes)"
-  _ac808_want b "$out" 2 'Next:' 'AC2 — two' 'AC3 — three' 'AC4.1' 'an unnamed bullet'
+  _ac808_want b "$out" 1 'Next:' 'AC2 — two' 'AC3 — three' 'AC4.1' 'an unnamed bullet'
   out="$(_ac808_run "$three" "$(printf 'no criteria here.')" - no)"
-  _ac808_want c "$out" 2 'Next:'
+  _ac808_want c "$out" 1 'Next:'
   case "$out" in *"did not run"*) cf "(c) a card with no AC read as 'did not run'" ;; esac
   out="$(_ac808_run "$three" "$three" - yes)"
   _ac808_want d "$out" 0
@@ -1652,19 +1652,19 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   out="$(_ac808_run "$three" "$three" - no)"
   _ac808_want d2 "$out" 0 'did not run'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
-  _ac808_want e "$out" 2 'AC text' 'AC3' 'Next:'
+  _ac808_want e "$out" 1 'AC text' 'AC3' 'Next:'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC9 — two.\n- [ ] AC3 — three.')" - yes)"
-  _ac808_want f "$out" 2 'AC text' 'AC2'
+  _ac808_want f "$out" 1 'AC text' 'AC2'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped AC3 [decision: D-01]' yes)"
   _ac808_want g "$out" 0
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] ~~AC3 — three.~~ [decision: D-01]')" - yes)"
   _ac808_want h "$out" 0
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] ~~AC3 — three.~~')" - yes)"
-  _ac808_want i "$out" 2 'AC text' 'AC3'
+  _ac808_want i "$out" 1 'AC text' 'AC3'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped something else [decision: D-01]' yes)"
-  _ac808_want j "$out" 2 'AC3'
+  _ac808_want j "$out" 1 'AC3'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two, reworded.\n- [ ] AC3 — three.')" - yes)"
-  _ac808_want k "$out" 2 'AC text' 'AC2'
+  _ac808_want k "$out" 1 'AC text' 'AC2'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two, reworded. [decision: D-01]\n- [ ] AC3 — three.')" - yes)"
   _ac808_want k2 "$out" 0
   out="$(_ac808_run 'a todo copy with prose only.' "$three" - yes)"
@@ -1673,45 +1673,45 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   # A citation written BEFORE the removal, on an Activity line that names the AC, is not the removal's citation.
   _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
-  _ac808_want n1 "$out" 2 'AC text' 'AC3'
+  _ac808_want n1 "$out" 1 'AC text' 'AC3'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" "$(printf -- '- scoped AC3 per [decision: D-02]\n- dropped AC3 [decision: D-03]')" yes)"
   _ac808_want n2 "$out" 0
   unset _AC808_OLDACT
   # The subtask card's heading, a lower-case heading and a CRLF card are read like the template's.
   _AC808_HEAD='Acceptance Criteria (sliced from the parent)'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
-  _ac808_want o1 "$out" 2 'AC2 — two'
+  _ac808_want o1 "$out" 1 'AC2 — two'
   _AC808_HEAD='Acceptance criteria'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
-  _ac808_want o2 "$out" 2 'AC2 — two'
+  _ac808_want o2 "$out" 1 'AC2 — two'
   unset _AC808_HEAD
   _AC808_CRLF=1
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n* [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
-  _ac808_want o3 "$out" 2 'AC2 — two'
+  _ac808_want o3 "$out" 1 'AC2 — two'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- dropped AC3 [decision: D-01]' yes)"
   _ac808_want o4 "$out" 0
   _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
-  _ac808_want o5 "$out" 2 'AC text' 'AC3'
+  _ac808_want o5 "$out" 1 'AC text' 'AC3'
   unset _AC808_OLDACT
   unset _AC808_CRLF
   # A hyphenated id and an id on two lines are refused, each named.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC-1 — one.\n- [ ] AC-2 — two.')" - yes)"
-  _ac808_want p1 "$out" 2 'AC-1 — one' 'AC-2 — two' 'Next:'
+  _ac808_want p1 "$out" 1 'AC-1 — one' 'AC-2 — two' 'Next:'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC2 — two again.')" - yes)"
-  _ac808_want p2 "$out" 2 'AC2 (on more than one line)' 'Next:'
+  _ac808_want p2 "$out" 1 'AC2 (on more than one line)' 'Next:'
   # A numbered or quoted checklist line with an id is graded (and so cannot be dropped silently); without an id it is refused.
   out="$(_ac808_run "$three" "$(printf -- '1. [ ] AC1 — one.\n> - [ ] AC2 — two.\n- [ ] AC3 — three.')" - yes)"
   _ac808_want q1 "$out" 0
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n1. [ ] a numbered line of no id')" - yes)"
-  _ac808_want q2 "$out" 2 'a numbered line of no id'
+  _ac808_want q2 "$out" 1 'a numbered line of no id'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n> - [ ] a quoted line of no id')" - yes)"
-  _ac808_want q3 "$out" 2 'a quoted line of no id'
+  _ac808_want q3 "$out" 1 'a quoted line of no id'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n1. [ ] AC2 — two.')" - yes)"
-  _ac808_want q4 "$out" 2 'AC3'
+  _ac808_want q4 "$out" 1 'AC3'
   # Only a bullet struck through completely is a recorded removal.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n- [ ] ~~old~~ the login form must work')" - yes)"
-  _ac808_want r "$out" 2 'the login form must work'
+  _ac808_want r "$out" 1 'the login form must work'
   # An example inside an HTML comment or an indented fence is not a checklist line of the card.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n<!--\n- [ ] an example shape\n-->\n  ```\n  - [ ] another example\n  ```')" - yes)"
   _ac808_want s "$out" 0
@@ -1729,25 +1729,25 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   [ -z "$out" ] || cf "(t3) an Activity heading in lower case with a suffix and a carriage return was not read as the Activity: [$out]"
   # A comment trailing a checklist line, one inside the line, and one over several lines leave the line itself to be read.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n* [ ] the login must work <!-- note -->')" - yes)"
-  _ac808_want u1 "$out" 2 'the login must work'
+  _ac808_want u1 "$out" 1 'the login must work'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\nSee notes <!-- start\n* [ ] the login must work\n--> * [ ] it is fast')" - yes)"
-  _ac808_want u2 "$out" 2 'it is fast'
+  _ac808_want u2 "$out" 1 'it is fast'
   case "$out" in *'the login must work'*) cf "(u2) a line inside a multi-line comment was read" ;; esac
   # A bullet is exempt only when one strike spans it: a second struck span after live text is not.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n- [ ] ~~x~~ the login must work ~~y~~')" - yes)"
-  _ac808_want v "$out" 2 'the login must work'
+  _ac808_want v "$out" 1 'the login must work'
   # A todo copy whose ids were hyphenated still has them frozen.
   out="$(_ac808_run "$(printf -- '- [ ] AC-1 — one.\n- [ ] AC-2 — two.')" "$(printf -- '- [ ] AC1 — something else entirely.')" - yes)"
-  _ac808_want w1 "$out" 2 'AC text' 'AC-1'
+  _ac808_want w1 "$out" 1 'AC text' 'AC-1'
   out="$(_ac808_run "$(printf -- '- [ ] AC-1 — one.\n- [ ] AC-2 — two.')" "$(printf -- '- [ ] AC1 — one.')" '- AC-1 became AC1, AC-2 dropped [decision: D-01]' yes)"
   _ac808_want w2 "$out" 0
   # Whitespace alone does not make an old Activity line new.
   _AC808_OLDACT='- scoped AC3 per [decision: D-02]  '
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '- scoped AC3 per [decision: D-02]' yes)"
-  _ac808_want x "$out" 2 'AC3'
+  _ac808_want x "$out" 1 'AC3'
   _AC808_OLDACT='- scoped AC3 per [decision: D-02]'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" '-   scoped AC3 per [decision: D-02]   ' yes)"
-  _ac808_want x2 "$out" 2 'AC3'
+  _ac808_want x2 "$out" 1 'AC3'
   unset _AC808_OLDACT
   # A heading that only begins with the section name is another section.
   _AC808_HEAD='Acceptance Criteria notes'
@@ -1773,10 +1773,10 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   # A comment on the old Activity line does not make the line new.
   _AC808_OLDACT='- scoped AC3 per [decision: D-02] <!-- note -->'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
-  _ac808_want z3 "$out" 2 'AC3'
+  _ac808_want z3 "$out" 1 'AC3'
   _AC808_OLDACT=$'- scoped AC3 per [decision: D-02] <!-- a\n   still a comment -->'
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" - yes)"
-  _ac808_want z4 "$out" 2 'AC3'
+  _ac808_want z4 "$out" 1 'AC3'
   unset _AC808_OLDACT
   # The forks: derivation's heading takes any run of blanks after '##'.
   printf '# c\n\n## Acceptance Criteria\n\n- [ ] AC1 — one.\n\n##  Activity\n\n- applies [decision: D-01]\n\n##\tOut of Scope\n\n- applies [decision: D-01]\n' > "$SB_TMP/ac808/blanks.md"
@@ -1784,7 +1784,7 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
     _ "$REAL_SCRIPTS" "$SB_TMP/ac808/blanks.md" "$SB_TMP/ac808/r" "$(git -C "$SB_TMP/ac808/r" rev-parse HEAD)" "D-01" 2>&1 </dev/null)"
   [ -z "$out" ] || cf "(z5) an Activity and an Out of Scope heading with several blanks after the hashes were not read as the sections: [$out]"
   out="$(_ac808_run "$three" "$(printf -- '- [ ] only a bullet of no id')" - yes)"
-  case "$out" in "rc=2"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  case "$out" in "rc=1"*"Next:"*) : ;; *) cf "(l) a card with no id bullet did not print a refusal naming a Next: and exit 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   finish "kit_ac_drift_check refuses, with a Next: line, a card with no AC or a checklist line the QA gate's reader would drop (each named), refuses an AC removed or renamed after todo/ unless the removal is cited in the Activity on a line naming it or on a struck bullet, and still passes an unchanged card"
   teardown
 }

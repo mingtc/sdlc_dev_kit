@@ -142,7 +142,7 @@ fi
 if command -v kit_role_set >/dev/null 2>&1; then
   _set="$(kit_role_set "$ROOT" 2>/dev/null || true)"
   if [ -n "$_set" ] && command -v kit_role_member >/dev/null 2>&1 && ! kit_role_member "$_set" "$ROLE"; then
-    kit_refuse 2 ask-role-not-declared \
+    kit_refuse 1 ask-role-not-declared \
       "Error: --role $ROLE is not one of this project's declared roles ($_set)." \
       "Next: re-run with --role set to one of the declared roles above. The set is the project's declaration (process/EXTRACTION.md § 2.4 locates it) and the owner's to change: if no declared role fits, stop and hand off."
   fi

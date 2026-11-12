@@ -1694,7 +1694,7 @@ ARCHIVE.md:1"
   git -C "$SB_WORK" add probe.txt >/dev/null 2>&1; sbcommit -qm "[Dev] $QC_ID: bad content" >/dev/null 2>&1
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   _qc_gate "$card" branch-bad "$SB_TRUNK"
-  [ "$_qc_rc" -eq 2 ] || cf "(c) a revision whose evidence fails the check was not refused with status 2 (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  [ "$_qc_rc" -eq 1 ] || cf "(c) a revision whose evidence fails the check was not refused with status 1 (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   _qc_refused_for qa-verdict-cell-refused || cf "(c) no refusal=qa-verdict-cell-refused record: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   [[ "$_qc_out" == *"PROBE-CELL probe.txt holds BAD at $(git -C "$SB_WORK" rev-parse --short=7 branch-bad)"* ]] || cf "(c) the check did not read the landed revision (its message names another commit, or none): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
   [[ "$_qc_out" == *"AC2"* ]] || cf "(c) the refusal does not name the row AC2"
@@ -1715,20 +1715,20 @@ exit 0
   _qc_unland "$dir/10-probe.sh"
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   _qc_gate "$card" branch-weakens "$SB_TRUNK"
-  [ "$_qc_rc" -eq 2 ] || cf "(d2) a branch that weakened the trunk's check judged itself (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  [ "$_qc_rc" -eq 1 ] || cf "(d2) a branch that weakened the trunk's check judged itself (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
   _qc_gate "$card" branch-removes "$SB_TRUNK"
-  [ "$_qc_rc" -eq 2 ] || cf "(d2) a branch that deleted the trunk's check escaped it (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  [ "$_qc_rc" -eq 1 ] || cf "(d2) a branch that deleted the trunk's check escaped it (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
 
   # (e) ONLY A PASS ROW OF THE CHECK'S OWN KIND IS CHECKED: a FAIL_AC row is not (the gate's own
   #     FAIL refusal speaks), a placeholder pointer is not (the gate's evidence refusal speaks), and a
   #     check under another kind's folder is never called for this row.
   perl -pi -e 's/\| AC2 \| PASS \| observation \|/| AC2 | FAIL_AC | observation |/' "$card"
   _qc_gate "$card" branch-bad "$SB_TRUNK"
-  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-fail; } || cf "(e) a FAIL_AC row was judged by the cell check, or not refused as a FAIL (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-fail; } || cf "(e) a FAIL_AC row was judged by the cell check, or not refused as a FAIL (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
   perl -pi -e 's/\| AC2 \| FAIL_AC \| observation \| ARCHIVE.md:1 \|/| AC2 | PASS | observation | tbd |/' "$card"
   rm -f "${args:?}"
   _qc_gate "$card" branch-bad "$SB_TRUNK"
-  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-evidence-missing && [ ! -e "$args" ]; } || cf "(e) a placeholder pointer reached the cell check, or was not refused as missing evidence (exit $_qc_rc, check ran: $([ -e "$args" ] && echo yes || echo no))"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-evidence-missing && [ ! -e "$args" ]; } || cf "(e) a placeholder pointer reached the cell check, or was not refused as missing evidence (exit $_qc_rc, check ran: $([ -e "$args" ] && echo yes || echo no))"
   perl -pi -e 's/\| AC2 \| PASS \| observation \| tbd \|/| AC2 | PASS | observation | ARCHIVE.md:1 |/' "$card"
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   _qc_unland "$dir/10-probe.sh"
@@ -1744,7 +1744,7 @@ echo 'PROBE-BROKEN could not look'
 exit 1
 "
   _qc_gate "$card"
-  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(f) a broken check did not refuse as qa-verdict-cell-check-broken (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(f) a broken check did not refuse as qa-verdict-cell-check-broken (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   printf '%s\n' "$_qc_out" | grep '^Next:' >/dev/null || cf "(f) the broken-check refusal has no Next: line"
 
   # (g) REMOVAL lifts it.
@@ -1964,7 +1964,7 @@ case_a_pass_row_whose_cell_check_passed_counts_as_the_observed_row() {
   perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
   grep -qF '| AC1 | PASS | observation | ARCHIVE.md:1 |' "$card" || _fixture_die "${FUNCNAME[0]}: the AC1 row was not rewritten"
   _qc_gate "$card"
-  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(a) a table of one row of an added kind with no cell check for it is not refused as qa-verdict-no-observed (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(a) a table of one row of an added kind with no cell check for it is not refused as qa-verdict-no-observed (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
 exit 0
 "
@@ -1978,7 +1978,7 @@ exit 0
 echo 'PROBE-CELL no'; echo 'Next: fix it'; exit 3
 "
   _qc_gate "$card"
-  { [ "$_qc_rc" -eq 2 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(d) a refusing cell check lets the row count (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(d) a refusing cell check lets the row count (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
   teardown
 }

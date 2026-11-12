@@ -312,7 +312,7 @@ case "$CMD" in
     # THE PARENT IS AN ISSUE, NEVER A SUBTASK: the move arm recovers a parent with ${ID%-s*}.
     case "${PARENT##*-s}" in
       "$PARENT"|''|*[!0-9]*) ;;
-      *) kit_refuse 2 parent-is-subtask \
+      *) kit_refuse 1 parent-is-subtask \
            "Error: '$PARENT' is a subtask id — decompose its parent instead. NOTHING WAS CHANGED." \
            "Next: re-run naming the issue as the parent: ./scripts/subtask.sh new ${PARENT%-s*} <suffix> <slug> --title \"…\"." ;;
     esac
