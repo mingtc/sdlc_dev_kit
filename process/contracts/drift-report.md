@@ -329,8 +329,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
 7. **No answer is not a pass.** A check that selected nothing, could not read its input, or whose library is
    absent or half loaded says *did not run*, with a `⚠` line, and does not let the verdict read `clean`, `PASS`
    or `✓`. **Where that holds today, and no further:** the board-property arms ([d] [i] [l] [p] [q] [r]) and the
-   landing's check of the same properties (a function the arms call that is not defined, or a reader that
-   exited non-zero, marks the arm not run; the landing refuses `board-property-unreadable`, naming the
+   landing's check of the same properties (a function the arms call that is not defined, or a reader or a
+   card read that exited non-zero, marks the arm not run; the landing refuses `board-property-unreadable`, naming the
    reader's own last words and which side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
    or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an

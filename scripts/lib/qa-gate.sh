@@ -1527,7 +1527,7 @@ kit_ablation_check() {
 # `set -e` off (the arms are written for a caller without it), its findings appended to <hits-file>.
 # The arm reads byte-wise (LC_ALL=C), and it ANSWERED only if it ran to its end — the subshell writes
 # <hits-file>.done after the function returns — and none of its awk calls failed (<hits-file>.fail,
-# written by lib/board-properties.sh's _bp_awk). An arm that did not answer is added to _BPC_DEAD:
+# written by lib/board-properties.sh's _bp_awk and, for a card read, by lib/card-field.sh). An arm that did not answer is added to _BPC_DEAD:
 # "found nothing" and "could not read" are not the same state, and only the first may pass.
 _BPC_DEAD=""
 _BPC_DEAD_WHY=""
@@ -1535,7 +1535,7 @@ _bpc_run_arm() {
   local out="$1" only="$2"
   shift 2
   : > "$out"; rm -f "$out.done" "$out.fail" "$out.err"
-  ( set +e; export LC_ALL=C; KIT_BP_HITS_FILE="$out"; KIT_BP_FAIL_FILE="$out.fail"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>"$out.err"; : > "$out.done" ) || true
+  ( set +e; export LC_ALL=C; KIT_BP_HITS_FILE="$out"; KIT_BP_FAIL_FILE="$out.fail"; KIT_CARD_FAIL_FILE="$out.fail"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>"$out.err"; : > "$out.done" ) || true
   if [ ! -f "$out.done" ] || [ -s "$out.fail" ]; then
     _BPC_DEAD="${_BPC_DEAD}${_BPC_DEAD:+ }${out##*/}"
     # the reader's own last words, which name the file, are kept: the scratch directory is gone by the refusal
