@@ -4795,7 +4795,7 @@ case_the_audit_reads_a_targets_size_as_the_browser_does_a_pair_in_its_own_namesp
 </x-dc>
 EOF
   _dm_py "$m/contrast-audit.py" "$d"
-  _dm_has "$_dm_out" "LOW light: color-on-surface #eeeeee on color-surface" || cf "(a) a failing pair in one namespace is hidden by another namespace's value: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "LOW light [a]: color-on-surface #eeeeee on color-surface" || cf "(a) a failing pair in one namespace is hidden by another namespace's value: $(_dm_brief 400)"
   _dm_has "$_dm_out" "ok-min" && cf "(b) height 40px with min-height 48px reads SMALL: $(_dm_brief 400)"
   _dm_has "$_dm_out" "ok-pad" && cf "(c) height 24px with padding 12px 0 on a content-box link reads SMALL: $(_dm_brief 400)"
   _dm_has "$_dm_out" "small-pad" || cf "(c) (control) a button, border-box by default, with height 24px is not SMALL: $(_dm_brief 400)"
