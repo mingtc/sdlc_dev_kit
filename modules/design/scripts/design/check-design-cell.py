@@ -23,7 +23,8 @@ and is refused (exit 1, the reasons printed) unless, for every entry:
     (the row's canvas, renders/<Screen>-state.png): a row with no image is not a PASS.
 --rows: for every AC of the card tagged (UI) or citing [design: UX-NNN#state], the verdict table has a row of evidence kind `design`
 whose one pointer cell (the fourth) holds one `UX-NNN#state@<pin>` entry per state the AC cites (any entry when it cites none), a further cell being read by nothing; and every `design:` entry
-of the card has such an entry in some design row, whatever its ACs say (a card pinned to a screen cannot land without the proof).
+of the card has such an entry in some design row, whatever its ACs say (a card pinned to a screen cannot land without the proof), and
+every pin is a commit TRUNK holds: the pin image is the render the pin commit holds, and a commit only a local branch has is no proof a landing can reproduce.
 Exit 0 and a `design-cell: ok` or `design-rows: ok` line when the answer is yes; 1 when the record is wrong; 2 when it cannot answer
 (the card is not at TRUNK, a bad revision). A caller reads no line as no answer: a check that cannot run is a refusal, never a pass.
 Python 3 standard library only; reads git, writes nothing.
@@ -173,7 +174,23 @@ def judge_cell(repo, trunk, card_id, ac, cell, text):
     return why
 
 
-def judge_rows(text):
+def pin_reach(repo, trunk, text):
+    """[reason] for each pinned state of the card whose pin is on no commit the trunk holds: a commit only a local branch has, or one this
+    clone cannot see. The design cell's pin image is read from the pin commit, so QA and the landing need the trunk to hold it."""
+    out = []
+    for ux, state, pin in cdl.design_value(text)['items']:
+        if not (state and pin):
+            continue
+        full = commit_of(repo, pin)
+        tag = f'{ux}#{state}@{pin[:7]}'
+        if not full:
+            out.append(f'{tag}: the pin is on no commit the trunk holds ({trunk[:7]}): it is not a commit of this repository (a shallow clone cannot see an older one: `git fetch --unshallow`)')
+        elif git(repo, 'merge-base', '--is-ancestor', full, trunk)[0] != 0:
+            out.append(f'{tag}: the pin is on no commit the trunk holds ({trunk[:7]}): only a branch or a local checkout has it')
+    return out
+
+
+def judge_rows(text, repo=None, trunk=None):
     why = []
     acs, _ = cdl.card_facts(text)
     rows = verdict_rows(text)
@@ -197,6 +214,8 @@ def judge_rows(text):
         if state and not any(r[2].strip('`* ').lower() == 'design' and (ux, state) in {(m.group(1), m.group(2)) for m in ANCHOR.finditer(r[3])}
                              for r in rows if len(r) > 3):
             why.append(f'the card pins {ux}#{state}, and no design row of the verdict table holds an entry for it')
+    if repo and trunk:
+        why += pin_reach(repo, trunk, text)
     return why
 
 
@@ -218,7 +237,7 @@ def main(argv):
         print(f'the card {card_id} is not under progress/ at {trunk[:7]}, so its design record cannot be read.')
         return 2
     if rows_mode:
-        why = judge_rows(text)
+        why = judge_rows(text, repo, trunk)
         head = f'{card_id}: the design rows are refused:'
     else:
         ac, cell = args[3], args[4]
