@@ -529,6 +529,13 @@ K_LINES
   case "$out" in *"LIBRARY-OWN-NEXT-817"*) : ;; *) cf "(m) the library's own Next was dropped: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   case "$out" in *"Fill the card"*|*"move the card back"*) cf "(m) a cell-check-broken refusal told the user to fix the table" ;; esac
   git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+  # (n) a cell check's own step, which the library puts on its Next: line prefixed with the AC id, reaches the refusal.
+  printf 'kit_qa_verdict_check() { kit_refuse 1 qa-verdict-cell-refused "Error: a cell check refused" "Next: AC1: CELL-STEP-817 move the note under dev/; then commit the card" "       NOTHING WAS CHANGED."; }\n' > "$W/scripts/lib/qa-gate.sh"
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(n) a cell-check refusal let the move commit"
+  case "$out" in *"AC1: CELL-STEP-817 move the note under dev/"*) : ;; *) cf "(n) the check's own step, with its AC id, did not reach the refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
   cp "$SB_TMP/qa-gate.sh.keep" "$W/scripts/lib/qa-gate.sh"
 
   finish "pre-commit gives a hand-made move into qa_complete/ the QA Verdict table check on the staged card: a failing table is refused with an undo that keeps the edit and the other staged work and a move-issue command that passes its role check; a good table, an edit, another column, a conflicted merge or cherry-pick bringing a tool-made move, and the kanban worktree commit; a hand move during a merge is refused; a library that cannot load is refused as its own rule"
