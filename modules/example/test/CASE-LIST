@@ -1,2 +1,3 @@
 # The cases of the example module (modules/example/test/cases/), one function name per line.
 case_the_example_module_is_read_by_what_it_registers_with_while_enabled_and_by_nothing_after
+case_the_example_modules_release_notes_hold_no_action_required_entry_to_copy_as_one

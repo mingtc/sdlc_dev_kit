@@ -124,3 +124,19 @@ case_the_example_module_is_read_by_what_it_registers_with_while_enabled_and_by_n
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE EXAMPLE MODULE'S RELEASE NOTES ARE A TEMPLATE: THEY OWE NO ADOPTER AN ACTION.
+#   An Action required entry in the template would be read by no project (nobody runs a version below the first),
+#   and a Verify: line there can only exercise the release gate's tree, not the module. The notes show the shape in
+#   prose a reader copies; they hold no heading the upgrade reads.
+# =============================================================================
+case_the_example_modules_release_notes_hold_no_action_required_entry_to_copy_as_one() {
+  cf_reset
+  local L="the example module's release notes hold no Action required heading and no indented Verify: line, so the template feeds nothing to an upgrade checklist or to the release gate"
+  local n="$REAL_REPO_ROOT/modules/example/RELEASE-NOTES.md"
+  if [ ! -f "$n" ]; then skp_lived "$L" "modules/example/RELEASE-NOTES.md is absent from this tree"; return; fi
+  grep -E '^###+ Action required' "$n" >/dev/null && cf "an Action required heading starts a line in the example module's notes"
+  grep -E '^[[:space:]]+Verify:' "$n" >/dev/null && cf "an indented Verify: line starts a line in the example module's notes"
+  finish "$L"
+}

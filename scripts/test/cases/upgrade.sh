@@ -1484,6 +1484,53 @@ case_a_killed_core_upgrade_rerun_keeps_the_stamp_item_whole() {
 }
 
 # =============================================================================
+# CASE — A RECORD OF WHAT ARRIVED COUNTS ONLY WHAT THIS RUN'S KILLED PREDECESSOR LEFT.
+#
+# .kit-upgrade/arrived outlives a killed run so the re-run can count the files that run had placed. It is
+# believed only for the version it was written for, and only for a file still differing from the committed tree:
+# a file the adopter hand-applied and committed after a half-followed undo, or one a run for another target left,
+# is not this run's arrival. Each row plants a record in a tree and compares the "stamp what arrived" line with
+# the line of the same tree run with no record at all.
+# =============================================================================
+_ku_stamp_line() { grep -F 'stamp what arrived' "$1" | sed 's/^- \[.\] //'; }
+case_a_stale_arrived_record_counts_no_file_the_run_did_not_leave() {
+  cf_reset
+  make_sandbox
+  local L="the 'stamp what arrived' line ignores a .kit-upgrade/arrived record written for another target version and a row for a file committed as the new kit ships it, and still counts a row for a file a run for this target left uncommitted"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.3.0
+  local cl_rel="process/UPGRADE-CHECKLIST.md" tag state ver t want got
+  # <tag> <a.txt state in the project> <the version the record names>
+  while read -r tag state ver; do
+    for t in rec ctl; do
+      rm -rf "${SB_TMP:?}/$t"; cp -R "$KU_T" "$SB_TMP/$t"
+      cp "$KU_NEW/a.txt" "$SB_TMP/$t/a.txt"
+      [ "$state" != committed ] || git -C "$SB_TMP/$t" commit -qam "hand-applied a.txt"
+    done
+    mkdir -p "$SB_TMP/rec/.kit-upgrade"
+    printf 'V\t%s\nR\ta.txt\n' "$ver" > "$SB_TMP/rec/.kit-upgrade/arrived"
+    _ku_run "rec-$tag" --into "$SB_TMP/rec"
+    _ku_run "ctl-$tag" --into "$SB_TMP/ctl"
+    if [ "$(_ku_rc "rec-$tag")" != 0 ] || [ "$(_ku_rc "ctl-$tag")" != 0 ]; then
+      cf "($tag) exits: with the record $(_ku_rc "rec-$tag"), without it $(_ku_rc "ctl-$tag"): $(_ku_out "rec-$tag")"; continue
+    fi
+    want="$(_ku_stamp_line "$SB_TMP/ctl/$cl_rel")"; got="$(_ku_stamp_line "$SB_TMP/rec/$cl_rel")"
+    if [ "$tag" = this-target-dirty ]; then
+      [ "$got" != "$want" ] || cf "($tag) the record of a file this target's killed run left changed nothing: '$got'"
+    else
+      [ "$got" = "$want" ] || cf "($tag) the record moved the count: with it '$got', without it '$want'"
+    fi
+  done <<'KU_ROWS_EOF'
+other-version dirty 0.2.0
+committed-current committed 0.3.0
+this-target-dirty dirty 0.3.0
+KU_ROWS_EOF
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE UPGRADE SEAT'S STEPS RUN, LAND AND FINISH IN A TREE THAT DECLARES CODE_GLOBS.
 #
 # process/UPGRADE-SEAT.md stages in a linked worktree on a branch of its own and lands each batch on
