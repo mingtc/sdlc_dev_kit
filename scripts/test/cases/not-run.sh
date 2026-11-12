@@ -538,3 +538,43 @@ NR_ROWS
   finish "check-board.sh arms [a] [c] [j] [m] [n] [t] [u] each say DID NOT RUN, print none of their clean-reading text and leave the verdict not clean when their own reader exits non-zero, while the control reads clean with the real awk"
   teardown
 }
+
+# =============================================================================
+# CASE — A CARD READ THAT FAILED INSIDE THE LANDING'S BOARD-PROPERTY CHECK IS board-property-unreadable.
+# check-board.sh records a failed card read (kit_card_field / kit_card_list, whose awk exited 2) and says
+# DID NOT RUN; the landing must refuse the same way, not read an empty id and pass. One awk shim per
+# reader exits 2 for that reader's own program, and only on a file under the check's scratch tree
+# (board-props.*), so nothing else in the landing fails. (control) no shim: lands. (field) the field
+# reader fails; (list) the list reader fails: each refuses board-property-unreadable.
+# =============================================================================
+_nr_shim_awk_scratch() {  # <dir> <fragment>
+  local real
+  real="$(command -v awk)"
+  mkdir -p "$1"
+  printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*board-props.*) exit 2 ;; esac\nexec %s "$@"\n' "$2" "$real" > "$1/awk"
+  chmod +x "$1/awk"
+}
+case_landing_refuses_a_card_read_that_failed_in_the_board_property_check() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  publish_sandbox
+  local idc="$SB_PREFIX-931" idf="$SB_PREFIX-932" idl="$SB_PREFIX-933" oldp="$PATH"
+  _bpf_begin "$idc" control;  _bpf_end "$idc" control
+  _bpf_begin "$idf" field;    _bpf_end "$idf" field
+  _bpf_begin "$idl" list;     _bpf_end "$idl" list
+
+  _bpf_expect_landed "(control) no shim" "$idc" control "d i l" "p r q"
+
+  _nr_shim_awk_scratch "$SB_TMP/shim-field" 'exit !found'
+  PATH="$SB_TMP/shim-field:$oldp"
+  _bpf_expect_refused "(field) kit_card_field's awk exited 2 inside the check" "$idf" field board-property-unreadable "board-property check could not read"
+  PATH="$oldp"
+
+  _nr_shim_awk_scratch "$SB_TMP/shim-list" 'inlist = 1'
+  PATH="$SB_TMP/shim-list:$oldp"
+  _bpf_expect_refused "(list) kit_card_list's awk exited 2 inside the check" "$idl" list board-property-unreadable "board-property check could not read"
+  PATH="$oldp"
+  finish "a card read that exited 2 inside the landing's board-property check refuses board-property-unreadable, as the report says DID NOT RUN"
+  teardown
+}
