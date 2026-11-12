@@ -13,7 +13,7 @@ filtered, audited and trusted years later without asking anybody.
   *Why:* a convention that varies by author is a convention only its author can query.
   *Which role to name on day one, before any issue exists:* [`role-gate.md`](role-gate.md) § 2a.
 - **The role set is CLOSED and shared.** A subject naming a role outside the declared set is
-  rejected exactly like a subject naming none.
+  rejected exactly like a subject naming none, and so is an empty subject.
   *Why:* an open set decays into free text within a month, and then the filter that made the
   history answerable returns nothing.
 - **Enforcement is mechanical, at the moment of writing, for an entrance named below.** The rule is applied by the version
@@ -22,9 +22,10 @@ filtered, audited and trusted years later without asking anybody.
   attribution convention this process has met eroded silently.
 - **Every path that creates a commit is covered by a layer that names it.** An entrance version
   control runs a message hook on is refused at write time: an ordinary commit, a patch applied
-  with `am`, and any commit made after `cherry-pick -n` or `merge --squash`. Replaying an
-  existing commit (`cherry-pick`, `rebase`) runs no message hook, and plumbing (`commit-tree`)
-  runs none at all; those, `--no-verify`, and a clone with no hooks wired are caught after the
+  with `am`, any commit made after `cherry-pick -n` or `merge --squash`, and a commit replayed by
+  `cherry-pick` or a rebase's pick (which run no `commit-msg`; the hook that runs on a replay
+  applies the same rule). Plumbing (`commit-tree`), `rebase --apply`, which writes by plumbing,
+  `--no-verify` on an ordinary commit, and a clone with no hooks wired are caught after the
   fact by the drift report's role-prefix scan on the trunk.
   *Why:* one unguarded entrance is the whole fence, so each entrance names the layer that covers it.
 - **The rejection explains the rule and shows a correct subject.** A refusal that only says "no"
@@ -98,6 +99,9 @@ judgement about the change's content.
   is the project's law and must be replaced on adoption — the initializer stamps it.
 - `scripts/githooks/applypatch-msg` — KIT-CLASS: KIT. The same rule on the patch-application
   entrance.
+- `scripts/githooks/prepare-commit-msg` — KIT-CLASS: KIT. The same rule on the replay entrance: it
+  runs `commit-msg` for a commit `cherry-pick` or a rebase is making, and the refusal prints that
+  operation's own way out. `MSG_OK=1` is the escape; `--no-verify` does not reach it.
 - `scripts/check-board.sh` — the drift report's role-prefix scan, which is how § 4's zero is
   measured; contracted in [drift-report.md](drift-report.md).
 - The single-definition invariant is why the set is held in **one** enforcing file and *derived*

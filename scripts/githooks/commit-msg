@@ -6,6 +6,8 @@
 #       process/doctrine/commit-hygiene.md § A.1
 #   (3) a WARNING, never a refusal, when the subject's role tag differs from the hat file's first word
 #       (the gate itself still reads existence, not content — process/contracts/role-gate.md § 5)
+# An empty subject is refused under rule (1). `cherry-pick` and a rebase's picks run no commit-msg
+# hook, so prepare-commit-msg (a sibling) delegates to this one for them.
 #
 # Wired via `git config core.hooksPath scripts/githooks`: `kit-init.sh` wires it at adoption and
 # `setup.sh` re-wires it on every fresh clone (contracts/initializer.md § 2). hooksPath lives in
@@ -91,6 +93,31 @@ esac
 cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev/null \
              | grep -vE '^[[:space:]]*#' || true)"
 
+# First non-comment, non-blank line = the subject.
+subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || true)"
+
+# A REPLAYED COMMIT (prepare-commit-msg runs this hook on a cherry-pick or a rebase's pick and sets
+# KIT_REPLAY to the operation) has no `git commit` to retry, so a refusal there prints the way out of
+# that operation. Every line printed on its own is a command that runs as printed.
+_replay_next() {
+  local _s="$subject" _q
+  [ -n "$_s" ] || _s="Describe the change"
+  printf '%s' "$_s" | grep -qE "^\[($ROLE_PREFIXES)\] " || _s="[${ROLE_PREFIXES%%|*}] $_s"
+  _q="$(printf '%s' "$_s" | sed "s/'/'\\\\''/g")"
+  case "${KIT_REPLAY:-}" in
+    rebase)
+      printf '%s\n' "Next: this commit is being replayed by a rebase; reword it with a role tag, keep it as it is, or give the rebase up:" \
+        "    git commit -m '$_q' && git rebase --continue" \
+        "    MSG_OK=1 git commit -C CHERRY_PICK_HEAD && git rebase --continue" \
+        "    git rebase --abort" ;;
+    cherry-pick)
+      printf '%s\n' "Next: this commit is being replayed by a cherry-pick; reword it with a role tag, keep it as it is, or give the cherry-pick up:" \
+        "    git commit -m '$_q'" \
+        "    MSG_OK=1 git cherry-pick --continue" \
+        "    git cherry-pick --abort" ;;
+  esac
+}
+
 # --- RULE (2): no generated-attribution line, in any of its common wordings --------
 # ONE READER, kit_attrib_offender (lib/attrib-trailer.sh), reading the declarations above from this
 # file: three arms, all anchored at a line start, because § A.1 forbids such a LINE and mid-sentence
@@ -123,6 +150,7 @@ if [ -n "$offender" ]; then
   msg2="  Offending line: $offender"
   msg3="  process/doctrine/commit-hygiene.md § A.1 — attribution here is by ROLE (the subject prefix, rule 1 of this hook). A tool trailer adds a second, unqueryable axis, makes a provenance claim that ages badly, and taxes every git log a human reads, forever."
   msg4="Next: delete the line, or configure your harness not to add it, and commit again."
+  [ -z "${KIT_REPLAY:-}" ] || msg4="$(_replay_next)"
   msg5="  A Co-Authored-By naming a HUMAN is fine; the tool markers rejected are: $(printf '%s' "$TOOL_TRAILER_MARKERS" | tr '|' ' ')"
   msg6="  Importing a third party's commit verbatim?  MSG_OK=1 git commit …"
   if command -v kit_refuse >/dev/null 2>&1; then
@@ -133,11 +161,23 @@ if [ -n "$offender" ]; then
 fi
 
 # --- RULE (1): the subject declares the acting role -------------------------------
-# First non-comment, non-blank line = the subject.
-subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || true)"
-
-# Empty subject → let git handle it (it aborts the commit on its own). Not our job.
-[ -z "$subject" ] && exit 0
+# An empty subject is refused here: git aborts an empty message only without `--allow-empty-message`,
+# and a commit with no subject declares no role.
+if [ -z "$subject" ]; then
+  emsg1="✗ Commit-message guard: the commit has no subject, so it declares no role."
+  if [ -n "${KIT_REPLAY:-}" ]; then
+    emsg2="$(_replay_next)"
+  else
+    emsg2="Next: commit again with a subject that starts with a role tag:
+    git commit -m '[${ROLE_PREFIXES%%|*}] Describe the change'"
+  fi
+  emsg3="  An empty message on purpose?  MSG_OK=1 git commit --allow-empty-message …"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 commit-msg-empty-subject "$emsg1" "" "$emsg2" "" "$emsg3"
+  fi
+  printf '%s\n' "$emsg1" "" "$emsg2" "" "$emsg3" >&2
+  exit 1   # exit-class: fallback
+fi
 
 # Auto-exempt host/git-generated subjects (never authored under a role). "Merge commit '"
 # REQUIRES the quote: that is the literal shape `git merge <sha>` writes
@@ -212,6 +252,10 @@ rmsg5="Next: commit again with a subject that starts with one of those tags. Exa
 rmsg6="    [Dev] <PREFIX>-001: add the download --help usage example"
 rmsg7="    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk."
 rmsg8="  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
+if [ -n "${KIT_REPLAY:-}" ]; then
+  # A replay is retried by its operation's own commands, not by a fresh `git commit`.
+  rmsg5="$(_replay_next)"; rmsg6=""; rmsg7=""; rmsg8=""
+fi
 if command -v kit_refuse >/dev/null 2>&1; then
   kit_refuse 1 commit-msg-role-prefix "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8"
 fi

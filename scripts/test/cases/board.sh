@@ -3866,6 +3866,7 @@ case_prepare_commit_msg_holds_a_replay() {
     git -C "$W" cherry-pick --abort >/dev/null 2>&1; git -C "$W" rebase --abort >/dev/null 2>&1
     git -C "$W" checkout -q -f "$T" >/dev/null 2>&1; git -C "$W" reset -q --hard "$base" >/dev/null 2>&1
     git -C "$W" clean -qfd >/dev/null 2>&1
+    git -C "$W" branch -qf side "$goodsha" >/dev/null 2>&1; git -C "$W" branch -qD side2 >/dev/null 2>&1 || true
   }
   # _printed <out> — the commands a refusal printed on their own indented lines.
   _printed() { printf '%s\n' "$1" | sed -n 's/^    \(\(MSG_OK=1 \)\{0,1\}git .*\)$/\1/p'; }
@@ -3935,16 +3936,28 @@ case_prepare_commit_msg_holds_a_replay() {
   out="$( cd "$W" && env -u MSG_OK GIT_SEQUENCE_EDITOR="sed -i.bak 's/^pick/reword/'" GIT_EDITOR=true git rebase -i "$badsha~1" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(e) a rebase reword kept an untagged subject"
 
+  # (e2) an editor that fixes the subject is let through: the hook does not judge the message before the
+  # editor (cherry-pick -e), only commit-msg does, after it.
+  _reset
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR="sed -i.bak '1s/.*/[Dev] fixed in the editor/'" git cherry-pick -e "$badsha" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e2) cherry-pick -e with an editor that tags the subject was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$W" log -1 --format=%s)" = "[Dev] fixed in the editor" ] || cf "(e2) the edited subject was not kept: $(git -C "$W" log -1 --format=%s)"
+
   # (f) a rebase over conforming commits runs to the end; an ordinary untagged commit is refused as before,
   # and --no-verify on an ordinary commit still bypasses.
   _reset
-  git -C "$W" checkout -q -b side2 "$goodsha"
+  git -C "$W" checkout -q -b side2 "$base"
+  echo 3 > "$W/p3.txt"; git -C "$W" add p3.txt; sbcommit -q -m "[Dev] another conforming replayed commit"
+  git -C "$W" checkout -q "$T"
+  echo t2 > "$W/trunk-moves2.txt"; git -C "$W" add trunk-moves2.txt; sbcommit -q -m "[PM] the trunk moves again"
+  git -C "$W" checkout -q side2
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(f) a rebase over conforming commits was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   _reset
   echo n > "$W/n.txt"; git -C "$W" add n.txt
   out="$( cd "$W" && env -u MSG_OK git commit -q -m "no role tag, ordinary commit" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(f) an ordinary untagged commit was accepted (commit-msg is unchanged)"
+  case "$out" in *"replayed by"*|*"--continue"*) cf "(f) an ordinary commit's refusal prints a replay's Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   out="$( cd "$W" && env -u MSG_OK git commit -q --no-verify -m "no role tag, ordinary commit" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(f) git commit --no-verify was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 

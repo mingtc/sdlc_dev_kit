@@ -870,8 +870,12 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
       case $'\n'"$CB_RULE_INSCOPE"$'\n' in *$'\n'"$sha"$'\n'*) ;; *) continue ;; esac
     fi
     [ -n "$subj" ] || subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
-    [ -z "$subj" ] && continue
     role_scanned=$((role_scanned+1))
+    if [ -z "$subj" ]; then
+      echo "    ⚠ ${target:0:9} has no subject, so it declares no [Role]"
+      role_hits=$((role_hits+1)); drift=1
+      continue
+    fi
     # "Merge commit '" REQUIRES the quote — the literal shape `git merge <sha>` writes
     # (`Merge commit '<full-hash>'`) — or this exemption also swallows an ordinary,
     # human-authored subject that happens to start with the same two words

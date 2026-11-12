@@ -40,8 +40,8 @@ resolves in favour of the default the tool ships with — and the default is to 
 An absolute is a rule a hook can enforce and a reviewer can check by looking.
 
 **And a hook does enforce it — the same one that enforces § A.2.** The reference implementation's
-commit-message guard (`scripts/githooks/commit-msg`, delegated to from `applypatch-msg` so the
-patch-application entrance judges the same way) reads the whole message rather than only the
+commit-message guard (`scripts/githooks/commit-msg`, delegated to from `applypatch-msg` and `prepare-commit-msg` so the
+patch-application and replay entrances judge the same way) reads the whole message rather than only the
 subject and refuses the attribution-trailer family (`Co-Authored-By:`, `Assisted-by:`,
 `Signed-off-by:`, and siblings) naming a **tool** — or a *"Generated with/by …"* or *"Written
 with/by …"* line; a trailer naming a **human** is legitimate practice and is accepted, and the

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# KIT-CLASS: KIT — the commit-message guard on the replay path. See process/EXTRACTION.md.
+# `git cherry-pick` and a rebase's picks write a commit without running commit-msg, so a replayed
+# commit with no role tag would reach the trunk unjudged. They do run THIS hook, with the message
+# in hand and the source `message`. Delegate to commit-msg for them, so every path judges a message
+# the same way, and tell it which operation is replaying (KIT_REPLAY) so its refusal prints that
+# operation's own way out.
+#
+# It judges nothing else: an ordinary `git commit` carries no replay, and commit-msg runs on it after
+# the editor. A rebase that edits or rewords a commit (source `commit`) is likewise left to commit-msg,
+# which runs after the editor where the subject can still be fixed. A replay is recognised by
+# CHERRY_PICK_HEAD, which git holds while it makes the commit; a rebase also keeps its own state
+# directory. `rebase --apply` writes its commits by plumbing and runs no message hook at all.
+#
+# Bypass: MSG_OK=1, the same escape commit-msg documents (`MSG_OK=1 git cherry-pick <sha>`). `--no-verify`
+# does not reach this hook: git skips only pre-commit and commit-msg under it.
+set -uo pipefail
+
+MSG_FILE="${1:-}"; SOURCE="${2:-}"
+[ -n "$MSG_FILE" ] && [ "$SOURCE" = "message" ] || exit 0
+
+GIT_DIR_NOW="$(git rev-parse --git-dir 2>/dev/null || true)"
+[ -n "$GIT_DIR_NOW" ] && [ -f "$GIT_DIR_NOW/CHERRY_PICK_HEAD" ] || exit 0
+if [ -d "$GIT_DIR_NOW/rebase-merge" ] || [ -d "$GIT_DIR_NOW/rebase-apply" ]; then
+  KIT_REPLAY=rebase
+else
+  KIT_REPLAY=cherry-pick
+fi
+export KIT_REPLAY
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+[ -e "$HOOK_DIR/commit-msg" ] || exit 0
+exec "$HOOK_DIR/commit-msg" "$MSG_FILE"
