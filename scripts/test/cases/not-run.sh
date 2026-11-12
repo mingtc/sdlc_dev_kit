@@ -547,11 +547,11 @@ NR_ROWS
 # (board-props.*), so nothing else in the landing fails. (control) no shim: lands. (field) the field
 # reader fails; (list) the list reader fails: each refuses board-property-unreadable.
 # =============================================================================
-_nr_shim_awk_scratch() {  # <dir> <fragment>
+_nr_shim_awk_scratch() {  # <dir> <fragment> [<a fragment of the file path>]
   local real
   real="$(command -v awk)"
   mkdir -p "$1"
-  printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*board-props.*) exit 2 ;; esac\nexec %s "$@"\n' "$2" "$real" > "$1/awk"
+  printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*board-props.*%s*) exit 2 ;; esac\nexec %s "$@"\n' "$2" "${3:-}" "$real" > "$1/awk"
   chmod +x "$1/awk"
 }
 case_landing_refuses_a_card_read_that_failed_in_the_board_property_check() {
@@ -559,10 +559,13 @@ case_landing_refuses_a_card_read_that_failed_in_the_board_property_check() {
   make_sandbox
   _bpf_seed_requirements
   publish_sandbox
-  local idc="$SB_PREFIX-931" idf="$SB_PREFIX-932" idl="$SB_PREFIX-933" oldp="$PATH"
+  local idc="$SB_PREFIX-931" idf="$SB_PREFIX-932" idl="$SB_PREFIX-933" idn="$SB_PREFIX-934" oldp="$PATH"
   _bpf_begin "$idc" control;  _bpf_end "$idc" control
   _bpf_begin "$idf" field;    _bpf_end "$idf" field
   _bpf_begin "$idl" list;     _bpf_end "$idl" list
+  _bpf_begin "$idn" newcard
+  _bpf_card_file "$SB_WORK/progress/todo/$SB_PREFIX-935-extra.md" "$SB_PREFIX-935"
+  _bpf_end "$idn" newcard
 
   _bpf_expect_landed "(control) no shim" "$idc" control "d i l" "p r q"
 
@@ -575,6 +578,13 @@ case_landing_refuses_a_card_read_that_failed_in_the_board_property_check() {
   PATH="$SB_TMP/shim-list:$oldp"
   _bpf_expect_refused "(list) kit_card_list's awk exited 2 inside the check" "$idl" list board-property-unreadable "board-property check could not read"
   PATH="$oldp"
+  # (new) the read fails only on the one card this branch adds: the refusal is the new side's, and says so
+  _nr_shim_awk_scratch "$SB_TMP/shim-new" 'exit !found' "$SB_PREFIX-935-extra"
+  PATH="$SB_TMP/shim-new:$oldp"
+  _bpf_expect_refused "(new) kit_card_field's awk exited 2 on a card the branch adds" "$idn" newcard board-property-unreadable "board-property check could not read"
+  PATH="$oldp"
+  case "$_BPF_OUT" in *"tree this landing produces"*) : ;; *) cf "(new) the refusal does not name the landed tree's side: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_BPF_OUT" in *"the TRUNK's own tree"*) cf "(new) a failure on the branch's own card was refused as the trunk's" ;; esac
   finish "a card read that exited 2 inside the landing's board-property check refuses board-property-unreadable, as the report says DID NOT RUN"
   teardown
 }
