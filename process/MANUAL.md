@@ -185,13 +185,14 @@ version control by the initializer, not left for each actor to discover
    a fork — a register entry its own diff adds or changes, a `[decision: D-NN]` citation anywhere on the card
    except on an AC bullet unchanged since it left `todo/` or, in the Activity or Out of Scope, one of a ruling the register held then and has not changed since (not one the trunk has since withdrawn or the branch retires), or an entry added to the trunk's register since the card left `todo/` whose Provenance (else the subject of the
    commit that added it) names the card — that `forks:` does not name. An added entry no card on the trunk is named for refuses too, unless its
-   Provenance names none and says `no work item`; the refusal names the exits: `forks:`, the owning card's id in the Provenance, or `no work item`. `forks:` names every fork the card **resolved**, not merely cited: an AC, an Activity line or an Out of Scope line that cites a ruling already made is applying it, not resolving it, and stays out of `forks:`.
+   Provenance names none and says `no work item`; the refusal names the exits: `forks:`, the owning card's id in the Provenance, or `no work item`. `forks:` names every fork the card **resolved**, not merely cited: an AC bullet unchanged since `todo/`, an Activity line or an Out of Scope line that cites a ruling already made is applying it, not resolving it, and stays out of `forks:`.
    A register entry the branch adds must also be cited by a PRD or marked `[cross-cutting]`, or the landing's
    board-corpus-coverage check refuses it.
    A ruling can also be written straight into an AC's own text with no register entry at all: an AC
    whose text changed after the card left its `todo/` column needs a `[decision: D-NN]` citation
    on that bullet's own checklist line, or the landing refuses and names the bullet; a citation
-   elsewhere on the card does not cover it.
+   elsewhere on the card does not cover it. The cited id also goes in `forks:`: a ruling written into an AC is a fork
+   whichever ruling it names.
 
 ## Session close ritual
 
