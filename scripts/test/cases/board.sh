@@ -3839,3 +3839,165 @@ ROWS
   rm -rf "$d"
   finish "$L"
 }
+
+# =============================================================================
+# CASE — a replayed commit (cherry-pick, rebase) is judged at write time, and an empty subject is refused
+#
+# `cherry-pick` and a rebase's picks run no commit-msg hook, so a replayed commit with no role tag reached
+# the trunk unjudged; prepare-commit-msg holds them. Every command a refusal prints is RUN here as printed.
+# =============================================================================
+case_prepare_commit_msg_holds_a_replay() {
+  cf_reset
+  make_sandbox
+  local W="$SB_WORK" T="$SB_TRUNK" out rc head0 badsha goodsha cmd lines n
+  seed_issue todo "$SB_PREFIX-834" replay chore "Replay row"
+  publish_sandbox
+  git -C "$W" checkout -q -b side
+  echo 1 > "$W/p1.txt"; git -C "$W" add p1.txt; sbcommit -q -m "no role tag on this replayed commit"
+  echo 2 > "$W/p2.txt"; git -C "$W" add p2.txt; sbcommit -q -m "[Dev] a conforming replayed commit"
+  badsha="$(git -C "$W" rev-parse side~1)"; goodsha="$(git -C "$W" rev-parse side)"
+  git -C "$W" checkout -q "$T"
+  # the trunk moves on, so a rebase of side has something to replay over
+  echo t > "$W/trunk-moves.txt"; git -C "$W" add trunk-moves.txt; sbcommit -q -m "[PM] the trunk moves"
+  git -C "$W" push -q origin "$T" >/dev/null 2>&1
+  local base; base="$(git -C "$W" rev-parse HEAD)"
+  # _reset — back to the trunk at $base with no replay in progress.
+  _reset() {
+    git -C "$W" cherry-pick --abort >/dev/null 2>&1; git -C "$W" rebase --abort >/dev/null 2>&1
+    git -C "$W" checkout -q -f "$T" >/dev/null 2>&1; git -C "$W" reset -q --hard "$base" >/dev/null 2>&1
+    git -C "$W" clean -qfd >/dev/null 2>&1
+  }
+  # _printed <out> — the commands a refusal printed on their own indented lines.
+  _printed() { printf '%s\n' "$1" | sed -n 's/^    \(\(MSG_OK=1 \)\{0,1\}git .*\)$/\1/p'; }
+
+  # (a) a cherry-pick of a commit with no role tag is refused at write time: nothing committed.
+  head0="$(git -C "$W" rev-parse HEAD)"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a cherry-pick of an untagged commit committed"
+  [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
+  case "$out" in *"role tag"*) : ;; *) cf "(a) the refusal does not name the role tag: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  lines="$(_printed "$out")"; n="$(printf '%s\n' "$lines" | /usr/bin/grep -c .)"
+  [ "$n" -ge 3 ] || cf "(a) the Next prints $n runnable lines, expected a reword, a keep-as-is and an abort: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  # (a1) every printed command, run as printed on a fresh refusal, does what it says.
+  local i=0
+  while IFS= read -r cmd; do
+    [ -n "$cmd" ] || continue
+    i=$((i+1))
+    _reset
+    ( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" >/dev/null 2>&1 )
+    out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(a$i) the printed line '$cmd' failed as printed (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    [ ! -e "$W/.git/CHERRY_PICK_HEAD" ] || cf "(a$i) after '$cmd' a cherry-pick is still in progress"
+    case "$cmd" in
+      *"commit -m"*) git -C "$W" log -1 --format=%s | /usr/bin/grep -qE '^\[[A-Za-z]+\] ' || cf "(a$i) the reworded commit has no role tag: $(git -C "$W" log -1 --format=%s)" ;;
+      *"-C CHERRY_PICK_HEAD"*|*"--continue"*) [ "$(git -C "$W" log -1 --format=%s)" = "no role tag on this replayed commit" ] || cf "(a$i) keep-as-is did not keep the message: $(git -C "$W" log -1 --format=%s)" ;;
+      *"--abort"*) [ "$(git -C "$W" rev-parse HEAD)" = "$base" ] || cf "(a$i) the abort moved HEAD" ;;
+    esac
+  done <<< "$lines"
+
+  # (b) a conforming cherry-pick passes, quietly.
+  _reset
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$goodsha" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a conforming cherry-pick was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (c) the documented escape: MSG_OK=1 imports it verbatim.
+  _reset
+  out="$( cd "$W" && MSG_OK=1 git cherry-pick "$badsha" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) MSG_OK=1 git cherry-pick was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (d) a rebase that replays an untagged commit stops at it; the printed lines work.
+  _reset
+  git -C "$W" checkout -q side
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) a rebase replaying an untagged commit ran to the end"
+  [ -d "$W/.git/rebase-merge" ] || cf "(d) the rebase did not stop at the untagged commit"
+  lines="$(_printed "$out")"; n="$(printf '%s\n' "$lines" | /usr/bin/grep -c .)"
+  [ "$n" -ge 3 ] || cf "(d) the Next prints $n runnable lines: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  i=0
+  while IFS= read -r cmd; do
+    [ -n "$cmd" ] || continue
+    i=$((i+1))
+    _reset
+    git -C "$W" checkout -q side
+    ( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" >/dev/null 2>&1 )
+    out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(d$i) the printed line '$cmd' failed as printed (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    case "$cmd" in
+      *"--abort"*) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) the abort left the rebase in progress" ;;
+      *) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) after '$cmd' the rebase is still in progress: $(git -C "$W" status -sb | head -3 | tr '\n' '|')"
+         git -C "$W" log --format=%s "$T..side" | /usr/bin/grep -q 'conforming replayed commit' || cf "(d$i) the conforming commit is missing after '$cmd'" ;;
+    esac
+  done <<< "$lines"
+
+  # (e) a rebase reword that keeps the untagged subject is refused (the editor-less form).
+  _reset
+  git -C "$W" checkout -q side
+  out="$( cd "$W" && env -u MSG_OK GIT_SEQUENCE_EDITOR="sed -i.bak 's/^pick/reword/'" GIT_EDITOR=true git rebase -i "$badsha~1" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a rebase reword kept an untagged subject"
+
+  # (f) a rebase over conforming commits runs to the end; an ordinary untagged commit is refused as before,
+  # and --no-verify on an ordinary commit still bypasses.
+  _reset
+  git -C "$W" checkout -q -b side2 "$goodsha"
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) a rebase over conforming commits was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _reset
+  echo n > "$W/n.txt"; git -C "$W" add n.txt
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "no role tag, ordinary commit" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) an ordinary untagged commit was accepted (commit-msg is unchanged)"
+  out="$( cd "$W" && env -u MSG_OK git commit -q --no-verify -m "no role tag, ordinary commit" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) git commit --no-verify was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (g) the tools' own commits still pass: a board move, and a printed escape commit (kit-upgrade's shape).
+  _reset
+  out="$( cd "$W" && env -u MSG_OK "$W/scripts/move-issue.sh" "$SB_PREFIX-834" in_progress --role Dev --note "replay row" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(g) move-issue.sh was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  echo m > "$W/m.txt"; git -C "$W" add m.txt
+  out="$( cd "$W" && MSG_OK=1 git commit -q -m '[PM] Restore the staged kit files' -- m.txt 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(g) MSG_OK=1 git commit '[PM] …' was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (h) an empty subject is refused, naming a runnable Next; MSG_OK=1 still takes it.
+  _reset
+  echo e > "$W/e.txt"; git -C "$W" add e.txt; head0="$(git -C "$W" rev-parse HEAD)"
+  out="$( cd "$W" && env -u MSG_OK git commit -q --allow-empty-message -m "" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(h) an empty subject was committed"
+  [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || { cf "(h) HEAD moved despite the refusal"; _reset; echo e > "$W/e.txt"; git -C "$W" add e.txt; }
+  case "$out" in *"Next:"*) : ;; *) cf "(h) the refusal names no Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  cmd="$(_printed "$out" | head -1)"
+  [ -n "$cmd" ] || cf "(h) the Next prints no runnable commit line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  if [ -n "$cmd" ]; then
+    out="$( cd "$W" && env -u MSG_OK bash -c "$cmd" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(h) the printed line '$cmd' failed as printed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  fi
+  _reset
+  echo e2 > "$W/e2.txt"; git -C "$W" add e2.txt
+  out="$( cd "$W" && MSG_OK=1 git commit -q --allow-empty-message -m "" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(h) MSG_OK=1 did not take an empty subject: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "prepare-commit-msg: a cherry-pick or rebase pick with no role tag is refused at write time with a Next whose every line runs as printed; a conforming one, MSG_OK=1, --no-verify on an ordinary commit and the tools' own commits pass; an empty subject is refused"
+  teardown
+}
+
+# =============================================================================
+# CASE — check-board arm [e] reports a commit with no subject instead of skipping it
+# =============================================================================
+case_check_board_arm_e_reports_an_empty_subject() {
+  cf_reset
+  make_sandbox
+  [ -f "$SB_WORK/scripts/githooks/commit-msg" ] \
+    || _fixture_die "case_check_board_arm_e_reports_an_empty_subject: the sandbox ships no commit-msg hook, so there is no epoch."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  echo x > "$SB_WORK/x.txt"; git -C "$SB_WORK" add x.txt
+  sbcommit -q --allow-empty-message -m "" >/dev/null 2>&1
+  local sha_empty; sha_empty="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  [ -z "$(git -C "$SB_WORK" log -1 --format=%s)" ] \
+    || _fixture_die "case_check_board_arm_e_reports_an_empty_subject: the planted commit has a subject."
+  sbcommit -q --allow-empty -m "[Dev] a later commit" >/dev/null 2>&1
+  publish_sandbox
+  local out; out="$(cb_run)"
+  printf '%s\n' "$out" | /usr/bin/grep "$sha_empty" | /usr/bin/grep -i 'no subject' >/dev/null \
+    || cf "the commit with no subject $sha_empty was not reported: $(printf '%s\n' "$out" | /usr/bin/grep -m3 '^\[e\]\|⚠' | tr '\n' '|')"
+  finish "check-board arm [e]: a commit with an empty subject is reported, not skipped"
+  teardown
+}
