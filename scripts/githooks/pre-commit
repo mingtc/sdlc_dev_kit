@@ -194,6 +194,11 @@ if [ "$_hat_exempt" -eq 0 ]; then
           exit 1   # exit-class: fallback
         fi
         _qa_why="$(printf '%s\n' "$_qa_out" | sed '/^Next:/,$d')"
+        # A cell check's own step rides on the library's Next: line, prefixed with the AC id: carry it whole.
+        _qa_step=""
+        case "$_qa_rule" in
+          refusal=qa-verdict-cell-refused) _qa_step="$(printf '%s\n' "$_qa_out" | sed -n '/^Next:/,$p' | sed '/^       NOTHING WAS CHANGED/d')" ;;
+        esac
         _qa_old="$(git -C "$ROOT" diff --cached --name-only --no-renames --diff-filter=D -- 'progress/*/'"${_qa_id}"'-*.md' 2>/dev/null | head -1 || true)"
         _qa_pq="$(printf '%q' "$_qa_path")"
         qa1="✗ pre-commit guard: ${_qa_id} is staged into progress/qa_complete/ and its QA Verdict table is refused by the check move-issue.sh runs first (evidence pointers read at HEAD; the AC-drift and add-on move checks are not run here)."
@@ -207,9 +212,9 @@ if [ "$_hat_exempt" -eq 0 ]; then
         qa4="  Fill the card's QA Verdict table (.claude/roles/qa.md step 4), commit the card to the trunk with ./scripts/register-commit.sh, then run:"
         qa5="    ./scripts/move-issue.sh ${_qa_id} qa_complete --role QA"
         if command -v kit_refuse >/dev/null 2>&1; then
-          kit_refuse 1 pre-commit-qa-verdict "$qa1" "" "$_qa_why" "" "$qa2" "$qa3" "$qa4" "$qa5"
+          kit_refuse 1 pre-commit-qa-verdict "$qa1" "" "$_qa_why" "" "$_qa_step" "" "$qa2" "$qa3" "$qa4" "$qa5"
         fi
-        printf '%s\n' "$qa1" "" "$_qa_why" "" "$qa2" "$qa3" "$qa4" "$qa5" >&2
+        printf '%s\n' "$qa1" "" "$_qa_why" "" "$_qa_step" "" "$qa2" "$qa3" "$qa4" "$qa5" >&2
         exit 1   # exit-class: fallback
       fi
     done <<PC_QA
