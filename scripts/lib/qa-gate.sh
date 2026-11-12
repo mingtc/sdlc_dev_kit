@@ -49,9 +49,11 @@
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
 #     branch resolved, or 'none'. A '[decision: D-NN]' citation counts as a fork resolved when it
-#     is anywhere on the card except on an AC bullet unchanged since the card left 'todo/', or in
-#     the '## Activity' or '## Out of Scope' section and of an entry the register already held
-#     then; one of those applies a ruling made elsewhere and does not. With no
+#     is anywhere on the card except on an AC bullet unchanged since the card left 'todo/', or on an
+#     AC bullet or in the '## Activity' or '## Out of Scope' section and of an entry the register
+#     already held then; one of those applies a ruling made elsewhere and does not. The live set a
+#     'forks:' id is checked against is the register on <new-rev> and on <old-rev> (a ruling can
+#     land on the trunk after the branch is cut). With no
 #     'todo/' departure the whole card is read. <old-rev>/<new-rev> bound the diff a resolved-but-uncited fork
 #     is derived from (finish-pr.sh: the trunk and the feature branch); <card-file> is read for
 #     the field itself and is <new-rev>'s own copy.
@@ -1137,11 +1139,10 @@ kit_ac_drift_check() {
 # ── _forks_cited_ids <card-file> <repo> <leave-commit> <leave-path> <id-shape> [<live-ids>] ────
 #   The D-NN ids the card CITES, for the 'forks:' derivation: every '[decision: D-NN]' in the card
 #   except those on an AC bullet unchanged since the card left 'todo/' — an AC that cites a ruling
-#   made elsewhere applies it, it does not resolve it — and, in the '## Activity' and '## Out of
-#   Scope' sections, those of a ruling in <live-ids> (the entries the register held before the card
+#   made elsewhere applies it, it does not resolve it — and, on a changed or added AC bullet and in
+#   the '## Activity' and '## Out of Scope' sections, those of a ruling in <live-ids> (the entries the register held before the card
 #   left 'todo/' and the window has not changed since, one per line): the card template's own Activity shape is '[decision: D-NN]', a
-#   citation of a ruling already made. A citation in other prose, on a bullet changed or added after
-#   'todo/', or of an id not in <live-ids>, counts. With no leave-todo commit (or none of its bullets
+#   citation of a ruling already made. A citation in other prose, or of an id not in <live-ids>, counts. With no leave-todo commit (or none of its bullets
 #   readable) nothing is exempt. The bullet reader is kit_ac_drift_check's, and so is the citation
 #   reader (kit_decisions_cited), over scratch copies: the card minus the unchanged bullet lines and
 #   the two sections, and the two sections alone. The headings match exactly and a fenced line is no heading.
@@ -1199,6 +1200,8 @@ _forks_cited_ids() {
       if [ -n "$ids" ] && ! grep -qx -- "$ids" <<< "$seen"; then
         seen="${seen}${ids}"$'\n'
         if grep -qx -- "$ids" <<< "$unchanged"; then continue; fi
+        # A changed or added AC bullet is read with the sections: its citation of a live ruling applies it.
+        printf '%s\n' "$line" >> "$sec_scratch"; continue
       fi
     fi
     printf '%s\n' "$line" >> "$scratch"
@@ -1219,7 +1222,7 @@ kit_forks_check() {
   local _forks_line _forks_ids="" _forks_inner _forks_n_tokens _forks_n_ids
   local _forks_declared _forks_regs _forks_cited _forks_id_shape
   local _forks_live_all="" _forks_seen_all=""
-  local _freg_path _freg_mark _freg_shape _forks_branch_reg
+  local _freg_path _freg_mark _freg_shape _forks_branch_reg _fr_retired _fr_trunk
   local _forks_bad="" _fid _forks_derived _forks_missing_ids="" _forks_live_before="" _fl_ids _fl_changed
   local _forks_leave_commit="" _forks_leave_path="" _forks_excl
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
@@ -1335,6 +1338,13 @@ kit_forks_check() {
 
     _forks_live_all="$_forks_live_all
 $(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
+    # The trunk's copy is read too: a ruling can land there after the branch was cut. An id the
+    # branch itself retired stays not live.
+    _fr_retired="$(kit_decision_register_retired "$_forks_branch_reg" "$_freg_shape")"
+    git -C "$repo" show "${old_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+    _fr_trunk="$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+' | sort -u)"
+    _forks_live_all="$_forks_live_all
+$(comm -23 <(printf '%s\n' "$_fr_trunk") <(printf '%s\n' "$_fr_retired" | sort -u))"
     _forks_seen_all="$_forks_seen_all
 $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_freg_mark")"
 
@@ -1373,7 +1383,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       kit_refuse 2 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
         "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
-        "Next: fix the id on the card, or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
+        "Next: fix the id on the card (the check reads the register on the branch and on the trunk, so a ruling that landed on the trunk after the branch was cut needs no merge of the trunk), or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
         "       NOTHING WAS CHANGED."
     fi
   fi
@@ -1386,9 +1396,9 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   if [ -n "$_forks_missing_ids" ]; then
     kit_refuse 2 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
-      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/' or, in the Activity or Out of Scope, of a ruling the register held then and has not changed since, or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
+      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card except on an AC bullet unchanged since it left 'todo/', or one of a ruling the register held then and has not changed since, on an AC bullet or in the Activity or Out of Scope, or an entry added on the trunk since then whose Provenance, else the subject of the commit that added it, names ${issue_id})." \
       "       'forks: ${_forks_line}' does not account for them." \
-      "Next: if ${issue_id} made the ruling, add the id(s) to 'forks:' on the card and commit it. If it only APPLIES a ruling made elsewhere, do not list it: leave an AC's existing citation as it is; when the card left a todo/ column, a bracketed citation in the Activity or Out of Scope of a ruling the register held then, unchanged since, is already skipped, so write the id without brackets where it still stands (a bracketless mention is not a citation) — 'forks:' is for rulings this card made. Then re-run the command that refused." \
+      "Next: if ${issue_id} made the ruling, add the id(s) to 'forks:' on the card and commit it. An entry added on the trunk after the branch was cut counts, and needs no merge of the trunk. If it only APPLIES a ruling made elsewhere, do not list it: leave an AC's existing citation as it is; when the card left a todo/ column, a bracketed citation on an AC bullet, in the Activity or in the Out of Scope of a ruling the register held then, unchanged since, is already skipped, so write the id without brackets where it still stands (a bracketless mention is not a citation) — 'forks:' is for rulings this card made. Then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

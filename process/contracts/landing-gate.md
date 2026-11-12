@@ -121,7 +121,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   a failing row is refused whole without being handed to one.
 - The item's `forks:` field (which reads `D-NN` registers only; a register declared with another id shape is
   not read here) is missing, is neither `none` nor a bracketed list of register ids,
-  names an id that is no live register entry, omits a fork the branch's own diff shows or that a
+  names an id that is no live register entry (on the branch or on the trunk, where a ruling can land after the branch is cut), omits a fork the branch's own diff shows or that a
   register entry added to the trunk since the item left `todo/` attributes to it (its Provenance
   paragraph, else the subject of the commit that added it, names the item), leaves such an added entry attributed to no
   work item (its Provenance names no card on the trunk and does not say `no work item`), or the

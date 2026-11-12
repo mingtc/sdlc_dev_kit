@@ -1800,6 +1800,53 @@ _forks_midwork_entry() {
   _forks_set_forks "$id" "$slug" "$fv"
 }
 
+# _forks_midwork_land <id> <slug> <hook> <forks-value> [retire] — one mid-work hand-off in a fresh sandbox: the
+# card is picked up and its branch cut; with 'retire' the branch moves D-01 to the Retired ids; otherwise a ruling
+# naming the card (D-02) lands on the trunk after the cut. The hook, if any, edits the sandbox's qa-gate.sh
+# before it is published. Sets _FML_OUT and _FML_RC.
+_forks_midwork_land() {
+  local id="$1" slug="$2" hook="$3" fv="$4" mode="${5:-}" reg
+  make_sandbox
+  [ -z "$hook" ] || "$hook"
+  reg="$SB_WORK/requirements/DECISIONS.md"
+  _forks_seed_register "$reg"
+  seed_issue todo "$id" "$slug" chore "Mid-work ruling" "feature/$id-work"
+  publish_sandbox
+  _forks_pickup "$id" "$slug"
+  seed_branch "$id" work "CHANGE-$id.txt"
+  if [ "$mode" = retire ]; then
+    git -C "$SB_WORK" checkout -q "feature/$id-work" >/dev/null 2>&1
+    perl -i -pe 's/^### D-01$/#### withdrawn/; s/^## Retired ids$/## Retired ids\n\n`D-01` — retired 2026-11-01; withdrawn./' "$reg"
+    grep -q 'withdrawn\.' "$reg" || _fixture_die "_forks_midwork_land: the retirement was not planted"
+    git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+    sbcommit -m "[Dev] $id: retire D-01" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "feature/$id-work" >/dev/null 2>&1
+    git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  else
+    _forks_add_entry D-02 "Product owner message, 2026-10-16; $id." "[PM] $id: record D-02"
+  fi
+  _forks_set_forks "$id" "$slug" "$fv"
+  _FML_OUT="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/move-issue.sh "$id" dev_complete --role Dev --note ready 2>&1 )"; _FML_RC=$?
+}
+_forks_ablate_trunk_live() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q '^    _fr_trunk=' "$lib" || { _control_did_not_run "find the trunk register read in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/^    _fr_trunk=.*$/    _fr_trunk=""/' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+_forks_ablate_retired_kept() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q '^    _fr_retired=' "$lib" || { _control_did_not_run "find the retired read in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/^    _fr_retired=.*$/    _fr_retired=""/' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+_forks_ablate_changed_ac_route() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q 'A changed or added AC bullet is read with the sections' "$lib" || { _control_did_not_run "find the changed-bullet route in lib/qa-gate.sh"; return 0; }
+  sed -i.bak '/A changed or added AC bullet is read with the sections/{n;d;}' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+
 # =============================================================================
 # CASE — A RULING THAT LANDS ON THE TRUNK AFTER THE BRANCH WAS CUT IS LIVE, AND A CHANGED AC THAT
 # CITES A LIVE RULING APPLIES IT.
@@ -1880,6 +1927,26 @@ case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_and_a_changed_ac_ap
   id="$SB_PREFIX-888"
   _forks_drift_land work-h "$id" ac-cited-fin 0 "$ac1_new per [decision: D-01]." "" "none" finish
   [ "$_FDL_RC" -eq 0 ] || cf "(h) finish-pr.sh refused a changed AC citing live D-01 (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # (i) an id the BRANCH retired is not live, though the trunk still holds it.
+  _forks_midwork_land "$SB_PREFIX-889" retired "" "[D-01]" retire
+  [ "$_FML_RC" -ne 0 ] || cf "(i) 'forks: [D-01]' over an id the branch retired landed"
+  grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(i) the refusal is not forks-unresolved: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  # (j) ABLATIONS, each alone: without the trunk's read (a) refuses; without the retired subtraction (i) lands;
+  #     without the changed-bullet route (e) refuses.
+  _forks_midwork_land "$SB_PREFIX-890" abl-trunk _forks_ablate_trunk_live "[D-02]"
+  [ "$_FML_RC" -ne 0 ] || cf "ABLATION FAILED — with the trunk's register unread, 'forks: [D-02]' over a trunk-only ruling still landed"
+  grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "ABLATION INVALID — refused, but not as forks-unresolved: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+  _forks_midwork_land "$SB_PREFIX-891" abl-retired _forks_ablate_retired_kept "[D-01]" retire
+  [ "$_FML_RC" -eq 0 ] || cf "ABLATION FAILED — with the branch's retirement not subtracted, an id the branch retired was still refused (exit $_FML_RC), so (i) is not attributable to the subtraction: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+  _FDL_HOOK=_forks_ablate_changed_ac_route _forks_drift_land work-j "$SB_PREFIX-892" abl-ac 0 "$ac1_new per [decision: D-01]." "" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "ABLATION FAILED — with a changed AC bullet read whole, a citation of live D-01 on it still landed, so (e) is not attributable to the route"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "ABLATION INVALID — refused, but not as forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
   finish "forks: reads the live register set from the branch's and the trunk's copy, so a ruling that landed on the trunk after the cut passes under forks: [D-NN] with no merge and still refuses under 'forks: none' with a Next that says no merge is the exit; a changed AC bullet that cites a live, unchanged ruling applies it and does not need forks:, the uncited-bullet refusal and the contradiction never refuse into each other, and a changed bullet citing an unknown id still counts"
