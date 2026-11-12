@@ -12,7 +12,7 @@
 
 ## Manifest
 
-Written by `/design-pull` and `/design-publish`, one line per `project/` file: `<path> <canvas sha> <repo sha>`. The two shas are equal unless the normaliser rewrote the file. Empty until the first pull or publish.
+Written by `/design-pull` and `/design-publish`, one line per `project/` file: `<path> <canvas sha> <repo sha>` (a path may hold a space: the last two fields are the shas). The two shas are equal unless the normaliser rewrote the file. Empty until the first pull or publish.
 
 ```
 <path> <canvas sha256> <repo sha256>

@@ -27,9 +27,24 @@ TAG = re.compile(r'''<script\b[^>]*\btype=["']text/x-dc["'][^>]*>''')
 ATTR = re.compile(r'''(\bdata-props=)(?:"([^"]*)"|'([^']*)')''')
 
 
+CHARREF = re.compile(r'&(?:#[0-9]+;?|#[xX][0-9a-fA-F]+;?|[A-Za-z][A-Za-z0-9]*;?)')
+
+
+def attr_unescape(raw):
+    """An attribute value's character references as a browser reads them: a named reference with no semicolon that is followed by `=` or a
+    letter or digit stays as written (`?a=1&copy=2` is not a copyright sign); every other reference is decoded as html.unescape does."""
+    def one(m):
+        ref = m.group(0)
+        nxt = raw[m.end():m.end() + 1]
+        if not ref.endswith(';') and not ref.startswith('&#') and (nxt == '=' or nxt.isalnum()):
+            return ref
+        return html.unescape(ref)
+    return CHARREF.sub(one, raw)
+
+
 def canon_props(m):
     raw = m.group(2) if m.group(2) is not None else m.group(3)
-    obj = json.loads(html.unescape(raw))
+    obj = json.loads(attr_unescape(raw))
     s = json.dumps(obj, ensure_ascii=False, separators=(',', ':')).replace('&', '&amp;').replace("'", '&#39;')
     return m.group(1) + "'" + s + "'"
 

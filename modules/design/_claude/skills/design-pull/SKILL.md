@@ -85,13 +85,14 @@ A file it names `UNREAD` is not trusted: show the human and take it out of the p
 
 First find a file changed on **both** sides: the repo holds a change to it that the canvas does not (its repo sha is not the manifest's) and the canvas brings its own, by a new
 version of the file or by deleting it. A file with no manifest line that is already in `project/` counts. This prints each one; put the path of every file **gone** from the canvas
-(step 3) where `<gone>` stands, or nothing:
+(step 3) where `<gone>` stands, each in single quotes, or nothing:
 
 ```sh both
-for f in $(cd .cache/design/pull && find project -type f | sort) <gone>; do
+{ (cd .cache/design/pull && find project -type f | sort); printf '%s\n' <gone>; } | while IFS= read -r f; do
+  [ -n "$f" ] || continue
   repo=requirements/design/<canvas>/$f
   [ -f "$repo" ] || continue
-  want=$(awk -v p="$f" '$1 == p { print $3 }' requirements/design/<canvas>/CANVAS.md)
+  want=$(awk -v p="$f" '{ q = $1; for (i = 2; i <= NF - 2; i++) q = q " " $i } q == p { print $NF }' requirements/design/<canvas>/CANVAS.md)
   have=$( (shasum -a 256 "$repo" 2>/dev/null || sha256sum "$repo") | cut -d' ' -f1)
   [ "$want" = "$have" ] || echo "BOTH-SIDES $f"
 done
@@ -169,7 +170,7 @@ a person says they commented and nothing arrives, tell them to use **Send to Cla
 **On B** the tool is documented to list each thread.
 
 Resolve each anchor against the whole board set: the pull is laid over `project/` (step 6), so `project/` holds an unchanged board as well as a changed one. Pass the
-`<board>#<n>:<path>` part of the anchor's `detail`, not its label:
+`<board>#<n>:<path>` part of the anchor's `detail`, not its label (a board name with an apostrophe is written `'\''` inside the single quotes):
 
 ```sh anchor
 python3 scripts/design/resolve-anchor.py requirements/design/<canvas>/project '<board>#<n>:<path>'
@@ -187,7 +188,7 @@ do not rely on a comment waking you: you read threads when you pull. A pull that
 On the go-ahead, drop the manifest line of each file that is gone (this is the only place it happens):
 
 ```sh drop
-awk -v p='<path>' '$1 != p' requirements/design/<canvas>/CANVAS.md > requirements/design/<canvas>/CANVAS.md.new &&
+awk -v p='<path>' '{ q = $1; for (i = 2; i <= NF - 2; i++) q = q " " $i } q != p' requirements/design/<canvas>/CANVAS.md > requirements/design/<canvas>/CANVAS.md.new &&
   mv requirements/design/<canvas>/CANVAS.md.new requirements/design/<canvas>/CANVAS.md ||
   { rm -f requirements/design/<canvas>/CANVAS.md.new; false; }
 ```

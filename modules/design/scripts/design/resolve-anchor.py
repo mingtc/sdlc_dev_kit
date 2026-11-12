@@ -19,6 +19,7 @@ Exit 0 every anchor resolved (and --help); 1 one or more not; 2 bad usage. Pytho
 """
 import html.parser, re, sys
 from pathlib import Path
+from urllib.parse import unquote
 
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
 ANCHOR = re.compile(r'^\s*(?P<file>[^\s:#]+\.dc\.html)\s*:?\s*#(?P<tid>\d+):(?P<path>\d+(?:/\d+)*)\b')
@@ -63,25 +64,29 @@ def resolve(project, anchor):
     m = ANCHOR.match(anchor)
     if not m:
         return None, 'not an element anchor (<Board>.dc.html#<n>:<path>): a board or a note'
-    f = Path(project) / m.group('file')
+    name = m.group('file')
+    f = Path(project) / name
+    if not f.is_file() and unquote(name) != name:     # a board name with a space or a non-ASCII letter may arrive percent-encoded
+        name = unquote(name)
+        f = Path(project) / name
     if not f.is_file():
         return None, '%s is not in the pulled project' % m.group('file')
     try:
         t = Tree()
         t.feed(f.read_text(encoding='utf-8'))
     except (UnicodeDecodeError, ValueError) as e:
-        return None, '%s cannot be read (%s)' % (m.group('file'), e)
+        return None, '%s cannot be read (%s)' % (name, e)
     tid, path = int(m.group('tid')), [int(x) for x in m.group('path').split('/')]
     by_place = t.flat[tid] if tid < len(t.flat) else None
     node = t.root
     for i in path:
         node = node['children'][i] if node is not None and i < len(node['children']) else None
     if node is None or by_place is not node:
-        return None, 'the place (#%d) and the path (%s) name different elements, or neither exists: %s differs from the commenter\'s copy' % (tid, m.group('path'), m.group('file'))
+        return None, 'the place (#%d) and the path (%s) name different elements, or neither exists: %s differs from the commenter\'s copy' % (tid, m.group('path'), name)
     ident = node['attrs'].get('id') or '(no id: x-dc/%s)' % m.group('path')
     data = ' '.join('%s=%s' % (k, v) for k, v in sorted(node['attrs'].items()) if k.startswith('data-') and k != 'data-props')
     words = ' '.join(node['text'].split())[:60]
-    return '%s#%s  %s  %s  "%s"' % (m.group('file'), ident, node['tag'], data, words), None
+    return '%s#%s  %s  %s  "%s"' % (name, ident, node['tag'], data, words), None
 
 
 def main(argv):
