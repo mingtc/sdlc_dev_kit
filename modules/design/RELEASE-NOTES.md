@@ -7,12 +7,24 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ## [0.6.1]
 
+### Action required
+
+- **Push the commit each card in flight is pinned to.** A card lands only when every pin in its `design:` key is a commit the trunk holds; a pin only your clone has is refused at `qa_complete/`, with a `Next:` (push it, or the PM re-pins the entry).
+  Verify: t="$(git symbolic-ref --short refs/remotes/origin/HEAD)"; for c in progress/in_progress/*.md progress/dev_complete/*.md progress/qa_complete/*.md; do [ -f "$c" ] || continue; for p in $(sed -n '/^design:/p' "$c" | grep -oE '@[0-9a-f]{7,40}'); do git merge-base --is-ancestor "${p#@}" "$t" || exit 1; done; done
+
 ### Changed
 
+- **A card or slice whose every AC is `(UI)` is refused at landing** (`qa-verdict-no-observed`): its design row is judged by the cell check but is not core evidence, so the table needs one `test` or `file:line` row. Give the card an AC the code can be read against.
+- `SETUP.md` step 6 tells you to add the gate row to `GATES` in `scripts/verify.sh`; nothing runs `--strict` until you do. `--leaving` takes the card's file path (`<card file>`), and `README` says `disable` leaves cards in flight pinned.
 - **A Designer with no human present ends a `/design-pull` at the uncommitted-file stop and at the go-ahead, says why and does not wait** (`designer.md` rule 11). At the go-ahead it puts `project/` and `CANVAS.md` back as on a "no". Rule 4 now reads "never waits on a pin".
 
 ### Fixed
 
+- **A page save's re-spelling of a board's `data-props` (the `&quot;` form, or spaces) moves no value, so it is no `STALE-APPROVAL` and no drift** (pin-drift says `respelled`); a changed value still is. A `<ns>.wire.tokens.json` is left out of what a pin and an approval cover. A token file named `dark.tokens.json` or `wire.tokens.json` alone is that theme. A dark value in `:root` or a media query is a `TOKEN-VALUE` that says a theme is a `[data-theme]` block.
+- **A card parked in `blocked/` with no pin is no `UNPINNED` finding and no unresolved pin-drift row.** A refactor card's `B1 — (UI)` is read as an AC (any id the core reads), and a slice's drift row carries the slice's own id. The design rows check refuses a pin only a local branch holds.
+- **The audit** takes the larger of `height` and `min-height`, adds a content-box element's padding, leaves a hidden input out, measures each token namespace's pairs apart (a failing pair is no longer hidden by another namespace) and reads an overlay colour in no pair as a `NOTE`, not `UNREAD`.
+- **The normaliser** keeps `&copy=` in a `data-props` URL as written; `resolve-anchor.py` finds a percent-encoded board name; the pull skill's both-sides and drop blocks handle a file name with a space, and its anchor step says how to write an apostrophe.
+- The 0.3.0 upgrade item's Verify line fails only on the pin findings it names, not on a stale approval.
 - **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`. A quote opens a value only after `=`, so an apostrophe in an unquoted value or a stray quote in a name hides nothing after it.
 - **The checkers no longer read rare shapes as `clean`.** A token whose value holds an alias inside a longer string (`0 0 1px {base.c}`) follows the alias; a change between two different invalid byte sequences is `uncompared` for a pin and a stale approval; a `<td>`, `<th>`, `<tr>`, `<li>`, `<dt>`, `<dd>`, `<option>`, `<rt>` or `<rp>` ends the open one before it (an `<li>` is not ended across a section or a table), so a shared element after an unclosed cell is no longer read as inside a state's branch.
 - **An artboard whose canvas directory moved together with an edit** reads `differs at HEAD` (back to review) instead of `missing at that commit`; in a wireframe canvas the file it was approved at must carry the row's UX id.
