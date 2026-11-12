@@ -89,7 +89,7 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
   does not say `design: none` or leave one out. The card gate, a move check on `in_progress/` and `dev_complete/` read from the trunk,
   refuses a card arriving from `todo/` (or from `blocked/` when it was never in progress; one back from `blocked/` is checked only
   for being pinned) with a `Next:` line and changes nothing;
-  `python3 scripts/design/check-design-links.py --leaving <card>` is the same check, to run first.
+  `python3 scripts/design/check-design-links.py --leaving <card file>` (the card's path) is the same check, to run first.
 - **Drift is reported, not blocked.** `check-board.sh` prints, for every card past `todo/` and not in `done/`, `declined/` or
   `history/`, each pinned state as `clean`, `moved`, `drift`, `gone`, `unresolved` or `uncompared` (`[+design-drift]`; the last means
   something could not be compared, and the line says what: it is never `clean`). A state is compared by

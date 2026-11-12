@@ -15,6 +15,8 @@ It is **off until enabled** ([`process/MODULES.md`](../../process/MODULES.md)).
 
 Push the enabling commit before expecting `[Designer]` to be known to `check-board.sh`, which reads the trunk.
 
+`disable` takes back the files, not the cards: a card in flight keeps its `design:` key and its pins, which nothing reads while the module is off, so a card pinned to a screen can reach `qa_complete/` and land with no design row. Land or park those cards first, or enable the module again.
+
 | Adds | Where |
 |---|---|
 | Role `Designer` | `.claude/roles/designer.md`, `process/roles.d/design` |
@@ -28,13 +30,13 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 | The design rows check: a card reaches `qa_complete/` with a design row for every UI AC and every `design:` entry | `scripts/move-check.d/qa_complete/50-design-rows.sh` |
 | The QA design-cell check on each PASS row of kind `design` | `scripts/qa-cell.d/design/50-design-cell.sh`, with `scripts/design/check-design-cell.py` |
 | Gate row, CORPUS manifest and bucket rows | blocks in `PROJECT.md` and `requirements/CORPUS.md` |
-| Ignore lines for the renderer's cache and generated tokens | a block at the end of `.gitignore` |
+| Ignore lines for the pull's scratch folder and generated tokens | a block at the end of `.gitignore` |
 | The canvas commands: `/design-pull` and `/design-publish` (Claude Code 2.1.228 or later and a claude.ai login, optional), the normaliser for a page save's re-serialising and the comment-anchor resolver | `.claude/skills/design-pull/SKILL.md`, `.claude/skills/design-publish/SKILL.md`, `scripts/design/normalise-canvas.py`, `scripts/design/resolve-anchor.py` |
 | The token generator (Node 22 or later, optional), the token converter, the renderer (Chrome and a design runtime you supply, optional) and the contrast and target audits | `scripts/design/m3-tokens.mjs`, `dtcg-convert.py`, `render.py`, `contrast-audit.py`, with `scripts/design/vendor/` (Apache-2.0, see its `NOTICE`) |
 
 ## What this version has
 
-Available now: the layout, the Designer role, the rules, token files written by hand, and the Designer creating and updating the
+Available now: the layout, the Designer role, the rules, token files written by hand or generated from a seed, and the Designer creating and updating the
 Claude Design canvas itself with the artifact tools, by the order in its role (list, compare shas, pull first, edit, send with
 `base_version`, read back), as the packaged commands `/design-pull` and `/design-publish`; nothing passes through a person. The checkers are installed: the
 link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the

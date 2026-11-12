@@ -20,7 +20,7 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 - A comment thread was sent to Claude (§ Comments), or a person edited the canvas on its page: pull, show the diff, act.
 - A PRD story changed in a way that changes a screen, state or copy. If the PM has not changed the PRD yet, **ask**; do not
   guess.
-- A token needs adding or changing: the source is `requirements/design/tokens/*.tokens.json`, written by hand (rule 8).
+- A token needs adding or changing: the source is `requirements/design/tokens/*.tokens.json`, written by hand or generated from a seed (§ Tokens, rule 8).
 - A **gate** is due (README § 6): the human is asked to approve structure, then visuals. In a wireframe canvas the rows reading `STALE-APPROVAL` or `open` after a take-in are the round's agenda: ask once for the round.
 - A card is about to leave `todo/` and needs its pin: state **`Pin-ready: <sha>`**.
 
@@ -31,7 +31,7 @@ AC (QA).
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
 procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
-`design` evidence kind; token files written by hand; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check; the packaged
+`design` evidence kind; token files, written by hand or generated from a seed; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check; the packaged
 commands `/design-pull` and `/design-publish` (§ The canvas) with the canvas normaliser and the comment-anchor resolver they run.
 
 ## The canvas
@@ -185,7 +185,7 @@ Python 3, read-only except `prd-view.py --md`; each prints one finding per line.
 
 ```
 python3 scripts/design/check-design-links.py                  # the registry, the markers, the approvals, the pins, both ways (a MODE line names a wireframe canvas)
-python3 scripts/design/check-design-links.py --leaving <card> # the PM's check before a card leaves todo/: pinned, resolves, approved or waived
+python3 scripts/design/check-design-links.py --leaving <card file> # the PM's check before a card leaves todo/ (the card's path, e.g. progress/todo/<id>-<slug>.md): pinned, resolves, approved or waived
 python3 scripts/design/prd-view.py PRD-NNN [--md]             # the screens and states one PRD reaches; --md writes views/PRD-NNN.md
 python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  # the screen-flow graph from the artboards' links, as Mermaid
 python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
@@ -247,7 +247,7 @@ Today I need help with: <task>
 6. **A change to a pinned state needs a `D-NN`.** The Designer raises it with `ask.sh` (naming the card and the UX id), then
    proceeds. A pinned card is never re-targeted: a later design change is new work.
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
-8. **Tokens are written by hand, and a screen uses only tokens.** The Designer writes `requirements/design/tokens/*.tokens.json`
+8. **Tokens are written by hand or generated, and a screen uses only tokens.** The Designer writes, or generates from a seed (§ Tokens), `requirements/design/tokens/*.tokens.json`
    (DTCG); a screen, or a stylesheet under `project/` that every screen links, declares one custom property per token it uses, named for the
    token's path with hyphens for dots and no prefix (`color.primary` is `--color-primary`) and holding the token's value (a different one is
    a `TOKEN-VALUE` finding). A stylesheet or script is a file under `project/` linked by a relative path, never an upload. A colour literal
@@ -291,7 +291,7 @@ approval reads as a stale approval and goes back to `changes`; the Designer tell
 
 ## Handoff
 
-- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The card gate runs `check-design-links.py --leaving <card>` when the PM moves the card out of `todo/`; the PM can run it first.
+- **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The card gate runs `check-design-links.py --leaving <card file>` when the PM moves the card out of `todo/`; the PM can run it first.
 - **To Dev:** nothing directly. Dev reads the pin on the card, builds from that commit's files and tokens, and never edits
   `requirements/design/`.
 - **To QA:** nothing to read. The pin's PNGs are committed under `dev/evidence/` ([`dev/evidence/README.md`](../../dev/evidence/README.md) says by whom and who compares them), and QA cites them by sha.

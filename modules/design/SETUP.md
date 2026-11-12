@@ -18,6 +18,8 @@ What you do, once, before the Designer is useful. The checkers need Python 3.9 o
    Two habits matter. To make the Designer act on a comment, use **Send to Claude**: a plain comment was invisible to it (seen on the claude-artifacts server). To have a
    PNG of a state, use **Copy as PNG** on the canvas (it is 2x); no tool exports one. Comments reach a session only for a canvas
    private to you or shared within your organisation.
+6. **Run the design gate.** `check-design-links.py --strict` is the module's row in the `PROJECT.md` gates table, and no script runs it for you: add
+   `"Design record|core|python3 scripts/design/check-design-links.py --strict"` to the `GATES` array in `scripts/verify.sh`, or the record is checked only when somebody runs it by hand.
 
 **What the packaged commands need.** `/design-pull` and `/design-publish` need Claude Code 2.1.228 or later (`claude --version`; comments came in 2.1.221 and
 automatic replies in 2.1.228; `enable` checks and only warns, since the checkers need none of it) and a claude.ai account signed in to it: run `/login`. The skills make one
