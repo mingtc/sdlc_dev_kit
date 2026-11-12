@@ -1715,9 +1715,9 @@ exit 0
   _qc_unland "$dir/10-probe.sh"
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   _qc_gate "$card" branch-weakens "$SB_TRUNK"
-  [ "$_qc_rc" -eq 1 ] || cf "(d2) a branch that weakened the trunk's check judged itself (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(d2) a branch that weakened the trunk's check judged itself (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
   _qc_gate "$card" branch-removes "$SB_TRUNK"
-  [ "$_qc_rc" -eq 1 ] || cf "(d2) a branch that deleted the trunk's check escaped it (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(d2) a branch that deleted the trunk's check escaped it (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-200)"
 
   # (e) ONLY A PASS ROW OF THE CHECK'S OWN KIND IS CHECKED: a FAIL_AC row is not (the gate's own
   #     FAIL refusal speaks), a placeholder pointer is not (the gate's evidence refusal speaks), and a

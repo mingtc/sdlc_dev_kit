@@ -1887,7 +1887,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
   refused() {  # <label> <cell> <text the refusal must hold>
     _dm_row_card "$2"
     _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
-    { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "$3"; } || cf "($1) the row was not refused for '$3' (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "$3"; } || cf "($1) the row was not refused for '$3' (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
     _dm_qrefusal qa-verdict-cell-refused || cf "($1) no refusal=qa-verdict-cell-refused record"
     printf '%s\n' "$_dm_out" | grep '^Next:' >/dev/null || cf "($1) the refusal has no Next: line"
     _dm_has "$_dm_out" "NOTHING WAS CHANGED" || cf "($1) the refusal does not say nothing was changed"
@@ -1923,7 +1923,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
   _dm_row_card "$good"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   _dm_qa_gate "$card" dev-840-only "origin/$SB_TRUNK"
-  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "is not committed on the trunk"; } || cf "(k) an image only the branch holds passes (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "is not committed on the trunk"; } || cf "(k) an image only the branch holds passes (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   # (l) the tool is not on the trunk: the check cannot answer, and a check that cannot answer is a refusal
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
@@ -1931,7 +1931,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
   _dm_land "the cell tool leaves"
   _dm_row_card "$good"
   _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
-  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "could not run"; } || cf "(l) a cell check whose tool is missing passes or refuses without saying it could not run (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "could not run"; } || cf "(l) a cell check whose tool is missing passes or refuses without saying it could not run (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_qrefusal qa-verdict-cell-check-broken || cf "(l) no refusal=qa-verdict-cell-check-broken record"
   finish "$L"
   teardown
@@ -4170,6 +4170,7 @@ case_the_pull_skill_walked_with_a_deletion_declined_leaves_the_manifest_and_acce
   [ "$_dm_rc" -eq 0 ] || cf "(c) the drop block failed (exit $_dm_rc): $_dm_out"
   { ! grep -F 'project/Settings.dc.html ' "$c" >/dev/null && [ "$(grep -c '^project/' "$c")" = "$((n0 - 1))" ]; } || cf "(c) the drop block did not remove exactly the Settings line"
   [ ! -e "$c.bak" ] || cf "(c) the drop block left $c.bak"
+  [ ! -e "$c.new" ] || cf "(c) the drop block left $c.new"
   finish "$L"
   teardown
 }

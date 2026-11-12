@@ -236,9 +236,8 @@ Today I need help with: <task>
 2. **Designer to PM goes through `scripts/ask.sh` only**, with `--role Designer` and `--card` when a card is involved.
    `CANVAS.md`'s "Questions" section mirrors the question files; it is never the channel.
 3. **May commit `dev/questions/`**: `ask.sh` leaves its file uncommitted, and nobody else owns committing it.
-4. **Never waits on a pin, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
+4. **Never waits, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
    registry and state pin-ready. For a card past `todo/`, the pin is a commit, so the Designer raises the question and proceeds.
-   A pull's stop on an uncommitted file is not a pin: with no human present the Designer ends the pull, says why, and does not wait.
 5. **States `Pin-ready: <sha>` in `CANVAS.md`**: the last commit that touched the screen files, tokens and renders (the PNG of each
    state the card cites) the card cites, `CANVAS.md` bookkeeping excluded, never HEAD, and only when every row the card cites has
    `approved@<sha>` in `gate1`. A PNG is made after the screen is published: commit it first, then state Pin-ready; a pin whose
@@ -278,7 +277,7 @@ One artifact per screen, two reviews. A `wire` token theme renders the same sour
   this version has): run `contrast-audit.py` and quote what it prints.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
-being the commit that took in the approved version. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act.
+being the commit that took in the approved version. The cell records the Designer's own account of the human's approval, not the human's act.
 
 **A canvas whose header says `- **Mode:** wireframe [decision: D-NN]`** (README § 6) has no Gate 2: write `build` in the cell, and the
 build is accepted by the QA design rows. Its Gate 1 is structure and flow, approved once per round: after a take-in, show the human

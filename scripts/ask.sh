@@ -34,7 +34,7 @@
 #      standing ruling where one exists; nothing here blocks it.
 #
 # It refuses through kit_refuse — never asking is not a silent success: a required argument
-# missing (exit 2), --role not among the declared roles (exit 2), --card not shaped like a card id
+# missing (exit 2), --role not among the declared roles (exit 1), --card not shaped like a card id
 # (exit 2) or naming no card on the board (exit 1), no principal or channel declared in
 # PROJECT.md, an unusable channel, or --role equal to the declared principal (exit 1; the asker
 # may not be the seat that answers). Every rule id is in process/contracts/ask.md § 3.

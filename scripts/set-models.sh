@@ -6,8 +6,8 @@
 # pins (.claude/agents/*.md frontmatter), the ladder row (.claude/roles/orchestrator.md § Model &
 # effort contract) and, for an UNTYPED leg, the workflow runners' defaultModel/defaultEffort.
 # --class writes a class's (model, effort) pair to its pin(s) and its ladder row at once; --all also
-# writes both runners' fallback. So the ladder and what is pinned never disagree, and only --all
-# leaves all three agreeing. A parked role's pin is edited by hand.
+# writes both runners' fallback. So the ladder and what is pinned never disagree, and in one run only
+# --all leaves all three agreeing. A parked role's pin is edited by hand.
 #
 # Usage:
 #   ./scripts/set-models.sh --class <class> --model <id> --effort <tier>

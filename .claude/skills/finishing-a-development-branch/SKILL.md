@@ -80,9 +80,10 @@ guessing between `main` and `master`:
 ```bash
 # The board's chain, abbreviated: <remote>/HEAD, then init.defaultBranch.
 # Test the value, not the exit status: a pipeline ending in sed exits 0.
-trunk="$(git symbolic-ref --short refs/remotes/<remote>/HEAD 2>/dev/null | sed 's|^<remote>/||')"
+remote=origin   # your publication remote
+trunk="$(git symbolic-ref --short "refs/remotes/$remote/HEAD" 2>/dev/null | sed "s|^$remote/||")"
 [ -n "$trunk" ] || trunk="$(git config --get init.defaultBranch 2>/dev/null || true)"
-[ -n "$trunk" ] || echo "Trunk unresolved — ask, or run: git remote set-head origin <trunk>" >&2
+[ -n "$trunk" ] || echo "Trunk unresolved — ask, or run: git remote set-head "$remote" <trunk>" >&2
 echo "$trunk"
 ```
 

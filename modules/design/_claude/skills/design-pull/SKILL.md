@@ -188,7 +188,8 @@ On the go-ahead, drop the manifest line of each file that is gone (this is the o
 
 ```sh drop
 awk -v p='<path>' '$1 != p' requirements/design/<canvas>/CANVAS.md > requirements/design/<canvas>/CANVAS.md.new &&
-  mv requirements/design/<canvas>/CANVAS.md.new requirements/design/<canvas>/CANVAS.md
+  mv requirements/design/<canvas>/CANVAS.md.new requirements/design/<canvas>/CANVAS.md ||
+  { rm -f requirements/design/<canvas>/CANVAS.md.new; false; }
 ```
 
 Then two commits under `[Designer]` (the role's § Taking the canvas in): the files already in `project/`, then `CANVAS.md` with
