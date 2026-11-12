@@ -3,16 +3,15 @@
 
 Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action required` becomes an item on
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
-any other heading are not read. Nothing here is read while the module is disabled. An entry may carry an indented
-`Verify: <command>` line, as the kit's own do: `--finish` runs it in the project and refuses on a non-zero exit.
+any other heading are not read. Nothing here is read while the module is disabled.
+
+To give a release an entry, add a `### Action required` heading to its section and a bullet beneath it. A bullet
+may carry an indented `Verify: <command>` line, as the kit's own do: `--finish` runs it in the project and
+refuses on a non-zero exit. Write a command that tests the state the bullet asks for in a project that did it;
+one that is true whether or not the project did it checks nothing. This first release owes no one an action, so
+it has no such heading.
 
 ## [0.1.0]
-
-### Action required
-
-- **Enable the toy through `module.sh`, not by copying its files.** A role layer for the toy without a record of the
-  module means its files were copied by hand, and `module.sh disable` cannot take them back.
-  Verify: [ ! -e process/roles.d/example ] || grep -q '^module example ' process/MODULES
 
 ### Added
 

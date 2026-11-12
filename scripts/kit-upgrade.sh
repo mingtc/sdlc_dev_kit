@@ -51,6 +51,9 @@
 # module's record (.kit-upgrade/module-records/), so a run killed anywhere is finished by running this again.
 # The files the run adds or replaces are written down first (.kit-upgrade/arrived), so a run killed part-way through
 # them still counts every one in the "stamp what arrived" item when it is run again, though they now read as current.
+# The record names its target version on its first row and is believed only for that version, and a row counts only
+# a file that still differs from the committed tree: one committed since (by hand, after an undo that kept the
+# record) is not this run's arrival.
 #
 # THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
 # read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
@@ -724,7 +727,12 @@ n_current=0; n_kept=0
 NL='
 '; TAB="$(printf '\t')"
 PRIOR=""   # the rows a run killed before its checklist wrote down (STAGED_ARRIVED), each ended by a newline
-[ ! -f "$ST/$STAGED_ARRIVED" ] || PRIOR="$(cat "$ST/$STAGED_ARRIVED" 2>/dev/null)$NL"
+if [ -f "$ST/$STAGED_ARRIVED" ]; then
+  # A record written for another target, or by a run that stamped none, is not this run's.
+  case "$(sed -n '1p' "$ST/$STAGED_ARRIVED" 2>/dev/null)" in
+    "V$TAB$NEW_V") PRIOR="$(cat "$ST/$STAGED_ARRIVED" 2>/dev/null)$NL" ;;
+  esac
+fi
 while IFS="$(printf '\t')" read -r p nh oh; do
   [ -n "$p" ] || continue
   case "$p" in /*|../*|*/../*|*/..) kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names an unsafe path: $p" "Next: unzip the release again from the original zip and run its copy; if the fresh copy refuses the same way, stop and hand off." ;; esac
@@ -747,10 +755,15 @@ while IFS="$(printf '\t')" read -r p nh oh; do
     n_kept=$((n_kept + 1)); continue            # the kit did not change it: whatever is here stays
   fi
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
-    # Current because a run killed part-way through its writes had already placed it: it still arrived.
+    # Current because a run killed part-way through its writes had already placed it: it still arrived. Only while
+    # the file differs from the committed tree: a committed one was placed by something else.
     case "$NL$PRIOR" in
-      *"$NL""A$TAB$p$NL"*) ADDED+=("$p") ;;
-      *"$NL""R$TAB$p$NL"*) REPLACED+=("$p") ;;
+      *"$NL""A$TAB$p$NL"*|*"$NL""R$TAB$p$NL"*)
+        if [ -n "$(cd "$TGT" && git status --porcelain --untracked-files=all -- "$p" 2>/dev/null | sed -n '1p')" ]; then
+          case "$NL$PRIOR" in *"$NL""A$TAB$p$NL"*) ADDED+=("$p") ;; *) REPLACED+=("$p") ;; esac
+        else
+          n_current=$((n_current + 1))
+        fi ;;
       *) n_current=$((n_current + 1)) ;;
     esac
     continue
@@ -920,6 +933,7 @@ fail_write() {
 if [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
   mkdir -p "$ST" || fail_write "$STAGE_DIR/"
   {
+    printf 'V\t%s\n' "$NEW_V"
     for p in ${ADDED[@]+"${ADDED[@]}"}; do printf 'A\t%s\n' "$p"; done
     for p in ${REPLACED[@]+"${REPLACED[@]}"}; do printf 'R\t%s\n' "$p"; done
   } > "$ST/$STAGED_ARRIVED.new" && mv "$ST/$STAGED_ARRIVED.new" "$ST/$STAGED_ARRIVED" || fail_write "$STAGE_DIR/$STAGED_ARRIVED"
