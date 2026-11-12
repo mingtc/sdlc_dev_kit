@@ -4512,3 +4512,78 @@ case_a_wireframe_approval_is_not_lent_by_a_deleted_screen_of_another_ux_id_that_
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A PAGE SAVE'S RE-SPELLING OF data-props MOVES NO VALUE, AND A .wire TOKEN FILE IS NOT WHAT A PIN OR AN APPROVAL COVERS.
+#   Operand: check-design-links.py --strict and pin-drift.py over a screen approved and pinned with its data-props single-quoted, then
+#   re-saved in the editor's `&quot;` form, then with spaces: no STALE-APPROVAL, no drift. A changed value still is both. A
+#   <ns>.wire.tokens.json that appears or changes after the pin moves nothing; a base token that changes still does.
+# =============================================================================
+_dm_props_art() {  # <path> <data-props attribute, as written> — screen UX-001 with a component script carrying it
+  _dm_art "$1" 001 '--color-primary: #485d92;' '<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>'
+  printf '<script type="text/x-dc" data-dc-script %s>\nclass Component extends DCLogic {}\n</script>\n' "$2" >> "$1"
+}
+case_a_page_save_re_spelling_data_props_reads_as_no_change_and_a_wire_token_is_not_covered_by_a_pin() {
+  cf_reset
+  local L="a board whose data-props a page save rewrote to the &quot; form, or with spaces, keeps its approval and reads clean in pin-drift (a changed value still reads STALE-APPROVAL and drift), and a <ns>.wire.tokens.json that appears or changes after the approval and the pin moves neither, while a base token that changes still does"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" P0 P
+  P0="data-props='{\"view\":{\"default\":\"list\",\"options\":[\"list\",\"empty\"]},\"t\":\"a&amp;b\"}'"
+  _dm_props_art "$D/A.dc.html" "$P0"
+  _dm_commit "the screen carries props"; P="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$P|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_card 851 in_progress "design: [UX-001#default@$P]"
+  _dm_commit "approve UX-001 and pin a card to it"
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 0 ] || cf "(a0) the approval is not good straight after it is given (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(a0) the pin does not read clean straight after it is made: $(_dm_brief 300)"
+  # (a) the editor's re-save: double quotes, &quot; for every quote, the same values
+  _dm_props_art "$D/A.dc.html" 'data-props="{&quot;view&quot;:{&quot;default&quot;:&quot;list&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;empty&quot;]},&quot;t&quot;:&quot;a&amp;b&quot;}"'
+  _dm_commit "a page save re-spells data-props"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(a) a re-save that moved no value stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(a) a re-save that moved no value reads as drift: $(_dm_brief 300)"
+  # (b) the same values with spaces inside the quotes
+  _dm_props_art "$D/A.dc.html" "data-props='{ \"view\": { \"default\": \"list\", \"options\": [ \"list\", \"empty\" ] }, \"t\": \"a&amp;b\" }'"
+  _dm_commit "the props with spaces"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b) props with spaces and the same values stale the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(b) props with spaces and the same values read as drift: $(_dm_brief 300)"
+  # (c) a value that moved is still both
+  _dm_props_art "$D/A.dc.html" "data-props='{\"view\":{\"default\":\"list\",\"options\":[\"list\",\"empty\",\"error\"]},\"t\":\"a&amp;b\"}'"
+  _dm_commit "a value in the props moves"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(c) a changed prop does not stale the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = drift ] || cf "(c) a changed prop does not read as drift: $(_dm_brief 300)"
+  git -C "$SB_WORK" checkout -q "$P" -- requirements/design/app/project/A.dc.html >/dev/null 2>&1
+  _dm_commit "the props are back"
+  # (d) a wireframe token file that appears, then changes, after the pin
+  _dm_tokens '{"color":{"primary":{"$value":"#777777"},"surface":{"$value":"#ffffff"}}}' app.wire.tokens.json
+  _dm_commit "a greyscale token file appears"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token file appearing stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token file appearing reads as drift: $(_dm_brief 300)"
+  _dm_tokens '{"color":{"primary":{"$value":"#666666"},"surface":{"$value":"#ffffff"}}}' app.wire.tokens.json
+  _dm_commit "a greyscale tweak"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token changing stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token changing reads as drift: $(_dm_brief 300)"
+  # (e) the base token still counts
+  _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"}}}'
+  _dm_commit "the brand token changes"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) a base token changing no longer stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = drift ] || cf "(e) a base token changing no longer reads as drift: $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
