@@ -443,6 +443,18 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git cherry-pick --continue 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(f) a cherry-pick --continue carrying a tool-made move was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
+  # (e2) a merge whose incoming head carries the card at the same path, but the staged card differs from it: refused.
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+  git -C "$W" checkout -q -f -b feat4 "$base"; echo A4 > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  MSG_OK=1 git -C "$W" commit -q -m "[PM] feat4 side"
+  git -C "$W" merge -q "$SB_TRUNK" >/dev/null 2>&1
+  [ -e "$W/.git/MERGE_HEAD" ] || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the (e2) merge did not conflict"
+  echo C4 > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  printf '\nEDITED-AFTER-THE-TRUNK-MOVE\n' >> "$W/$qc/$idc-badc.md"; git -C "$W" add "$qc/$idc-badc.md"
+  out="$( cd "$W" && env -u MSG_OK git commit -q --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e2) a merge whose incoming head carries the card at the same path, with the staged card differing, committed"
+  git -C "$W" merge --abort >/dev/null 2>&1; git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+
   # (g) the same hand move on a feature branch is refused too.
   git -C "$W" checkout -q -b feat3 "$base"
   git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
@@ -456,7 +468,7 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
   mv "$SB_TMP/qa-gate.sh.aside" "$W/scripts/lib/qa-gate.sh"
   [ "$rc" -ne 0 ] || cf "(h) with qa-gate.sh unreadable the move committed (the check must fail closed)"
-  case "$out" in *"could not run"*) : ;; *) cf "(h) the refusal does not say the check could not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"could not give an answer"*) : ;; *) cf "(h) the refusal does not say the check could not answer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   case "$out" in *"fix the table"*|*"Fill the card"*) cf "(h) an internal failure told the user to fix the table" ;; esac
   git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
 
@@ -481,6 +493,43 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   else
     cf "(j) no git mv undo was printed for a slug holding a quote"
   fi
+
+  # (k) a brand-new card file: every printed command line runs as printed, and the file stays on disk.
+  git -C "$W" checkout -q -f "$SB_TRUNK"
+  cp "$W/$dc/$idd-badd.md" "$W/$qc/$SB_PREFIX-823-new card.md"
+  git -C "$W" add "$qc/$SB_PREFIX-823-new card.md"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $SB_PREFIX-823: add" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(k) a brand-new card file with a bad table in qa_complete/ committed"
+  local line nrun=0
+  while IFS= read -r line; do
+    nrun=$((nrun+1))
+    ( cd "$W" && bash -c "$line" ) >/dev/null 2>&1 || cf "(k) the printed line does not run as printed: $line"
+  done <<K_LINES
+$(printf '%s\n' "$out" | sed -n 's/^    \(git .*\)$/\1/p')
+K_LINES
+  [ "$nrun" -ge 1 ] || cf "(k) no command line was printed for a brand-new card file"
+  [ -e "$W/$qc/$SB_PREFIX-823-new card.md" ] || cf "(k) the printed undo removed the file from disk"
+  case "$(git -C "$W" diff --cached --name-only)" in *823-new*) cf "(k) the printed undo left the card staged" ;; esac
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1; rm -f "$W/$qc/$SB_PREFIX-823-new card.md"
+
+  # (l) the library failing another way than a card finding (a stub exiting 127) is the check-broken rule, not a table finding;
+  #     (m) its own cell-check refusal keeps the library's Next and is not turned into "fill the table".
+  cp "$W/scripts/lib/qa-gate.sh" "$SB_TMP/qa-gate.sh.keep"
+  printf 'kit_qa_verdict_check() { nosuchcommand_817; }\n' > "$W/scripts/lib/qa-gate.sh"
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(l) a library exiting 127 let the move commit"
+  case "$out" in *"could not give an answer"*) : ;; *) cf "(l) a 127 is not reported as an unanswered check: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Fill the card"*|*"move the card back"*) cf "(l) a 127 told the user to fix the table" ;; esac
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+  printf 'kit_qa_verdict_check() { kit_refuse 2 qa-verdict-cell-check-broken "Error: a cell check did not run" "Next: LIBRARY-OWN-NEXT-817"; }\n' > "$W/scripts/lib/qa-gate.sh"
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(m) a cell-check-broken refusal let the move commit"
+  case "$out" in *"LIBRARY-OWN-NEXT-817"*) : ;; *) cf "(m) the library's own Next was dropped: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Fill the card"*|*"move the card back"*) cf "(m) a cell-check-broken refusal told the user to fix the table" ;; esac
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+  cp "$SB_TMP/qa-gate.sh.keep" "$W/scripts/lib/qa-gate.sh"
 
   finish "pre-commit gives a hand-made move into qa_complete/ the QA Verdict table check on the staged card: a failing table is refused with an undo that keeps the edit and the other staged work and a move-issue command that passes its role check; a good table, an edit, another column, a conflicted merge or cherry-pick bringing a tool-made move, and the kanban worktree commit; a hand move during a merge is refused; a library that cannot load is refused as its own rule"
   teardown
