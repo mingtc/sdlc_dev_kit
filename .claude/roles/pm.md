@@ -231,7 +231,7 @@ A card is published to `progress/todo/` only when every box is checked. If anyth
 - [ ] **PRD exists** at `requirements/PRD-NNN-<slug>.md`, produced by [write-spec](../skills/write-spec/), status `draft` or `approved` — **feature-area work only.** A small standalone fix on the lite path sets `prd: n/a` with a one-line `prd_reason:`, `stories: []`, and authors its own AC; no PRD required.
 - [ ] **Frontmatter complete** — `id`, `type`, `title`, `size`, `prd`, `stories`, `branch`, `created_at`, `created_by`
 - [ ] **Problem statement** — one paragraph grounded in PROJECT.md context
-- [ ] **Acceptance Criteria** — each independently testable by QA (copied from the PRD's referenced stories for feature-area work; authored directly in the issue on the lite path)
+- [ ] **Acceptance Criteria** — each independently testable by QA (copied from the PRD's referenced stories for feature-area work; authored directly in the issue on the lite path), every line `- [ ] AC<n> — <text>` with its id: a PRD line that has none gets its id as it is copied, because the freeze starts when the card leaves `todo/` and an id-less line is refused at the hand-off
 - [ ] **Out of scope** — explicit list of things this issue does NOT touch. An Out-of-scope line that removes part of an AC's population rewrites that AC, in the same change, while the card is still in `todo/`; a story whose cards are done is never edited — a change to it arrives as a new story.
 - [ ] **Dependencies identified** — code (`blocked_by: [<PREFIX>-NNN]`) and resource (infrastructure, fixtures, external services)
 - [ ] **Branch name** in frontmatter — `feature/<PREFIX>-NNN-<slug>` for features/spikes/chores, `fix/<PREFIX>-NNN-<slug>` for bugs

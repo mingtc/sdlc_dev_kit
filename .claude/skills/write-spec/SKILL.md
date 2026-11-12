@@ -212,11 +212,13 @@ Example:
 - Then they are automatically redirected to the organization's SSO provider
 
 **Checklist format**:
-- [ ] Admin can enter SSO provider URL in organization settings
-- [ ] Team members see "Log in with SSO" button on login page
-- [ ] SSO login creates a new account if one does not exist
-- [ ] SSO login links to existing account if email matches
-- [ ] Failed SSO attempts show a clear error message
+- [ ] AC1: Admin can enter SSO provider URL in organization settings
+- [ ] AC2: Team members see "Log in with SSO" button on login page
+- [ ] AC3: SSO login creates a new account if one does not exist
+- [ ] AC4: SSO login links to existing account if email matches
+- [ ] AC5: Failed SSO attempts show a clear error message
+
+Give each checklist line an id, `AC<n>`, one per line and distinct within the story, then a colon or dash. The cards cut from the spec copy these lines, and the board grades them by id: a line with no id is refused at the hand-off, after the card has already passed the move to `todo/`. Do not write an id as `AC-1` (a hyphen, then a letter or digit).
 
 ### Tips for Acceptance Criteria
 - Cover the happy path, error cases, and edge cases
