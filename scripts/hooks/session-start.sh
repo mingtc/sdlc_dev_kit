@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — SessionStart hook; clears the hat file. See process/EXTRACTION.md.
-# SessionStart hook.
+# SessionStart hook. The harness calls it bare: it ignores its arguments, so `--help` runs it (clearing the hat file).
 #
 # Wired in .claude/settings.json.example under hooks.SessionStart (active once copied to
 # .claude/settings.json). On every session start the harness runs this and adds our stdout to the

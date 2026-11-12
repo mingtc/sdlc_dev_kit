@@ -68,7 +68,9 @@ Reports (each line starts with its class)
                 changed since; the row goes back to review. In a wireframe canvas: gate 1 only, and only when the structure differs
   SUPERSEDED    a citation of a superseded screen        DUPLICATE  one UX id on two rows
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
-                approved gate cell whose file is not there
+                approved gate cell whose file is not there. "Exists" follows the filesystem: a registry path that differs from a
+                tracked file only in case resolves on a case-insensitive one, so ARTBOARD stays silent there and STALE-APPROVAL
+                (which reads git) still reports a missing approved file
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
   LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style block, a style attribute, a
                 presentation attribute, or in a local stylesheet or imported artboard it loads (comments, strings and url() left out),

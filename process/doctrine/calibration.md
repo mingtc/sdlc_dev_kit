@@ -123,7 +123,7 @@ summarising them here would create a second copy that drifts.
 tests and regenerated from the corpus alone. Output: divergences in the three classes of § A.1
 step 5, **including acceptance-class items that nothing in the suite caught** — the only kind of
 finding that cannot be produced any other way. The spike's own recommendation — **mark tier
-membership per assertion where a file mixes the two tiers, rather than per file** — became
+membership on the individual tests where a file mixes the two tiers, rather than per file** — became
 convention and lives in [`conformance-tier.md`](conformance-tier.md) § A.4.
 
 **The seed acceptance test.** A cold bootstrap of a throwaway project from the seed document plus a

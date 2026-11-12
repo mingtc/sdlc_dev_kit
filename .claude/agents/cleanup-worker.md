@@ -32,7 +32,7 @@ that the model half travels on the spawn call while the effort half needs
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms unless the spawn tool's own parameter list carries `effort` (a bare model override against this file's pin yields that model at *medium*, not
 at high). The lowest effort tier is **never used**; **never `max` effort**; **never spawn above the project's
-sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2, which also says what binds while it is unwritten). The seat is human-partnered, not a provisionable worker.
+sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2, which also says what binds while it is unwritten). The seat (the instance that dispatches you) is human-partnered, not a provisionable worker.
 
 ## You are a leaf worker
 

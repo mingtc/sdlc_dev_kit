@@ -179,7 +179,7 @@ It prints `<Board>.dc.html#<element id>` (or `UNRESOLVED`: log the thread agains
 
 Log each thread in `COMMENTS.md`, its thread id in the `thread` column (a `COMMENTS.md` made from an older template lacks the column: add it to the table by hand) (`open`, or `acknowledged` when an automatic reply stands: that reply is an acknowledgement, not the change). A thread
 already logged is updated, not logged twice. **Do not reply "done" or resolve here:** that is `/design-publish`, after the change is published and read back. An automatic reply stopped after the
-60th comment or activation in an hour; a watch can end after hours without activity, and the `watch` tool answered `not_armed` where this was observed, so
+60th comment or activation in an hour (observed 2026-11); a watch can end after hours without activity, and the `watch` tool answered `not_armed` where this was observed, so
 do not rely on a comment waking you: you read threads when you pull. A pull that found no file change and only logged threads commits `COMMENTS.md` alone, `[Designer] design: log threads for <canvas>`.
 
 ## 8. Take it in
@@ -187,8 +187,8 @@ do not rely on a comment waking you: you read threads when you pull. A pull that
 On the go-ahead, drop the manifest line of each file that is gone (this is the only place it happens):
 
 ```sh drop
-sed -i.bak '\|^<path> |d' requirements/design/<canvas>/CANVAS.md
-rm requirements/design/<canvas>/CANVAS.md.bak
+awk -v p='<path>' '$1 != p' requirements/design/<canvas>/CANVAS.md > requirements/design/<canvas>/CANVAS.md.new &&
+  mv requirements/design/<canvas>/CANVAS.md.new requirements/design/<canvas>/CANVAS.md
 ```
 
 Then two commits under `[Designer]` (the role's § Taking the canvas in): the files already in `project/`, then `CANVAS.md` with

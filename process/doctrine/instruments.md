@@ -593,7 +593,7 @@ performed by the guard's author:**
 > is the one thing it cannot use to audit itself: it will re-derive the same set and report agreement.
 > Widen the scope, widen the pattern, widen the file set — then compare counts.
 
-*Measured, twice in one month in this kit:* a sweep scoped to `scripts/` could not see `.claude/`, and
+*Seen in practice:* a sweep scoped to `scripts/` could not see `.claude/`, and
 a regex that could not cross a nested brace missed a fifth divergence. **Both guards were correct
 about everything they could see, and that was the defect.**
 

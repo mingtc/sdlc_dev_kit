@@ -30,7 +30,7 @@ requests it.
 
 **1. Get git SHAs:**
 ```bash
-BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
+BASE_SHA=$(git rev-parse HEAD~1)  # or <remote>/<trunk>
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 

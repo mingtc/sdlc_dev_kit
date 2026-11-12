@@ -59,7 +59,7 @@ belongs in the body, where removing the classification cannot remove it.
 case below them is a third way a file can lack a `KIT-CLASS:` comment, which is why no count is
 written here: *the list is the list.*
 
-- **A vendored third-party directory inside a module is classified by its own `NOTICE`, not in-file.** `modules/design/scripts/design/vendor/` holds Apache-2.0 code and data (`material-color-utilities`, material-web's token values), the kit's only non-MIT shipped code, ruled in on 2026-10-28; `LICENSE` is the Apache text, `NOTICE` lists every change, and the files keep their upstream headers and carry no `KIT-CLASS:` marker (an upstream re-copy would erase one). It is deletable with the module.
+- **A vendored third-party directory inside a module is classified by its own `NOTICE`, not in-file.** `modules/design/scripts/design/vendor/` holds Apache-2.0 code and data (`material-color-utilities`, material-web's token values), the kit's only non-MIT shipped code; `LICENSE` is the Apache text, `NOTICE` lists every change, and the files keep their upstream headers and carry no `KIT-CLASS:` marker (an upstream re-copy would erase one). It is deletable with the module.
 - **Vendored skill directories are classified by the `Class` column of
   `.claude/skills/README.md`'s provenance table, not in-file.** *Why:* updating a skill from upstream is a **re-fetch and copy the folder over**, which
   **erases an in-file marker** — so a marker there would be a classification that silently disappears
@@ -491,9 +491,11 @@ be watching without waiting on the answer. § 2.10 describes it.
 | `.env.example` | the kit's own entries, complete | the **project block** below them |
 | `.gitignore` | the kit's own entries, complete | the marked **build-artifact section** |
 
-**Two files are `MIXED` and deliberately NOT rows: `progress/history/INDEX.md` and
+**Two `MIXED` files are deliberately NOT rows here: `progress/history/INDEX.md` and
 `dev/downtime-queue.md`.** Their project half is **accumulated, not filled** — rows arrive as the log
-rotates or the queue grows — so it is `SEED`-shaped work rather than a day-one touch.
+rotates or the queue grows — so it is `SEED`-shaped work rather than a day-one touch. The recipe
+below also returns `process/ROLES` (its own row in § 2.4's table) and a module's own `MIXED` file
+(the design module's `requirements/design/README.md`), which travels with its module.
 
 **Derive the class rather than trusting this table, and anchor to the FIRST marker per file:**
 
@@ -673,7 +675,7 @@ left to open by hand.
 | `scripts/kit-upgrade.sh` | `in_progress`, `dev_complete` and `blocked` **by name** in the loop that re-checks open cards, and `todo` for the cards it only counts | a renamed or added open column is never re-checked, and the upgrade reports the cards it did not read as fine |
 | `scripts/read-verdict.sh` | `dev_complete` **by name**, in the comparison that decides whether a REFUSE is expected because the landing has not merged | the note that explains an expected REFUSE stops appearing |
 | `scripts/hygiene/staleness_greps.py` (optional, Python) | `progress/done/` as a path literal, in the test for "this card has landed" | a landed card is not recognised, and a stale claim about it goes unflagged |
-| `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, spelled out as one `progress/<column>/` argument each to an `ls` — not the terminal ones. They carry that exclusion **in prose** (a terminal column is not runnable), so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
+| `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, derived by exclusion: ``ls $(ls -d progress/*/ | grep -v -e /done/ -e /declined/ -e /history/)`` lists every column but the terminal ones. The exclusion is **written in the command and in prose** (a terminal column is not runnable), so the next reader meets a decision rather than a silence | a new terminal column is LISTED as if it were runnable, and a reader is told work is waiting where none is. **The cost of the other direction:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
 
 **Other files name columns without carrying the set, and they are not all the same kind.** None is a
 row above; none is safe to ignore; and what a lifecycle change costs each one differs:
@@ -696,8 +698,8 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
   briefs they hand agents; the item templates state where a card sits at each stage; the role docs and
   worker definitions name the columns their hat moves between; the skills that walk the flow are the ones `grep -rlE 'in_progress|qa_complete' .claude/skills/` returns. **Most of them carry
   the set MINUS `done`** — a runner brief and an issue template describe the working lifecycle, and
-  nothing there closes an issue — **but not all: `.claude/roles/pm.md` states the COMPLETE set,
-  `done` included, as the mover's legal target list.** Derive the carriers
+  nothing there closes an issue — **and none spells the mover's legal target list: `.claude/roles/pm.md`
+  points at `./scripts/move-issue.sh --help`, which prints the complete set, `done` included.** Derive the carriers
   (`grep -rl in_progress .claude/`) rather than trusting the quantifier. **What a missed column costs here is a WRONG INSTRUCTION rather than a
   broken script:** the agent is told to move an issue to a column that does not exist, and the failure
   surfaces as the mover refusing mid-run, at whatever hour the run reached that step.

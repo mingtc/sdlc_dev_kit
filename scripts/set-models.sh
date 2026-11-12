@@ -4,9 +4,10 @@
 #
 # A model is set in several places (process/doctrine/model-provisioning.md § B.1): the leaf-worker
 # pins (.claude/agents/*.md frontmatter), the ladder row (.claude/roles/orchestrator.md § Model &
-# effort contract) and, for an UNTYPED leg, the workflow runners' defaultModel/defaultEffort. This
-# writes a class's (model, effort) pair to every one of those at once, so the ladder and what is
-# actually pinned never disagree.
+# effort contract) and, for an UNTYPED leg, the workflow runners' defaultModel/defaultEffort.
+# --class writes a class's (model, effort) pair to its pin(s) and its ladder row at once; --all also
+# writes both runners' fallback. So the ladder and what is pinned never disagree, and only --all
+# leaves all three agreeing. A parked role's pin is edited by hand.
 #
 # Usage:
 #   ./scripts/set-models.sh --class <class> --model <id> --effort <tier>

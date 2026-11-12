@@ -215,7 +215,8 @@ last is why the run is worth having at all:
 
 **In:** the work item's identity; optionally the branch, when the item does not name one.
 **Out:** the gate verdict, the landed commit identifier, the retired branch, the item's new
-state, and a plan-then-apply mode that prints all of the above and changes nothing — **plus a
+state, and a plan-then-apply mode that prints the plan and changes nothing, stopping before the gate runs
+so that it predicts neither the gate nor the landing — **plus a
 process exit status that distinguishes at least three outcomes: green, failed-with-nothing-landed,
 and landed-but-not-finished**, so a human and a machine read the same result.
 *(The sibling requirement on the gate runner is [verify-gate.md](verify-gate.md) § 5. It asks for

@@ -135,15 +135,15 @@ guard can see a commit the operator makes by hand.
    that something is still local ([`../doctrine/commit-hygiene.md`](../doctrine/commit-hygiene.md)
    § A.3 — the *looks-pushed* trap). **The condition is part of the invariant, not a gap in it:**
    the report is about the MAIN checkout's trunk, so where the trunk is checked out somewhere else
-   there is no such state to read from there, and the operation says which case it is rather than
-   printing a reading it did not take. *An implementation built from an unconditional wording emits
+   there is no such state to read from there, and the operation prints no reading there rather than
+   one it did not take. *An implementation built from an unconditional wording emits
    a number from the wrong worktree, which is worse than the silence it was trying to avoid.*
 
 ## 5. MINIMAL INTERFACE
 
 **In:** the repository; the publication remote; the trunk's identity; the change to publish.
 **Out:** the published commit identifier, the trunk it landed on, whether the operator's
-workspace was brought forward, the ahead/behind state on exit, and a non-zero exit for every
+workspace was brought forward, the ahead/behind state on exit (when the trunk is checked out in the main checkout), and a non-zero exit for every
 refusal above.
 **Not in:** what the change is. This machinery does not know a board from a document.
 

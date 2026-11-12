@@ -164,8 +164,8 @@ Options:
                       Omit it and an existing, executable scripts/verify.sh is a
                       REQUIRED precondition instead: finish-pr.sh REFUSES to land
                       without one — and the shipped frame REFUSES TO RUN while its
-                      table is empty, so omit the flag only once you have declared
-                      your gates in that table by hand.
+                      table is empty, so omit the flag only if you will declare
+                      your gates in that table by hand before the first landing.
   KIT_INIT_ROLE=<R>   (environment) The hat this script's own commits carry. Default:
                       the pre-role hat, process/contracts/role-gate.md § 2a. Must be a
                       member of the role set in force, or the run is refused before

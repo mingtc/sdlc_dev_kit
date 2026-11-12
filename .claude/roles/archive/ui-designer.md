@@ -367,4 +367,5 @@ If this role is woken, these are project law and must be written down:
 - [ ] **Risk Calls section lists every `pending` item** with a recommendation
 - [ ] **`progress.md` has one UIDesigner entry** for this pass
 - [ ] **No screenshots or annotated images left in scratch directories** — commit them under `dev/design-passes/assets/` or link out
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` (`process/MANUAL.md` § Kit feedback).
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "UI Designer: <pass scope, N stories>" --session <slug>`. No-op if notifications are off.

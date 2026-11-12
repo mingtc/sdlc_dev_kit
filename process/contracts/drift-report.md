@@ -403,7 +403,8 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
   count of them. **[f0]** is a reading of neither home: it reports the primary checkout's uncommitted
   and untracked paths, which no other arm reads, and carries a `⚠` only for a path in a place an arm
-  would read. It reports only.
+  would read. It reports only. So do **[f3]**, a remote branch left behind by a landed card, and
+  **[f4]**, a linked worktree left behind; each prints under its own header.
 - **THE LETTERING RUNS PAST THE NUMBERED INVARIANTS.** § 2's unnumbered invariants are contracted
   too, and their arms follow **[g]**; the implementation also carries lettered sections that
   implement no § 2 invariant — reports it finds worth printing. *"In the order above" binds the arms
@@ -451,7 +452,8 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   property the branch touches; an arm that only reports here still only reports — the refusal rests
   on the landing's own operand, the diff, and never on this report's verdict. One implementation per
   property is the obligation: a second reader of any of them is the one that disagrees.
-- Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
+- Its thresholds each have one home — the reviewed-and-done depth in `scripts/config.sh`, the rest named
+  constants at the top of that file — **a seam, not a contract term.**
   They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
   which the running log is due for rotation — its current section and the whole file being
   separately bounded. **Read them from the file** rather than from any document, and **read how

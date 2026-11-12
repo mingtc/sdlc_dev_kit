@@ -207,7 +207,7 @@ Done!
 **vs. Manual execution:**
 - Subagents follow TDD naturally
 - Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
+- Isolated (a subagent's context does not leak into another's); implementers still run one at a time
 - Subagent can ask questions (before AND during work)
 
 **vs. Executing Plans:**

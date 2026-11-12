@@ -143,11 +143,11 @@ the Designer's to quote for Gate 2 (a wireframe canvas has none: run neither aud
 
 ### PNGs and the wire review
 
-No tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x) or exports it. `scripts/design/render.py <project/>
+No artifact tool exports a PNG. A human copies one from the canvas (**Copy as PNG** is 2x) or exports it. `scripts/design/render.py <project/>
 <out/> --runtime <dc-runtime.js> [--theme wire] [--scale 2]` renders the boards with Chrome on this machine, with the colour scheme
 forced (default light) so a sheet that follows `prefers-color-scheme` draws the same everywhere; a 2x render matched a real copy to
-0.04% of pixels. **The runtime route, honestly:** `render.py` needs the design runtime (`dc-runtime.js`), which the module does not
-ship (it is the design tool's code). On A (the claude-artifacts server) the file (about 188 KB) is readable, but only into the
+0.04% of pixels (measured 2026-11). **The runtime route, honestly:** `render.py` needs the design runtime (`dc-runtime.js`), which the module does not
+ship (it is the design tool's code). On A (the claude-artifacts server) the file (about 188 KB, as of 2026-11) is readable, but only into the
 transcript; no tool there puts text on disk, and retyping a file that size is not a route. A copy kept earlier from the design type's
 folder is the route seen to work; surface B's `read` with `paths` is documented to save the type's files (not tried here). Whether a
 downloaded or exported canvas carries the runtime is untested. A copy that is cut short, empty or another file is not accepted: the
@@ -176,7 +176,7 @@ in a scratch directory: the next round regenerates from it, not from memory. Not
 
 ### What the human still does
 
-Looks at the canvas (no agent route sees it); approves the gates; may change the canvas by hand on its page, which nothing
+Looks at the canvas (no artifact tool shows it to an agent; `render.py` draws a local copy); approves the gates; may change the canvas by hand on its page, which nothing
 requires; sends comments to Claude; copies a PNG; shares and deletes.
 
 ## The checkers
@@ -236,8 +236,9 @@ Today I need help with: <task>
 2. **Designer to PM goes through `scripts/ask.sh` only**, with `--role Designer` and `--card` when a card is involved.
    `CANVAS.md`'s "Questions" section mirrors the question files; it is never the channel.
 3. **May commit `dev/questions/`**: `ask.sh` leaves its file uncommitted, and nobody else owns committing it.
-4. **Never waits, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
+4. **Never waits on a pin, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
    registry and state pin-ready. For a card past `todo/`, the pin is a commit, so the Designer raises the question and proceeds.
+   A pull's stop on an uncommitted file is not a pin: with no human present the Designer ends the pull, says why, and does not wait.
 5. **States `Pin-ready: <sha>` in `CANVAS.md`**: the last commit that touched the screen files, tokens and renders (the PNG of each
    state the card cites) the card cites, `CANVAS.md` bookkeeping excluded, never HEAD, and only when every row the card cites has
    `approved@<sha>` in `gate1`. A PNG is made after the screen is published: commit it first, then state Pin-ready; a pin whose
@@ -277,7 +278,7 @@ One artifact per screen, two reviews. A `wire` token theme renders the same sour
   this version has): run `contrast-audit.py` and quote what it prints.
 
 The human approves a gate by saying so; the Designer writes `approved@<sha>` in that row's `gate1` or `gate2` cell, `<sha>`
-being the commit that took in the approved version.
+being the commit that took in the approved version. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act. The cell records the Designer's own account of the human's approval, not the human's act.
 
 **A canvas whose header says `- **Mode:** wireframe [decision: D-NN]`** (README § 6) has no Gate 2: write `build` in the cell, and the
 build is accepted by the QA design rows. Its Gate 1 is structure and flow, approved once per round: after a take-in, show the human

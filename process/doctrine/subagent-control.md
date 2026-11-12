@@ -282,7 +282,7 @@ silent together, and the silence is indistinguishable from work.**
 
 [`../contracts/liveness-watchdog.md`](../contracts/liveness-watchdog.md) § 2 already owns the
 signal half — *the signal must be a by-product of work, not something a worker can emit*, and
-*liveness is artifact freshness and never the absence of news*. **What follows is the half it does
+*Liveness is ARTIFACT FRESHNESS — growth over time — and never the absence of news*. **What follows is the half it does
 not cover: what a spawner owes a SET of prompted peers over a task longer than one session.**
 
 **Scope, and it is narrow on purpose.** This binds **prompted** workers. A fleet of autonomous

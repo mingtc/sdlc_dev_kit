@@ -78,7 +78,7 @@ and never re-send.
 
 Write the new `version` and the manifest into `CANVAS.md`: `Last publish: <version> @ <repo commit>` (the commit that holds what you sent, made before the send),
 canvas sha and repo sha now equal for what you sent. Commit `CANVAS.md` (`[Designer] design: publish <canvas>`).
-After `edit_version` no local bytes exist: read the file back (`read_file`) and compare it with your change applied to the copy you pulled.
+If you changed one file with `edit_version` instead of step 4's `publish_files`, no local bytes exist: read the file back (`read_file`) and compare it with your change applied to the copy you pulled.
 
 ## 7. Answer the threads you addressed
 

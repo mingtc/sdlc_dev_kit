@@ -16,13 +16,17 @@ filtered, audited and trusted years later without asking anybody.
   rejected exactly like a subject naming none.
   *Why:* an open set decays into free text within a month, and then the filter that made the
   history answerable returns nothing.
-- **Enforcement is mechanical, at the moment of writing.** The rule is applied by the version
+- **Enforcement is mechanical, at the moment of writing, for an entrance named below.** The rule is applied by the version
   control system itself as the commit is created, not by review, not by a later sweep.
   *Why:* a described boundary is a suggestion and an enforced one is a wall; every unenforced
   attribution convention this process has met eroded silently.
-- **Every path that creates a commit is guarded, not just the interactive one.** Applying a
-  patch series, replaying, importing — each is a way in, and each is guarded by the same rule.
-  *Why:* one unguarded entrance is the whole fence.
+- **Every path that creates a commit is covered by a layer that names it.** An entrance version
+  control runs a message hook on is refused at write time: an ordinary commit, a patch applied
+  with `am`, and any commit made after `cherry-pick -n` or `merge --squash`. Replaying an
+  existing commit (`cherry-pick`, `rebase`) runs no message hook, and plumbing (`commit-tree`)
+  runs none at all; those, `--no-verify`, and a clone with no hooks wired are caught after the
+  fact by the drift report's role-prefix scan on the trunk.
+  *Why:* one unguarded entrance is the whole fence, so each entrance names the layer that covers it.
 - **The rejection explains the rule and shows a correct subject.** A refusal that only says "no"
   costs the author a search.
   *Why:* a gate people cannot satisfy from its own message gets disabled.
@@ -72,8 +76,9 @@ here, in a separate hook, or by review is your call; that it is a rule is not.
 
 1. A commit whose subject carries a declared role is created **without comment** — the guard is
    invisible when satisfied.
-2. A commit whose subject does not is **rejected**, the commit does not exist afterwards, and the
-   author is shown the rule and a valid example.
+2. A commit whose subject does not is **rejected** at an entrance § 2 names as refused at write
+   time, the commit does not exist afterwards, and the author is shown the rule and a valid
+   example. Any other entrance is counted by item 3.
 3. The history can be filtered by role, and the count of unattributed commits in any recent
    window is **zero** — a number the drift report states rather than assumes.
 

@@ -96,9 +96,10 @@ write what you find into your § B.2 with the date you checked.**
    sed -n '/^## Model & effort contract/,/^## [^M]/p' .claude/roles/orchestrator.md | grep '^| \*\*'   # the ladder rows
    grep -n 'defaultModel\|defaultEffort' .claude/workflows/*.js              # the runners' fallback
    ```
-   **`scripts/set-models.sh` is the one way to change them**: it writes a class's `(model, effort)`
-   pair to its pin(s) and its ladder row together, or to both runners' fallback, so the three never
-   disagree. Editing a pin or the table by hand is how they drift. `check-board.sh` arm `[s]` reports a pin that
+   **`scripts/set-models.sh` is the one way to change them**: `--all` writes every class's `(model, effort)`
+   pair to its pin(s) and its ladder row and to both runners' fallback together, so the three agree.
+   `--class` writes one class's pin(s) and ladder row and leaves the untyped-leg fallback alone, on purpose.
+   A parked role's pin is outside the ladder and the arm, and is edited by hand. Editing any other pin or the table by hand is how they drift. `check-board.sh` arm `[s]` reports a pin that
    disagrees with its ladder cell (or, where the cell is unfilled, with what `set-models.sh` last wrote). It also counts the
    role docs' hand-kept model-table rows still unfilled — not the ladder rows `set-models.sh` writes — and ticks only over fields it compared.
 

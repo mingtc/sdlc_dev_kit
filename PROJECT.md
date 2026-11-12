@@ -164,7 +164,7 @@ done
 **`process/doctrine/fix-execution.md` § A.4b requires a pre-cut sweep** before a release: one
 fresh-context checker per **consumer-facing surface**, verifying that surface's claims against the tree
 as it stands. **The sheet deliberately does not supply the list — it is yours, and this is its home**,
-because a list kept in a crunch document dies when that document is struck.
+because a list kept in a one-off planning document dies with that document.
 
 **A COMMAND'S USAGE TEXT IS A SURFACE.** `--help` output, refusal messages and the remedies they
 print are consumer-facing claims, they are the cheapest of all to falsify (run them), and they are

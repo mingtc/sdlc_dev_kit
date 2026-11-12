@@ -229,6 +229,8 @@ case_the_designer_role_and_the_design_evidence_kind_are_read_while_the_module_is
 #   something does, so a lane that ships a capability must take its line out. The module README and the rules'
 #   README carry their one line while any capability is missing, and the gate row's N/A goes with the link check.
 # =============================================================================
+# DORMANT HALF: the 'line required' arm fires only for a capability module.manifest does not place; with every capability placed (as shipped)
+# only the 'line must be dropped' arm runs.
 case_the_designer_role_names_each_capability_this_version_lacks_and_drops_the_line_when_it_ships() {
   cf_reset
   local L="the shipped Designer role carries a 'needs the next version of the kit' line for each capability that module.manifest does not place yet (the pull and publish commands, the drift check, the card gate, the token generator and the colour utility, render, the audits, the link check, the PRD view, the flow graph) and none for one it places, the module README and the rules README carry their line while any is missing, and the gate row is N/A only while the link check is not placed"
@@ -325,6 +327,8 @@ DM_ACS_EOF
 #   row that has no image. Once the renderer is placed the lane that places it rewrites the text, and this case
 #   no longer holds it.
 # =============================================================================
+# DORMANT HALF: arm (a) runs only while module.manifest places no render.py; with render.py placed (as shipped) only the QA guide's
+# arm (b) is asserted. The name describes both halves; (a) fires if render.py is ever dropped from the manifest.
 case_no_design_text_tells_a_role_to_render_the_pinned_side_while_the_renderer_is_absent() {
   cf_reset
   local L="while module.manifest places no render.py, no shipped design text tells a role to render the pinned side, and the QA guide names the committed PNG read with git show and forbids a PASS without an image"

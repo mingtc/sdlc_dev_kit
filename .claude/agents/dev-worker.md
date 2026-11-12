@@ -33,7 +33,7 @@ there is no self-knob.**
 - **xhigh** — beast-class problems, **only by PM sign-off**.
 - The lowest effort tier is **never used**; **never `max` effort**; **never spawn above the project's
   sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2, which also says what
-  binds while it is unwritten). The seat is human-partnered, not a provisionable worker.
+  binds while it is unwritten). The seat (the instance that dispatches you) is human-partnered, not a provisionable worker.
 
 ## You are a leaf worker
 

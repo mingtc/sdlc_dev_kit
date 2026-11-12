@@ -156,7 +156,8 @@ row (its title cell), the same marker and the same register as a card's waiver o
   against the brand version that is taken in.
 - **Gate 2, visual:** the brand render, a contrast audit and a 44 px target audit (`scripts/design/contrast-audit.py`). The human
   approves the render on the canvas; the audits are tools, and their figures are quoted as printed.
-- The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell. Failure and empty-state copy are
+- The human approves a gate by saying so; the Designer writes `approved@<sha>` in the cell, so the cell records the Designer's own
+  account of the human's approval, not the human's act. Failure and empty-state copy are
   the Designer's deliverable per state.
 
 ### Wireframe mode

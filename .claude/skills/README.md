@@ -232,13 +232,14 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | `start` | Authored for this kit | Same as this repo | `KIT` |
 | `finishing-a-development-branch` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
 | `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge", because the Dev does not land (`process/MANUAL.md` § The Dev → QA handoff); and a leaf worker self-reviews and reports an independent review owed; a blind re-copy erases it |
-| `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
+| `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason, and its Advantages line says implementers are isolated, not parallel-safe, because they run one at a time; a blind re-copy erases both |
 | `using-skills` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries repaired citations, names this kit's implementation skills and ends with a kit note for a seat with nobody watching (decide through `scripts/ask.sh`, record, continue); a blind re-copy erases it |
 | `using-git-worktrees` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — setup commands demoted to named examples, an external-directory note, the branch taken from the card's `branch:` and the Dev role's worktree table as the declared preference, and its steps numbered consecutively (setup is Step 2); a blind re-copy erases it |
 | `brainstorming` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — saves the approved design under `dev/specs/`, and its description is the kit's "how to build it is not yet settled" wording; its visual companion keeps sessions under `.brainstorm/` and its `stop-server.sh` takes a defined `$SESSION_DIR`, removes `server-info` and writes `server-stopped`; a blind re-copy erases it |
 | `executing-plans` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its description draws the INLINE-versus-delegated line against `subagent-driven-development`; a blind re-copy erases it |
-| `writing-plans` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — saves plans under this kit's id-keyed name; a blind re-copy erases it |
-| `systematic-debugging` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its `find-polluter.sh` takes its runner from `TEST_CMD` and refuses a clean result it cannot vouch for; a blind re-copy erases it |
+| `writing-plans` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — saves plans under this kit's id-keyed name, and states that its code blocks are neutral pseudocode to be written in the project's language; a blind re-copy erases both |
+| `systematic-debugging` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its `find-polluter.sh` takes its runner from `TEST_CMD` and refuses a clean result it cannot vouch for, and its body carries a paragraph making an environment-behaviour finding a hypothesis until an off-environment control has run; a blind re-copy erases it |
+| `test-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries a language-agnostic note over its Good/Bad snippets and `<the project's single-file test command>` in place of one runner's command; a blind re-copy erases both |
 | `receiving-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — the review-thread reply command is demoted to a named example; a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
@@ -247,6 +248,8 @@ last one**, the shape row for a skill of yours that departs from its set.
 
 **A `<fill in>` that survives into a shipped table is worth suspecting generally:** it means either
 nobody knew, or nobody moved the answer to where it is looked up, and those want opposite fixes.
+
+**A vendored body keeps its upstream incident narratives, dates and counts unedited**, and is exempt from the rules that strip situational histories and census numbers from kit text: the same re-copy would erase an edit, and the upstream text is not this kit's to rewrite. That covers the example script `condition-based-waiting-example.ts` and its import of a module no adopter has.
 
 When updating a skill from upstream, re-fetch the source and copy the folder over the
 existing skill, then **diff before committing** — local hardening lives in these files and a

@@ -125,8 +125,10 @@ the only thing that can, because a clone starts with neither.
 - The supplied trunk disagrees with the remote's own default ⇒ refuse; do not pick a winner.
 - The repository shows signs of already being configured, or of already having lived ⇒ refuse,
   naming the evidence.
-- A required gate definition is absent and none was supplied ⇒ refuse. The landing gate depends on
-  it existing before the first landing, not eventually.
+- A required gate runner is absent (no `scripts/verify.sh`) and no gate command was supplied ⇒
+  refuse. A frame whose gate table is still empty is not refused here: the runner refuses to run
+  until a gate is declared. The landing gate depends on a declared gate existing before the first
+  landing, not eventually.
 - The post-stamp census finds a surviving foreign value ⇒ **fail loudly** — not *refuse*
   ([config-seam.md](config-seam.md) § 4.3). *The verb is exact and the distinction is this sheet's
   own: a refusal means **nothing was written**, and this census runs **after** the initializing

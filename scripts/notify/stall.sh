@@ -56,7 +56,7 @@ case "$QUIET_MINUTES" in
 esac
 
 # ── THE READ: `git ls-remote`, not a local tracking ref, which is only as fresh as the last
-#    fetch. The dates come from the objects, so a fetch is attempted first; a failed read is
+#    fetch. The dates come from the objects, so the ls-remote read comes first and a fetch follows it; a failed read is
 #    UNKNOWN, never a stall.
 LS="$(git ls-remote --heads "$REMOTE" 2>&1)" || {
   echo "stall.sh: UNKNOWN — could not read '$REMOTE'. Unknown and alive are different answers, and this is the first: $(printf '%s' "$LS" | tr '\n' ' ' | cut -c1-200)" >&2

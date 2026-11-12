@@ -55,7 +55,7 @@ conversation with the PM. One person per side; the architect is a **succession o
   shared root.** Not *confirm the branch first*, not *wait your turn*: **a worktree of your own**
   (the kanban-worktree pattern). The shared root's branch is not yours to depend on while something
   else can move it, and there is no ordering of checks that makes it yours.
-  *The reason is structural, not a matter of care* (`process/doctrine/fix-execution.md` § A.5d).
+  *The reason is structural, not a matter of care* (`process/doctrine/fix-execution.md` § A.11).
   *After a cherry-pick repair:* verify with blob hashes or a simulated squash-merge — a three-dot
   diff false-positives.
 

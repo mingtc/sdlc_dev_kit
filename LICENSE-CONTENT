@@ -21,4 +21,4 @@ delete it, and license your own project however you choose — this dedication d
 upward into your work.
 
 **What this does NOT cover:** the kit's own mechanism — its scripts, process doctrine, and the
-vendored Dev skill set — which stays under `LICENSE` (MIT) for the reason stated there.
+vendored Dev skill set — which stays under `LICENSE` (MIT) for the reason stated there, and any third-party Apache-2.0 code a module carries, which keeps its own licence and `NOTICE` beside it (see `LICENSE`).

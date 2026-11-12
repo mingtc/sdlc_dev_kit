@@ -9,7 +9,9 @@ reasons are the transferable part.
 **Scope — what a "live resource" is.** Anything a test, script or agent creates that continues to
 exist **outside this repository**: a document or record in a hosted service, a row in a shared
 database, an object in a bucket, an uploaded asset, a queue message, a paid API artifact, a
-tenant-level identifier. Two properties matter and they are independent:
+tenant-level identifier. A hosted design canvas an agent creates through a module's own protocol is
+governed by that protocol and is not a live resource in this sheet's sense. Two properties matter
+and they are independent:
 
 - **Reclaimable vs permanent.** A *reclaimable* resource has a working delete path the project
   controls. A *permanent* resource does not — either no delete verb exists, or the delete verb is
@@ -21,8 +23,8 @@ tenant-level identifier. Two properties matter and they are independent:
 
 **Why this sheet exists.** Live resources are the one class of work where a mistake cannot be
 reverted by `git`. Every other discipline in this kit can be repaired by a commit. This one
-cannot, so it is the only place where the kit puts a **refusal** in the execution path rather
-than an instruction in a document.
+cannot, so it is the class where this sheet asks a project to build a **refusal** into the
+execution path (§ B) rather than leave an instruction in a document. The kit ships none for it.
 
 **And irreversibility is only half the case — the other half is EPISTEMIC, and it is the half that
 answers the question a reader actually has.** *"If the acts are so dangerous, why not just test

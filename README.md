@@ -76,7 +76,7 @@ lands on the trunk without passing through it.
 
 ## Get it
 
-Download the latest release zip from the [Releases page](../../releases) and unzip it into your
+Download the latest release zip from the forge page this kit was published on and unzip it into your
 project:
 
 ```sh
@@ -168,8 +168,8 @@ carries a neutral placeholder, and the generic documents say `<PREFIX>` before a
 is **required and confirmed, never inferred** — if it disagrees with `origin/HEAD`, the initializer
 refuses rather than letting the scripts pick. `--gate-command` declares your first gate: the seed ships
 `scripts/verify.sh` as a frame whose gate table is **empty and refuses to run**, and the flag
-writes your command into that table as its first record. Drop the flag only if you have already
-declared your gates in that table by hand — never skip both: **the landing gate refuses to land a
+writes your command into that table as its first record. Drop the flag only if you will
+declare your gates in that table by hand before the first landing — never skip both: **the landing gate refuses to land a
 branch without an executable, committed gate runner, and an empty frame refuses to run.**
 
 ### If your first *published* commit must be your project's own

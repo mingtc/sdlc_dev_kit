@@ -54,7 +54,8 @@ indexed store — **without ever losing the record it is retiring**.
   selector in the trigger's own terms — for an entry log, "keep the newest N entries" — not a bigger
   threshold and not a warning.
 - **Preview by default; change only when explicitly asked.** The default run states exactly what
-  it would move and what it would write, and changes nothing.
+  it would move and what it would write, and changes nothing, once its own preconditions hold (the
+  commit role below is checked first, so a role the project does not declare refuses even a preview).
   *Why:* the operation is bulk and irreversible-by-hand; a wrong sweep costs more than every
   preview it ever printed.
 - **The sweep is one transaction and is published as one commit.** Items, index and any dependent

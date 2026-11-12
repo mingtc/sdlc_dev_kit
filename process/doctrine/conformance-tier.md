@@ -219,7 +219,7 @@ measurement that produced it.
   built in. A rewrite from the corpus has no such history.
 
 **The worked instance of per-assertion marking.** A regeneration spike's own recommendation was
-*"mark per assertion, not per file"*, because address-parsing modules mix the two tiers inside one
+*"mark the individual tests, not the file"*, because address-parsing modules mix the two tiers inside one
 file. What earned the mark there: the grammars and their field values, the accepted-shape
 vocabulary, the negatives. What did not: **parameter names**, **docstring prose**, the **exact
 refusal wording**, and **source-literal / absence greps** — each of those pins this
