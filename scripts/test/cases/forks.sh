@@ -1608,6 +1608,32 @@ _ac808_want() {  # <label> <out> <rc> [<needle>…]
     case "$o" in *"$n"*) : ;; *) cf "($lbl) output lacks [$n]: $(printf '%s' "$o" | tr '\n' '|' | cut -c1-260)" ;; esac
   done
 }
+# The acceptance-criteria examples the kit teaches are lines the landing gate's reader grades: an example
+# with no id, copied onto a card verbatim, would pass the move to todo/ and be refused only at the hand-off.
+case_the_acs_the_kit_teaches_are_lines_the_ac_reader_accepts() {
+  cf_reset
+  make_sandbox
+  local root="$REAL_REPO_ROOT" out
+  _ac828_check() {  # <label> <checklist lines>
+    [ -n "$2" ] || { cf "($1) no checklist line was extracted"; return 0; }
+    out="$(bash -c 'set -eo pipefail; . "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_stray_bullets "$2"' \
+      _ "$REAL_SCRIPTS" "$(printf '## Acceptance Criteria\n\n%s\n' "$2")" 2>&1 </dev/null)"
+    [ -z "$out" ] || cf "($1) the AC reader refuses the example: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  }
+  _ac828_lines() { LC_ALL=C awk '/^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+\[[ xX]\]/{print}' "$1"; }
+  _ac828_check skill "$(_ac828_lines "$root/.claude/skills/write-spec/SKILL.md")"
+  _ac828_check issue "$(_ac828_lines "$root/.claude/templates/ISSUE.template.md")"
+  _ac828_check bug "$(_ac828_lines "$root/.claude/templates/BUG.template.md")"
+  _ac828_check prd "$(LC_ALL=C awk '/^\*\*Acceptance Criteria\*\*/{on=1;next} /^\*\*Every/{on=0} on && /^- \[[ xX]\]/{print}' "$root/.claude/templates/PRD.template.md")"
+  # The teaching names the id where a PRD line becomes a card line.
+  grep -qF 'AC<n>' "$root/.claude/skills/write-spec/SKILL.md" || cf "(skill) the write-spec skill does not name the AC<n> id"
+  grep -F '**Acceptance Criteria**' "$root/.claude/roles/pm.md" > "$SB_TMP/w828-pm.txt"
+  grep -qF 'AC<n>' "$SB_TMP/w828-pm.txt" || cf "(pm) the ready checklist's Acceptance Criteria box does not name the AC<n> id"
+  grep -E '^Copied from the PRD stories' "$root/.claude/templates/ISSUE.template.md" > "$SB_TMP/w828-issue.txt"
+  grep -qF 'gets its `AC<n>` id' "$SB_TMP/w828-issue.txt" || cf "(issue) the card template does not say a PRD line gets its id when copied"
+  finish "the checklist examples in write-spec and the card, bug and PRD templates are lines the AC reader accepts, and the skill, the PM's ready checklist and the card template each say a PRD line gets an AC<n> id when copied to the card"
+  teardown
+}
 case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling() {
   cf_reset
   make_sandbox
