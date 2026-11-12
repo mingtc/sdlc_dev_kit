@@ -329,10 +329,13 @@ case_finish_pr_qa_verdict_well_formed_lands() {
 }
 
 # =============================================================================
-# CASE — A HAND-MADE CARD MOVE INTO qa_complete/ IS JUDGED BY THE SAME QA VERDICT CHECK, AT COMMIT TIME.
-# The pre-commit hook reads the staged card; a table the tool would refuse is refused on the trunk checkout
-# too, with a Next that works. A good table, an edit to a card already in qa_complete/, and a move
-# into another column commit.
+# CASE — A HAND-MADE CARD MOVE INTO qa_complete/ GETS THE QA VERDICT TABLE CHECK, AT COMMIT TIME.
+# The pre-commit hook reads the staged card. Rows: (a) a bad table is refused on the trunk checkout and the
+# printed undo and the printed move-issue command are RUN; (b) a good table, (c) an edit to a card already
+# there and (d) a move into another column commit; (e) a conflicted merge and (f) a cherry-pick that bring a
+# tool-made move commit, while a hand move made during the merge is still refused; (g) the same bad move is
+# refused on a feature branch; (h) a library that cannot load is refused under its own rule, not as a
+# table finding; (i) the kanban worktree is exempt; (j) a slug holding a quote prints a Next that runs.
 # RED FIRST: on a hook with no such check, (a) commits.
 # =============================================================================
 case_pre_commit_judges_a_hand_move_into_qa_complete() {
@@ -342,45 +345,142 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   [ -x "$hook" ] \
     || { skp "pre-commit judges a hand move into qa_complete/" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
 
-  local ida="$SB_PREFIX-817" idb="$SB_PREFIX-818"
+  local ida="$SB_PREFIX-817" idb="$SB_PREFIX-818" idc="$SB_PREFIX-819" idd="$SB_PREFIX-820" ide="$SB_PREFIX-821" idq="$SB_PREFIX-822"
+  local f
   seed_issue dev_complete "$ida" bad chore "Hand-moved, no usable evidence" "feature/$ida-work"
   seed_issue dev_complete "$idb" good chore "Hand-moved, well-formed" "feature/$idb-work"
-  local fa="$SB_WORK/progress/dev_complete/$ida-bad.md"
-  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$fa"
-  grep -qF '| AC1 | PASS | prose | it looked fine |' "$fa" \
-    || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the bad-kind row was not planted"
+  seed_issue dev_complete "$idc" badc chore "Bad, tool-made on the trunk" "feature/$idc-work"
+  seed_issue dev_complete "$idd" badd chore "Bad, moved by hand during a merge" "feature/$idd-work"
+  seed_issue dev_complete "$ide" bade chore "Bad, tool-made, cherry-picked" "feature/$ide-work"
+  seed_issue dev_complete "$idq" "it's-q" chore "Bad, quote in the slug" "feature/$idq-work"
+  for f in "$SB_WORK/progress/dev_complete/$ida-bad.md" "$SB_WORK/progress/dev_complete/$idc-badc.md" \
+           "$SB_WORK/progress/dev_complete/$idd-badd.md" "$SB_WORK/progress/dev_complete/$ide-bade.md" \
+           "$SB_WORK/progress/dev_complete/$idq-it's-q.md"; do
+    perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$f"
+    grep -qF '| AC1 | PASS | prose | it looked fine |' "$f" \
+      || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the bad-kind row was not planted in $f"
+  done
   publish_sandbox
 
-  local out rc head0
-  # (a) the bad table: refused, nothing committed, the Next names a way forward.
-  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
-  git -C "$SB_WORK" mv "progress/dev_complete/$ida-bad.md" progress/qa_complete/
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $ida → qa_complete: pass" 2>&1 )"; rc=$?
+  local out rc head0 mvcmd undo
+  local W="$SB_WORK" dc="progress/dev_complete" qc="progress/qa_complete"
+
+  # (a) the bad table, with an edit the QA made and other staged work: refused, nothing committed.
+  head0="$(git -C "$W" rev-parse HEAD)"
+  git -C "$W" mv "$dc/$ida-bad.md" "$qc/"
+  printf '\nQA-EDIT-MARKER-817\n' >> "$W/$qc/$ida-bad.md"
+  git -C "$W" add "$qc/$ida-bad.md"
+  echo other > "$W/other-staged.txt"; git -C "$W" add other-staged.txt
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $ida → qa_complete: pass" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) a hand move of a card with an unusable QA Verdict row into qa_complete/ committed"
-  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
+  [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
   case "$out" in *"AC1"*) : ;; *) cf "(a) the refusal does not name the failing row AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
-  case "$out" in *"move-issue.sh $ida qa_complete"*) : ;; *) cf "(a) the Next does not name ./scripts/move-issue.sh $ida qa_complete: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
-  git -C "$SB_WORK" reset -q HEAD -- progress >/dev/null 2>&1
-  git -C "$SB_WORK" checkout -q -- progress >/dev/null 2>&1
-  rm -f "$SB_WORK/progress/qa_complete/$ida-bad.md"
+  case "$out" in *"pre-commit-qa-verdict"*|*"QA Verdict"*) : ;; *) cf "(a) the refusal does not name the QA Verdict check" ;; esac
+  mvcmd="$(printf '%s\n' "$out" | sed -n 's/^    \(\.\/scripts\/move-issue\.sh .*\)$/\1/p' | head -1)"
+  undo="$(printf '%s\n' "$out" | sed -n 's/^    \(git mv .*\)$/\1/p' | head -1)"
+  [ -n "$undo" ] || cf "(a) the Next prints no git mv undo: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  [ -n "$mvcmd" ] || cf "(a) the Next prints no move-issue.sh command on its own line"
+  # RUN the printed undo: the card, with the QA's edit, is back at its old path; other staged work is still staged.
+  if [ -n "$undo" ]; then
+    ( cd "$W" && bash -c "$undo" ) >/dev/null 2>&1 || cf "(a) the printed undo failed: $undo"
+    grep -qF 'QA-EDIT-MARKER-817' "$W/$dc/$ida-bad.md" 2>/dev/null || cf "(a) after the printed undo the card (with the QA's edit) is not at $dc/"
+    [ ! -e "$W/$qc/$ida-bad.md" ] || cf "(a) after the printed undo a copy is still in qa_complete/"
+    case "$(git -C "$W" diff --cached --name-only)" in *other-staged.txt*) : ;; *) cf "(a) the printed undo unstaged the user's other staged work" ;; esac
+  fi
+  # RUN the printed move-issue command: it must pass its argument and role checks and reach its own QA Verdict check.
+  if [ -n "$mvcmd" ]; then
+    out="$( cd "$W" && bash -c "$mvcmd" 2>&1 )"; rc=$?
+    case "$out" in *"--role is required"*|*"unknown option"*|*"Unknown arg"*) cf "(a) the printed move-issue.sh command is refused at its argument check: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  fi
+  git -C "$W" reset -q HEAD -- other-staged.txt >/dev/null 2>&1; rm -f "$W/other-staged.txt"
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
 
   # (b) the well-formed table commits.
-  git -C "$SB_WORK" mv "progress/dev_complete/$idb-good.md" progress/qa_complete/
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $idb → qa_complete: pass" 2>&1 )"; rc=$?
+  git -C "$W" mv "$dc/$idb-good.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idb → qa_complete: pass" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(b) a well-formed hand move into qa_complete/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
   # (c) an edit to a card already in qa_complete/ is not an entry: even a spoiled table commits.
-  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$SB_WORK/progress/qa_complete/$idb-good.md"
-  git -C "$SB_WORK" add "progress/qa_complete/$idb-good.md"
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $idb: touch" 2>&1 )"; rc=$?
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$W/$qc/$idb-good.md"
+  git -C "$W" add "$qc/$idb-good.md"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idb: touch" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(c) an edit to a card already in qa_complete/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
   # (d) a move into a column the hook does not judge commits, bad table or not.
-  git -C "$SB_WORK" mv "progress/dev_complete/$ida-bad.md" progress/todo/
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $ida → todo: back" 2>&1 )"; rc=$?
+  git -C "$W" mv "$dc/$ida-bad.md" progress/todo/
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $ida → todo: back" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(d) a move into todo/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
-  finish "pre-commit refuses a hand-made move into qa_complete/ whose staged card fails the QA Verdict check, naming the row and move-issue.sh; a well-formed move, an edit to a card already there and a move into another column commit"
+  # (e) and (f): the trunk gains a tool-made move (committed with the escape, as a tool's commit in the board
+  # worktree is); a branch whose own commit conflicts with it concludes a merge, and another a cherry-pick.
+  local base; base="$(git -C "$W" rev-parse HEAD)"
+  git -C "$W" checkout -q -b feat1 "$base"; echo A > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  MSG_OK=1 git -C "$W" commit -q -m "[PM] feat1 side"
+  git -C "$W" checkout -q -b feat2 "$base"; echo A2 > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  MSG_OK=1 git -C "$W" commit -q -m "[PM] feat2 side"
+  git -C "$W" checkout -q "$SB_TRUNK"
+  echo B > "$W/conflict.txt"
+  git -C "$W" mv "$dc/$idc-badc.md" "$qc/"; git -C "$W" mv "$dc/$ide-bade.md" "$qc/"
+  git -C "$W" add conflict.txt
+  MSG_OK=1 git -C "$W" commit -q -m "[QA] $idc → qa_complete: board tool"
+  local tip; tip="$(git -C "$W" rev-parse HEAD)"
+  git -C "$W" checkout -q feat1
+  git -C "$W" merge -q "$SB_TRUNK" >/dev/null 2>&1
+  [ -e "$W/.git/MERGE_HEAD" ] || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the merge did not conflict"
+  echo C > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  # a hand move absent from both parents, made during the merge, is still judged
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a hand move made during a merge, absent from both parents, committed"
+  git -C "$W" mv "$qc/$idd-badd.md" "$dc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) a conflicted merge concluded by commit, bringing a tool-made move, was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$W" checkout -q feat2
+  git -C "$W" cherry-pick "$tip" >/dev/null 2>&1
+  [ -e "$W/.git/CHERRY_PICK_HEAD" ] || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the cherry-pick did not conflict"
+  echo C2 > "$W/conflict.txt"; git -C "$W" add conflict.txt
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git cherry-pick --continue 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) a cherry-pick --continue carrying a tool-made move was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (g) the same hand move on a feature branch is refused too.
+  git -C "$W" checkout -q -b feat3 "$base"
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(g) a hand move into qa_complete/ on a feature branch committed"
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+
+  # (h) a library that cannot load: refused under its own rule, never told to fix the table.
+  mv "$W/scripts/lib/qa-gate.sh" "$SB_TMP/qa-gate.sh.aside"
+  git -C "$W" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: pass" 2>&1 )"; rc=$?
+  mv "$SB_TMP/qa-gate.sh.aside" "$W/scripts/lib/qa-gate.sh"
+  [ "$rc" -ne 0 ] || cf "(h) with qa-gate.sh unreadable the move committed (the check must fail closed)"
+  case "$out" in *"could not run"*) : ;; *) cf "(h) the refusal does not say the check could not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"fix the table"*|*"Fill the card"*) cf "(h) an internal failure told the user to fix the table" ;; esac
+  git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+
+  # (i) the standing kanban worktree is exempt: its commits follow the board tool's own check.
+  git -C "$W" worktree add -q --detach "$W/.kanban-wt" HEAD >/dev/null 2>&1 \
+    || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: could not add .kanban-wt"
+  git -C "$W/.kanban-wt" mv "$dc/$idd-badd.md" "$qc/"
+  out="$( cd "$W/.kanban-wt" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: board tool" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(i) a move committed in the standing kanban worktree was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$W" worktree remove --force "$W/.kanban-wt" >/dev/null 2>&1
+
+  # (j) a quote in the slug: the printed undo still runs.
+  git -C "$W" checkout -q "$SB_TRUNK"
+  git -C "$W" mv "$dc/$idq-it's-q.md" "$qc/"
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[QA] $idq → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(j) a hand move of a card whose slug holds a quote committed"
+  undo="$(printf '%s\n' "$out" | sed -n 's/^    \(git mv .*\)$/\1/p' | head -1)"
+  if [ -n "$undo" ]; then
+    ( cd "$W" && bash -c "$undo" ) >/dev/null 2>&1 || cf "(j) the printed undo for a slug holding a quote failed: $undo"
+    [ -e "$W/$dc/$idq-it's-q.md" ] || cf "(j) after the printed undo the card is not back at $dc/"
+  else
+    cf "(j) no git mv undo was printed for a slug holding a quote"
+  fi
+
+  finish "pre-commit gives a hand-made move into qa_complete/ the QA Verdict table check on the staged card: a failing table is refused with an undo that keeps the edit and the other staged work and a move-issue command that passes its role check; a good table, an edit, another column, a conflicted merge or cherry-pick bringing a tool-made move, and the kanban worktree commit; a hand move during a merge is refused; a library that cannot load is refused as its own rule"
   teardown
 }
 
