@@ -493,6 +493,7 @@ CASES=(
   case_finish_pr_qa_verdict_shadow_check_required
   case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched
   case_finish_pr_qa_verdict_well_formed_lands
+  case_pre_commit_judges_a_hand_move_into_qa_complete
   case_finish_pr_qa_verdict_pointer_unresolved_refuses
   case_finish_pr_qa_verdict_quote_checks_refuse
   case_finish_pr_qa_verdict_unquoted_kinds_only_refuses

@@ -329,6 +329,62 @@ case_finish_pr_qa_verdict_well_formed_lands() {
 }
 
 # =============================================================================
+# CASE — A HAND-MADE CARD MOVE INTO qa_complete/ IS JUDGED BY THE SAME QA VERDICT CHECK, AT COMMIT TIME.
+# The pre-commit hook reads the staged card; a table the tool would refuse is refused on the trunk checkout
+# too, with a Next that works. A good table, an edit to a card already in qa_complete/, and a move
+# into another column commit.
+# RED FIRST: on a hook with no such check, (a) commits.
+# =============================================================================
+case_pre_commit_judges_a_hand_move_into_qa_complete() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  [ -x "$hook" ] \
+    || { skp "pre-commit judges a hand move into qa_complete/" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+
+  local ida="$SB_PREFIX-817" idb="$SB_PREFIX-818"
+  seed_issue dev_complete "$ida" bad chore "Hand-moved, no usable evidence" "feature/$ida-work"
+  seed_issue dev_complete "$idb" good chore "Hand-moved, well-formed" "feature/$idb-work"
+  local fa="$SB_WORK/progress/dev_complete/$ida-bad.md"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$fa"
+  grep -qF '| AC1 | PASS | prose | it looked fine |' "$fa" \
+    || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the bad-kind row was not planted"
+  publish_sandbox
+
+  local out rc head0
+  # (a) the bad table: refused, nothing committed, the Next names a way forward.
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  git -C "$SB_WORK" mv "progress/dev_complete/$ida-bad.md" progress/qa_complete/
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $ida → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a hand move of a card with an unusable QA Verdict row into qa_complete/ committed"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
+  case "$out" in *"AC1"*) : ;; *) cf "(a) the refusal does not name the failing row AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"move-issue.sh $ida qa_complete"*) : ;; *) cf "(a) the Next does not name ./scripts/move-issue.sh $ida qa_complete: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  git -C "$SB_WORK" reset -q HEAD -- progress >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q -- progress >/dev/null 2>&1
+  rm -f "$SB_WORK/progress/qa_complete/$ida-bad.md"
+
+  # (b) the well-formed table commits.
+  git -C "$SB_WORK" mv "progress/dev_complete/$idb-good.md" progress/qa_complete/
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $idb → qa_complete: pass" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a well-formed hand move into qa_complete/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (c) an edit to a card already in qa_complete/ is not an entry: even a spoiled table commits.
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$SB_WORK/progress/qa_complete/$idb-good.md"
+  git -C "$SB_WORK" add "progress/qa_complete/$idb-good.md"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $idb: touch" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) an edit to a card already in qa_complete/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  # (d) a move into a column the hook does not judge commits, bad table or not.
+  git -C "$SB_WORK" mv "progress/dev_complete/$ida-bad.md" progress/todo/
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[QA] $ida → todo: back" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) a move into todo/ was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  finish "pre-commit refuses a hand-made move into qa_complete/ whose staged card fails the QA Verdict check, naming the row and move-issue.sh; a well-formed move, an edit to a card already there and a move into another column commit"
+  teardown
+}
+
+# =============================================================================
 # CASE — A path:line TOKEN THAT DOES NOT RESOLVE AT THE REVISION BEING LANDED REFUSES: (a) the
 # named file does not exist at all; (b) the file exists but the cited line is past its length.
 # Both are "real-looking and wrong" pointers — never exercised against the caller's own working
