@@ -1757,6 +1757,64 @@ exit 1
 }
 
 # =============================================================================
+# CASE — A CELL CHECK'S REFUSAL CARRIES THE REASON AND THE CHECK'S OWN `Next:`, HOWEVER LONG ITS CONTEXT LINE.
+#   A check that prints a context line first (id, AC, cell, root path) and then its reason was quoted up to
+#   the 240th character, ending in the path before the reason; and its `Next:` line, which a move check's
+#   is read for, was not. The refusal now carries every printed line but the `Next:` one, and that step
+#   as its own Next; a check that prints none gets the gate's generic step.
+# =============================================================================
+case_a_cell_check_refusal_carries_the_reason_and_the_checks_next() {
+  cf_reset
+  local L="a cell check that prints a 300-character context line before its reason is refused with the reason and the check's own Next: line quoted whole, whether it refuses (3) or did not run to an answer; one that prints no Next: gets the gate's own step"
+  make_sandbox
+  QC_ID="$SB_PREFIX-796"
+  local card="$SB_TMP/card.md" dir="scripts/qa-cell.d/observation" ctx
+  seed_issue in_progress "$QC_ID" cell chore "Long context"
+  printf 'x\n' > "$SB_WORK/probe.txt"
+  mkdir -p "$SB_WORK/process/evidence-kinds.d"
+  printf 'observation\n' > "$SB_WORK/process/evidence-kinds.d/probe"
+  publish_sandbox
+  cp "$SB_WORK/progress/in_progress/$QC_ID-cell.md" "$card"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
+  grep -qF '| AC1 | PASS | observation | ARCHIVE.md:1 |' "$card" || _fixture_die "${FUNCNAME[0]}: the AC1 row was not rewritten"
+  ctx="$(printf 'ctx/very/long/root/path-%s ' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)"
+  [ "${#ctx}" -gt 300 ] || _fixture_die "${FUNCNAME[0]}: the context line is not long enough (${#ctx})"
+
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo '$ctx'
+echo 'REASON-MARK the note is outside dev/'
+echo 'Next: NEXT-MARK move the note under dev/'
+exit 3
+"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -ne 0 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(a) the refusing check was not refused as qa-verdict-cell-refused (exit $_qc_rc)"
+  [[ "$_qc_out" == *"REASON-MARK the note is outside dev/"* ]] || cf "(a) the reason printed after a long context line is not in the refusal: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_qc_out" | grep -E '^Next: .*NEXT-MARK move the note under dev/' >/dev/null || cf "(a) the check's own Next: step is not carried on the refusal's Next: line: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo '$ctx'
+echo 'REASON-MARK could not look'
+echo 'Next: NEXT-MARK install the tool'
+exit 5
+"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -ne 0 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(b) the broken check was not refused as qa-verdict-cell-check-broken (exit $_qc_rc)"
+  [[ "$_qc_out" == *"REASON-MARK could not look"* ]] || cf "(b) the reason printed after a long context line is not in the refusal: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_qc_out" | grep -E '^Next: .*NEXT-MARK install the tool' >/dev/null || cf "(b) the check's own Next: step is not carried: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+echo '$ctx'
+echo 'REASON-MARK no step given'
+exit 3
+"
+  _qc_gate "$card"
+  [[ "$_qc_out" == *"REASON-MARK no step given"* ]] || cf "(c) the reason of a check with no Next: is not in the refusal"
+  printf '%s\n' "$_qc_out" | grep -E '^Next: .*register-commit.sh' >/dev/null || cf "(c) a check with no Next: left the refusal without the gate's own step"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A qa_complete MOVE CHECK STOPS finish-pr.sh BEFORE THE SQUASH, AND A SLICE'S MOVE RUNS THE CHECKS TOO.
 #   finish-pr.sh is the route nearly every card lands by, and its own move to qa_complete comes after the
 #   squash with --landed-at, which move-issue.sh answers by skipping the checks. So the landing runs them
