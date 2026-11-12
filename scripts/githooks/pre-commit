@@ -118,6 +118,63 @@ if [ -n "$KIT_HAT_FILE_REL" ] \
   exit 1   # exit-class: fallback
 fi
 
+# A CARD MOVED INTO qa_complete/ BY HAND IS JUDGED BY THE SAME QA VERDICT CHECK move-issue.sh RUNS. A
+# gate that lived only in the tool would not be a property of the column: `git mv` plus `git commit` on the
+# trunk checkout, then a plain push, would publish a move the tool refused. The staged copy of every card
+# newly in progress/qa_complete/ is read by lib/qa-gate.sh's kit_qa_verdict_check, in a subshell so its
+# refusal cannot end this hook, against the trunk's evidence kinds and this checkout's HEAD. A card
+# already there is not an entry. Not run in the standing kanban worktree, whose commits every board script
+# makes after its own check (the hat gate's exemption); a library that cannot load refuses, never allows.
+if [ "$_hat_exempt" -eq 0 ]; then
+  _qa_new="$(git -C "$ROOT" diff --cached --name-only --no-renames --diff-filter=A -- 'progress/qa_complete/*.md' 2>/dev/null || true)"
+  if [ -n "$_qa_new" ]; then
+    _qa_trunk="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/${KWT_REMOTE:-origin}/HEAD" 2>/dev/null | sed "s|^${KWT_REMOTE:-origin}/||" || true)"
+    [ -n "$_qa_trunk" ] || _qa_trunk="$(git -C "$ROOT" config --get init.defaultBranch 2>/dev/null || true)"
+    [ -n "$_qa_trunk" ] || _qa_trunk="${KWT_TRUNK_LAST_RESORT:-main}"
+    _qa_trev="refs/remotes/${KWT_REMOTE:-origin}/$_qa_trunk"
+    git -C "$ROOT" rev-parse --verify -q "$_qa_trev" >/dev/null 2>&1 || _qa_trev="HEAD"
+    _qa_tmp="$(mktemp -d "${TMPDIR:-/tmp}/pre-commit-qa.XXXXXX" 2>/dev/null || true)"
+    while IFS= read -r _qa_path; do
+      [ -n "$_qa_path" ] || continue
+      case "$_qa_path" in progress/qa_complete/*/*) continue ;; esac
+      _qa_base="${_qa_path##*/}"
+      _qa_id="$(printf '%s' "$_qa_base" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)-.*$/\1/p')"
+      [ -n "$_qa_id" ] || continue
+      _qa_out=""; _qa_rc=0
+      if [ -z "$_qa_tmp" ] || [ ! -r "$HOOK_DIR/../lib/qa-gate.sh" ] || [ ! -r "$HOOK_DIR/../lib/refuse.sh" ]; then
+        _qa_rc=70; _qa_out="Error: scripts/lib/qa-gate.sh or scripts/lib/refuse.sh is unreadable, so ${_qa_id}'s QA Verdict table cannot be checked."
+      else
+        git -C "$ROOT" show ":$_qa_path" > "$_qa_tmp/card.md" 2>/dev/null || : > "$_qa_tmp/card.md"
+        _qa_out="$( ( . "$HOOK_DIR/../lib/refuse.sh"; [ -r "$HOOK_DIR/../lib/decision-register.sh" ] && . "$HOOK_DIR/../lib/decision-register.sh"
+                      . "$HOOK_DIR/../lib/qa-gate.sh" || exit 70
+                      kit_progress() { :; }
+                      kit_qa_verdict_check "$_qa_tmp/card.md" "$_qa_id" "$ROOT" HEAD "$_qa_trev" ) 2>&1 )"; _qa_rc=$?
+      fi
+      if [ "$_qa_rc" -ne 0 ]; then
+        rm -rf "$_qa_tmp"
+        _qa_why="$(printf '%s\n' "$_qa_out" | sed '/^Next:/,$d')"
+        _qa_old="$(git -C "$ROOT" diff --cached --name-only --diff-filter=D -- 'progress/*/'"${_qa_id}"'-*.md' 2>/dev/null | head -1 || true)"
+        qa1="✗ pre-commit guard: ${_qa_id} is staged into progress/qa_complete/ and its QA Verdict table would be refused by the board tool — a hand-made move is judged by the same check."
+        qa2="Next: undo this move, fix the table, then let the tool make the move:"
+        if [ -n "$_qa_old" ]; then
+          qa3="    git reset -q HEAD -- '$_qa_old' '$_qa_path' && git checkout -- '$_qa_old' && rm -f '$_qa_path'"
+        else
+          qa3="    git reset -q HEAD -- '$_qa_path' && rm -f '$_qa_path'"
+        fi
+        qa4="  Fill the card's QA Verdict table (.claude/roles/qa.md step 4), commit the card to the trunk with ./scripts/register-commit.sh, then run  ./scripts/move-issue.sh ${_qa_id} qa_complete"
+        if command -v kit_refuse >/dev/null 2>&1; then
+          kit_refuse 1 pre-commit-qa-verdict "$qa1" "" "$_qa_why" "" "$qa2" "$qa3" "$qa4"
+        fi
+        printf '%s\n' "$qa1" "" "$_qa_why" "" "$qa2" "$qa3" "$qa4" >&2
+        exit 1   # exit-class: fallback
+      fi
+    done <<PC_QA
+$_qa_new
+PC_QA
+    [ -z "$_qa_tmp" ] || rm -rf "$_qa_tmp"
+  fi
+fi
+
 # DETACHED HEAD → never refused (see WHY above): the kanban worktree's permanent state, and any
 # checkout deliberately given up per process/MANUAL.md § The code-vs-metadata rule.
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"

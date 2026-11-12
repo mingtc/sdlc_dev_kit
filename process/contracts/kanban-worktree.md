@@ -120,6 +120,12 @@ guard can see a commit the operator makes by hand.
   what makes the change true. `MSG_OK=1` is the declared bypass. One commit passes: every path under
   `dev/evidence/<card>/` for the card the branch's last name segment carries. A staged `dev/evidence/` path
   the trunk holds is refused in any commit, code or not, as `pre-commit-evidence-trunk-file` (`dev/evidence/README.md`).
+- **A hand-made move into `qa_complete/`**, raised by the same hook as `pre-commit-qa-verdict`: a commit
+  that stages a card newly in `progress/qa_complete/` runs the QA Verdict check `move-issue.sh` runs, on the
+  staged copy, on any branch and on the trunk, and refuses what the tool would refuse, naming the row and the
+  tool's command. Evidence pointers are read at `HEAD`, so evidence staged in the same commit does not
+  resolve. The standing kanban worktree is exempt (its commits follow the tool's own check); an edit to a
+  card already in the column is not an entry. `MSG_OK=1` is the declared bypass.
 
 ## 4. WHAT GREEN MEANS
 
