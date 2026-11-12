@@ -552,14 +552,21 @@ kit_qa_verdict_begun() {
   return 1   # return-class: predicate
 }
 
+# _qav_cell_head <verdict line> and _qav_cell_step <ac id> <verdict line> — the two halves of what
+# _qav_cell_verdict printed after its status letter: the check's name and what it printed, and the
+# check's own `Next: ` step (if it gave one) led by the row it belongs to.
+_qav_cell_head() { local t=$'\t' x; x="${1#?"$t"}"; printf '%s' "${x%%"$t"*}"; }
+_qav_cell_step() { local t=$'\t' x; x="${2#?"$t"}"; x="${x#*"$t"}"; [ -z "$x" ] || printf '%s: %s. ' "$1" "${x%.}"; return 0; }   # return-class: predicate
+
 # _qav_cell_verdict <repo> <rev> <trunk-rev> <kind> <card-id> <ac-id> <cell> — run the cell checks of
 # <kind> (scripts/qa-cell.d/<kind>/, lib/addon-check.sh) on one PASS row, stopping at the first that does
 # not pass. Prints `K` when at least one check ran and all passed (a check re-read the evidence, so the row
-# counts as observed), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>` for
-# a refusal (status 3) or `B<TAB>…` for a check that did not run to an answer. The check's code is read at
+# counts as observed), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>
+# <TAB><its Next: step, or empty>` for a refusal (status 3) or `B<TAB>…` for a check that did not run to an
+# answer. What it printed is every line but the `Next: ` one, whole (addon-check.sh `_kit_ac_message`). The check's code is read at
 # <trunk-rev>; what it examines is <rev>, which it is given to read.
 _qav_cell_verdict() {
-  local repo="$1" rev="$2" trunk="$3" kind="$4" id="$5" ac="$6" cell="$7" k path rc msg ran=0
+  local repo="$1" rev="$2" trunk="$3" kind="$4" id="$5" ac="$6" cell="$7" k path rc msg nxt ran=0
   local listing
   listing="$(kit_addon_check_list "$repo" "$trunk" scripts/qa-cell.d "$kind")"
   while IFS=$'\t' read -r k path; do
@@ -567,8 +574,10 @@ _qav_cell_verdict() {
     rc=0
     kit_addon_check_run "$repo" "$trunk" "$path" "$id" "$ac" "$cell" "$repo" "$rev" "$trunk" || rc=$?
     [ "$rc" -ne 0 ] || { ran=1; continue; }
-    msg="$(printf '%s' "$KIT_ADDON_CHECK_OUT" | tr '\r\n' '  ' | sed -E 's/  +/ /g; s/^ //; s/ $//' | cut -c1-240)"
-    if [ "$rc" -eq 3 ]; then printf 'R\t%s: %s\n' "${path##*/}" "${msg:-no reason printed}"; else printf 'B\t%s (status %s): %s\n' "${path##*/}" "$rc" "$msg"; fi
+    _kit_ac_message "$KIT_ADDON_CHECK_OUT"
+    msg="$(printf '%s' "$_KIT_AC_BODY" | tr '\t\r\n' '   ' | sed -E 's/  +/ /g; s/^ //; s/ $//')"
+    nxt="$(printf '%s' "$_KIT_AC_NEXT" | tr '\t\r\n' '   ')"
+    if [ "$rc" -eq 3 ]; then printf 'R\t%s: %s\t%s\n' "${path##*/}" "${msg:-no reason printed}" "$nxt"; else printf 'B\t%s (status %s): %s\t%s\n' "${path##*/}" "$rc" "$msg" "$nxt"; fi
     return 0   # return-class: predicate
   done <<CELL_EOF
 $listing
@@ -585,7 +594,7 @@ kit_qa_verdict_check() {
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
-  local _qav_cell_dir=0 _qav_cell_bad="" _qav_cell_broken="" _qav_cell_res
+  local _qav_cell_dir=0 _qav_cell_bad="" _qav_cell_broken="" _qav_cell_res _qav_cell_next="" _qav_cell_bnext=""
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
     echo "kit_qa_verdict_check: <repo> and <rev> are required — evidence pointers are read at the revision being landed." >&2
@@ -755,8 +764,12 @@ kit_qa_verdict_check() {
           PASS|PASS_AC_CORRECTED)
             _qav_cell_res="$(_qav_cell_verdict "$repo" "$rev" "$trunk_rev" "$_qkind" "$issue_id" "$_qid" "$_qptr_stripped")"
             case "$_qav_cell_res" in
-              R"$(printf '\t')"*) _qav_cell_bad="${_qav_cell_bad}${_qav_cell_bad:+, }${_qid} (${_qav_cell_res#R?})" ;;
-              B"$(printf '\t')"*) _qav_cell_broken="${_qav_cell_broken}${_qav_cell_broken:+, }${_qid} (${_qav_cell_res#B?})" ;;
+              R"$(printf '\t')"*)
+                _qav_cell_bad="${_qav_cell_bad}${_qav_cell_bad:+, }${_qid} ($(_qav_cell_head "$_qav_cell_res"))"
+                _qav_cell_next="${_qav_cell_next}$(_qav_cell_step "$_qid" "$_qav_cell_res")" ;;
+              B"$(printf '\t')"*)
+                _qav_cell_broken="${_qav_cell_broken}${_qav_cell_broken:+, }${_qid} ($(_qav_cell_head "$_qav_cell_res"))"
+                _qav_cell_bnext="${_qav_cell_bnext}$(_qav_cell_step "$_qid" "$_qav_cell_res")" ;;
               K) _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;   # a cell check re-read the evidence and passed: the row is an observed one
             esac ;;
         esac
@@ -840,7 +853,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) a cell check refused: ${_qav_cell_bad}" \
       "       A cell check is the trunk's own code (scripts/qa-cell.d/<evidence kind>/), run against the" \
       "       revision being landed; what it printed is quoted above. (.claude/roles/qa.md step 4.)" \
-      "Next: read what each check printed and fix what the row cites, or re-walk the AC if the check is right — a pointer edited to satisfy a check without re-reading is not a fix; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: ${_qav_cell_next}Read what each check printed and fix what the row cites, or re-walk the AC if the check is right — a pointer edited to satisfy a check without re-reading is not a fix; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -849,7 +862,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) whose cell check did not run to an answer: ${_qav_cell_broken}" \
       "       A cell check exits 0 to pass or 3 to refuse; any other status is a check that could not look," \
       "       and a gate that cannot answer does not pass the row." \
-      "Next: read what the check printed and its code (git show <trunk>:scripts/qa-cell.d/<evidence kind>/<check>); a defective check is its owner to fix, and removing the file from the trunk lifts it. Then re-run the command that refused." \
+      "Next: ${_qav_cell_bnext}Read what the check printed and its code (git show <trunk>:scripts/qa-cell.d/<evidence kind>/<check>); a defective check is its owner to fix, and removing the file from the trunk lifts it. Then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

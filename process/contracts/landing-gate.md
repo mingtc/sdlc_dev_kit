@@ -117,7 +117,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   `<id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>`, may read and must not write.
   *Its status:* `0` passes; `3` refuses (`qa-verdict-cell-refused`, quoting what it printed);
   **any other status refuses too** (`qa-verdict-cell-check-broken`), because a gate that cannot
-  answer must not read as armed. A check only adds refusals: every check above has already run, and
+  answer must not read as armed. *What it prints:* the reason, on one or more lines, and a last
+  `Next: <step>` line saying what clears it. The refusal quotes every line but the `Next:` one, whole,
+  and leads its own `Next:` with that step; a check that prints none gets the gate's generic step. A check only adds refusals: every check above has already run, and
   a failing row is refused whole without being handed to one.
 - The item's `forks:` field (which reads `D-NN` registers only; a register declared with another id shape is
   not read here) is missing, is neither `none` nor a bracketed list of register ids,
