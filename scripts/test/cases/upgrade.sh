@@ -1304,7 +1304,8 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   [ -z "$cmd" ] || bash -c "$cmd" >/dev/null 2>&1
   _ku_run f4-fin2 --finish --into "$KU_T"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-verify-failed)" -eq 1 ] || cf "f4: after the printed restore, --finish did not reach the Verify: step: $(_ku_out f4-fin2)"
-  _ku_judge_stage f6; rm -f "$KU_T/.kit-upgrade/action-items"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
+  _ku_judge_stage f6; st6="$(_ku_stamp_line "$KU_CL")"; [ -n "$st6" ] || cf "f6: the first run wrote no 'stamp what arrived' item, so the restart below measures nothing"
+  rm -f "$KU_T/.kit-upgrade/action-items"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "edit" >/dev/null 2>&1
   _ku_hook_live
   _ku_run f6-fin --finish --into "$KU_T"
   [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-missing)" -eq 1 ] || cf "f6: no refusal=upgrade-staging-missing record: $(_ku_out f6-fin)"
@@ -1314,6 +1315,7 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   [ -z "$(git -C "$KU_T" status --porcelain -- . ':!.progress-records' 2>/dev/null)" ] || cf "f6: after the printed command the tree is not clean: $(git -C "$KU_T" status --porcelain | tr '\n' '|')"
   _ku_run f6-up --into "$KU_T"
   { [ "$(_ku_rc f6-up)" = 0 ] && [ -f "$KU_CL" ] && [ -f "$KU_T/.kit-upgrade/action-items" ]; } || cf "f6: the first run after the printed command did not stage again: $(_ku_out f6-up)"
+  [ "$(_ku_stamp_line "$KU_CL")" = "$st6" ] || cf "f6: the restart after the printed discard lost or changed the 'stamp what arrived' item: first run '$st6', restart '$(_ku_stamp_line "$KU_CL")'"
   # With no sha256 tool the archive says what was not compared, and prints no list headed as equal to the kit's files.
   _ku_judge_stage n; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
   local nb="$SB_TMP/nosha" nf nn
@@ -1484,19 +1486,19 @@ case_a_killed_core_upgrade_rerun_keeps_the_stamp_item_whole() {
 }
 
 # =============================================================================
-# CASE — A RECORD OF WHAT ARRIVED COUNTS ONLY WHAT THIS RUN'S KILLED PREDECESSOR LEFT.
+# CASE — A RECORD OF WHAT ARRIVED IS BELIEVED ONLY FOR THE VERSION IT WAS WRITTEN FOR.
 #
 # .kit-upgrade/arrived outlives a killed run so the re-run can count the files that run had placed. It is
-# believed only for the version it was written for, and only for a file still differing from the committed tree:
-# a file the adopter hand-applied and committed after a half-followed undo, or one a run for another target left,
-# is not this run's arrival. Each row plants a record in a tree and compares the "stamp what arrived" line with
+# believed only for the version it was written for: one a run for another target left is not this run's. A row for
+# a file committed since (the upgrade's own staging commit, or a hand-applied copy that carries the same unstamped
+# lines) still counts. Each row plants a record in a tree and compares the "stamp what arrived" line with
 # the line of the same tree run with no record at all.
 # =============================================================================
 _ku_stamp_line() { grep -F 'stamp what arrived' "$1" | sed 's/^- \[.\] //'; }
-case_a_stale_arrived_record_counts_no_file_the_run_did_not_leave() {
+case_an_arrived_record_is_believed_only_for_its_own_target_version() {
   cf_reset
   make_sandbox
-  local L="the 'stamp what arrived' line ignores a .kit-upgrade/arrived record written for another target version and a row for a file committed as the new kit ships it, and still counts a row for a file a run for this target left uncommitted"
+  local L="the 'stamp what arrived' line ignores a .kit-upgrade/arrived record written for another target version, and counts a row for this target's file whether it is committed or not"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
   _ku_pair 0.1.0 0.3.0
@@ -1516,14 +1518,14 @@ case_a_stale_arrived_record_counts_no_file_the_run_did_not_leave() {
       cf "($tag) exits: with the record $(_ku_rc "rec-$tag"), without it $(_ku_rc "ctl-$tag"): $(_ku_out "rec-$tag")"; continue
     fi
     want="$(_ku_stamp_line "$SB_TMP/ctl/$cl_rel")"; got="$(_ku_stamp_line "$SB_TMP/rec/$cl_rel")"
-    if [ "$tag" = this-target-dirty ]; then
-      [ "$got" != "$want" ] || cf "($tag) the record of a file this target's killed run left changed nothing: '$got'"
+    if [ "$tag" != other-version ]; then
+      [ "$got" != "$want" ] || cf "($tag) the record of a file this target's run placed changed nothing: '$got'"
     else
       [ "$got" = "$want" ] || cf "($tag) the record moved the count: with it '$got', without it '$want'"
     fi
   done <<'KU_ROWS_EOF'
 other-version dirty 0.2.0
-committed-current committed 0.3.0
+committed-still-counted committed 0.3.0
 this-target-dirty dirty 0.3.0
 KU_ROWS_EOF
   finish "$L"
