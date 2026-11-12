@@ -826,17 +826,15 @@ case_forks_check_exempts_a_citation_on_an_unchanged_ac_bullet() {
   origin_has_path "progress/dev_complete/$id-unchanged-mv.md" || cf "(b) the card did not reach dev_complete/"
   teardown
 
+  # A bullet edited or added after todo/ that cites a ruling live and unchanged since then applies it, as the Activity does.
   id="$SB_PREFIX-742"
   _forks_drift_land work-c "$id" edited 0 "- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling [decision: D-01]." "" "none" finish
-  [ "$_FDL_RC" -ne 0 ] || cf "(c) a bullet edited after todo/ to cite D-01 under 'forks: none' landed"
-  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(c) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
-  case "$_FDL_OUT" in *D-01*) : ;; *) cf "(c) the refusal does not name D-01" ;; esac
+  [ "$_FDL_RC" -eq 0 ] || cf "(c) a bullet edited after todo/ to cite live D-01 under 'forks: none' was refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
   teardown
 
   id="$SB_PREFIX-743"
   _forks_drift_land work-d "$id" added 0 "$(printf '%s\n%s' "$ac1" "- [ ] AC3 — a bullet added after pickup, per [decision: D-01].")" "" "none" finish
-  [ "$_FDL_RC" -ne 0 ] || cf "(d) a bullet added after todo/ citing D-01 under 'forks: none' landed"
-  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(d) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null && cf "(d) a bullet added after todo/ citing live D-01 was counted as a fork: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
   id="$SB_PREFIX-744"
@@ -851,7 +849,7 @@ case_forks_check_exempts_a_citation_on_an_unchanged_ac_bullet() {
   origin_has_path "progress/dev_complete/$id-bare.md" || cf "(f) the card did not reach dev_complete/"
   teardown
 
-  finish "forks: counts what the card resolved: an unchanged AC bullet citing a ruling no longer forces it into 'forks:' (finish-pr.sh and move-issue.sh dev_complete agree); a bullet edited or added after todo/ still does, an Activity [decision: D-01] of a ruling live before pickup does not, and a bare D-01 in the Activity stays legal"
+  finish "forks: counts what the card resolved: an unchanged AC bullet citing a ruling no longer forces it into 'forks:' (finish-pr.sh and move-issue.sh dev_complete agree); a bullet edited or added after todo/ that cites a live ruling does not either, an Activity [decision: D-01] of a ruling live before pickup does not, and a bare D-01 in the Activity stays legal"
 }
 
 # _forks_ablate_live_citations — the hook for the ablation row: the sandbox's qa-gate.sh reads no
