@@ -102,7 +102,7 @@ subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || tru
 _replay_next() {
   local _s="$subject" _q
   [ -n "$_s" ] || _s="Describe the change"
-  printf '%s' "$_s" | grep -qE "^\[($ROLE_PREFIXES)\] " || _s="[${ROLE_PREFIXES%%|*}] $_s"
+  grep -qE "^\[($ROLE_PREFIXES)\] " <<< "$_s" || _s="[${ROLE_PREFIXES%%|*}] $_s"
   _q="$(printf '%s' "$_s" | sed "s/'/'\\\\''/g")"
   case "${KIT_REPLAY:-}" in
     rebase)
