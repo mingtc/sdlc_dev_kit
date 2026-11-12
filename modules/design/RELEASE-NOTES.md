@@ -7,6 +7,10 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ## [0.6.1]
 
+### Changed
+
+- **A Designer with no human present ends a `/design-pull` at the uncommitted-file stop and at the go-ahead, says why and does not wait** (`designer.md` rule 11). At the go-ahead it puts `project/` and `CANVAS.md` back as on a "no". Rule 4 now reads "never waits on a pin".
+
 ### Fixed
 
 - **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`. A quote opens a value only after `=`, so an apostrophe in an unquoted value or a stray quote in a name hides nothing after it.

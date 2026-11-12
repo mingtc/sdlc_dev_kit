@@ -236,7 +236,7 @@ Today I need help with: <task>
 2. **Designer to PM goes through `scripts/ask.sh` only**, with `--role Designer` and `--card` when a card is involved.
    `CANVAS.md`'s "Questions" section mirrors the question files; it is never the channel.
 3. **May commit `dev/questions/`**: `ask.sh` leaves its file uncommitted, and nobody else owns committing it.
-4. **Never waits, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
+4. **Never waits on a pin, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the
    registry and state pin-ready. For a card past `todo/`, the pin is a commit, so the Designer raises the question and proceeds.
 5. **States `Pin-ready: <sha>` in `CANVAS.md`**: the last commit that touched the screen files, tokens and renders (the PNG of each
    state the card cites) the card cites, `CANVAS.md` bookkeeping excluded, never HEAD, and only when every row the card cites has
@@ -258,6 +258,9 @@ Today I need help with: <task>
 9. **Pulls before it publishes, and reads back.** Every change follows § The canvas in order; a `warnings` entry on a publish
    that names a file whose edit was never pulled stops the work until the human has been told which files were replaced.
 10. **Never moves a card or lands code.** Board moves are PM, Dev and QA.
+11. **With no human present, ends a pull at either of its stops and does not wait.** The stops are the uncommitted canvas file
+    and the go-ahead of `/design-pull`; both ask a person. Say why in the report and leave the working tree as the stop found it
+    (at the go-ahead, put `project/` and `CANVAS.md` back as on a "no").
 
 ## Taking the canvas in
 

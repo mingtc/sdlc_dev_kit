@@ -30,7 +30,7 @@ Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Ar
 `Next: run /login in Claude Code, then run /design-pull again (modules/design/SETUP.md).` An empty list is a pass.
 
 Then make sure the working tree holds nothing of the canvas that is not committed: `git status --porcelain requirements/design/<canvas>` must print nothing.
-If it prints something, **stop**: commit it if it is the Designer's own work, otherwise tell the human what it is and wait. A pull lays files over `project/`, and its undo would destroy an uncommitted file.
+If it prints something, **stop**: commit it if it is the Designer's own work, otherwise tell the human what it is and wait (with no human present, the role's rule 11 applies: end the pull here). A pull lays files over `project/`, and its undo would destroy an uncommitted file.
 
 ## 1. Find the canvas and what you last took in
 
@@ -150,7 +150,7 @@ Quote what it prints. Then diff against the last base: `git diff <base> -- requi
 A colour a person picked from the picker's **Theme** list arrives as `background-color: var(--<token>, #hex)`, which is a token, not a literal;
 one from **Custom** is a literal.
 
-Show the human the check's output and the diff and **ask**. Only on their go-ahead, continue. On a "no", put `project/` and `CANVAS.md` back, and the pull is over:
+Show the human the check's output and the diff and **ask**. Only on their go-ahead, continue (with no human present, the role's rule 11 applies: take the "no" path and say why). On a "no", put `project/` and `CANVAS.md` back, and the pull is over:
 
 ```sh undo
 git checkout -- requirements/design/<canvas>/CANVAS.md
