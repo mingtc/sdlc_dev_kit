@@ -121,11 +121,13 @@ guard can see a commit the operator makes by hand.
   `dev/evidence/<card>/` for the card the branch's last name segment carries. A staged `dev/evidence/` path
   the trunk holds is refused in any commit, code or not, as `pre-commit-evidence-trunk-file` (`dev/evidence/README.md`).
 - **A hand-made move into `qa_complete/`**, raised by the same hook as `pre-commit-qa-verdict`: a commit
-  that stages a card newly in `progress/qa_complete/` runs the QA Verdict check `move-issue.sh` runs, on the
-  staged copy, on any branch and on the trunk, and refuses what the tool would refuse, naming the row and the
-  tool's command. Evidence pointers are read at `HEAD`, so evidence staged in the same commit does not
-  resolve. The standing kanban worktree is exempt (its commits follow the tool's own check); an edit to a
-  card already in the column is not an entry. `MSG_OK=1` is the declared bypass.
+  that stages a card newly in `progress/qa_complete/` runs the QA Verdict table check (`move-issue.sh` runs the
+  same check first) on the staged copy, on any branch and on the trunk. Evidence pointers are read at `HEAD`,
+  so evidence staged in the same commit does not resolve. The AC-drift check and the add-on move checks are
+  not run, so a pass here is not the tool's whole answer. A card a merge, cherry-pick or revert in progress
+  brings at the same path, a card already in the column and the standing kanban worktree (whose commits
+  follow the tool's own check) are not judged. A library that cannot load is refused as
+  `pre-commit-qa-check-broken`, with a `Next:` to restore it. `MSG_OK=1` is the declared bypass.
 
 ## 4. WHAT GREEN MEANS
 

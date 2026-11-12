@@ -435,7 +435,8 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   git -C "$W" mv "$qc/$idd-badd.md" "$dc/"
   out="$( cd "$W" && env -u MSG_OK git commit -q --no-edit 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(e) a conflicted merge concluded by commit, bringing a tool-made move, was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
-  git -C "$W" checkout -q feat2
+  git -C "$W" merge --abort >/dev/null 2>&1; git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
+  git -C "$W" checkout -q -f feat2
   git -C "$W" cherry-pick "$tip" >/dev/null 2>&1
   [ -e "$W/.git/CHERRY_PICK_HEAD" ] || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: the cherry-pick did not conflict"
   echo C2 > "$W/conflict.txt"; git -C "$W" add conflict.txt
@@ -460,8 +461,9 @@ case_pre_commit_judges_a_hand_move_into_qa_complete() {
   git -C "$W" reset -q --hard HEAD >/dev/null 2>&1
 
   # (i) the standing kanban worktree is exempt: its commits follow the board tool's own check.
-  git -C "$W" worktree add -q --detach "$W/.kanban-wt" HEAD >/dev/null 2>&1 \
-    || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: could not add .kanban-wt"
+  git -C "$W" worktree remove --force "$W/.kanban-wt" >/dev/null 2>&1; rm -rf "$W/.kanban-wt"; git -C "$W" worktree prune >/dev/null 2>&1
+  out="$(git -C "$W" worktree add -q --detach "$W/.kanban-wt" HEAD 2>&1)" \
+    || _fixture_die "case_pre_commit_judges_a_hand_move_into_qa_complete: could not add .kanban-wt: $out"
   git -C "$W/.kanban-wt" mv "$dc/$idd-badd.md" "$qc/"
   out="$( cd "$W/.kanban-wt" && env -u MSG_OK git commit -q -m "[QA] $idd → qa_complete: board tool" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(i) a move committed in the standing kanban worktree was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
