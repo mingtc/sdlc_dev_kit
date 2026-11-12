@@ -1789,6 +1789,7 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   teardown
 }
 
+
 # _forks_midwork_entry <id> <slug> <entry-id> <forks-value> — the card is picked up, its branch is cut,
 # and only then does a ruling naming the card land on the trunk, published; the card's trunk copy gets
 # <forks-value>. The branch never holds the entry and is not merged with the trunk.
@@ -1800,12 +1801,13 @@ _forks_midwork_entry() {
   _forks_set_forks "$id" "$slug" "$fv"
 }
 
-# _forks_midwork_land <id> <slug> <hook> <forks-value> [retire] — one mid-work hand-off in a fresh sandbox: the
-# card is picked up and its branch cut; with 'retire' the branch moves D-01 to the Retired ids; otherwise a ruling
-# naming the card (D-02) lands on the trunk after the cut. The hook, if any, edits the sandbox's qa-gate.sh
-# before it is published. Sets _FML_OUT and _FML_RC.
+# _forks_midwork_land <id> <slug> <hook> <forks-value> [<mode> [cite]] — one mid-work hand-off in a fresh sandbox:
+# the card is picked up and its branch cut. Mode '' : a ruling naming the card (D-02) lands on the trunk after the
+# cut; 'retire': the branch moves D-01 to the Retired ids; 'withdraw': the trunk does. With 'cite' the card's
+# Activity cites D-01. The hook, if any, edits the sandbox's qa-gate.sh before it is published.
+# Sets _FML_OUT and _FML_RC.
 _forks_midwork_land() {
-  local id="$1" slug="$2" hook="$3" fv="$4" mode="${5:-}" reg
+  local id="$1" slug="$2" hook="$3" fv="$4" mode="${5:-}" cite="${6:-}" reg card
   make_sandbox
   [ -z "$hook" ] || "$hook"
   reg="$SB_WORK/requirements/DECISIONS.md"
@@ -1822,8 +1824,23 @@ _forks_midwork_land() {
     sbcommit -m "[Dev] $id: retire D-01" --quiet >/dev/null 2>&1
     git -C "$SB_WORK" push -q origin "feature/$id-work" >/dev/null 2>&1
     git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  elif [ "$mode" = withdraw ]; then
+    _forks_sync
+    perl -i -pe 's/^### D-01$/#### withdrawn/; s/^## Retired ids$/## Retired ids\n\n`D-01` — retired 2026-11-01; withdrawn./' "$reg"
+    grep -q 'withdrawn\.' "$reg" || _fixture_die "_forks_midwork_land: the withdrawal was not planted"
+    git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+    sbcommit -m "[PM] withdraw D-01" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "_forks_midwork_land: the withdrawal was not published"
   else
     _forks_add_entry D-02 "Product owner message, 2026-10-16; $id." "[PM] $id: record D-02"
+  fi
+  if [ -n "$cite" ]; then
+    _forks_sync
+    card="$SB_WORK/progress/in_progress/$id-$slug.md"
+    printf '%s\n' '- 2026-11-02 [Dev] Applied the ruling. [decision: D-01]' >> "$card"
+    git -C "$SB_WORK" add "progress/in_progress/$id-$slug.md" >/dev/null 2>&1
+    sbcommit -m "[Dev] $id: cite D-01" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "_forks_midwork_land: the citation was not published"
   fi
   _forks_set_forks "$id" "$slug" "$fv"
   _FML_OUT="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/move-issue.sh "$id" dev_complete --role Dev --note ready 2>&1 )"; _FML_RC=$?
@@ -1840,30 +1857,38 @@ _forks_ablate_retired_kept() {
   sed -i.bak 's/^    _fr_retired=.*$/    _fr_retired=""/' "$lib" && rm -f "$lib.bak"
   return 0
 }
-_forks_ablate_changed_ac_route() {
+_forks_ablate_withdrawn_live() {
   local lib="$SB_WORK/scripts/lib/qa-gate.sh"
-  grep -q 'A changed or added AC bullet is read with the sections' "$lib" || { _control_did_not_run "find the changed-bullet route in lib/qa-gate.sh"; return 0; }
-  sed -i.bak '/A changed or added AC bullet is read with the sections/{n;d;}' "$lib" && rm -f "$lib.bak"
+  grep -q '^        _fl_ids="\$(comm -12 ' "$lib" || { _control_did_not_run "find the withdrawn-on-the-trunk subtraction in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/^        _fl_ids="\$(comm -12 .*$/        :/' "$lib" && rm -f "$lib.bak"
+  return 0
+}
+_forks_ablate_branch_retired_live() {
+  local lib="$SB_WORK/scripts/lib/qa-gate.sh"
+  grep -q '^        _fl_ids="\$(comm -23 .*_fl_bret' "$lib" || { _control_did_not_run "find the branch-retired subtraction in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/^        _fl_ids="\$(comm -23 .*_fl_bret.*$/        :/' "$lib" && rm -f "$lib.bak"
   return 0
 }
 
 # =============================================================================
-# CASE — A RULING THAT LANDS ON THE TRUNK AFTER THE BRANCH WAS CUT IS LIVE, AND A CHANGED AC THAT
-# CITES A LIVE RULING APPLIES IT.
+# CASE — A RULING THAT LANDS ON THE TRUNK AFTER THE BRANCH WAS CUT IS LIVE; A CHANGED AC BULLET THAT CITES
+# A RULING IS A FORK AND BOTH REFUSALS NAME THE EXIT; A WITHDRAWN RULING IS NOT "ALREADY MADE".
 #   (a) hand-off: a ruling naming the card is on the trunk only; 'forks: [D-NN]' passes with no merge;
 #   (b) the same under 'forks: none' still refuses, and the Next names the exit (no merge needed);
 #   (c) an id live on neither side is still unresolved, and its Next says both registers are read;
 #   (d) the landing agrees with the hand-off;
-#   (e) an AC rewritten with '[decision: D-01]' on its own bullet, D-01 live and unchanged, under
-#       'forks: none' lands: it applies the ruling;
-#   (f) the same rewrite with the citation only in the Activity is refused for the bullet, and (e)'s
-#       form clears it: the two refusals never send the card back and forth;
+#   (e) an AC rewritten with '[decision: D-01]' on its own bullet under 'forks: none' is refused as a fork,
+#       and the Next names 'forks: [D-NN]'; doing what it says lands (hand-off and landing);
+#   (f) the same rewrite with the citation only in the Activity is refused for the bullet, its Next names
+#       the bullet AND 'forks: [D-NN]'; doing both lands: the two refusals never send the card back and forth;
 #   (g) a changed bullet citing an id the register does not hold still counts as a fork;
-#   (h) the landing agrees with the hand-off on (e).
-# RED FIRST: (a), (b)'s Next, (c)'s Next, (d), (e), (h) fail on a check that reads the live set from the
-# branch's register alone and counts every citation on a changed bullet.
+#   (i) an id the branch retired is not live for 'forks:';
+#   (k) an Activity citation of a ruling the trunk has since withdrawn counts, and so does one of a ruling the
+#       branch itself retires.
+# RED FIRST: (a), (b)'s Next, (c)'s Next, (d), (e)'s and (f)'s Next, (k) fail on a check that reads the live set
+# from the branch's register alone, names no 'forks:' exit for a changed AC, and calls a withdrawn ruling live.
 # =============================================================================
-case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_and_a_changed_ac_applying_one_is_no_fork() {
+case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_a_changed_ac_citing_one_is_a_fork_with_its_exit_named() {
   cf_reset
   make_sandbox
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
@@ -1908,46 +1933,78 @@ case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_and_a_changed_ac_ap
   local id ac1_new="- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too."
   id="$SB_PREFIX-885"
   _forks_drift_land work-e "$id" ac-cited 0 "$ac1_new per [decision: D-01]." "" "none" move
-  [ "$_FDL_RC" -eq 0 ] || cf "(e) a changed AC citing live D-01 on its bullet, 'forks: none', refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
-  origin_has_path "progress/dev_complete/$id-ac-cited.md" || cf "(e) the card did not reach dev_complete/"
+  [ "$_FDL_RC" -ne 0 ] || cf "(e) a changed AC citing D-01 on its bullet under 'forks: none' landed"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(e) the refusal is not forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  case "$_FDL_OUT" in *"'forks: [D-NN]'"*"forks-ac-changed-uncited"*) : ;; *) cf "(e) the Next does not name 'forks: [D-NN]' as the exit for a changed AC bullet: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-700)" ;; esac
   teardown
 
   id="$SB_PREFIX-886"
-  _forks_drift_land work-f "$id" ac-act 0 "$ac1_new" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
-  [ "$_FDL_RC" -ne 0 ] || cf "(f) a changed AC with the citation only in the Activity landed"
-  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(f) the refusal is not forks-ac-changed-uncited: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  _forks_drift_land work-e2 "$id" ac-cited-ok 0 "$ac1_new per [decision: D-01]." "" "[D-01]" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(e) following the Next ('forks: [D-01]') the hand-off still refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  case "$_FDL_OUT" in *"FORKS_ATTRIBUTION_CHECK: ran"*) : ;; *) cf "(e) the landing did not run the attribution check: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/dev_complete/$id-ac-cited-ok.md" || cf "(e) the card did not reach dev_complete/"
   teardown
 
   id="$SB_PREFIX-887"
+  _forks_drift_land work-f "$id" ac-act 0 "$ac1_new" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(f) a changed AC with the citation only in the Activity landed"
+  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(f) the refusal is not forks-ac-changed-uncited: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  case "$_FDL_OUT" in *"'forks: [D-NN]'"*) : ;; *) cf "(f) the Next does not name 'forks: [D-NN]': $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-700)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-888"
+  _forks_drift_land work-f2 "$id" ac-act-ok 0 "$ac1_new per [decision: D-01]." "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "[D-01]" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(f) following both Nexts (the bullet's citation and 'forks: [D-01]') the hand-off still refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  id="$SB_PREFIX-889"
   _forks_drift_land work-g "$id" ac-ghost 0 "$ac1_new per [decision: D-98]." "" "none" move
   [ "$_FDL_RC" -ne 0 ] || cf "(g) a changed AC citing an id the register does not hold landed under 'forks: none'"
   grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(g) the refusal is not forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
-  id="$SB_PREFIX-888"
+  id="$SB_PREFIX-890"
   _forks_drift_land work-h "$id" ac-cited-fin 0 "$ac1_new per [decision: D-01]." "" "none" finish
-  [ "$_FDL_RC" -eq 0 ] || cf "(h) finish-pr.sh refused a changed AC citing live D-01 (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  [ "$_FDL_RC" -ne 0 ] || cf "(h) the landing accepted a changed AC citing D-01 under 'forks: none'"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(h) the landing's refusal is not forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-891"
+  _forks_drift_land work-h2 "$id" ac-cited-fin-ok 0 "$ac1_new per [decision: D-01]." "" "[D-01]" finish
+  [ "$_FDL_RC" -eq 0 ] || cf "(h) following the Next, the landing refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-ac-cited-fin-ok.md" || cf "(h) the card did not advance to qa_complete/"
   teardown
 
   # (i) an id the BRANCH retired is not live, though the trunk still holds it.
-  _forks_midwork_land "$SB_PREFIX-889" retired "" "[D-01]" retire
+  _forks_midwork_land "$SB_PREFIX-892" retired "" "[D-01]" retire
   [ "$_FML_RC" -ne 0 ] || cf "(i) 'forks: [D-01]' over an id the branch retired landed"
   grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(i) the refusal is not forks-unresolved: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
-  # (j) ABLATIONS, each alone: without the trunk's read (a) refuses; without the retired subtraction (i) lands;
-  #     without the changed-bullet route (e) refuses.
-  _forks_midwork_land "$SB_PREFIX-890" abl-trunk _forks_ablate_trunk_live "[D-02]"
+  # (k) a ruling the trunk has withdrawn since pickup, or the branch retires, is not "already made": its Activity citation counts.
+  _forks_midwork_land "$SB_PREFIX-893" wd-trunk "" "none" withdraw cite
+  [ "$_FML_RC" -ne 0 ] || cf "(k) an Activity citation of a ruling the trunk withdrew landed under 'forks: none'"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(k) the refusal is not forks-contradicted: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+  _forks_midwork_land "$SB_PREFIX-894" wd-branch "" "none" retire cite
+  [ "$_FML_RC" -ne 0 ] || cf "(k) an Activity citation of a ruling the branch retires landed under 'forks: none'"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(k) the refusal is not forks-contradicted: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  # (j) ABLATIONS, each alone.
+  _forks_midwork_land "$SB_PREFIX-895" abl-trunk _forks_ablate_trunk_live "[D-02]"
   [ "$_FML_RC" -ne 0 ] || cf "ABLATION FAILED — with the trunk's register unread, 'forks: [D-02]' over a trunk-only ruling still landed"
   grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "ABLATION INVALID — refused, but not as forks-unresolved: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
   teardown
-  _forks_midwork_land "$SB_PREFIX-891" abl-retired _forks_ablate_retired_kept "[D-01]" retire
+  _forks_midwork_land "$SB_PREFIX-896" abl-retired _forks_ablate_retired_kept "[D-01]" retire
   [ "$_FML_RC" -eq 0 ] || cf "ABLATION FAILED — with the branch's retirement not subtracted, an id the branch retired was still refused (exit $_FML_RC), so (i) is not attributable to the subtraction: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
   teardown
-  _FDL_HOOK=_forks_ablate_changed_ac_route _forks_drift_land work-j "$SB_PREFIX-892" abl-ac 0 "$ac1_new per [decision: D-01]." "" "none" move
-  [ "$_FDL_RC" -ne 0 ] || cf "ABLATION FAILED — with a changed AC bullet read whole, a citation of live D-01 on it still landed, so (e) is not attributable to the route"
-  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "ABLATION INVALID — refused, but not as forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  _forks_midwork_land "$SB_PREFIX-897" abl-wd _forks_ablate_withdrawn_live "none" withdraw cite
+  [ "$_FML_RC" -eq 0 ] || cf "ABLATION FAILED — with a trunk-withdrawn ruling still read as live, the Activity citation was still refused (exit $_FML_RC), so (k) is not attributable to the subtraction: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+  _forks_midwork_land "$SB_PREFIX-898" abl-br _forks_ablate_branch_retired_live "none" retire cite
+  [ "$_FML_RC" -eq 0 ] || cf "ABLATION FAILED — with a branch-retired ruling still read as live, the Activity citation was still refused (exit $_FML_RC), so (k) is not attributable to the subtraction: $(printf '%s' "$_FML_OUT" | tail -6 | tr '\n' '|')"
   teardown
 
-  finish "forks: reads the live register set from the branch's and the trunk's copy, so a ruling that landed on the trunk after the cut passes under forks: [D-NN] with no merge and still refuses under 'forks: none' with a Next that says no merge is the exit; a changed AC bullet that cites a live, unchanged ruling applies it and does not need forks:, the uncited-bullet refusal and the contradiction never refuse into each other, and a changed bullet citing an unknown id still counts"
+  finish "forks: reads the live register set from the branch's and the trunk's copy, so a ruling that landed on the trunk after the cut passes under forks: [D-NN] with no merge and still refuses under 'forks: none' with a Next that says no merge is the exit; a changed AC bullet citing a ruling stays a fork, both refusals name 'forks: [D-NN]' as the exit and following them lands (hand-off and landing); a ruling the trunk withdrew or the branch retires is not 'already made'"
 }
