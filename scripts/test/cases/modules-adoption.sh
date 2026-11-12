@@ -580,8 +580,8 @@ case_kit_upgrade_with_nothing_new_for_an_enabled_module_changes_nothing() {
 # =============================================================================
 # CASE — AN ENABLED MODULE WHOSE RECORD DOES NOT NAME THE VERSION THE KIT HOLDS IS WORK, WHATEVER THE KIT'S OWN VERSION.
 #   The same kit version is run over a project where (a) the module's version moved and nothing it places did, (b) the
-#   record carries a `pending` section a killed run left, (c) the module's files are the new version's and the record
-#   still names the old one (what a kill after the writes leaves). Each is carried: never "Nothing to do", the record
+#   record carries a `pending` section a killed run left, (c) the module's files and the kit's version stamp are the new ones and the
+#   record still names the old one (a guard against regression). Each is carried: never "Nothing to do", the record
 #   ends at the new version with no `pending` section.
 # =============================================================================
 case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record() {
@@ -605,6 +605,13 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
   [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(a) a module that only changed version was reported as nothing to do: $(_mu_flat)"
   grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the record does not name $newv: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
+  # the run converges: committed, finished, committed, the same upgrade again has nothing to do
+  _mu_land "stage the upgrade"
+  _mu_rc=0; _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR "$MU_NEW/scripts/kit-upgrade.sh" --finish --into "$SB_WORK" 2>&1 </dev/null )" || _mu_rc=$?
+  [ "$_mu_rc" -eq 0 ] || cf "(a) --finish exited $_mu_rc: $(_mu_flat)"
+  _mu_land "finish the upgrade"
+  _mu_up "$SB_WORK"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null || cf "(a) the upgrade run again after --finish still has work: $(_mu_flat)"
   teardown
 
   # (b) a pending section left by a killed run, the version unchanged.
@@ -616,7 +623,7 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
   grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(b) the pending section is still in the record"
   teardown
 
-  # (c) the files are the new version's, the record is the old one's.
+  # (c) the files are the new version's, the record is the old one's, at the kit version the project already records: a guard against regression, not a shape the old test got wrong.
   _mu_pair
   rec0="$SB_TMP/record-before"; cp "$SB_WORK/process/MODULES" "$rec0"
   _mu_new_version
@@ -624,6 +631,7 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
   _mu_up "$SB_WORK"
   [ "$_mu_rc" -eq 0 ] || cf "(c) the first upgrade exited $_mu_rc: $(_mu_flat)"
   rm -rf "$SB_WORK/process/UPGRADE-CHECKLIST.md" "$SB_WORK/.kit-upgrade"; cp "$rec0" "$SB_WORK/process/MODULES"
+  cp "$MU_NEW/process/KIT-VERSION" "$SB_WORK/process/KIT-VERSION"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
   _mu_up "$SB_WORK"
   [ "$_mu_rc" -eq 0 ] || cf "(c) the rerun exited $_mu_rc: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(c) files written under the old record were reported as nothing to do: $(_mu_flat)"
