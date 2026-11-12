@@ -182,7 +182,7 @@ PRD is expected to cite it.
 pair makes the ruling, PM or the implementing leg, since routing is checked by what the branch
 itself shows, not by who wrote it.** `forks: [D-NN, ...]`, or `forks: none` if it resolved none —
 checked, not merely trusted: `finish-pr.sh` refuses a landing where the field is absent, malformed,
-names an id that is not a live register entry, or where the branch itself (a register entry its diff
+names an id that is not a live register entry (on the branch or on the trunk), or where the branch itself (a register entry its diff
 adds or changes, a `[decision: D-NN]` citation anywhere on the card outside the carve-outs for an unchanged AC bullet and a live ruling cited in the Activity or Out of Scope ([`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline, the item *Record the ruling where it is looked up*), or an entry added to the register on the trunk since the card left `todo/` whose Provenance names the card) shows a fork `forks:` does not name — or an added entry attributes to no card.
 **So end each entry's Provenance with the work item that resolved it, or `no work item` where no card owns it (a recorded answer)**; commit it with `./scripts/register-commit.sh` from a checkout at the trunk tip, then discard your checkout's copy of the path (`git checkout -- <path>`) or a pull is refused for it.
 That check catches an unrouted fork; it does not decide whether a given reading is a fork in the

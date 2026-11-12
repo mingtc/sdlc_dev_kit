@@ -183,7 +183,7 @@ version control by the initializer, not left for each actor to discover
    states which `D-NN` (if any) this card resolved, and `move-issue.sh … dev_complete` and `finish-pr.sh`
    (the same check) refuse where it is absent, malformed, names an id that is not a live register entry (on the branch or on the trunk, where a ruling can land after the branch is cut), or where the branch itself shows
    a fork — a register entry its own diff adds or changes, a `[decision: D-NN]` citation anywhere on the card
-   except on an AC bullet unchanged since it left `todo/`, or one of a ruling the register held then and has not changed since, on an AC bullet or in the Activity or Out of Scope, or an entry added to the trunk's register since the card left `todo/` whose Provenance (else the subject of the
+   except on an AC bullet unchanged since it left `todo/` or, in the Activity or Out of Scope, one of a ruling the register held then and has not changed since (not one the trunk has since withdrawn or the branch retires), or an entry added to the trunk's register since the card left `todo/` whose Provenance (else the subject of the
    commit that added it) names the card — that `forks:` does not name. An added entry no card on the trunk is named for refuses too, unless its
    Provenance names none and says `no work item`; the refusal names the exits: `forks:`, the owning card's id in the Provenance, or `no work item`. `forks:` names every fork the card **resolved**, not merely cited: an AC, an Activity line or an Out of Scope line that cites a ruling already made is applying it, not resolving it, and stays out of `forks:`.
    A register entry the branch adds must also be cited by a PRD or marked `[cross-cutting]`, or the landing's
