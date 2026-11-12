@@ -1949,7 +1949,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
 case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_subtask() {
   cf_reset
   if ! has_issue_template; then skp "a card or slice with a (UI) AC lands only with its design row" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  local L="finish-pr.sh and subtask.sh move land a card whose only AC is (UI) and a one-AC slice once their design row is backed, and refuse a card or a slice whose (UI) AC has no design row, or a slice pinned to a screen with no design row at all, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
+  local L="finish-pr.sh and subtask.sh move land a card and a slice with a (UI) AC and a test or file:line row once their design row is backed, refuse a card or a slice whose every AC is (UI) with qa-verdict-no-observed (a design row is not core evidence: one test or file:line row is owed), and refuse a card or a slice whose (UI) AC has no design row, or a slice pinned to a screen with no design row at all, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
@@ -2040,7 +2040,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_land "a slice of two states, the second in a second cell"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-l" ./scripts/subtask.sh move "$lid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -ne 0 ] && _dm_has "$out" "UX-001#empty" && origin_has_path "progress/subtasks/$SB_PREFIX-855/dev_complete/$lid-twocell.md"; } || cf "(l) a design row with a second pointer cell lets a state with no image land (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
-  # (i) a card whose only AC is (UI), its only row a design row: the cell check that passed makes it the observed row the landing needs
+  # (i) a card whose only AC is (UI), its only row a design row: a design row is not core evidence, so the landing wants a test or file:line row
   local aid="$SB_PREFIX-853" aev of
   aev="dev/evidence/$aid"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
@@ -2056,7 +2056,8 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_png "$SB_WORK/$aev/UX-001-default-build.png" BUILD
   ( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/reg-i" ./scripts/register-commit.sh --role QA --message "$aid: the evidence" "$aev/UX-001-default-pin.png" "$aev/UX-001-default-build.png" >/dev/null 2>&1 </dev/null )
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-i" ./scripts/finish-pr.sh "$aid" 2>&1 </dev/null )"; rc=$?
-  { [ "$rc" -eq 0 ] && origin_has_path "app/list2.txt" && origin_has_path "progress/qa_complete/$aid-allui.md"; } || cf "(i) a card whose only AC is (UI), with a design row the cell check passed, does not land through finish-pr.sh (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "no test/file:line row" && _dm_has "$out" "does not stand in for one" && ! origin_has_path "progress/qa_complete/$aid-allui.md"; } || cf "(i) a card whose every AC is (UI), its design row passed, is not refused for the missing test or file:line row (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  grep -F 'refusal=qa-verdict-no-observed' "$SB_TMP"/rec-i/*.tsv >/dev/null 2>&1 || cf "(i) no refusal=qa-verdict-no-observed record"
   # (j) a slice with the one AC, (UI), its one row a design row, through subtask.sh
   local oid="$SB_PREFIX-854-s1" of oev
   oev="dev/evidence/$oid"
@@ -2068,7 +2069,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_png "$SB_WORK/$oev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its row and images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-j" ./scripts/subtask.sh move "$oid" qa_complete 2>&1 </dev/null )"; rc=$?
-  { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-854/qa_complete/$oid-oneac.md"; } || cf "(j) a slice of one (UI) AC with its design row does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "no test/file:line row" && ! origin_has_path "progress/subtasks/$SB_PREFIX-854/qa_complete/$oid-oneac.md"; } || cf "(j) a slice of one (UI) AC with only its design row is not refused for the missing test or file:line row (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
   finish "$L"
   teardown
 }
@@ -4584,6 +4585,274 @@ case_a_page_save_re_spelling_data_props_reads_as_no_change_and_a_wire_token_is_n
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) a base token changing no longer stales the approval (exit $_dm_rc): $(_dm_brief 300)"
   _dm_py scripts/design/pin-drift.py
   [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = drift ] || cf "(e) a base token changing no longer reads as drift: $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A THEME'S VALUE IN :root OR A MEDIA QUERY IS A TOKEN-VALUE THAT SAYS A THEME IS A data-theme BLOCK, AND A BARE dark.tokens.json IS THE DARK THEME.
+#   Operand: check-design-links.py over screens whose :root, `@media (prefers-color-scheme: dark)` or `[data-theme="dark"]` block holds
+#   dark's value. In a media query: a TOKEN-VALUE line that names data-theme. With a bare `dark.tokens.json` (no <ns>.) beside the base
+#   file: the data-theme block is compared and agrees (no UNCOMPARED), and dark's value in :root is a TOKEN-VALUE.
+# =============================================================================
+case_a_theme_in_a_media_query_says_data_theme_and_a_bare_dark_token_file_is_the_dark_theme() {
+  cf_reset
+  local L="a dark value in a prefers-color-scheme media query is a TOKEN-VALUE line that says a theme is a [data-theme] block with its own token file, and a token file named dark.tokens.json alone is the dark theme: a [data-theme=\"dark\"] block holding its value is compared (no UNCOMPARED) and :root holding its value is a TOKEN-VALUE"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md"
+  # (a) a media query holds dark's value
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<style>@media (prefers-color-scheme: dark) { :root { --color-primary: #a0b4e8; } }</style><h1 id="ux-003-title">Media</h1>'
+  printf '| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_commit "a screen with dark's value in a media query"
+  _dm_py scripts/design/check-design-links.py
+  _dm_line_has "$_dm_out" "TOKEN-VALUE" "C.dc.html" || cf "(a) a dark value in a media query is no TOKEN-VALUE: $(_dm_brief 300)"
+  _dm_line_has "$_dm_out" "TOKEN-VALUE" 'data-theme' || cf "(a) the TOKEN-VALUE line does not say a theme is a [data-theme] block: $(_dm_brief 400)"
+  # (b) a bare dark.tokens.json
+  git -C "$SB_WORK" rm -q -f requirements/design/tokens/app.dark.tokens.json >/dev/null 2>&1
+  _dm_tokens '{"color":{"primary":{"$value":"#a0b4e8"},"surface":{"$value":"#121318"}}}' dark.tokens.json
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title">Plain</h1>'
+  _dm_art "$D/D.dc.html" 004 '--color-primary: #485d92;' '<style>[data-theme="dark"] { --color-primary: #a0b4e8; }</style><h1 id="ux-004-title">Dark block</h1>'
+  _dm_art "$D/E.dc.html" 005 '--color-primary: #a0b4e8;' '<h1 id="ux-005-title">Dark value in root</h1>'
+  printf '| UX-004 | D.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n| UX-005 | E.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_commit "a bare dark token file"
+  _dm_py scripts/design/check-design-links.py
+  _dm_line_has "$_dm_out" "UNCOMPARED" "D.dc.html" && cf "(b) a [data-theme=\"dark\"] block is UNCOMPARED beside a dark.tokens.json: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "TOKEN-VALUE" "D.dc.html" && cf "(b) a [data-theme=\"dark\"] block holding dark's value is a TOKEN-VALUE beside a dark.tokens.json: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "TOKEN-VALUE" "E.dc.html" || cf "(b) dark's value in :root is accepted although a dark.tokens.json holds it: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DESIGN PIN MUST BE A COMMIT THE TRUNK HOLDS WHEN THE CARD LANDS; A LOCAL-ONLY PIN IS REFUSED WITH A WAY OUT.
+#   Operand: the design rows check (scripts/move-check.d/qa_complete/50-design-rows.sh, which runs scripts/design/check-design-cell.py
+#   --rows) over a card whose design row is complete. Pinned to a commit on the trunk: allowed. Pinned to a commit only a local side
+#   branch holds: refused (status 3) with a Next: that says to push it or re-pin.
+# =============================================================================
+case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_pin_is_refused_with_a_next() {
+  cf_reset
+  local L="the design rows check allows a card whose design: pin is a commit the trunk holds, and refuses (status 3) one pinned to a commit only a local branch holds, saying the pin is on no commit the trunk holds and giving a Next: that says to push it or have the PM re-pin"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local id="$SB_PREFIX-862" P Q card hook trunk rc out
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
+  _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
+  _dm_land "renders at the pin"; P="$(git -C "$SB_WORK" rev-parse HEAD)"
+  # a commit only a side branch holds: another render of the same screen, never pushed
+  git -C "$SB_WORK" checkout -q -b w829-side "$SB_TRUNK" >/dev/null 2>&1
+  _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" EDIT
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] $_MD_ID: a render nobody pushed" >/dev/null 2>&1
+  Q="$(git -C "$SB_WORK" rev-parse HEAD)"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  seed_issue dev_complete "$id" pinned chore "A card with a screen"
+  card="$SB_WORK/progress/dev_complete/$id-pinned.md"
+  PIN="$P" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@$ENV{PIN}]\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | UX-001#default\@$ENV{PIN}: identical; x |\n$1/' "$card"
+  _dm_land "the card pinned to a trunk commit"
+  hook="$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh"
+  trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  _dm_hook_rows() { rc=0; out="$( bash "$hook" "$id" dev_complete qa_complete QA "$card" "$SB_WORK" "$trunk" 2>&1 </dev/null )" || rc=$?; }
+  _dm_hook_rows
+  [ "$rc" -eq 0 ] || cf "(a) a pin on the trunk is refused (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  PIN="$P" NEW="$Q" perl -0pi -e 's/\@$ENV{PIN}/\@$ENV{NEW}/g' "$card"
+  _dm_land "the card re-pinned to a local-only commit"
+  trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  _dm_hook_rows
+  { [ "$rc" -eq 3 ] && _dm_has "$out" "${Q:0:7}" && _dm_has "$out" "on no commit the trunk holds"; } || cf "(b) a pin only a local branch holds is not refused for it (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$out" | grep -E '^Next: .*push' >/dev/null || cf "(b) the refusal's Next: does not say to push the pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$out" | grep -E '^Next: .*re-pin' >/dev/null || cf "(b) the refusal's Next: does not say to re-pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  # the way out it names works: push the commit to the trunk, and the same check allows
+  git -C "$SB_WORK" merge -q --no-edit w829-side >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  _dm_hook_rows
+  [ "$rc" -eq 0 ] || cf "(c) the pin is refused after the commit that holds it reached the trunk (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A CARD PARKED IN blocked/ WITH NO PIN IS NOT UNPINNED OR UNRESOLVED; ONE IN PROGRESS STILL IS.
+#   Operand: check-design-links.py --strict and pin-drift.py over the same card on blocked/ and on in_progress/.
+# =============================================================================
+case_a_card_parked_in_blocked_without_a_pin_reads_neither_unpinned_nor_unresolved() {
+  cf_reset
+  local L="a card on blocked/ whose design: entry has no @<commit> is no UNPINNED finding in the link check and no unresolved row in pin-drift (it was parked from todo/ and is pinned when it leaves blocked/), while the same card on in_progress/ is both"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  _dm_card 863 blocked "design: [UX-001#default]"
+  _dm_commit "a card parked from todo, never pinned"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "UNPINNED" && cf "(a) a card on blocked/ with no pin is an UNPINNED finding: $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  _dm_has "$_dm_out" "$SB_PREFIX-863" && _dm_has "$_dm_out" "unresolved" && cf "(a) a card on blocked/ with no pin is an unresolved row in pin-drift: $(_dm_brief 300)"
+  git -C "$SB_WORK" mv "progress/blocked/$SB_PREFIX-863-c.md" "progress/in_progress/$SB_PREFIX-863-c.md" >/dev/null 2>&1 || { mkdir -p "$SB_WORK/progress/in_progress"; git -C "$SB_WORK" mv "progress/blocked/$SB_PREFIX-863-c.md" "progress/in_progress/$SB_PREFIX-863-c.md"; }
+  _dm_commit "the same card in progress"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "UNPINNED" || cf "(b) (control) a card in progress with no pin is no UNPINNED finding: $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  _dm_has "$_dm_out" "unresolved" || cf "(b) (control) a card in progress with no pin is no unresolved row: $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MODULE'S DOCS SAY WHAT ITS TOOLS DO: --leaving TAKES A CARD'S PATH, TOKENS MAY BE GENERATED, THE GATE ROW NEEDS A GATES LINE,
+#   DISABLE LEAVES CARDS IN FLIGHT PINNED, AND THE IGNORE LINES NAME THE PULL'S SCRATCH FOLDER.
+#   Operand: the module's own files (SETUP.md, README.md, the Designer role, the requirements README, gitignore.txt, the release notes).
+# =============================================================================
+case_the_design_docs_state_what_leaving_takes_what_the_gate_row_needs_and_what_disable_leaves() {
+  cf_reset
+  local L="the module's docs say --leaving takes a card file (the card's path), that token files are written by hand or generated, that SETUP.md tells the adopter to add the gate row's GATES line, that disable leaves a card in flight pinned, that .cache/design/ is the pull's scratch folder, and the upgrade note's Verify line does not run the whole --strict gate"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  local M="$REAL_REPO_ROOT/modules/design" f text
+  for f in _claude/roles/designer.md requirements/design/README.md; do
+    text="$(cat "$M/$f")"
+    _dm_has "$text" '--leaving <card>' && cf "(a) $f still writes --leaving <card>, which the check reads as a path"
+    _dm_has "$text" '--leaving <card file>' || cf "(a) $f does not write --leaving <card file>"
+  done
+  _dm_has "$(sed -n '/^usage:/,/^  REPO_ROOT/p' "$M/scripts/design/check-design-links.py")" '--leaving CARD-FILE' || cf "(a) the checker's usage line does not say --leaving CARD-FILE"
+  for f in _claude/roles/designer.md README.md; do
+    _dm_has "$(cat "$M/$f")" 'written by hand,' && cf "(b) $f still says token files are written by hand, with no mention of the generator"
+  done
+  text="$(cat "$M/SETUP.md")"
+  _dm_has "$text" 'GATES' || cf "(c) SETUP.md does not tell the adopter to add the gate row to the GATES array"
+  _dm_has "$text" 'check-design-links.py --strict' || cf "(c) SETUP.md does not name the --strict command to add"
+  _dm_has "$(cat "$M/README.md")" 'keeps its `design:` key' || cf "(d) the README does not say disable leaves a card in flight pinned"
+  _dm_has "$(cat "$M/gitignore.txt")" "renderer's" && cf "(e) gitignore.txt calls .cache/design/ the renderer's cache, which render.py never reads"
+  _dm_has "$(cat "$M/gitignore.txt")" "scratch" || cf "(e) gitignore.txt does not say .cache/design/ is the pull's scratch folder"
+  text="$(sed -n '/^## \[0.3.0\]/,/^### Added/p' "$M/RELEASE-NOTES.md" | grep 'Verify:')"
+  case "$text" in *"check-design-links.py --strict") cf "(f) the 0.3.0 Verify line runs the whole --strict gate and nothing else, so no upgrade finishes while any finding stands" ;; esac
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — THE CARD READERS TAKE ANY AC ID THE CORE DOES, AND A SLICE'S DRIFT LINE NAMES THE SLICE.
+#   Operand: check-design-links.py --strict over a card whose (UI) AC is `B1`, design: none; pin-drift.py over a slice pinned to a screen.
+# =============================================================================
+case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
+  cf_reset
+  local L="a card whose (UI) AC has an id the core reads but AC<n> does not (B1) with design: none is a DESIGN-NONE finding, and pin-drift labels a slice's row with the slice's id, not its parent's"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local P="$_DM_Y" sl="$SB_PREFIX-864-s1" f
+  # (a) a refactor card's behaviour id
+  mkdir -p "$SB_WORK/progress/in_progress"
+  printf -- '---\nid: %s-865\ntype: refactor\ntitle: t\nbranch: n/a\npr: null\ncreated_at: 2026-01-01\ncreated_by: PM\nforks: none\ndesign: none\n---\n\n# card\n\n## Behaviors Preserved\n\n- [ ] B1 — (UI) the list still shows.\n' "$SB_PREFIX" > "$SB_WORK/progress/in_progress/$SB_PREFIX-865-r.md"
+  _dm_commit "a refactor card with a (UI) behaviour"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "DESIGN-NONE" "$SB_PREFIX-865-r.md"; } || cf "(a) a (UI) AC with the id B1 and design: none is no DESIGN-NONE finding (exit $_dm_rc): $(_dm_brief 300)"
+  local v; v="$(sed -n '/^## \[0.3.0\]/,/^### Added/p' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" | grep 'Verify:' | sed 's/^ *Verify: *//')"
+  _dm_sh "$v"
+  [ "$_dm_rc" -ne 0 ] || cf "(a2) the 0.3.0 Verify line passes while a card is a DESIGN-NONE finding"
+  rm -f "$SB_WORK/progress/in_progress/$SB_PREFIX-865-r.md"
+  # (b) a slice pinned to a screen that has drifted
+  mkdir -p "$SB_WORK/progress/subtasks/$SB_PREFIX-864/in_progress"
+  f="$SB_WORK/progress/subtasks/$SB_PREFIX-864/in_progress/$sl-walk.md"
+  printf -- '---\nid: %s\ntype: slice\ntitle: t\nbranch: n/a\npr: null\ncreated_at: 2026-01-01\ncreated_by: PM\nforks: none\ndesign: [UX-001#default@%s]\n---\n\n# slice\n' "$sl" "$P" > "$f"
+  _dm_edit "$SB_WORK/requirements/design/app/project/A.dc.html" 's|>List<|>Lists<|'
+  _dm_commit "a slice pinned to a screen that then changes"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$sl" "UX-001#default@${P:0:7}")" = drift ] || cf "(b) the slice's drift row does not carry the slice's id $sl: $(_dm_brief 300)"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b2) (prereq) the edit did not stale the approval: $(_dm_brief 300)"
+  _dm_sh "$v"
+  [ "$_dm_rc" -eq 0 ] || cf "(b2) the 0.3.0 Verify line fails on a stale approval alone, which the note says does not hold the upgrade (exit $_dm_rc): $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE AUDIT READS A TARGET'S SIZE AS THE BROWSER DOES AND A TOKEN PAIR IN ITS OWN NAMESPACE, AND KEEPS AN UNPAIRED OVERLAY OUT OF UNREAD.
+#   Operand: scripts/design/contrast-audit.py over token files and one board built here; every answer is fixed in the case.
+# =============================================================================
+case_the_audit_reads_a_targets_size_as_the_browser_does_a_pair_in_its_own_namespace_and_no_unpaired_overlay_as_unread() {
+  cf_reset
+  local L="contrast-audit.py takes the larger of height and min-height, adds the padding of a content-box element, leaves a hidden input out, measures each token namespace's pairs apart (a failing pair in one is not hidden by another's), and reads an overlay colour that is in no pair (an 8-digit hex, rgba(), color-mix()) as no UNREAD, while a paired one with an alpha still is"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/au" t
+  t="$d/requirements/design/tokens"
+  mkdir -p "$t" "$d/requirements/design/app/project"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":"#eeeeee"}}}' > "$t/a.tokens.json"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":"#000000"}}}' > "$t/b.tokens.json"
+  cat > "$d/requirements/design/app/project/A.dc.html" <<'EOF'
+<x-dc>
+<button id="ok-min" style="height: 40px; min-height: 48px; width: 60px">Both</button>
+<a id="ok-pad" style="display: inline-block; height: 24px; padding: 12px 0; min-width: 60px">Pad</a>
+<button id="small-pad" style="height: 24px; padding: 12px 0; min-width: 60px">Border box</button>
+<input id="hid" type="hidden" style="height: 0; width: 0">
+<button id="small" style="height: 20px; min-width: 60px">Tiny</button>
+</x-dc>
+EOF
+  _dm_py "$m/contrast-audit.py" "$d"
+  _dm_has "$_dm_out" "LOW light: color-on-surface #eeeeee on color-surface" || cf "(a) a failing pair in one namespace is hidden by another namespace's value: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "ok-min" && cf "(b) height 40px with min-height 48px reads SMALL: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "ok-pad" && cf "(c) height 24px with padding 12px 0 on a content-box link reads SMALL: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "small-pad" || cf "(c) (control) a button, border-box by default, with height 24px is not SMALL: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "hid" && cf "(d) a hidden input reads SMALL: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "id=small>" || cf "(d) (control) a 20px-high button is not SMALL: $(_dm_brief 400)"
+  # (e) overlays in no pair, then a paired one with an alpha
+  rm -f "$t/a.tokens.json"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":"#000000"},"scrim":{"$value":"#00000052"},"shadow":{"$value":"rgba(0,0,0,0.3)"},"veil":{"$value":"color-mix(in srgb, #000 30%, transparent)"}}}' > "$t/b.tokens.json"
+  rm -f "$d/requirements/design/app/project/A.dc.html"
+  _dm_py "$m/contrast-audit.py" "$d" --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UNREAD"; } || cf "(e) an overlay colour in no pair reads UNREAD or fails --strict (exit $_dm_rc): $(_dm_brief 400)"
+  printf '%s\n' '{"color":{"surface":{"$value":"#ffffff"},"on-surface":{"$value":"#00000080"}}}' > "$t/b.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD light: color-on-surface"; } || cf "(e) (control) a paired colour with an alpha is no longer UNREAD (exit $_dm_rc): $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE NORMALISER DECODES AN ATTRIBUTE AS A BROWSER DOES, THE ANCHOR RESOLVER READS A PERCENT-ENCODED BOARD NAME, AND THE PULL SKILL
+#   WALKS A FILE NAME WITH A SPACE.
+#   Operand: normalise-canvas.py over a board whose data-props holds `?a=1&copy=2`; resolve-anchor.py over `My%20Board.dc.html#…`; the
+#   design-pull skill's both and drop blocks over a manifest line for `project/My Board.dc.html`; the skill's anchor step for an apostrophe.
+# =============================================================================
+case_the_normaliser_decodes_an_attribute_as_a_browser_does_and_the_pull_walks_a_file_name_with_a_space() {
+  cf_reset
+  local L="normalise-canvas.py keeps a '&copy=' in a data-props URL as written (a reference without its semicolon followed by = is not decoded in an attribute), resolve-anchor.py finds a board named in percent-encoding, the pull skill's both and drop blocks handle a file name with a space, and its anchor step says how to write an apostrophe in a board name"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" d="$SB_TMP/nrm" pj="$SB_WORK/.cache/design/pull/project" pd="$SB_WORK/requirements/design/steep" sha
+  # (a) the normaliser
+  mkdir -p "$d/p"
+  printf '<x-dc><div id="a">A</div></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;u&quot;:&quot;x?a=1&copy=2&amp;b=3&quot;}">\nclass Component extends DCLogic {}\n</script>\n' > "$d/p/List.dc.html"
+  _dm_py "$m/normalise-canvas.py" "$d/p"
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$(cat "$d/p/List.dc.html")" 'x?a=1&amp;copy=2&amp;b=3'; } || cf "(a) '&copy=2' in a data-props URL was decoded to a copyright sign (exit $_dm_rc): $(sed -n 2p "$d/p/List.dc.html")"
+  # (b) the anchor resolver, a board with a space in its name, written percent-encoded
+  cp "$pd/project/Settings.dc.html" "$d/p/My Board.dc.html"
+  _dm_py "$m/resolve-anchor.py" "$d/p" 'My%20Board.dc.html#2:1'
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "RESOLVED"; } || cf "(b) a percent-encoded board name reads as absent (exit $_dm_rc): $_dm_out"
+  # (c) the pull skill over a manifest line with a space in the path
+  cp "$pd/project/Settings.dc.html" "$pd/project/My Board.dc.html"
+  sha="$( (shasum -a 256 "$pd/project/My Board.dc.html" 2>/dev/null || sha256sum "$pd/project/My Board.dc.html") | cut -d' ' -f1)"
+  printf 'project/My Board.dc.html %s %s\n' "$sha" "$sha" >> "$pd/CANVAS.md"
+  _dm_commit "a board with a space in its name, in the manifest"
+  _dm_sh "$(_dm_pull_walk start)"
+  printf '<!-- repo side -->\n' >> "$pd/project/My Board.dc.html"
+  _dm_commit "the repo changes it"
+  cp "$d/p/My Board.dc.html" "$pj/My Board.dc.html"
+  printf '<!-- canvas side -->\n' >> "$pj/My Board.dc.html"
+  _dm_sh "$(_dm_pull_walk both)"
+  printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/My Board.dc.html' >/dev/null || cf "(c) the both block does not name a file whose name has a space (exit $_dm_rc): $_dm_out"
+  _dm_sh "$(_dm_pull_walk drop "s|<path>|project/My Board.dc.html|g")"
+  { [ "$_dm_rc" -eq 0 ] && ! grep -F 'project/My Board.dc.html' "$pd/CANVAS.md" >/dev/null; } || cf "(c) the drop block leaves the manifest line of a file whose name has a space (exit $_dm_rc): $_dm_out"
+  # (d) the anchor step says how to write an apostrophe
+  _dm_has "$(cat "$REAL_REPO_ROOT/modules/design/_claude/skills/design-pull/SKILL.md")" "'\\''" || cf "(d) the pull skill does not say how to write an apostrophe in the board name inside the shell quotes"
   finish "$L"
   teardown
 }

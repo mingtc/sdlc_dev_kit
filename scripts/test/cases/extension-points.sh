@@ -649,13 +649,24 @@ ARM
   printf '%s\n' "$out" | grep -F '31-miss.sh exited 1' >/dev/null || cf "(c2) an advisory arm's status 1 is not reported as an arm that did not run"
   rm -f "$dir/31-miss.sh"
 
-  # (c3) an ADVISORY arm that signals findings reports them and never moves the verdict.
+  # (c3) an ADVISORY arm that signals findings reports them and never makes the verdict findings, but the verdict says how many
+  #      advisory arms showed lines: a bare `clean ✓` under a finding reads as nothing to look at.
   printf '# check-board-arm: advisory\necho "      ⚠ only a note"\nexit 3\n' > "$dir/32-note.sh"
   out="$( cb_run )"
-  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
-    || cf "(c3) an advisory arm's status 3 moved the verdict line"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "── board-drift: clean (1 advisory)" ] \
+    || cf "(c3) an advisory arm's status 3 did not make the verdict 'clean (1 advisory)': $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
   printf '%s\n' "$out" | grep -F 'only a note' >/dev/null || cf "(c3) the advisory arm's own line is not in the report"
-  rm -f "$dir/32-note.sh"
+  printf '# check-board-arm: advisory\necho "      a second note"\nexit 3\n' > "$dir/33-note.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "── board-drift: clean (2 advisory)" ] \
+    || cf "(c3) two advisory arms with findings did not make the verdict 'clean (2 advisory)': $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
+  printf '# check-board-arm: deciding\necho "      ⚠ a finding"\nexit 3\n' > "$dir/34-deciding.sh"
+  out="$( cb_run )"
+  printf '%s\n' "$out" | grep -E '^── board-drift: findings above' >/dev/null || cf "(c3) a deciding arm's finding beside advisory ones did not make the verdict findings above"
+  rm -f "$dir/32-note.sh" "$dir/33-note.sh" "$dir/34-deciding.sh"
+  out="$( cb_run )"
+  [ "$(printf '%s\n' "$out" | grep -E '^── board-drift: ' | head -1)" = "$base_verdict" ] \
+    || cf "(c3) with no advisory finding the verdict is no longer the baseline ('$base_verdict'): $(printf '%s\n' "$out" | grep -E '^── board-drift: ')"
 
   # (c4) an arm that declares neither is not run, and the report names the line to add.
   printf 'echo "      ⚠ UNDECLARED-RAN"\nexit 3\n' > "$dir/33-bare.sh"
@@ -2001,14 +2012,14 @@ case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enable
 }
 
 # =============================================================================
-# CASE — A PASS ROW WHOSE CELL CHECK RAN AND PASSED COUNTS AS THE OBSERVED ROW THE LANDING NEEDS.
-#   The landing needs one `test`/`file:line` row, a row the gate can re-read. A kind a module adds is pointer-only, so a card whose
-#   every AC is of that kind could never land. A cell check (scripts/qa-cell.d/<kind>/) re-reads the evidence: when one ran and
-#   passed on a PASS row, the row counts as the observed one. No check for the kind, or a refusing one, changes nothing.
+# CASE — A PASS ROW WHOSE CELL CHECK RAN AND PASSED IS NOT THE OBSERVED ROW THE LANDING NEEDS.
+#   The landing needs one `test`/`file:line` row, a row the gate can re-read. A kind a module adds is pointer-only: a cell check
+#   (scripts/qa-cell.d/<kind>/) judges its row, but a pass is no line the gate re-read, so a table of only such rows is refused as
+#   qa-verdict-no-observed whatever the check says, and the refusal says a test or file:line row is owed.
 # =============================================================================
-case_a_pass_row_whose_cell_check_passed_counts_as_the_observed_row() {
+case_a_pass_row_whose_cell_check_passed_is_not_the_observed_row() {
   cf_reset
-  local L="a QA table whose only rows are of an added kind is refused with qa-verdict-no-observed when no cell check exists for the kind, lands when a cell check of the kind ran and passed on a PASS row, and is refused by that check when it refuses; a FAIL_AC row of the kind counts as nothing"
+  local L="a QA table whose only rows are of an added kind is refused with qa-verdict-no-observed whether or not a cell check exists for the kind and passes, and the refusal says a test or file:line row is owed and that a passing cell check does not stand in for one; a refusing cell check refuses the row; a FAIL_AC row of the kind counts as nothing"
   make_sandbox
   QC_ID="$SB_PREFIX-822"
   local card="$SB_TMP/card.md" dir="scripts/qa-cell.d/observation"
@@ -2026,10 +2037,12 @@ case_a_pass_row_whose_cell_check_passed_counts_as_the_observed_row() {
 exit 0
 "
   _qc_gate "$card"
-  [ "$_qc_rc" -eq 0 ] || cf "(b) a PASS row of an added kind whose cell check passed does not count as the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(b) a PASS row of an added kind whose cell check passed is not refused as qa-verdict-no-observed (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
+  case "$_qc_out" in *"no test/file:line row"*"does not stand in for one"*) ;; *) cf "(b) the refusal does not say a test or file:line row is owed and that a passing cell check does not stand in for one: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_qc_out" in *"or use a kind whose qa-cell check passes"*|*"or a row whose qa-cell check passed"*) cf "(b) the refusal still offers a passing cell check as the way out" ;; esac
   perl -0pi -e 's/^\| AC1 \| PASS \|/| AC1 | FAIL_AC |/m' "$card"
   _qc_gate "$card"
-  [ "$_qc_rc" -ne 0 ] || cf "(c) a FAIL_AC row of the added kind lets the table land (exit $_qc_rc)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-fail; } || cf "(c) a FAIL_AC row of the added kind is not refused as qa-verdict-fail, the reason a FAIL row cannot land, before the missing observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-240)"
   perl -0pi -e 's/^\| AC1 \| FAIL_AC \|/| AC1 | PASS |/m' "$card"
   _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
 echo 'PROBE-CELL no'; echo 'Next: fix it'; exit 3
