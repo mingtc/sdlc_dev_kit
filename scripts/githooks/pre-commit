@@ -146,7 +146,7 @@ if [ "$_hat_exempt" -eq 0 ]; then
       else
         git -C "$ROOT" show ":$_qa_path" > "$_qa_tmp/card.md" 2>/dev/null || : > "$_qa_tmp/card.md"
         _qa_out="$( ( . "$HOOK_DIR/../lib/refuse.sh"; [ -r "$HOOK_DIR/../lib/decision-register.sh" ] && . "$HOOK_DIR/../lib/decision-register.sh"
-                      . "$HOOK_DIR/../lib/qa-gate.sh" || exit 70
+                      . "$HOOK_DIR/../lib/qa-gate.sh" || exit 70   # exit-class: internal
                       kit_progress() { :; }
                       kit_qa_verdict_check "$_qa_tmp/card.md" "$_qa_id" "$ROOT" HEAD "$_qa_trev" ) 2>&1 )"; _qa_rc=$?
       fi
