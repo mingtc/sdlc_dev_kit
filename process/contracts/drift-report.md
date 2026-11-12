@@ -381,7 +381,7 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   `CB_REF`, `CB_SRC_LABEL` and `CB_LIB_DIR`, may call `cb_src`, prints its own lines indented as the
   lettered arms' are and naming its source, and writes nothing.
 - **Its status:** `0` it ran and found nothing; **`3` it ran and found something** — for a `deciding`
-  arm that sets the verdict line, for an `advisory` arm it only reports (either way the report prints
+  arm that sets the verdict line, for an `advisory` arm it only reports, and the verdict reads `clean (N advisory)` for the N advisory arms that did, never a bare `clean ✓` (either way the report prints
   a "status 3" line naming the arm after the arm's own lines, which keeps the arm out of the folded report; a `deciding` arm's carries a `⚠`, so a refusal that prints only `⚠` lines names the arm); **any other status, `1`
   included, is a failure of the arm**, printed as "did not run" and never as something the arm found.
   *Why `3`, not `1`:* `1` is what `grep` returns on no match and what a false `[ … ]` leaves as the last

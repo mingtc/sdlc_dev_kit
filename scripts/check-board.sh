@@ -2243,6 +2243,7 @@ fi
 #     not this script, and it cannot set `drift`. No arm's status changes this script's exit (0).
 # ---------------------------------------------------------------------------
 CB_ARM_DIR="$CB_LIB_DIR/../check-board.d"
+cb_adv=0   # the advisory arms that reported a finding: the verdict says so, since a bare `clean ✓` under a finding reads as nothing to look at
 for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
   [ -f "$cb_arm" ] || continue
   cb_arm_file="${cb_arm##*/}"; cb_arm_name="${cb_arm_file%.sh}"; cb_arm_name="${cb_arm_name#[0-9][0-9]-}"
@@ -2289,6 +2290,7 @@ for cb_arm in "$CB_ARM_DIR"/[0-9][0-9]-*.sh; do
          drift=1
        else
          echo "      ↳ [+${cb_arm_name}] status 3: this arm reported a finding above"
+         cb_adv=$((cb_adv + 1))
        fi ;;
     *)
       if [ "$cb_arm_kind" = deciding ]; then
@@ -2305,7 +2307,9 @@ done
 unset cb_arm cb_arm_file cb_arm_name cb_arm_kind cb_arm_rc cb_arm_hdr
 
 echo
-if [ "$drift" -eq 0 ]; then
+if [ "$drift" -eq 0 ] && [ "$cb_adv" -gt 0 ]; then
+  echo "── board-drift: clean (${cb_adv} advisory)"
+elif [ "$drift" -eq 0 ]; then
   echo "── board-drift: clean ✓"
 else
   echo "── board-drift: findings above ⚠ (informational; exit 0 by convention)"

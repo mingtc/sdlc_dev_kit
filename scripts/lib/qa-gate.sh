@@ -25,9 +25,8 @@
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
-#     per AC id. At least one AC row must be a `test`/`file:line` row, or a PASS row of a kind whose cell
-#     check (scripts/qa-cell.d/<kind>/) ran and passed, so a table of only the other kinds (nothing the
-#     gate can re-read) is refused. Refuses through
+#     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only the other kinds (nothing the
+#     gate can re-read) is refused, whether or not a cell check (scripts/qa-cell.d/<kind>/) passed one of its rows. Refuses through
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
@@ -560,8 +559,8 @@ _qav_cell_step() { local t=$'\t' x; x="${2#?"$t"}"; x="${x#*"$t"}"; [ -z "$x" ] 
 
 # _qav_cell_verdict <repo> <rev> <trunk-rev> <kind> <card-id> <ac-id> <cell> — run the cell checks of
 # <kind> (scripts/qa-cell.d/<kind>/, lib/addon-check.sh) on one PASS row, stopping at the first that does
-# not pass. Prints `K` when at least one check ran and all passed (a check re-read the evidence, so the row
-# counts as observed), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>
+# not pass. Prints `K` when at least one check ran and all passed (the row is judged; it is not an observed
+# row, which only a test or file:line row is), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>
 # <TAB><its Next: step, or empty>` for a refusal (status 3) or `B<TAB>…` for a check that did not run to an
 # answer. What it printed is every line but the `Next: ` one, whole (addon-check.sh `_kit_ac_message`). The check's code is read at
 # <trunk-rev>; what it examines is <rev>, which it is given to read.
@@ -770,7 +769,7 @@ kit_qa_verdict_check() {
               B"$(printf '\t')"*)
                 _qav_cell_broken="${_qav_cell_broken}${_qav_cell_broken:+, }${_qid} ($(_qav_cell_head "$_qav_cell_res"))"
                 _qav_cell_bnext="${_qav_cell_bnext}$(_qav_cell_step "$_qid" "$_qav_cell_res")" ;;
-              K) _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;   # a cell check re-read the evidence and passed: the row is an observed one
+              K) : ;;   # a cell check passed: the row is judged, but the gate re-read no line, so it is not the observed row the landing needs
             esac ;;
         esac
       fi
@@ -866,17 +865,17 @@ kit_qa_verdict_check() {
       "       NOTHING WAS CHANGED."
   fi
 
-  if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ]; then
+  if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ] && [ -z "$_qav_fail_rows" ]; then   # a FAIL row is refused below as the reason this is no PASS landing
     local _qav_k _qav_unquoted=""
     for _qav_k in $_qav_kinds; do
       case "$_qav_k" in test|file:line) ;; *) _qav_unquoted="${_qav_unquoted}${_qav_unquoted:+|}${_qav_k}" ;; esac
     done
     kit_refuse 1 qa-verdict-no-observed \
       "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted}." \
-      "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
-      "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"', or use a kind whose qa-cell check passes." \
+      "       Those kinds carry no quote, so the gate has no line to re-read, and a passing qa-cell check does not stand in for one." \
+      "       Give at least one AC row a test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \
-      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote (or a row whose qa-cell check passed); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. If every AC of the card is one only another kind can judge, the card has no AC the code can be read against: send it back to the PM to add one (.claude/roles/pm.md), then re-run." \
       "       NOTHING WAS CHANGED."
   fi
 
