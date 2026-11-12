@@ -3,7 +3,7 @@
 """check-design-links.py -- report on the links between PRD stories and design screens, in both directions.
 
 usage: check-design-links.py [REPO_ROOT] [--requirements DIR] [--design DIR] [--cards DIR] [--registry-name NAME]
-                             [--project-subdir NAME] [--strict] [--head REV] [--leaving CARD]
+                             [--project-subdir NAME] [--strict] [--head REV] [--leaving CARD-FILE]
   REPO_ROOT     default: the working directory
   --requirements  default requirements        <PRD_PREFIX>-*.md live here (PRD_PREFIX is read from scripts/config.sh; PRD when absent)
   --design        default <requirements>/design   <canvas>/<registry-name> files live under it
@@ -12,7 +12,7 @@ usage: check-design-links.py [REPO_ROOT] [--requirements DIR] [--design DIR] [--
   --registry-name default CANVAS.md           --project-subdir default project (the canvas files, beside the registry)
   --strict        exit 1 when there is any finding (the report-only classes below are not findings); without it the exit is 0
   --head REV      the revision an approval's artboard is compared with (default HEAD)
-  --leaving CARD  the check to run before the board mover takes CARD out of todo/ (repeatable): reads the file named, wherever it
+  --leaving CARD-FILE  the check to run before the board mover takes the card out of todo/ (repeatable; the card's path): reads the file named, wherever it
                   is, as a card past todo/, and reports only that card's findings; exit 1 on any, 2 for a card it cannot read.
                   It adds, for each pinned state: its commit must resolve, hold the screen's artboard and not predate the row's
                   approval; the row's gate1 must be exactly `approved@<sha>`, still true at HEAD. A `[decision: D-NN]` waiver on the
@@ -49,7 +49,7 @@ Reports (each line starts with its class)
   GHOST-STORY   a registry row citing a story no PRD defines
   STALE-PENDING a `Design: pending` section that already holds a marker or whose stories already have a row
   BARE-PIN      a card's `design:` item `UX-NNN` without #state: a bare id means "any state" and is never pinned
-  UNPINNED      a card past the first shelf (`todo`) whose design item has no @<commit>
+  UNPINNED      a card past the first shelf (`todo`; `blocked` is read as a card parked from it) whose design item has no @<commit>
   DESIGN-KEY    a card's `design:` value that is not `none` or `[UX-NNN#state@<commit>, ...]`
   NOT-APPROVED  (only with --leaving) a pinned row whose gate1 is not `approved@<sha>`, and no waiver
   PIN-ORDER     (only with --leaving) a pin older than the approval of its row
@@ -64,7 +64,8 @@ Reports (each line starts with its class)
   APPROVAL-NO-SHA a gate cell that says `approved` with no @<sha>
   APPROVAL-UNRESOLVED a gate cell `approved@<sha>` whose sha is not a commit here (a shallow clone cannot see an older one)
   STALE-APPROVAL a gate cell `approved@<sha>` whose artboard differs at HEAD from its bytes at <sha> (the root's data-stories
-                aside), or is missing at either, or a file it loads (sheet, script, image, imported screen) or a token it uses has
+                aside, and the spelling of a component script's data-props: a page save's `&quot;` form moves no value), or is missing at
+                either, or a file it loads (sheet, script, image, imported screen) or a token it uses (not a `<ns>.wire.tokens.json`'s) has
                 changed since; the row goes back to review. In a wireframe canvas: gate 1 only, and only when the structure differs
   SUPERSEDED    a citation of a superseded screen        DUPLICATE  one UX id on two rows
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
@@ -80,7 +81,7 @@ Reports (each line starts with its class)
   TOKEN-VALUE   a custom property named for a token (`--color-primary` for `color.primary`; the name has no prefix, as the design tool
                 compiles it) that a screen, a :root rule or a sheet it loads declares with a value its token file does not give: the
                 :root block holds the token's value, so a different one is a second source of truth. The file is read from the selector:
-                `:root` (and `:host`) is held to the base files (<ns>.tokens.json), `[data-theme="x"]` to <ns>.x.tokens.json (`light`, or a theme in a
+                `:root` (and `:host`) is held to the base files (<ns>.tokens.json), `[data-theme="x"]` to <ns>.x.tokens.json (a file named for `dark` or `wire` alone is that theme's; `light`, or a theme in a
                 rule with `:root` (the first theme, whatever it is named), to the base files unless it has a file of its own); a theme file that lacks the token leaves it to the
                 base files; any other selector, `:not()` included, to any file. A value written with var() or an alias, and a token whose
                 value is not a string, are not compared
@@ -104,7 +105,7 @@ Report lines, not findings (shown; never counted, never an exit status):
                 lack it. A story with no `UI:` line reads as none declared
 Python 3 standard library only.
 """
-import argparse, html as htmllib, json, posixpath, re, subprocess, sys
+import argparse, html as htmllib, importlib.util, json, posixpath, re, subprocess, sys
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -116,6 +117,9 @@ UXREF = re.compile(r'^(UX-\d+)(?:#([A-Za-z0-9_-]+))?$')
 STORY_ROW = re.compile(r'^\s*\|\s*(F\d+-S\d+)\s*\|', re.M)
 STORY_HEAD = re.compile(r'^#{3,6}\s*(F\d+-S\d+)\b', re.M)
 STORY_H = re.compile(r'^(#{3,6})\s*(F\d+-S\d+)\b')
+# a card's AC bullet: the id is any letter then letters and digits (AC1, B1, R2) followed by the separator the core's reader takes
+# (a dash, an em dash or a colon), and not a hyphenated word (`Re-enable`)
+CARD_AC = re.compile(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?([A-Za-z][A-Za-z0-9]*)(?!-[A-Za-z0-9])\s*(?:\u2014|-|:)')
 AC_LINE = re.compile(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?(AC\d+)\b(.{0,24})')
 PENDING = re.compile(r'^design\s*:\s*pending\b', re.I)
 UI_FIELD = re.compile(r'^ui\s*:\s*(.*)$', re.I)
@@ -228,7 +232,7 @@ def same_name_at(root, rev, rel, now, ux=None):
     named = [p for p in out.decode('utf-8', 'replace').split('\0') if p and Path(p).name == base]
     for p in named:
         text = git_blob(root, rev, p)
-        if text is not None and META.sub('', text) == META.sub('', now):
+        if text is not None and plain(text) == plain(now):
             return text, p
     left = [p for p in named if git_blob(root, HEAD_REV, p) is None]
     text = git_blob(root, rev, left[0]) if len(left) == 1 else None
@@ -237,11 +241,55 @@ def same_name_at(root, rev, rel, now, ux=None):
     return (text, left[0]) if text is not None else (None, None)
 
 
+_NORM = []
+
+
+def _norm_html():
+    """normalise-canvas.py's norm_html, the one spelling of a board's data-props, or None when that sibling is not beside this file
+    (a check run from a copy of two files then compares bytes as they are)."""
+    if not _NORM:
+        try:
+            spec = importlib.util.spec_from_file_location('normalise_canvas', Path(__file__).resolve().parent / 'normalise-canvas.py')
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _NORM.append(mod.norm_html)
+        except (OSError, ImportError, AttributeError, ValueError):
+            _NORM.append(None)
+    return _NORM[0]
+
+
+def respelled(text):
+    """text with each component script's data-props in the one spelling an agent writes (a page save rewrites it to the &quot; form
+    without moving a value); a data-props that is not JSON is left as written."""
+    n = _norm_html()
+    if n:
+        try:
+            return n(text)
+        except ValueError:
+            pass
+    return text
+
+
+def plain(text):
+    """text as an approval and a pin compare it: the root's data-stories left out, data-props in one spelling."""
+    return respelled(META.sub('', text))
+
+
+def valid_utf8(*blobs):
+    try:
+        for b in blobs:
+            b.decode('utf-8')
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
 def raw_differs(root, sha, then_rel, rel):
     """True when the artboard's bytes at `sha` and at HEAD differ beyond the root's data-stories, though the tolerant reading of both
-    gives one text (two different invalid byte sequences both read as U+FFFD)."""
+    gives one text (two different invalid byte sequences both read as U+FFFD). Valid text is judged by the text alone: a re-spelled
+    data-props differs in bytes and in no value."""
     a, b = git_bytes(root, sha, then_rel), git_bytes(root, HEAD_REV, rel)
-    return a is not None and b is not None and META_B.sub(b'', a) != META_B.sub(b'', b)
+    return a is not None and b is not None and not valid_utf8(a, b) and META_B.sub(b'', a) != META_B.sub(b'', b)
 
 
 def artboard_rel(root, r):
@@ -296,11 +344,10 @@ def approval_problems(root, r, gates=None):
                             f"(elements, ids, states and links; text, numbers and styles are not compared in mode wireframe); back to review. "
                             f"Next: show the human the round and write its take-in commit's sha into {gate}"))
             else:
-                ba, bb = git_bytes(root, sha, rel), git_bytes(root, HEAD_REV, rel)
-                if META.sub('', then) != META.sub('', now) or (ba is not None and bb is not None and META_B.sub(b'', ba) != META_B.sub(b'', bb)) \
-                        or (ba is not None and loaded_stale(root, sha, rel, then, now)):
+                if plain(then) != plain(now) or raw_differs(root, sha, rel, rel) \
+                        or (git_bytes(root, sha, rel) is not None and loaded_stale(root, sha, rel, then, now)):
                     out.append(('CONTENT-ONLY', r['ux']))
-        elif META.sub('', then) != META.sub('', now) or (then_rel and raw_differs(root, sha, then_rel, rel)):
+        elif plain(then) != plain(now) or (then_rel and raw_differs(root, sha, then_rel, rel)):
             out.append(('STALE-APPROVAL', f"{r['where']}: {r['ux']} {gate} approved@{sha[:7]}, but {rel} differs at HEAD; back to review"))
         elif git_blob(root, sha, rel) is not None:
             extra = loaded_stale(root, sha, rel, then, now)
@@ -548,9 +595,16 @@ def closure_diff(fa, fb):
         a, b = fa.get(k, ABSENT), fb.get(k, ABSENT)
         if a is None and b is None:
             missing.append(k)
-        elif a != b:
+        elif a != b and _canon_file(k, a) != _canon_file(k, b):
             changed.append(k)
     return changed, missing
+
+
+def _canon_file(key, data):
+    """A closure file's bytes as compared: an imported screen has its data-props in the one spelling (a page save re-spells it)."""
+    if isinstance(data, bytes) and key.lower().endswith('.html') and valid_utf8(data):
+        return respelled(data.decode('utf-8')).encode('utf-8')
+    return data
 
 
 def disk_reader(root):
@@ -692,10 +746,15 @@ def token_files(root):
     return files, problems
 
 
+BARE_THEMES = ('dark', 'wire')    # a token file named for one of these alone (no <ns>.) holds that theme, not a base
+
+
 def file_theme(fname):
-    """The theme a token file holds: `<ns>.dark.tokens.json` is dark; `<ns>.tokens.json` is the base (None)."""
+    """The theme a token file holds: `<ns>.dark.tokens.json` (or a bare `dark.tokens.json`) is dark; `<ns>.tokens.json` is the base (None)."""
     stem = fname[:-len('.tokens.json')]
-    return stem.rsplit('.', 1)[1].lower() if '.' in stem else None
+    if '.' in stem:
+        return stem.rsplit('.', 1)[1].lower()
+    return stem.lower() if stem.lower() in BARE_THEMES else None
 
 
 def token_names(root):
@@ -835,6 +894,8 @@ def token_value_problems(markup, loaded, files, unreadable=()):
                     continue
                 if _norm_value(value) not in {_norm_value(v) for v in vals}:
                     msg = f"--{name}: {value.strip()}" + (f' (in {where})' if where else '') + f" but the token is {' / '.join(sorted(set(vals)))} ({label})"
+                    if label == 'the base file':
+                        msg += '; a theme is a [data-theme="x"] block holding <ns>.x.tokens.json, not :root or a media query'
                     if msg not in out:
                         out.append(msg)
     return out, unc
@@ -862,8 +923,9 @@ def tokens_check(root, old_html, new_html, r_old, r_new, sheets=()):
     declared = {n for t in sheets for n, _ in (decls_of(t) if '<' in t else custom_decls(t))}
     if used and (pa or pb):
         why.append('tokens: ' + '; '.join(sorted(set(pa + pb))))
-    for n in used:
-        ea, eb = {k: v for k, v in a.items() if k[1] == n}, {k: v for k, v in b.items() if k[1] == n}
+    for n in used:    # a `.wire` token file is a greyscale wireframe's, not what a pin or an approval covers
+        ea = {k: v for k, v in a.items() if k[1] == n and file_theme(k[0]) != 'wire'}
+        eb = {k: v for k, v in b.items() if k[1] == n and file_theme(k[0]) != 'wire'}
         if not ea and not eb:
             if n not in declared:        # a property a sheet or screen it loads declares is compared with that file's bytes
                 why.append(f'--{n} names no token')
@@ -1051,7 +1113,7 @@ def card_facts(text):
     acs = []
     lines, _ = fence_scan(body)
     for _, ln in lines:
-        am = re.match(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?(AC\d+)\b', ln)
+        am = CARD_AC.match(ln)
         if not am:
             continue
         marks = CITE.findall(CODESPAN.sub('', ln))
@@ -1377,7 +1439,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             tag = f'{ux}#{st}' if st else ux
             if st is None:
                 out.append(line('BARE-PIN', f'{where}: {ux} has no #state; a bare id is never pinned'))
-            if (shelf_name != 'todo' or leave) and not pin:
+            if (shelf_name not in ('todo', 'blocked') or leave) and not pin:    # a card parked in blocked/ from todo/ was never pinned; it is when it leaves
                 out.append(line('UNPINNED', f'{where}: {tag} has no @<commit> on a card past todo/'))
             row = by_ux.get(ux)
             if row is None:
@@ -1425,7 +1487,7 @@ def main(argv):
     ap.add_argument('--project-subdir', default='project')
     ap.add_argument('--strict', action='store_true')
     ap.add_argument('--head', default='HEAD', metavar='REV', help='the revision an approval is compared with (default HEAD)')
-    ap.add_argument('--leaving', metavar='CARD', action='append', default=[])
+    ap.add_argument('--leaving', metavar='CARD-FILE', action='append', default=[])
     ap.add_argument('--report-classes', action='store_true', help='print the classes that are report lines, not findings, separated by |, and exit')
     a = ap.parse_args(argv[1:])
     if a.report_classes:

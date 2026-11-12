@@ -12,7 +12,8 @@ usage: pin-drift.py [--head REV] [--json] [--root DIR] [--design DIR] [--cards D
   --head    the revision to compare against (default HEAD)
   --json    one JSON object per pinned state instead of the table
 
-A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinned state:
+A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`). An item with no @<commit> on a card in blocked/ is skipped and named under `not pinned`: the card
+was parked from todo/ and is pinned when it leaves.  For each pinned state:
 
   1. RESOLVE AT THE PIN. The registry (<design>/*/CANVAS.md) is read AT THE PIN, so the UX id gives the artboard
      path as it was then. The same id is resolved again in the registry at --head. A canvas directory that moved between
@@ -21,7 +22,7 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
      values of the design tokens the artboard uses: every var(--name) in it names the token whose path, dots as hyphens,
      is `name` (`--color-primary` is `color.primary`), read from <design>/tokens/*.tokens.json at both revisions, aliases
      resolved across every token file. A var is used when the artboard reads it with var() (spaces and case do not matter) or
-     declares it in its :root block. A token value changed or removed is drift; a token added is not. A local file the
+     declares it in its :root block. A token value changed or removed is drift; a token added is not. A `<ns>.wire.tokens.json` (a greyscale wireframe's) is left out: a change to it is no drift. A local file the
      artboard loads (<link href>, <script src>, <img src>, <dc-import name="N"> as N.dc.html, @import and url() in a style or a
      sheet, through sheets that import sheets and artboards that import artboards: check-design-links.py's `closure`, the one
      list the gate and the approvals use too; a leading `/` is read from the canvas's project directory) is compared by bytes:
@@ -37,6 +38,8 @@ A card's `design:` key lists  UX-NNN#state@<commit>  (or `none`).  For each pinn
        clean   same artboard bytes at the same path, and the tokens it uses unchanged. A difference confined to the root's
                data-stories attribute (the registry row's story ids, rewritten whenever a PRD adds a story to the screen) is
                bookkeeping and reads clean, flagged `meta_only`
+               A difference confined to the spelling of a component script's data-props (a page save rewrites it to the `&quot;` form,
+               or spaces it: no value moves) reads clean, flagged `respelled`; a changed value is drift
        moved   same artboard bytes at a new path (a canvas or file move), tokens unchanged
        drift   the artboard changed, or a token it uses changed or was removed; the element ids that changed are
                listed (+ added, - removed, ~ changed; `<script>` is the component script, `(document)` is markup
@@ -83,7 +86,6 @@ _spec = importlib.util.spec_from_file_location('check_design_links', HERE / 'che
 cdl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cdl)
 
-META = re.compile(r' data-stories="[^"]*"')   # the artboard's copy of its registry row's story ids; adding a PRD's story to a row rewrites it
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
 P_CLOSERS = {'address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
              'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'}   # a start tag that ends an open <p>
@@ -437,9 +439,9 @@ def cards(paths):
 
 def card_id(card):
     m = re.search(r'^id:\s*(\S+)', cdl.read(card), re.M)
-    if m and re.match(r'^[A-Za-z0-9]+(-[A-Za-z0-9]+)*-\d+$', m.group(1)):
+    if m and re.match(r'^[A-Za-z0-9]+(-[A-Za-z0-9]+)*-\d+(-s\d+)?$', m.group(1)):    # a slice's id carries its -s<n>
         return m.group(1)
-    m = re.match(r'(.+?-\d+)(?:-|\.md$)', card.name)
+    m = re.match(r'(.+?-\d+(?:-s\d+)?)(?:-|\.md$)', card.name)
     return m.group(1) if m else card.stem
 
 
@@ -474,10 +476,12 @@ def check(card_id, ux, state, pin, head):
     toks, twhy = cdl.tokens_check(ROOT, vo, vn, full, head, sheet_texts)
     why = why + twhy
     same_bytes = blob_id(full, path_p) == blob_id(head, path_h)
-    meta_only = False
-    if not same_bytes and META.sub('', old_html) == META.sub('', new_html):
+    meta_only = spelled = False
+    if not same_bytes and cdl.plain(old_html) == cdl.plain(new_html):
         if cdl.META_B.sub(b'', old) == cdl.META_B.sub(b'', new):
             same_bytes, meta_only = True, True  # only data-stories differs: registry bookkeeping, not the design
+        elif cdl.valid_utf8(old, new):
+            same_bytes, spelled = True, True    # only the spelling of data-props differs: a page save re-serialised it, no value moved
         else:
             same_bytes = True
             why.append('the bytes differ where the text read does not show it (invalid UTF-8). Next: open the artboard in the design tool and save it, or re-pin after a human has looked')
@@ -518,7 +522,7 @@ def check(card_id, ux, state, pin, head):
     if verdict == 'drift':
         rc, out = git('log', '--follow', '--format=%h %s', f'{full}..{head}', '--', path_h)
         commits = [l[:90] for l in out.decode().splitlines()]
-    res = {**base, **({'superseded': True} if row_h.get('superseded') else {}), 'meta_only': meta_only, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
+    res = {**base, **({'superseded': True} if row_h.get('superseded') else {}), 'meta_only': meta_only, 'respelled': spelled, 'commits': commits, 'verdict': verdict, 'path_pin': path_p, 'path_head': path_h,
            'ids': ids_all if drift_art else [], 'scoped_out': aside, 'granularity': 'state' if scoped else 'file', 'new_states': added if aside else [], 'tokens': toks, 'refs': refs, 'render': render,
            'uncompared': why}
     if verdict == 'uncompared':
@@ -568,6 +572,9 @@ def main(argv):
                             'why': f'`{dv["raw"] or "empty"}` is not none or [UX-NNN#state@<commit>, ...]'})
             continue
         for ux, st, pin in dv['items']:
+            if not pin and card.parent.name == 'blocked':     # parked from todo/, never pinned: it is pinned when it leaves blocked/
+                skipped.append(f'{cid} ({ux}: parked in blocked/, not pinned)')
+                continue
             try:
                 results.append(check(cid, ux, st, pin, head))
             except Exception as e:   # one bad file costs one line, not the report
@@ -594,6 +601,8 @@ def main(argv):
             extra = f" (changed only under other states: {' '.join(r['scoped_out'][:6])})" + (f" - a new state: {' '.join(r['new_states'])}" if r.get('new_states') else '')
         elif r['verdict'] == 'clean' and r.get('meta_only'):
             extra = ' (only data-stories differs: registry bookkeeping)'
+        elif r['verdict'] == 'clean' and r.get('respelled'):
+            extra = ' (only the spelling of data-props differs: a page save re-serialised it, no value moved)'
         elif r['verdict'] == 'moved':
             extra = f" {r['path_pin']} -> {r['path_head']}"
         elif r.get('why'):
