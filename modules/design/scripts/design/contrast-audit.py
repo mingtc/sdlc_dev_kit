@@ -70,21 +70,29 @@ def hexof(v):
     return '#' + d.lower(), None
 
 
+def namespace(fname):
+    """The namespace a token file belongs to: `app` for app.tokens.json and app.dark.tokens.json; '' for a bare dark.tokens.json."""
+    parts = fname[:-len('.tokens.json')].split('.')
+    return parts[0] if len(parts) > 1 or cdl.file_theme(fname) is None else ''
+
+
 def themes_of(files):
-    """-> ({theme: {css var name: '#rrggbb'}}, [(theme, name, why)] of the colour tokens that could not be read). The base file is
-    the theme `base`, merged under the first theme's name later."""
-    out, unread = {}, []
+    """-> ({(namespace, theme): {css var name: '#rrggbb'}}, [(namespace, theme, name, why)] of the colour tokens that could not be read,
+    {(namespace, theme): [every colour token name]}). The base file is the theme `base`. Two namespaces are two token sets: a pair is
+    measured inside one, never across."""
+    out, unread, names = {}, [], {}
     for fname, toks in files.items():
-        th = cdl.file_theme(fname) or 'base'
+        th, ns = cdl.file_theme(fname) or 'base', namespace(fname)
         for k, v in toks.items():
             if not k.startswith('color-'):
                 continue
+            names.setdefault((ns, th), set()).add(k)
             h, why = hexof(v)
             if h:
-                out.setdefault(th, {})[k] = h
+                out.setdefault((ns, th), {})[k] = h
             else:
-                unread.append((th if th != 'base' else 'light', k, why))
-    return out, unread
+                unread.append((ns, th if th != 'base' else 'light', k, why))
+    return out, unread, names
 
 
 def typed(node, path=(), t=None, out=None):
@@ -137,6 +145,20 @@ def px(v):
     return float(m.group(1)) if m else None
 
 
+def padding_px(style, axis):
+    """The padding in px along an axis ('v' top and bottom, 'h' left and right) of a parsed style: the shorthand's one to four values, then the longhands."""
+    t = r = bt = l = 0.0
+    parts = style.get('padding', '').split()
+    if 1 <= len(parts) <= 4:
+        p = [px(x) or 0.0 for x in parts]
+        t = p[0]
+        r = p[1] if len(p) > 1 else t
+        bt = p[2] if len(p) > 2 else t
+        l = p[3] if len(p) > 3 else r
+    t, r, bt, l = (px(style['padding-' + n]) or 0.0 if 'padding-' + n in style else v for n, v in (('top', t), ('right', r), ('bottom', bt), ('left', l)))
+    return t + bt if axis == 'v' else l + r
+
+
 def targets(root, design, minimum):
     found, read = [], 0
     for art in sorted((root / design).glob('*/project/**/*.dc.html')):
@@ -144,8 +166,21 @@ def targets(root, design, minimum):
         for tag, at in cdl.tags_of(html):
             if tag not in TARGET_TAGS and at.get('role') != 'button':
                 continue
-            style = dict(re.findall(r'([\w-]+)\s*:\s*([^;]+)', at.get('style', '')))
-            sizes = {k: px(style[k]) for k in ('height', 'min-height', 'width', 'min-width') if k in style and px(style[k]) is not None}
+            if at.get('type', '').lower() == 'hidden' or 'hidden' in at:
+                continue                  # a hidden control is no target
+            style = {k.lower(): v.strip() for k, v in re.findall(r'([\w-]+)\s*:\s*([^;]+)', at.get('style', ''))}
+            if style.get('display', '').lower() == 'none':
+                continue
+            border = style.get('box-sizing', '').lower() == 'border-box' or tag in ('button', 'input', 'select', 'textarea')
+            sizes = {}
+            for axis, size, floor_, pad in (('height', 'height', 'min-height', 'v'), ('width', 'width', 'min-width', 'h')):
+                a, b = (px(style[size]) if size in style else None), (px(style[floor_]) if floor_ in style else None)
+                if a is None and b is None:
+                    continue
+                v = max(x for x in (a, b) if x is not None)     # the box is at least its min
+                if a is not None and not border and (b is None or a >= b):
+                    v += padding_px(style, pad)
+                sizes[axis] = v
             if not sizes:
                 continue
             read += 1
@@ -166,21 +201,30 @@ def main(argv):
     root = Path(a.root).resolve()
     cdl.DESIGN_REL = a.design.strip('/')
     files, tprobs = cdl.token_files(root)
-    themes, unread = themes_of(files)
+    themes, unread, names = themes_of(files)
     away = outside(root, cdl.DESIGN_REL, files)
-    base = themes.get('base', {})
+    nss = sorted({ns for ns, _ in themes} | {ns for ns, _ in names})
     low, measured = [], 0
-    for th, toks in sorted(themes.items()):
-        merged = {**base, **toks}
+    for (ns, th), toks in sorted(themes.items()):
+        merged = {**themes.get((ns, 'base'), {}), **toks}
+        tag = (th if th != 'base' else 'light') + (f' [{ns}]' if len(nss) > 1 and ns else '')
         for fg, bg in pairs(set(merged)):
             r = ratio(merged[fg], merged[bg])
             measured += 1
             if r < a.min:
-                low.append(f"LOW {th if th != 'base' else 'light'}: {fg} {merged[fg]} on {bg} {merged[bg]} = {math.floor(r * 100) / 100:.2f}:1 < {a.min:g}:1")   # never rounded up to the line
+                low.append(f"LOW {tag}: {fg} {merged[fg]} on {bg} {merged[bg]} = {math.floor(r * 100) / 100:.2f}:1 < {a.min:g}:1")   # never rounded up to the line
+    # a colour the tool cannot read is UNREAD only where it is in a pair: an overlay (an alpha, rgba(), color-mix()) in no pair measures nothing
+    inpair = set()
+    for (ns, th), allnames in names.items():
+        inpair |= {(ns, n) for pr in pairs(allnames | names.get((ns, 'base'), set())) for n in pr}
+    unpaired = [u for u in unread if (u[0], u[2]) not in inpair]
+    unread = [u for u in unread if (u[0], u[2]) in inpair]
     small, read = targets(root, cdl.DESIGN_REL, a.target)
-    lines = low + small + [f'UNREAD {th}: {k} ({why})' for th, k, why in unread]
+    lines = low + small + [f'UNREAD {th}{" [" + ns + "]" if ns and len(nss) > 1 else ""}: {k} ({why})' for ns, th, k, why in unread]
     lines += ['UNREAD %s: %s' % tuple(pr.split(' ', 1)) + ' (none of its tokens were read)' for pr in tprobs]
     lines += [f"NOTE {f}: colour token(s) outside color.* that no pair measures: {', '.join(ns[:12])}{' ...' if len(ns) > 12 else ''}" for f, ns in sorted(away.items())]
+    if unpaired:
+        lines.append('NOTE: colour token(s) in no pair that this tool cannot measure (an alpha, a function): ' + ', '.join(sorted({u[2] for u in unpaired})[:12]))
     if measured == 0:
         lines.append('NONE: no colour pair was measured (no readable colour token pairs `color-on-X` on `color-X`)')
     for ln in lines:
