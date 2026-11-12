@@ -3877,7 +3877,7 @@ case_prepare_commit_msg_holds_a_replay() {
   [ "$rc" -ne 0 ] || cf "(a) a cherry-pick of an untagged commit committed"
   [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
   case "$out" in *"role tag"*) : ;; *) cf "(a) the refusal does not name the role tag: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
-  lines="$(_printed "$out")"; n="$(printf '%s\n' "$lines" | /usr/bin/grep -c .)"
+  lines="$(_printed "$out")"; n="$(grep -c . <<< "$lines")"
   [ "$n" -ge 3 ] || cf "(a) the Next prints $n runnable lines, expected a reword, a keep-as-is and an abort: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   # (a1) every printed command, run as printed on a fresh refusal, does what it says.
   local i=0
@@ -3890,7 +3890,7 @@ case_prepare_commit_msg_holds_a_replay() {
     [ "$rc" -eq 0 ] || cf "(a$i) the printed line '$cmd' failed as printed (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
     [ ! -e "$W/.git/CHERRY_PICK_HEAD" ] || cf "(a$i) after '$cmd' a cherry-pick is still in progress"
     case "$cmd" in
-      *"commit -m"*) git -C "$W" log -1 --format=%s | /usr/bin/grep -qE '^\[[A-Za-z]+\] ' || cf "(a$i) the reworded commit has no role tag: $(git -C "$W" log -1 --format=%s)" ;;
+      *"commit -m"*) grep -qE '^\[[A-Za-z]+\] ' <<< "$(git -C "$W" log -1 --format=%s)" || cf "(a$i) the reworded commit has no role tag: $(git -C "$W" log -1 --format=%s)" ;;
       *"-C CHERRY_PICK_HEAD"*|*"--continue"*) [ "$(git -C "$W" log -1 --format=%s)" = "no role tag on this replayed commit" ] || cf "(a$i) keep-as-is did not keep the message: $(git -C "$W" log -1 --format=%s)" ;;
       *"--abort"*) [ "$(git -C "$W" rev-parse HEAD)" = "$base" ] || cf "(a$i) the abort moved HEAD" ;;
     esac
@@ -3912,7 +3912,7 @@ case_prepare_commit_msg_holds_a_replay() {
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) a rebase replaying an untagged commit ran to the end"
   [ -d "$W/.git/rebase-merge" ] || cf "(d) the rebase did not stop at the untagged commit"
-  lines="$(_printed "$out")"; n="$(printf '%s\n' "$lines" | /usr/bin/grep -c .)"
+  lines="$(_printed "$out")"; n="$(grep -c . <<< "$lines")"
   [ "$n" -ge 3 ] || cf "(d) the Next prints $n runnable lines: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   i=0
   while IFS= read -r cmd; do
@@ -3926,7 +3926,7 @@ case_prepare_commit_msg_holds_a_replay() {
     case "$cmd" in
       *"--abort"*) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) the abort left the rebase in progress" ;;
       *) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) after '$cmd' the rebase is still in progress: $(git -C "$W" status -sb | head -3 | tr '\n' '|')"
-         git -C "$W" log --format=%s "$T..side" | /usr/bin/grep -q 'conforming replayed commit' || cf "(d$i) the conforming commit is missing after '$cmd'" ;;
+         grep -q 'conforming replayed commit' <<< "$(git -C "$W" log --format=%s "$T..side")" || cf "(d$i) the conforming commit is missing after '$cmd'" ;;
     esac
   done <<< "$lines"
 
@@ -4009,8 +4009,8 @@ case_check_board_arm_e_reports_an_empty_subject() {
   sbcommit -q --allow-empty -m "[Dev] a later commit" >/dev/null 2>&1
   publish_sandbox
   local out; out="$(cb_run)"
-  printf '%s\n' "$out" | /usr/bin/grep "$sha_empty" | /usr/bin/grep -i 'no subject' >/dev/null \
-    || cf "the commit with no subject $sha_empty was not reported: $(printf '%s\n' "$out" | /usr/bin/grep -m3 '^\[e\]\|⚠' | tr '\n' '|')"
+  grep "$sha_empty" <<< "$out" | grep -i 'no subject' >/dev/null \
+    || cf "the commit with no subject $sha_empty was not reported: $(grep -m3 '^\[e\]\|⚠' <<< "$out" | tr '\n' '|')"
   finish "check-board arm [e]: a commit with an empty subject is reported, not skipped"
   teardown
 }
