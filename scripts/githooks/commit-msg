@@ -254,7 +254,12 @@ rmsg7="    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk
 rmsg8="  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
 if [ -n "${KIT_REPLAY:-}" ]; then
   # A replay is retried by its operation's own commands, not by a fresh `git commit`.
-  rmsg5="$(_replay_next)"; rmsg6=""; rmsg7=""; rmsg8=""
+  rmsg5="$(_replay_next)"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 commit-msg-role-prefix "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5"
+  fi
+  printf '%s\n' "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" >&2
+  exit 1   # exit-class: fallback
 fi
 if command -v kit_refuse >/dev/null 2>&1; then
   kit_refuse 1 commit-msg-role-prefix "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8"
