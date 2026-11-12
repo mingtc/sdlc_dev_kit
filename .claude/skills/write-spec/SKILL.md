@@ -218,7 +218,7 @@ Example:
 - [ ] AC4: SSO login links to existing account if email matches
 - [ ] AC5: Failed SSO attempts show a clear error message
 
-Give each checklist line an id, `AC<n>`, one per line and distinct within the story, then a colon or dash. The cards cut from the spec copy these lines, and the board grades them by id: a line with no id is refused at the hand-off, after the card has already passed the move to `todo/`. Do not write an id as `AC-1` (a hyphen, then a letter or digit).
+Give each checklist line an `AC<n>` id: the cards copy these lines and the board grades them by id, so a line with no id is refused at the hand-off. The exact shape is in the [card template](../../templates/ISSUE.template.md).
 
 ### Tips for Acceptance Criteria
 - Cover the happy path, error cases, and edge cases
