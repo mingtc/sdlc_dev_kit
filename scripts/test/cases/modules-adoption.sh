@@ -578,6 +578,63 @@ case_kit_upgrade_with_nothing_new_for_an_enabled_module_changes_nothing() {
 }
 
 # =============================================================================
+# CASE — AN ENABLED MODULE WHOSE RECORD DOES NOT NAME THE VERSION THE KIT HOLDS IS WORK, WHATEVER THE KIT'S OWN VERSION.
+#   The same kit version is run over a project where (a) the module's version moved and nothing it places did, (b) the
+#   record carries a `pending` section a killed run left, (c) the module's files are the new version's and the record
+#   still names the old one (what a kill after the writes leaves). Each is carried: never "Nothing to do", the record
+#   ends at the new version with no `pending` section.
+# =============================================================================
+case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record() {
+  cf_reset
+  local L="kit-upgrade.sh at the kit version a project already records still carries an enabled module whose record names another version than the kit holds, or holds a pending section: a module that only changed version, a record a killed run left pending, and files already written under the old record are each never reported as nothing to do and end with the record at the new version and no pending section"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local m rec0 newv
+
+  # (a) the module's version moved; nothing it places changed.
+  _mu_pair
+  m="$MU_NEW/modules/example"
+  newv="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  _mu_manifest "$MU_NEW"
+  # the project already holds the new kit's copy of the manifests, as it does after the core's files were written
+  cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  _mu_land "the core files are current"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(a) a module that only changed version was reported as nothing to do: $(_mu_flat)"
+  grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the record does not name $newv: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
+  teardown
+
+  # (b) a pending section left by a killed run, the version unchanged.
+  _mu_pair
+  printf 'pending example %s\n' "$(sed -n 's/^module example //p' "$SB_WORK/process/MODULES")" >> "$SB_WORK/process/MODULES"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(b) the upgrade exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(b) a record with a pending section was reported as nothing to do: $(_mu_flat)"
+  grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(b) the pending section is still in the record"
+  teardown
+
+  # (c) the files are the new version's, the record is the old one's.
+  _mu_pair
+  rec0="$SB_TMP/record-before"; cp "$SB_WORK/process/MODULES" "$rec0"
+  _mu_new_version
+  _mu_manifest "$MU_NEW"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(c) the first upgrade exited $_mu_rc: $(_mu_flat)"
+  rm -rf "$SB_WORK/process/UPGRADE-CHECKLIST.md" "$SB_WORK/.kit-upgrade"; cp "$rec0" "$SB_WORK/process/MODULES"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(c) the rerun exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(c) files written under the old record were reported as nothing to do: $(_mu_flat)"
+  grep -F -x "module example $MU_NEWVER" "$SB_WORK/process/MODULES" >/dev/null || cf "(c) the record still names the old version: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
+  grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(c) a pending section is left in the record"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — WITH TWO MODULES ENABLED, EACH IS CARRIED AND RECORDED AT ITS OWN VERSION.
 #   The record's version decides which release-notes entries the next upgrade raises, so a module recorded at another
 #   module's version drops or repeats entries silently. The example module moves on; `second` (a fixture module built
