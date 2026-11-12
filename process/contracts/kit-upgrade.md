@@ -38,7 +38,8 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   one is placed to say so.
 - **What the upgrade adds or replaces is written down before the first file is.** A file a killed run had already
   placed reads as current on the run that finishes it, so the "stamp what arrived" item is counted from the record in
-  `.kit-upgrade/arrived`, not from the files' state; `--finish` removes it with the rest of `.kit-upgrade/`.
+  `.kit-upgrade/arrived`, not from the files' state; the record is used only when its first row names the kit being
+  installed, and `--finish` removes it with the rest of `.kit-upgrade/`.
   *Why:* the item exists to make the adopter check exactly the files that arrived unstamped, and a count taken
   from the tree loses them in proportion to how far the first run got.
 - **Nothing staged carries a live name.** A staged copy sits inside the project's repository, so it

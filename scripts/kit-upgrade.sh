@@ -51,9 +51,7 @@
 # module's record (.kit-upgrade/module-records/), so a run killed anywhere is finished by running this again.
 # The files the run adds or replaces are written down first (.kit-upgrade/arrived), so a run killed part-way through
 # them still counts every one in the "stamp what arrived" item when it is run again, though they now read as current.
-# The record names its target version on its first row and is believed only for that version, and a row counts only
-# a file that still differs from the committed tree: one committed since (by hand, after an undo that kept the
-# record) is not this run's arrival.
+# The record names its target version on its first row and is used only when that is the kit being installed.
 #
 # THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
 # read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
@@ -755,15 +753,10 @@ while IFS="$(printf '\t')" read -r p nh oh; do
     n_kept=$((n_kept + 1)); continue            # the kit did not change it: whatever is here stays
   fi
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
-    # Current because a run killed part-way through its writes had already placed it: it still arrived. Only while
-    # the file differs from the committed tree: a committed one was placed by something else.
+    # Current because a run killed part-way through its writes had already placed it: it still arrived.
     case "$NL$PRIOR" in
-      *"$NL""A$TAB$p$NL"*|*"$NL""R$TAB$p$NL"*)
-        if [ -n "$(cd "$TGT" && git status --porcelain --untracked-files=all -- "$p" 2>/dev/null | sed -n '1p')" ]; then
-          case "$NL$PRIOR" in *"$NL""A$TAB$p$NL"*) ADDED+=("$p") ;; *) REPLACED+=("$p") ;; esac
-        else
-          n_current=$((n_current + 1))
-        fi ;;
+      *"$NL""A$TAB$p$NL"*) ADDED+=("$p") ;;
+      *"$NL""R$TAB$p$NL"*) REPLACED+=("$p") ;;
       *) n_current=$((n_current + 1)) ;;
     esac
     continue
