@@ -124,10 +124,12 @@ fi
 # progress/qa_complete/ is read by lib/qa-gate.sh's kit_qa_verdict_check, in a subshell so its refusal cannot
 # end this hook, with the trunk's evidence kinds and evidence pointers read at this checkout's HEAD. NOT run
 # here: the AC-drift check and the add-on move checks, so this is the table check and not the tool's whole
-# answer. A card already in the column is not an entry, and neither is one a merge, cherry-pick or revert in
-# progress brings with it at the same path (the incoming side was judged where it was made). Not run in the
-# standing kanban worktree, whose commits every board script makes after its own check (the hat gate's
-# exemption). A library that cannot load refuses under its own rule, never allows.
+# answer. A card already in the column is not an entry, and neither is one whose staged blob equals the blob at
+# the same path in the head of a merge, cherry-pick or revert in progress (the same card, unchanged, is in the
+# incoming commit; nothing says that commit was checked, only that this commit adds nothing to it). A squash
+# merge leaves no such head and is judged like any commit. Not run in the standing kanban worktree, whose
+# commits every board script makes after its own check (the hat gate's exemption). Anything but the
+# library's own card-content refusal refuses under pre-commit-qa-check-broken, never allows.
 if [ "$_hat_exempt" -eq 0 ]; then
   _qa_new="$(git -C "$ROOT" diff --cached --name-only --no-renames --diff-filter=A -- 'progress/qa_complete/*.md' 2>/dev/null || true)"
   if [ -n "$_qa_new" ]; then
@@ -146,32 +148,49 @@ if [ "$_hat_exempt" -eq 0 ]; then
       [ -n "$_qa_path" ] || continue
       case "$_qa_path" in progress/qa_complete/*/*) continue ;; esac
       _qa_brought=0
+      _qa_sb="$(git -C "$ROOT" rev-parse -q --verify ":$_qa_path" 2>/dev/null || true)"
       for _qa_sha in $_qa_incoming; do
-        if git -C "$ROOT" cat-file -e "$_qa_sha:$_qa_path" 2>/dev/null; then _qa_brought=1; break; fi
+        _qa_ib="$(git -C "$ROOT" rev-parse -q --verify "$_qa_sha:$_qa_path" 2>/dev/null || true)"
+        if [ -n "$_qa_sb" ] && [ "$_qa_sb" = "$_qa_ib" ]; then _qa_brought=1; break; fi
       done
       [ "$_qa_brought" -eq 0 ] || continue
       _qa_base="${_qa_path##*/}"
       _qa_id="$(printf '%s' "$_qa_base" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)-.*$/\1/p')"
       [ -n "$_qa_id" ] || continue
-      _qa_out=""; _qa_rc=0
+      _qa_out=""; _qa_rc=0; _qa_rule=""; [ -z "$_qa_tmp" ] || rm -f "$_qa_tmp/rule"
       if [ -z "$_qa_tmp" ] || [ ! -r "$HOOK_DIR/../lib/qa-gate.sh" ] || [ ! -r "$HOOK_DIR/../lib/refuse.sh" ]; then
         _qa_rc=70
       else
         git -C "$ROOT" show ":$_qa_path" > "$_qa_tmp/card.md" 2>/dev/null || : > "$_qa_tmp/card.md"
         _qa_out="$( ( . "$HOOK_DIR/../lib/refuse.sh"; [ -r "$HOOK_DIR/../lib/decision-register.sh" ] && . "$HOOK_DIR/../lib/decision-register.sh"
                       . "$HOOK_DIR/../lib/qa-gate.sh" || exit 70   # exit-class: internal
-                      kit_progress() { :; }
+                      kit_progress() { printf '%s' "$4" > "$_qa_tmp/rule"; }
                       kit_qa_verdict_check "$_qa_tmp/card.md" "$_qa_id" "$ROOT" HEAD "$_qa_trev" ) 2>&1 )"; _qa_rc=$?
+        [ ! -r "$_qa_tmp/rule" ] || _qa_rule="$(cat "$_qa_tmp/rule" 2>/dev/null || true)"
       fi
       if [ "$_qa_rc" -ne 0 ]; then
         rm -rf "$_qa_tmp"
+        _qa_rc_orig="$_qa_rc"
+        case "$_qa_rule" in
+          refusal=qa-verdict-cell-check-broken)
+            _qa_rc=70; _qa_libnext=1 ;;
+          refusal=qa-verdict-*) : ;;
+          *) _qa_rc=70; _qa_libnext=0 ;;
+        esac
         if [ "$_qa_rc" -eq 70 ]; then
-          qb1="✗ pre-commit guard: ${_qa_id} is staged into progress/qa_complete/ and the QA Verdict check could not run — scripts/lib/qa-gate.sh or a library it loads is unreadable or failed to load. This is not a finding about the card."
-          qb2="Next: restore the kit's libraries, then commit again:  git checkout -- scripts/lib  (or copy scripts/lib from the release zip). If that does not clear it, report it as a defect in the kit."
-          if command -v kit_refuse >/dev/null 2>&1; then
-            kit_refuse 1 pre-commit-qa-check-broken "$qb1" "" "$qb2"
+          qb1="✗ pre-commit guard: ${_qa_id} is staged into progress/qa_complete/ and the QA Verdict check could not give an answer (exit ${_qa_rc_orig:-?}, rule '${_qa_rule:-none}'). This is not a finding about the card's table."
+          if [ "${_qa_libnext:-0}" -eq 1 ]; then
+            _qa_libmsg="$(printf '%s\n' "$_qa_out" | sed '/^       NOTHING WAS CHANGED/d')"
+            qb2="Next: follow the library's own Next above, then commit again; the move stays out of qa_complete/ until the check can run."
+            qb3="$_qa_libmsg"
+          else
+            qb2="Next: restore the kit's libraries, then commit again:  git checkout -- scripts/lib  (or copy scripts/lib from the release zip). If that does not clear it, report it as a defect in the kit."
+            qb3="$(printf '%s\n' "$_qa_out" | tail -n 5)"
           fi
-          printf '%s\n' "$qb1" "" "$qb2" >&2
+          if command -v kit_refuse >/dev/null 2>&1; then
+            kit_refuse 1 pre-commit-qa-check-broken "$qb1" "" "$qb3" "" "$qb2"
+          fi
+          printf '%s\n' "$qb1" "" "$qb3" "" "$qb2" >&2
           exit 1   # exit-class: fallback
         fi
         _qa_why="$(printf '%s\n' "$_qa_out" | sed '/^Next:/,$d')"
@@ -182,7 +201,8 @@ if [ "$_hat_exempt" -eq 0 ]; then
         if [ -n "$_qa_old" ]; then
           qa3="    git mv $_qa_pq $(printf '%q' "$_qa_old")"
         else
-          qa3="    git rm --cached -q $_qa_pq     (the file stays on disk)"
+          qa3="    git rm --cached -q $_qa_pq
+    # (the file stays on disk)"
         fi
         qa4="  Fill the card's QA Verdict table (.claude/roles/qa.md step 4), commit the card to the trunk with ./scripts/register-commit.sh, then run:"
         qa5="    ./scripts/move-issue.sh ${_qa_id} qa_complete --role QA"
