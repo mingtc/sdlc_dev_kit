@@ -2034,7 +2034,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-855" in_progress
   lf="$(_seed_subtask "$SB_PREFIX-855" s1 dev_complete twocell "A slice of two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n- [ ] AC2 — the list loads.\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m; s/(\| shadow-check )/| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |\n$1/' "$lf"
   _dm_png "$SB_WORK/$lev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$lev/UX-001-default-build.png" BUILD
   _dm_land "a slice of two states, the second in a second cell"
@@ -4644,7 +4644,7 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
   _dm_land "renders at the pin"; P="$(git -C "$SB_WORK" rev-parse HEAD)"
   # a commit only a side branch holds: another render of the same screen, never pushed
-  git -C "$SB_WORK" checkout -q -b w829-side "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q -b dm-side-branch "$SB_TRUNK" >/dev/null 2>&1
   _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" EDIT
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] $_MD_ID: a render nobody pushed" >/dev/null 2>&1
   Q="$(git -C "$SB_WORK" rev-parse HEAD)"
@@ -4666,7 +4666,7 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   printf '%s\n' "$out" | grep -E '^Next: .*push' >/dev/null || cf "(b) the refusal's Next: does not say to push the pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   printf '%s\n' "$out" | grep -E '^Next: .*re-pin' >/dev/null || cf "(b) the refusal's Next: does not say to re-pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   # the way out it names works: push the commit to the trunk, and the same check allows
-  git -C "$SB_WORK" merge -q --no-edit w829-side >/dev/null 2>&1
+  git -C "$SB_WORK" merge -q --no-edit dm-side-branch >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
   _dm_hook_rows
