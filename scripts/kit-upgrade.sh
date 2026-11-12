@@ -804,7 +804,7 @@ ITEMS_EOF
 # ── THE ENABLED MODULES: what the new kit changes in the files they placed. ───
 # Scanned now, and written with the other files below. MOD_NAMES is every module process/MODULES records as
 # enabled; each leaves its findings in $MODTMP/up-<name>/ (lib/modules.sh says what they are).
-MOD_NAMES=""; MOD_LIVE=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
+MOD_NAMES=""; MOD_LIVE=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_RECORD=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
 MOD_NOTES=()   # "<module>|<notes file>" for each live module that declares release notes: staged for --finish's Verify: run
 if mod_lib_need; then
   MOD_NAMES="$(kit_mod_enabled_names)"
@@ -828,6 +828,8 @@ MODPEND_EOF
     fi
     MOD_LIVE="$MOD_LIVE$mn
 "
+    # The record is work too: it names another version than the kit holds, or an earlier run left its `pending` section.
+    if [ "$KMU_OLD_VERSION" != "$KMU_VERSION" ] || kit_mod_is_pending "$mn"; then MOD_N_RECORD=$((MOD_N_RECORD + 1)); fi
     while IFS="$(printf '\t')" read -r a k t s _ _ _; do
       case "$a" in
         write)   MOD_N_WRITE=$((MOD_N_WRITE + 1)); MOD_WRITE_PATHS+=("$t") ;;
@@ -854,7 +856,7 @@ MODNAMES_EOF
 fi
 
 total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} + ${#MOD_ACTION[@]} + MOD_N_MERGE + MOD_N_REMOVED ))
-if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ]; then
+if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] && [ "$MOD_N_RECORD" -eq 0 ]; then
   echo "kit-upgrade: $TGT already runs kit $NEW_V, and every file is current. Nothing to do."
   exit 0
 fi
