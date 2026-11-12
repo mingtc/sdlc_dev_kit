@@ -1758,10 +1758,9 @@ exit 1
 
 # =============================================================================
 # CASE — A CELL CHECK'S REFUSAL CARRIES THE REASON AND THE CHECK'S OWN `Next:`, HOWEVER LONG ITS CONTEXT LINE.
-#   A check that prints a context line first (id, AC, cell, root path) and then its reason was quoted up to
-#   the 240th character, ending in the path before the reason; and its `Next:` line, which a move check's
-#   is read for, was not. The refusal now carries every printed line but the `Next:` one, and that step
-#   as its own Next; a check that prints none gets the gate's generic step.
+#   A cell check that prints a long context line, then its reason, then a `Next:` line is refused with the
+#   reason and the check's own step on the refusal's `Next:` line, whether it refuses (status 3) or is
+#   broken (any other status); a check that prints no `Next:` gets the gate's generic step.
 # =============================================================================
 case_a_cell_check_refusal_carries_the_reason_and_the_checks_next() {
   cf_reset
@@ -1787,7 +1786,7 @@ echo 'Next: NEXT-MARK move the note under dev/'
 exit 3
 "
   _qc_gate "$card"
-  { [ "$_qc_rc" -ne 0 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(a) the refusing check was not refused as qa-verdict-cell-refused (exit $_qc_rc)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-refused; } || cf "(a) the refusing check was not refused as qa-verdict-cell-refused (exit $_qc_rc)"
   [[ "$_qc_out" == *"REASON-MARK the note is outside dev/"* ]] || cf "(a) the reason printed after a long context line is not in the refusal: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_qc_out" | grep -E '^Next: .*NEXT-MARK move the note under dev/' >/dev/null || cf "(a) the check's own Next: step is not carried on the refusal's Next: line: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
 
@@ -1798,7 +1797,7 @@ echo 'Next: NEXT-MARK install the tool'
 exit 5
 "
   _qc_gate "$card"
-  { [ "$_qc_rc" -ne 0 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(b) the broken check was not refused as qa-verdict-cell-check-broken (exit $_qc_rc)"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-cell-check-broken; } || cf "(b) the broken check was not refused as qa-verdict-cell-check-broken (exit $_qc_rc)"
   [[ "$_qc_out" == *"REASON-MARK could not look"* ]] || cf "(b) the reason printed after a long context line is not in the refusal: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_qc_out" | grep -E '^Next: .*NEXT-MARK install the tool' >/dev/null || cf "(b) the check's own Next: step is not carried: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
 

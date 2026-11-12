@@ -346,6 +346,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **A QA cell check's refusal now quotes what the check printed (up to twenty lines, each whole) and leads its `Next:` with the check's own step.** A long first line no longer hides the reason, and the step a check prints after its reasons, such as the design module's, is no longer cut off. Nothing is required of you.
 - **A refusal for a card's content now exits 1, not 2.** The QA Verdict check, the forks check, the ablation check and the landing's board-property check (through `finish-pr.sh`, `move-issue.sh` and `subtask.sh`), `ask.sh` for an undeclared role and `subtask.sh` for a subtask named as a parent exit 1, as the exit table says: refused with nothing landed. 2 stays the usage error (an unknown option, a missing value). A script of yours that branched on 2 for these refusals must branch on 1.
 - **`commit-attribution.md` § 2 no longer promises that every path that creates a commit is refused at write time.** It names the entrances that are (`commit`, `am`, a commit after `cherry-pick -n` or `merge --squash`) and says `cherry-pick`, `rebase`, plumbing, `--no-verify` and a clone with no hooks wired are caught after the fact by the drift report's role-prefix scan. The hooks are unchanged. Nothing to do.
 - **`set-models.sh --class` leaves the untyped-leg runner fallback alone, and a parked role's pin is edited by hand; `--all` writes all three.** The wording said "the three never disagree" for every use. Behaviour is unchanged. Nothing to do.
