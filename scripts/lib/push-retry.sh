@@ -68,21 +68,38 @@ git_push_with_retry() {
       return 1   # return-class: internal
     fi
 
-    if ! git -C "$repo" rebase "$remote/$branch" --quiet 2>/dev/null; then
+    local rb_err rb_unmerged
+    if ! rb_err="$(git -C "$repo" rebase "$remote/$branch" --quiet 2>&1)"; then
+      rb_unmerged="$(git -C "$repo" diff --name-only --diff-filter=U 2>/dev/null || true)"
       git -C "$repo" rebase --abort >/dev/null 2>&1 || true
       # Read HEAD here, not $pre_head: after an earlier successful rebase, the abort returns
       # HEAD to where THIS attempt began.
       local at_head; at_head="$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo "$pre_head")"
-      {
-        echo "Error: git_push_with_retry: rebase onto $remote/$branch CONFLICTED — stopping."
-        echo "       This does NOT resolve the conflict and does NOT loop. The rebase was"
-        echo "       aborted, so HEAD is back where this attempt started: $at_head."
-        echo "       Commits that did NOT land:"
-        git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
-        echo "       A human must resolve by hand:"
-        echo "         git -C '$repo' rebase $remote/$branch   # fix conflicts, git rebase --continue"
-        echo "         git -C '$repo' push $remote HEAD:$branch"
-      } >&2
+      if [ -n "$rb_unmerged" ]; then
+        {
+          echo "Error: git_push_with_retry: rebase onto $remote/$branch CONFLICTED — stopping."
+          echo "       This does NOT resolve the conflict and does NOT loop. The rebase was"
+          echo "       aborted, so HEAD is back where this attempt started: $at_head."
+          echo "       Commits that did NOT land:"
+          git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
+          echo "       A human must resolve by hand:"
+          echo "         git -C '$repo' rebase $remote/$branch   # fix conflicts, git rebase --continue"
+          echo "         git -C '$repo' push $remote HEAD:$branch"
+        } >&2
+      else
+        {
+          echo "Error: git_push_with_retry: rebase onto $remote/$branch STOPPED with no conflict — stopping."
+          echo "       git said:"
+          sed 's/^/         /' <<< "$rb_err"
+          echo "       A hook refused a commit being replayed (the commit-msg role-tag rule refuses one with no tag)."
+          echo "       The rebase was aborted, so HEAD is back where this attempt started: $at_head."
+          echo "       Commits that did NOT land:"
+          git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
+          echo "       Replay them with the escape, then push:"
+          echo "         MSG_OK=1 git -C '$repo' rebase $remote/$branch"
+          echo "         git -C '$repo' push $remote HEAD:$branch"
+        } >&2
+      fi
       return 1   # return-class: internal
     fi
     # Rebase succeeded (or was a no-op) — loop back and retry the push.

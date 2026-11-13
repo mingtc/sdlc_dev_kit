@@ -24,7 +24,8 @@
 #
 # Bypass:  MSG_OK=1 git commit …   (1 / true / yes are truthy; 0 or unset do NOT bypass).
 #          For a genuine one-off that can't carry a tag, or for importing a third party's
-#          commit VERBATIM (a cherry-pick, a `git am`). Not for your own commits.
+#          commit VERBATIM (`MSG_OK=1 git cherry-pick …`, `MSG_OK=1 git rebase …`, `MSG_OK=1 git am …`).
+#          Not for your own commits.
 #
 # Auto-exempt from rule (1): git/host-generated subjects that are never authored by a
 # role — merge commits, revert commits, and rebase autosquash markers.
@@ -96,25 +97,80 @@ cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev
 # First non-comment, non-blank line = the subject.
 subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || true)"
 
-# A REPLAYED COMMIT (prepare-commit-msg runs this hook on a cherry-pick or a rebase's pick and sets
-# KIT_REPLAY to the operation) has no `git commit` to retry, so a refusal there prints the way out of
-# that operation. Every line printed on its own is a command that runs as printed.
+# THE HAT, as the commit gate reads it: sets _hat_skip (1 when there is nothing to compare: no hat file
+# declared, the operator waiver, a script's per-commit declaration, the standing kanban worktree),
+# _hat_file and _hat_first (the file's first word, empty when it cannot be read).
+_hat_lookup() {
+  _hat_rel=""; _hat_env=""; _hat_file=""; _hat_first=""; _hat_skip=0
+  local _hat_line="" _hat_common
+  _hat_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  # shellcheck source=../lib/hat-file.sh
+  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ] && [ -n "$_hat_root" ]; then
+    KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
+    . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
+    _hat_rel="$KIT_HAT_FILE_REL"; _hat_env="$KIT_HAT_ENV"
+  fi
+  if [ -z "$_hat_rel" ] || [ -z "$_hat_env" ] || [ -n "${!_hat_env:-}" ]; then _hat_skip=1; fi
+  case "$_hat_root" in
+    */.kanban-wt)
+      if ! git symbolic-ref -q HEAD >/dev/null 2>&1 \
+         && [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
+        _hat_skip=1
+      fi ;;
+  esac
+  [ "$_hat_skip" -eq 0 ] || return 0
+  _hat_file="$_hat_root/$_hat_rel"
+  if [ ! -e "$_hat_file" ]; then
+    _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+    if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
+      _hat_file="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)/$_hat_rel"
+    fi
+  fi
+  if [ -f "$_hat_file" ] && [ -r "$_hat_file" ]; then
+    IFS= read -r _hat_line < "$_hat_file" || true
+    _hat_first="$(printf '%s' "${_hat_line%%[[:space:]]*}" | tr -d '\r')"
+  fi
+  return 0
+}
+
+# A REPLAYED COMMIT (prepare-commit-msg sets KIT_REPLAY to rebase or cherry-pick, and KIT_REPLAY_RANGE
+# when a range of picks is queued; a rebase that applies patches is read from git's own state) has no
+# `git commit` to retry, so a refusal there prints the way out of that operation. Every line printed on
+# its own is a command that runs as printed. The reworded subject carries the hat's role when the hat
+# names a role of this set, else the first of the set, and a tag outside the set is replaced.
+_replay_op() {
+  [ -z "${KIT_REPLAY:-}" ] || { printf '%s' "$KIT_REPLAY"; return 0; }
+  local _gd; _gd="$(git rev-parse --git-dir 2>/dev/null || true)"
+  if [ -n "$_gd" ] && [ -f "$_gd/rebase-apply/rebasing" ]; then printf 'rebase-apply'; fi
+  return 0
+}
 _replay_next() {
-  local _s="$subject" _q
+  local _s="$subject" _q _role _op _go
+  _op="$(_replay_op)"
   [ -n "$_s" ] || _s="Describe the change"
-  grep -qE "^\[($ROLE_PREFIXES)\] " <<< "$_s" || _s="[${ROLE_PREFIXES%%|*}] $_s"
+  if ! grep -qE "^\[($ROLE_PREFIXES)\] " <<< "$_s"; then
+    _s="$(sed -E 's/^\[[^]]*\][[:space:]]*//' <<< "$_s")"
+    _hat_lookup
+    _role="${ROLE_PREFIXES%%|*}"
+    if [ -n "$_hat_first" ] && grep -qxE "$ROLE_PREFIXES" <<< "$_hat_first"; then _role="$_hat_first"; fi
+    _s="[$_role] $_s"
+  fi
   _q="$(printf '%s' "$_s" | sed "s/'/'\\\\''/g")"
-  case "${KIT_REPLAY:-}" in
+  case "$_op" in
     rebase)
-      printf '%s\n' "Next: this commit is being replayed by a rebase; reword it with a role tag, keep it as it is, or give the rebase up:" \
+      printf '%s\n' "Next: this commit is being replayed by a rebase; reword it with a role tag, keep it as it is, or stop the rebase where it is (--quit leaves HEAD and the staged change as they are):" \
         "    git commit -m '$_q' && git rebase --continue" \
         "    MSG_OK=1 git commit -C CHERRY_PICK_HEAD && git rebase --continue" \
+        "    git rebase --quit" ;;
+    rebase-apply)
+      printf '%s\n' "Next: this rebase applies patches, and cannot resume at a refused commit. Give it up, then run it again without --apply, where this commit stops with commands that work:" \
         "    git rebase --abort" ;;
     cherry-pick)
-      printf '%s\n' "Next: this commit is being replayed by a cherry-pick; reword it with a role tag, keep it as it is, or give the cherry-pick up:" \
-        "    git commit -m '$_q'" \
-        "    MSG_OK=1 git cherry-pick --continue" \
-        "    git cherry-pick --abort" ;;
+      _go=""; [ -z "${KIT_REPLAY_RANGE:-}" ] || _go=" && git cherry-pick --continue"
+      printf '%s\n' "Next: this commit is being replayed by a cherry-pick; reword it with a role tag, keep it as it is, or stop the cherry-pick where it is (--quit leaves the picked change staged):" \
+        "    git commit -m '$_q'$_go" \
+        "    MSG_OK=1 git commit -C CHERRY_PICK_HEAD$_go" \
+        "    git cherry-pick --quit" ;;
   esac
 }
 
@@ -150,7 +206,7 @@ if [ -n "$offender" ]; then
   msg2="  Offending line: $offender"
   msg3="  process/doctrine/commit-hygiene.md § A.1 — attribution here is by ROLE (the subject prefix, rule 1 of this hook). A tool trailer adds a second, unqueryable axis, makes a provenance claim that ages badly, and taxes every git log a human reads, forever."
   msg4="Next: delete the line, or configure your harness not to add it, and commit again."
-  [ -z "${KIT_REPLAY:-}" ] || msg4="$(_replay_next)"
+  [ -z "$(_replay_op)" ] || msg4="$(_replay_next)"
   msg5="  A Co-Authored-By naming a HUMAN is fine; the tool markers rejected are: $(printf '%s' "$TOOL_TRAILER_MARKERS" | tr '|' ' ')"
   msg6="  Importing a third party's commit verbatim?  MSG_OK=1 git commit …"
   if command -v kit_refuse >/dev/null 2>&1; then
@@ -165,7 +221,7 @@ fi
 # and a commit with no subject declares no role.
 if [ -z "$subject" ]; then
   emsg1="✗ Commit-message guard: the commit has no subject, so it declares no role."
-  if [ -n "${KIT_REPLAY:-}" ]; then
+  if [ -n "$(_replay_op)" ]; then
     emsg2="$(_replay_next)"
   else
     emsg2="Next: commit again with a subject that starts with a role tag:
@@ -202,34 +258,10 @@ if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
   # operator waiver (`none — …`), a script's per-commit declaration (it names its own role), and the
   # standing kanban worktree (no session sits there, as in pre-commit). A linked worktree with no hat
   # file of its own reads the main checkout's, as pre-commit does. Roles compare without case.
-  _hat_rel=""; _hat_env=""; _hat_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  # shellcheck source=../lib/hat-file.sh
-  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ] && [ -n "$_hat_root" ]; then
-    KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
-    . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
-    _hat_rel="$KIT_HAT_FILE_REL"; _hat_env="$KIT_HAT_ENV"
-  fi
-  _hat_skip=0
-  if [ -z "$_hat_rel" ] || [ -z "$_hat_env" ] || [ -n "${!_hat_env:-}" ]; then _hat_skip=1; fi
-  case "$_hat_root" in
-    */.kanban-wt)
-      if ! git symbolic-ref -q HEAD >/dev/null 2>&1 \
-         && [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
-        _hat_skip=1
-      fi ;;
-  esac
-  if [ "$_hat_skip" -eq 0 ]; then
-    _hat_file="$_hat_root/$_hat_rel"
-    if [ ! -e "$_hat_file" ]; then
-      _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
-      if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
-        _hat_file="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)/$_hat_rel"
-      fi
-    fi
-    if [ -f "$_hat_file" ] && [ -r "$_hat_file" ]; then
-      _hat_line=""
-      IFS= read -r _hat_line < "$_hat_file" || true
-      _hat_first="$(printf '%s' "${_hat_line%%[[:space:]]*}" | tr -d '\r')"
+  # A replayed commit is not warned about: it carries somebody else's tag on purpose.
+  _hat_lookup
+  if [ -z "${KIT_REPLAY:-}" ] && [ "$_hat_skip" -eq 0 ]; then
+    if [ -n "$_hat_first" ]; then
       _tag="${subject#\[}"; _tag="${_tag%%\]*}"
       if [ -n "$_hat_first" ] && [ "$_hat_first" != "none" ] \
          && [ "$(printf '%s' "$_hat_first" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$_tag" | tr '[:upper:]' '[:lower:]')" ]; then
@@ -252,7 +284,7 @@ rmsg5="Next: commit again with a subject that starts with one of those tags. Exa
 rmsg6="    [Dev] <PREFIX>-001: add the download --help usage example"
 rmsg7="    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk."
 rmsg8="  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
-if [ -n "${KIT_REPLAY:-}" ]; then
+if [ -n "$(_replay_op)" ]; then
   # A replay is retried by its operation's own commands, not by a fresh `git commit`.
   rmsg5="$(_replay_next)"
   if command -v kit_refuse >/dev/null 2>&1; then

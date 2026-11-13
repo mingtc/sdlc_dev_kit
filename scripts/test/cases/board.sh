@@ -3878,7 +3878,7 @@ case_prepare_commit_msg_holds_a_replay() {
   [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved despite the refusal"
   case "$out" in *"role tag"*) : ;; *) cf "(a) the refusal does not name the role tag: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   lines="$(_printed "$out")"; n="$(grep -c . <<< "$lines")"
-  [ "$n" -ge 3 ] || cf "(a) the Next prints $n runnable lines, expected a reword, a keep-as-is and an abort: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  [ "$n" -ge 3 ] || cf "(a) the Next prints $n runnable lines, expected a reword, a keep-as-is and a quit: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   # (a1) every printed command, run as printed on a fresh refusal, does what it says.
   local i=0
   while IFS= read -r cmd; do
@@ -3892,7 +3892,7 @@ case_prepare_commit_msg_holds_a_replay() {
     case "$cmd" in
       *"commit -m"*) grep -qE '^\[[A-Za-z]+\] ' <<< "$(git -C "$W" log -1 --format=%s)" || cf "(a$i) the reworded commit has no role tag: $(git -C "$W" log -1 --format=%s)" ;;
       *"-C CHERRY_PICK_HEAD"*|*"--continue"*) [ "$(git -C "$W" log -1 --format=%s)" = "no role tag on this replayed commit" ] || cf "(a$i) keep-as-is did not keep the message: $(git -C "$W" log -1 --format=%s)" ;;
-      *"--abort"*) [ "$(git -C "$W" rev-parse HEAD)" = "$base" ] || cf "(a$i) the abort moved HEAD" ;;
+      *"--quit"*) [ "$(git -C "$W" rev-parse HEAD)" = "$base" ] && [ ! -e "$W/.git/CHERRY_PICK_HEAD" ] || cf "(a$i) the quit moved HEAD or left the pick in progress"; case "$(git -C "$W" diff --cached --name-only)" in *p1.txt*) : ;; *) cf "(a$i) the quit dropped the staged picked change" ;; esac ;;
     esac
   done <<< "$lines"
 
@@ -3924,7 +3924,7 @@ case_prepare_commit_msg_holds_a_replay() {
     out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] || cf "(d$i) the printed line '$cmd' failed as printed (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
     case "$cmd" in
-      *"--abort"*) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) the abort left the rebase in progress" ;;
+      *"--quit"*) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) the quit left the rebase in progress" ;;
       *) [ ! -d "$W/.git/rebase-merge" ] || cf "(d$i) after '$cmd' the rebase is still in progress: $(git -C "$W" status -sb | head -3 | tr '\n' '|')"
          grep -q 'conforming replayed commit' <<< "$(git -C "$W" log --format=%s "$T..side")" || cf "(d$i) the conforming commit is missing after '$cmd'" ;;
     esac
@@ -3937,7 +3937,8 @@ case_prepare_commit_msg_holds_a_replay() {
   [ "$rc" -ne 0 ] || cf "(e) a rebase reword kept an untagged subject"
 
   # (e2) an editor that fixes the subject is let through: the hook does not judge the message before the
-  # editor (cherry-pick -e), only commit-msg does, after it.
+  # editor opens. (An editor that leaves it untagged is NOT refused either: git commits a `cherry-pick -e` with
+  # -n semantics and runs no commit-msg, which the contract lists among the after-the-fact entrances.)
   _reset
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR="sed -i.bak '1s/.*/[Dev] fixed in the editor/'" git cherry-pick -e "$badsha" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(e2) cherry-pick -e with an editor that tags the subject was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
@@ -4012,5 +4013,142 @@ case_check_board_arm_e_reports_an_empty_subject() {
   grep "$sha_empty" <<< "$out" | grep -i 'no subject' >/dev/null \
     || cf "the commit with no subject $sha_empty was not reported: $(grep -m3 '^\[e\]\|⚠' <<< "$out" | tr '\n' '|')"
   finish "check-board arm [e]: a commit with an empty subject is reported, not skipped"
+  teardown
+}
+
+# =============================================================================
+# CASE — the replay hook's edges: a stale CHERRY_PICK_HEAD, an editor run beside a pick, a cherry-pick at a
+# rebase edit stop, a range of picks, `rebase --apply`, the reworded subject's role, and the kit's own push retry
+# =============================================================================
+case_prepare_commit_msg_edges() {
+  cf_reset
+  make_sandbox
+  local W="$SB_WORK" T="$SB_TRUNK" out rc cmd lines n base badsha goodsha
+  publish_sandbox
+  git -C "$W" checkout -q -b side
+  echo 1 > "$W/p1.txt"; git -C "$W" add p1.txt; sbcommit -q -m "no role tag on this replayed commit"
+  echo 2 > "$W/p2.txt"; git -C "$W" add p2.txt; sbcommit -q -m "[Dev] a conforming replayed commit"
+  badsha="$(git -C "$W" rev-parse side~1)"; goodsha="$(git -C "$W" rev-parse side)"
+  git -C "$W" checkout -q "$T"
+  echo t > "$W/trunk-moves.txt"; git -C "$W" add trunk-moves.txt; sbcommit -q -m "[PM] the trunk moves"
+  git -C "$W" push -q origin "$T" >/dev/null 2>&1
+  base="$(git -C "$W" rev-parse HEAD)"
+  _reset() {
+    git -C "$W" cherry-pick --quit >/dev/null 2>&1; git -C "$W" rebase --abort >/dev/null 2>&1
+    git -C "$W" checkout -q -f "$T" >/dev/null 2>&1; git -C "$W" reset -q --hard "$base" >/dev/null 2>&1
+    git -C "$W" clean -qfd >/dev/null 2>&1
+    git -C "$W" branch -qf side "$goodsha" >/dev/null 2>&1
+    git -C "$W" branch -qD side3 es >/dev/null 2>&1 || true
+    sandbox_hat_declare
+  }
+  _printed() { printf '%s\n' "$1" | sed -n 's/^    \(\(MSG_OK=1 \)\{0,1\}git .*\)$/\1/p'; }
+
+  # (a) F3 — a stale CHERRY_PICK_HEAD (an empty pick leaves it) does not turn the user's own commit into a replay.
+  _reset
+  git -C "$W" cherry-pick "$goodsha" >/dev/null 2>&1                       # applies it
+  git -C "$W" reset -q --hard "$base"; git -C "$W" cherry-pick "$goodsha" >/dev/null 2>&1   # a pick of what is already there ...
+  git -C "$W" cherry-pick "$goodsha" >/dev/null 2>&1                       # ... is empty and leaves the marker
+  [ -f "$W/.git/CHERRY_PICK_HEAD" ] || _fixture_die "case_prepare_commit_msg_edges: an empty pick left no CHERRY_PICK_HEAD, so (a) proves nothing"
+  echo w > "$W/w.txt"; git -C "$W" add w.txt
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "wip my own change" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) an untagged commit made beside a stale marker was accepted"
+  case "$out" in *"replayed by"*|*"--quit"*|*"cherry-pick --continue"*) cf "(a) an ordinary commit's refusal printed a replay's commands: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$(git -C "$W" diff --cached --name-only)" in *w.txt*) : ;; *) cf "(a) the user's staged work is gone" ;; esac
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[Dev] my own change" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) a tagged commit beside a stale marker was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (b) F7 — `git commit -e -m` during a live pick reaches its editor before anything judges the message.
+  _reset
+  ( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" >/dev/null 2>&1 )
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR="sed -i.bak '1s/.*/[Dev] tagged in the editor/'" git commit -e -m "wip" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) commit -e -m beside a live pick was refused before its editor: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$W" log -1 --format=%s)" = "[Dev] tagged in the editor" ] || cf "(b) the edited subject was not kept: $(git -C "$W" log -1 --format=%s)"
+
+  # (c) F4 — a cherry-pick run at a rebase edit stop gets the cherry-pick's commands, and they leave the stop alone.
+  _reset
+  git -C "$W" checkout -q -b es "$base"
+  echo e1 > "$W/e1.txt"; git -C "$W" add e1.txt; sbcommit -q -m "[Dev] edit-stop one"
+  echo e2 > "$W/e2.txt"; git -C "$W" add e2.txt; sbcommit -q -m "[Dev] edit-stop two"
+  ( cd "$W" && env -u MSG_OK GIT_EDITOR=true GIT_SEQUENCE_EDITOR="sed -i.bak '1s/^pick/edit/'" git rebase -i "$base" >/dev/null 2>&1 )
+  [ -d "$W/.git/rebase-merge" ] || _fixture_die "case_prepare_commit_msg_edges: the rebase did not stop at its edit line, so (c) proves nothing"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) an untagged cherry-pick at a rebase edit stop committed"
+  case "$out" in *"rebase --"*) cf "(c) the commands name a rebase though a cherry-pick was run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  cmd="$(_printed "$out" | head -1)"
+  out="$( cd "$W" && env -u MSG_OK bash -c "$cmd" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) the printed line '$cmd' failed as printed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  [ -d "$W/.git/rebase-merge" ] || cf "(c) the printed cherry-pick line ended the user's rebase edit stop"
+
+  # (d) F8 — a range of picks: the reword and keep lines carry the range on; an untagged LAST pick works too.
+  _reset
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha^..$goodsha" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) a range starting with an untagged commit committed it"
+  lines="$(_printed "$out")"
+  n="$(grep -c 'git cherry-pick --continue' <<< "$lines")"
+  [ "$n" -eq 2 ] || cf "(d) $n of the reword and keep lines continue the range, expected 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  while IFS= read -r cmd; do
+    case "$cmd" in *"git cherry-pick --continue"*)
+      _reset
+      ( cd "$W" && env -u MSG_OK git cherry-pick "$badsha^..$goodsha" >/dev/null 2>&1 )
+      out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
+      [ "$rc" -eq 0 ] || cf "(d) the printed line '$cmd' failed as printed (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+      [ -e "$W/p2.txt" ] && [ ! -d "$W/.git/sequencer" ] || cf "(d) after '$cmd' the rest of the range was not applied" ;;
+    esac
+  done <<< "$lines"
+  _reset
+  git -C "$W" checkout -q -b side3 "$base"
+  echo s1 > "$W/s1.txt"; git -C "$W" add s1.txt; sbcommit -q -m "[Dev] range first"
+  echo s2 > "$W/s2.txt"; git -C "$W" add s2.txt; sbcommit -q -m "an untagged last pick"
+  git -C "$W" checkout -q "$T"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$base..side3" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d2) an untagged last pick of a range committed"
+  cmd="$(_printed "$out" | head -1)"
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d2) the printed line '$cmd' failed on the last pick of a range (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (e) F2 — `rebase --apply` runs the patch-application hook and says what to do; the printed line works.
+  _reset
+  git -C "$W" checkout -q side
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase --apply "$T" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a rebase --apply replaying an untagged commit ran to the end"
+  case "$out" in *"commit again with a subject"*) cf "(e) the refusal offers the ordinary 'commit again' for a rebase: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  cmd="$(_printed "$out" | head -1)"
+  [ -n "$cmd" ] || cf "(e) the refusal prints no runnable line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  if [ -n "$cmd" ]; then
+    out="$( cd "$W" && bash -c "$cmd" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(e) the printed line '$cmd' failed as printed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    [ ! -d "$W/.git/rebase-apply" ] || cf "(e) the rebase is still in progress after '$cmd'"
+  fi
+
+  # (f) F9 — the reword carries the hat's role, replaces a tag outside the set, and the hat warning prints once.
+  _reset
+  printf 'QA sandbox\n' > "$W/$(_sandbox_hat_file)"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" 2>&1 )"
+  case "$(_printed "$out" | head -1)" in "git commit -m '[QA] no role tag on this replayed commit'") : ;; *) cf "(f) the reword line does not carry the hat's role [QA]: $(_printed "$out" | head -1)" ;; esac
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "[Dev] reworded under a QA hat" 2>&1 )"
+  n="$(grep -c "Warning: this commit's role tag" <<< "$out")"
+  [ "$n" -eq 1 ] || cf "(f) the hat-mismatch warning printed $n times, expected once: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _reset
+  echo f > "$W/f.txt"; git -C "$W" add f.txt; sbcommit -q -m "[Foo] a tag outside the set"
+  local foosha; foosha="$(git -C "$W" rev-parse HEAD)"; git -C "$W" reset -q --hard "$base"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$foosha" 2>&1 )"
+  case "$(_printed "$out" | head -1)" in "git commit -m '[Dev] a tag outside the set'") : ;; *) cf "(f) a tag outside the set was not replaced: $(_printed "$out" | head -1)" ;; esac
+
+  # (g) F5 — the kit's own push retry names a hook refusal, not a conflict.
+  _reset
+  git -C "$W" checkout -q "$T"
+  echo u > "$W/u.txt"; git -C "$W" add u.txt; sbcommit -q -m "an unpushed commit from before the rule"
+  echo v > "$W/v.txt"; git -C "$W" add v.txt; sbcommit -q -m "[Dev] an unpushed tagged commit"
+  git clone -q "$SB_ORIGIN" "$SB_TMP/other" >/dev/null 2>&1
+  echo o > "$SB_TMP/other/o.txt"; git -C "$SB_TMP/other" add o.txt
+  MSG_OK=1 git -C "$SB_TMP/other" -c user.email=o@sandbox.invalid -c user.name=Other commit -q -m "[PM] the remote advances" >/dev/null 2>&1
+  git -C "$SB_TMP/other" push -q origin "HEAD:$T" >/dev/null 2>&1
+  out="$( cd "$W" && env -u MSG_OK bash -c '. scripts/lib/push-retry.sh; git_push_with_retry "$PWD" origin "$1"' _ "$T" 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(g control) exit $rc, expected 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *CONFLICTED*) cf "(g) a hook refusal was reported as a conflict: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *"role tag"*) : ;; *) cf "(g) the failure does not carry what the hook said: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *"MSG_OK=1 git -C"*) : ;; *) cf "(g) the failure names no way on" ;; esac
+
+  finish "prepare-commit-msg: a stale CHERRY_PICK_HEAD makes no replay, commit -e -m beside a pick reaches its editor, a cherry-pick at a rebase edit stop and a range of picks get commands that fit, rebase --apply says to run it again, the reword carries the hat's role and warns once, and the push retry names a hook refusal"
   teardown
 }

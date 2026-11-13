@@ -22,11 +22,13 @@ filtered, audited and trusted years later without asking anybody.
   attribution convention this process has met eroded silently.
 - **Every path that creates a commit is covered by a layer that names it.** An entrance version
   control runs a message hook on is refused at write time: an ordinary commit, a patch applied
-  with `am`, any commit made after `cherry-pick -n` or `merge --squash`, and a commit replayed by
-  `cherry-pick` or a rebase's pick (which run no `commit-msg`; the hook that runs on a replay
-  applies the same rule). Plumbing (`commit-tree`), `rebase --apply`, which writes by plumbing,
-  `--no-verify` on an ordinary commit, and a clone with no hooks wired are caught after the
-  fact by the drift report's role-prefix scan on the trunk.
+  with `am` or by `rebase --apply` (both run the patch-application hook), any commit made after
+  `cherry-pick -n` or `merge --squash`, and a commit replayed by `cherry-pick` or a rebase's pick
+  (which run no `commit-msg`; the hook that runs on a replay applies the same rule). Plumbing
+  (`commit-tree`), `--no-verify` on an ordinary commit, a clone with no hooks wired, and two
+  replays that reach no message hook after the message is final (`cherry-pick -e`, and a rebase pick
+  finished with `rebase --continue` after a conflict) are caught after the fact by the drift
+  report's role-prefix scan on the trunk.
   *Why:* one unguarded entrance is the whole fence, so each entrance names the layer that covers it.
 - **The rejection explains the rule and shows a correct subject.** A refusal that only says "no"
   costs the author a search.
