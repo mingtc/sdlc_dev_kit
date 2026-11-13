@@ -9,8 +9,8 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Action required
 
-- **Push the commit each card in flight is pinned to.** A card lands only when every pin in its `design:` key is a commit the trunk holds; a pin only your clone has is refused at `qa_complete/`, with a `Next:` (push it, or the PM re-pins the entry).
-  Verify: t="$(git symbolic-ref --short refs/remotes/origin/HEAD)"; for c in progress/in_progress/*.md progress/dev_complete/*.md progress/qa_complete/*.md; do [ -f "$c" ] || continue; for p in $(sed -n '/^design:/p' "$c" | grep -oE '@[0-9a-f]{7,40}'); do git merge-base --is-ancestor "${p#@}" "$t" || exit 1; done; done
+- **Push the commit each card in flight is pinned to.** A card lands only when every pin in its `design:` key is a commit the trunk holds; a pin only your clone has is refused at `qa_complete/`, with a `Next:` (push it, or the PM re-pins the entry). The line below reads the trunk as the kit does (`$KWT_REMOTE`, else `origin`; its `HEAD`, else `init.defaultBranch`, else `main`) and covers slices and `blocked/`.
+  Verify: r="${KWT_REMOTE:-origin}"; b="$(git symbolic-ref --short "refs/remotes/$r/HEAD" 2>/dev/null)"; b="${b#"$r/"}"; [ -n "$b" ] || b="$(git config --get init.defaultBranch)"; [ -n "$b" ] || b="${KWT_TRUNK_LAST_RESORT:-main}"; for c in progress/{in_progress,dev_complete,blocked}/*.md progress/subtasks/*/{in_progress,dev_complete,blocked}/*.md; do [ -f "$c" ] || continue; for p in $(sed -n '/^design:/p' "$c" | grep -oE '@[0-9a-f]{7,40}'); do git merge-base --is-ancestor "${p#@}" "$r/$b" || exit 1; done; done
 
 ### Changed
 
@@ -22,7 +22,7 @@ any other heading are not read. Nothing here is read while the module is disable
 
 - **A page save's re-spelling of a board's `data-props` (the `&quot;` form, or spaces) moves no value, so it is no `STALE-APPROVAL` and no drift** (pin-drift says `respelled`); a changed value still is. A `<ns>.wire.tokens.json` is left out of what a pin and an approval cover. A token file named `dark.tokens.json` or `wire.tokens.json` alone is that theme. A dark value in `:root` or a media query is a `TOKEN-VALUE` that says a theme is a `[data-theme]` block.
 - **A card parked in `blocked/` with no pin is no `UNPINNED` finding and no unresolved pin-drift row.** A refactor card's `B1 — (UI)` is read as an AC (any id the core reads), and a slice's drift row carries the slice's own id. The design rows check refuses a pin only a local branch holds.
-- **The audit** takes the larger of `height` and `min-height`, adds a content-box element's padding, leaves a hidden input out, measures each token namespace's pairs apart (a failing pair is no longer hidden by another namespace) and reads an overlay colour in no pair as a `NOTE`, not `UNREAD`.
+- **The audit** labels a pair `LOW light [<ns>]:` when there is more than one token namespace; it takes the larger of `height` and `min-height`, adds a content-box element's padding, leaves a hidden input out, measures each token namespace's pairs apart (a failing pair is no longer hidden by another namespace) and reads an overlay colour in no pair as a `NOTE`, not `UNREAD`.
 - **The normaliser** keeps `&copy=` in a `data-props` URL as written; `resolve-anchor.py` finds a percent-encoded board name; the pull skill's both-sides and drop blocks handle a file name with a space, and its anchor step says how to write an apostrophe.
 - The 0.3.0 upgrade item's Verify line fails only on the pin findings it names, not on a stale approval.
 - **The link check reads a tag whose quoted attribute value holds a `>`**: a colour literal, a linked sheet or an imported screen after such an attribute is found, where the tag used to end at the `>`. A quote opens a value only after `=`, so an apostrophe in an unquoted value or a stray quote in a name hides nothing after it.

@@ -116,7 +116,7 @@ saying.>
 
 <Any change in the skipped/deselected count is explained here as *the new normal* or *drift* —
 an unexplained change in what a gate skips is a finding, not noise.>
-`./scripts/check-board.sh`: **<clean ✓ | the findings, verbatim>**.
+`./scripts/check-board.sh`: **<clean ✓ | clean (N advisory), with the advisory lines | the findings, verbatim>**.
 
 ---
 
@@ -337,7 +337,7 @@ matched at open: <list>.
 > is a rule that survives its author.
 
 **Board:** `todo` <n> · `in_progress` <n> · `dev_complete` <n> · `qa_complete` <n> · `blocked`
-<n> (<which, and whether pre-existing>) · `done` <n> · `declined` <n>. `./scripts/check-board.sh`: **<clean ✓ | findings>**.
+<n> (<which, and whether pre-existing>) · `done` <n> · `declined` <n>. `./scripts/check-board.sh`: **<clean ✓ | clean (N advisory), with the advisory lines | findings>**.
 **Worktrees:** <removed at close | left standing, named, and why>.
 
 **The orchestrator's own misses, recorded because a report that only grades others is worthless:**
