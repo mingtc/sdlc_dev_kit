@@ -20,7 +20,7 @@ untouched (`UNREAD <path>: <why>`), never passed as fine.
 Exit 0 done or nothing to do (and --help); 1 --check found a file it would change; 2 a file could not be read, or bad usage.
 Python 3 standard library only.
 """
-import html, json, re, sys
+import html, html.entities, json, re, sys
 from pathlib import Path
 
 TAG = re.compile(r'''<script\b[^>]*\btype=["']text/x-dc["'][^>]*>''')
@@ -31,14 +31,22 @@ CHARREF = re.compile(r'&(?:#[0-9]+;?|#[xX][0-9a-fA-F]+;?|[A-Za-z][A-Za-z0-9]*;?)
 
 
 def attr_unescape(raw):
-    """An attribute value's character references as a browser reads them: a named reference with no semicolon that is followed by `=` or a
-    letter or digit stays as written (`?a=1&copy=2` is not a copyright sign); every other reference is decoded as html.unescape does."""
+    """An attribute value's character references as a browser reads them. A numeric reference, and a named one ending in `;`, decode as
+    html.unescape does. A named one with no `;` is the longest legacy name that starts the run of letters and digits, and it decodes only
+    when the run does not continue past that name and the next character is not `=` or a letter or digit: `?a=1&copy=2`, `&copyx`, `a&ampb`
+    and `?x=1&notify&y=2` stay as written, since a browser keeps them so in an attribute."""
     def one(m):
         ref = m.group(0)
-        nxt = raw[m.end():m.end() + 1]
-        if not ref.endswith(';') and not ref.startswith('&#') and (nxt == '=' or nxt.isalnum()):
-            return ref
-        return html.unescape(ref)
+        if ref.startswith('&#') or (ref.endswith(';') and ref[1:] in html.entities.html5):
+            return html.unescape(ref)
+        run = ref[1:].rstrip(';')
+        for n in range(len(run), 1, -1):
+            if run[:n] in html.entities.html5:                    # a name without its `;`: only the legacy ones are keys
+                after = run[n:n + 1] or raw[m.end():m.end() + 1]
+                if after == '=' or after.isalnum():
+                    return ref
+                return html.unescape('&' + run[:n]) + ref[1 + n:]
+        return ref
     return CHARREF.sub(one, raw)
 
 
