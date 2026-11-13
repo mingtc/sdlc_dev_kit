@@ -2052,3 +2052,33 @@ echo 'PROBE-CELL no'; echo 'Next: fix it'; exit 3
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE ACTION REQUIRED VERIFY LINE FOR THE CELL-CHECK RULE FAILS ON A BEGUN QA TABLE WITH NO test OR file:line ROW, AND ONLY ON ONE.
+#   The line is read from KIT-RELEASE-NOTES.md and run by bash -c in a sandbox: a card whose rows are all of an added kind fails it, on a
+#   card and on a slice; a card with a file:line row, and a card whose table QA has not begun, pass it.
+# =============================================================================
+case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row_and_only_on_one() {
+  cf_reset
+  local L="the Verify: line of the Action required item on cell-checked rows exits 1 for a QA Verdict table that has begun and holds no test or file:line row (on a card, on a slice) and 0 for a table with a file:line row, an untouched template, and a tree with no card in flight"
+  make_sandbox
+  local notes="$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" v card rc
+  [ -f "$notes" ] || { skp_lived "$L" "process/KIT-RELEASE-NOTES.md is absent from this tree"; teardown; return; }
+  v="$(awk '/^- \*\*Give each card in flight whose QA Verdict rows/ { f = 1 } f && /^  Verify:/ { sub(/^  Verify: /, ""); print; exit }' "$notes")"
+  [ -n "$v" ] || { cf "(prereq) the notes carry no Verify line under the cell-check item"; finish "$L"; teardown; return; }
+  _vl_run() { rc=0; ( cd "$SB_WORK" && bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
+  _vl_run; [ "$rc" -eq 0 ] || cf "(a) the line fails on a tree with no card in flight (exit $rc)"
+  seed_issue dev_complete "$SB_PREFIX-871" cellrule chore "A card of one added kind"
+  card="$SB_WORK/progress/dev_complete/$SB_PREFIX-871-cellrule.md"
+  _vl_run; [ "$rc" -eq 0 ] || cf "(b) the line fails on a card whose AC1 row is the seeded file:line row (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
+  _vl_run; [ "$rc" -eq 1 ] || cf "(c) the line passes a begun table whose only AC row is of an added kind (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |/m' "$card"
+  _vl_run; [ "$rc" -eq 0 ] || cf "(d) the line fails a table with a file:line row (exit $rc)"
+  mkdir -p "$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
+  mv "$card" "$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress/$SB_PREFIX-871-s1-cellrule.md"
+  _vl_run; [ "$rc" -eq 1 ] || cf "(e) the line passes a slice whose only AC row is of an added kind (exit $rc)"
+  finish "$L"
+  teardown
+}

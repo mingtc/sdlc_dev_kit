@@ -1743,6 +1743,14 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
     || cf "qa.md still has QA commit the image it cites; dev/evidence/README.md says who commits"
   grep -q 'QA cites an image by its blob sha and never takes or reads one' "$r/dev/evidence/README.md" \
     || cf "dev/evidence/README.md does not state who commits and who compares an image"
+  # a passing qa-cell check is judged, not the observed row: the rule lives in landing-gate.md § 3, and no other surface says the opposite
+  grep -q 'does not stand in for one' "$r/process/contracts/landing-gate.md" \
+    || cf "process/contracts/landing-gate.md does not say a passing cell check does not stand in for a test or file:line row"
+  for f in .claude/roles/qa.md process/MANUAL.md process/MODULES.md dev/evidence/README.md; do
+    [ -f "$r/$f" ] || _fixture_die "case_qa_evidence_kind_sentences_cite_the_declaration: no $f in the published kit at $r"
+    ! grep -qE "ran and passed|whose .?qa-cell|check that passes makes|counts as the .test./.file:line. row""$r/$f" \
+      || cf "$f still says a row whose qa-cell check passed counts as the test or file:line row, which the landing no longer reads"
+  done
   finish "README and the four card templates cite kit_qa_evidence_kinds and its built-in declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
 }
 

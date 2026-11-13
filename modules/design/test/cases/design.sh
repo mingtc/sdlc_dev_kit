@@ -4666,12 +4666,42 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   { [ "$rc" -eq 3 ] && _dm_has "$out" "${Q:0:7}" && _dm_has "$out" "on no commit the trunk holds"; } || cf "(b) a pin only a local branch holds is not refused for it (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   printf '%s\n' "$out" | grep -E '^Next: .*push' >/dev/null || cf "(b) the refusal's Next: does not say to push the pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   printf '%s\n' "$out" | grep -E '^Next: .*re-pin' >/dev/null || cf "(b) the refusal's Next: does not say to re-pin: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  # (b2) a card with a pin reason and a rows reason gets both Nexts
+  perl -0pi -e 's/(- \[ \] AC2 — [^\n]*\n)/$1- [ ] AC3 — (UI) from PRD-001-F1-S1: an empty list. [design: UX-001#empty]\n/' "$card"
+  _dm_land "the card cites a state no design row holds"
+  trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  _dm_hook_rows
+  { [ "$rc" -eq 3 ] && [ "$(printf '%s\n' "$out" | grep -c '^Next:')" -eq 2 ] && _dm_has "$out" "AC3"; } || cf "(b2) a pin the trunk lacks and an AC with no design row do not each get a Next: (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  perl -0pi -e 's/- \[ \] AC3 — [^\n]*\n//' "$card"
+  _dm_land "the card cites no more than it has rows for"
+  # (b3) a short sha that two commits share is said to be ambiguous, not "not a commit"
+  awk 'BEGIN { for (n = 1; n <= 100000; n++) { m = "dm amb " n; printf "commit refs/heads/dm-amb\nmark :%d\ncommitter t <t@t> 1000000000 +0000\ndata %d\n%s\n", n, length(m), m; if (n > 1) printf "from :%d\n", n - 1; printf "\n" } }' | git -C "$SB_WORK" fast-import --quiet >/dev/null 2>&1
+  local amb
+  amb="$(git -C "$SB_WORK" rev-list dm-amb | cut -c1-7 | sort | uniq -d | head -1)"
+  if [ -z "$amb" ]; then
+    cf "(prereq) no two of 100000 commits share a 7-character prefix, so the ambiguous-pin row cannot run"
+  else
+    PIN="$Q" NEW="$amb" perl -0pi -e 's/\@$ENV{PIN}/\@$ENV{NEW}/g' "$card"
+    _dm_land "the card pinned to a short sha two commits share"
+    trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+    _dm_hook_rows
+    { [ "$rc" -eq 3 ] && _dm_has "$out" "is ambiguous in this repository"; } || cf "(b3) a pin that is a prefix of two commits is not said to be ambiguous (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+    PIN="$amb" NEW="$Q" perl -0pi -e 's/\@$ENV{PIN}/\@$ENV{NEW}/g' "$card"
+    _dm_land "the card pinned to the local-only commit again"
+  fi
   # the way out it names works: push the commit to the trunk, and the same check allows
   git -C "$SB_WORK" merge -q --no-edit dm-side-branch >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
   _dm_hook_rows
   [ "$rc" -eq 0 ] || cf "(c) the pin is refused after the commit that holds it reached the trunk (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  # (f) a shallow clone that holds the pin and the trunk tip but not the history between them says to unshallow
+  local shal="$SB_TMP/shal"
+  git clone -q --depth 1 "file://$(git -C "$SB_WORK" remote get-url origin)" "$shal" >/dev/null 2>&1
+  git -C "$shal" fetch -q --depth 1 origin "$Q" >/dev/null 2>&1
+  trunk="$(git -C "$shal" rev-parse "origin/$SB_TRUNK")"
+  rc=0; out="$( bash "$hook" "$id" dev_complete qa_complete QA "$card" "$shal" "$trunk" 2>&1 </dev/null )" || rc=$?
+  { [ "$rc" -eq 3 ] && _dm_has "$out" "this clone is shallow" && _dm_has "$out" "git fetch --unshallow"; } || cf "(f) a pin a shallow clone cannot join to the trunk is not refused with the unshallow hint (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   finish "$L"
   teardown
 }
@@ -4767,6 +4797,14 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b2) (prereq) the edit did not stale the approval: $(_dm_brief 300)"
   _dm_sh "$v"
   [ "$_dm_rc" -eq 0 ] || cf "(b2) the 0.3.0 Verify line fails on a stale approval alone, which the note says does not hold the upgrade (exit $_dm_rc): $(_dm_brief 300)"
+  # (c) the bullets the core reads: a checkbox bullet, numbered or quoted; a plain bullet that mentions (UI) or cites a screen is no AC
+  local cf2="$SB_TMP/h2card.md" mine core
+  printf -- '---\nid: %s-866\ntype: chore\n---\n\n## Context\n\n- Note: the list is a (UI) concern, see the story.\n- Screen: [design: UX-001#default] is the one to read.\n\n## Acceptance Criteria\n\n- [ ] AC1 — (UI) the list shows.\n1. [ ] AC2 — (UI) a numbered AC.\n> - [ ] AC3 — (UI) a quoted AC.\n- [ ] B1 — (UI) a behaviour.\n- [ ] AC4 — a plain AC.\n' "$SB_PREFIX" > "$cf2"
+  _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(' '.join(sorted(a for a, _ in m.card_facts(open('$cf2').read())[0])))"
+  mine="$_dm_out"
+  core="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_ac_ids "$(cat "$1")"' _ "$cf2" 2>&1 | grep -v '^AC4$' | tr '\n' ' ' | sed 's/ $//')"
+  [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI) and one that cites a screen: want 'AC1 AC2 AC3 B1'"
+  [ "$mine" = "$core" ] || cf "(c) the module's AC reader ('$mine') and the core's ('$core') read different bullets"
   finish "$L"
   teardown
 }
@@ -4834,6 +4872,16 @@ case_the_normaliser_decodes_an_attribute_as_a_browser_does_and_the_pull_walks_a_
   printf '<x-dc><div id="a">A</div></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;u&quot;:&quot;x?a=1&copy=2&amp;b=3&quot;}">\nclass Component extends DCLogic {}\n</script>\n' > "$d/p/List.dc.html"
   _dm_py "$m/normalise-canvas.py" "$d/p"
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$(cat "$d/p/List.dc.html")" 'x?a=1&amp;copy=2&amp;b=3'; } || cf "(a) '&copy=2' in a data-props URL was decoded to a copyright sign (exit $_dm_rc): $(sed -n 2p "$d/p/List.dc.html")"
+  # (a2) a reference with no semicolon that a browser keeps literal in an attribute: a legacy name followed by a letter or digit, or by `=`
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;a&quot;:&quot;&copyx&quot;,&quot;b&quot;:&quot;a&ampb&quot;,&quot;c&quot;:&quot;&notit&quot;,&quot;d&quot;:&quot;?x=1&notify&y=2&quot;,&quot;e&quot;:&quot;&notit;&quot;}">\n</script>\n' > "$d/p/Lit.dc.html"
+  _dm_py "$m/normalise-canvas.py" "$d/p"
+  want='{"a":"&amp;copyx","b":"a&amp;ampb","c":"&amp;notit","d":"?x=1&amp;notify&amp;y=2","e":"&amp;notit;"}'
+  _dm_has "$(cat "$d/p/Lit.dc.html")" "$want" || cf "(a2) a reference a browser keeps literal was decoded: $(sed -n 2p "$d/p/Lit.dc.html")"
+  # (a3) a real change is still a change: the literal text &copyx against the sign followed by x
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;u&quot;:&quot;&copyx&quot;}">\n</script>\n' > "$d/old.dc.html"
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props='"'"'{"u":"©x"}'"'"'>\n</script>\n' > "$d/new.dc.html"
+  _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); c = importlib.util.module_from_spec(s); s.loader.exec_module(c); print(c.plain(open('$d/old.dc.html').read()) == c.plain(open('$d/new.dc.html').read()))"
+  [ "$_dm_out" = False ] || cf "(a3) the literal text &copyx and the sign followed by x compare equal, so a real change reads as a re-save: $_dm_out"
   # (b) the anchor resolver, a board with a space in its name, written percent-encoded
   cp "$pd/project/Settings.dc.html" "$d/p/My Board.dc.html"
   _dm_py "$m/resolve-anchor.py" "$d/p" 'My%20Board.dc.html#2:1'
@@ -4854,6 +4902,42 @@ case_the_normaliser_decodes_an_attribute_as_a_browser_does_and_the_pull_walks_a_
   { [ "$_dm_rc" -eq 0 ] && ! grep -F 'project/My Board.dc.html' "$pd/CANVAS.md" >/dev/null; } || cf "(c) the drop block leaves the manifest line of a file whose name has a space (exit $_dm_rc): $_dm_out"
   # (d) the anchor step says how to write an apostrophe
   _dm_has "$(cat "$REAL_REPO_ROOT/modules/design/_claude/skills/design-pull/SKILL.md")" "'\\''" || cf "(d) the pull skill does not say how to write an apostrophe in the board name inside the shell quotes"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE UPGRADE NOTE'S VERIFY LINE FOR LOCAL-ONLY PINS READS THE TRUNK AS THE KIT DOES AND COVERS SLICES AND blocked/.
+#   Operand: the Verify: line of the module notes' 0.6.1 Action required item, run by bash -c in scratch repositories: a pin on the trunk
+#   passes with no refs/remotes/<remote>/HEAD and a remote that is not called origin ($KWT_REMOTE); a pin only the clone has fails on a
+#   card, on a slice and on a blocked card.
+# =============================================================================
+case_the_local_only_pin_verify_line_reads_the_trunk_as_the_kit_does_and_covers_slices_and_blocked_cards() {
+  cf_reset
+  local L="the 0.6.1 Verify line exits 0 when every pin is on the trunk (no origin/HEAD, a remote named by KWT_REMOTE) and 1 for a pin only the clone has, on a card, a slice and a blocked card"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _md_sandbox
+  local v w="$SB_TMP/lv" a b rc
+  v="$(sed -n '/^## \[0.6.1\]/,/^### Changed/p' "$REAL_REPO_ROOT/modules/design/RELEASE-NOTES.md" | grep 'Verify:' | sed 's/^ *Verify: *//')"
+  [ -n "$v" ] || { cf "(prereq) the 0.6.1 notes carry no Verify line"; finish "$L"; return; }
+  mkdir -p "$w/progress/in_progress" "$w/progress/blocked" "$w/progress/subtasks/X-1/in_progress"
+  git -C "$w" init -q -b main . >/dev/null 2>&1; git -C "$w" config user.email t@t; git -C "$w" config user.name t
+  echo x > "$w/f"; git -C "$w" add f >/dev/null 2>&1; git -C "$w" commit -qm a >/dev/null 2>&1; a="$(git -C "$w" rev-parse HEAD)"
+  git init -q --bare "$SB_TMP/lv-remote.git" >/dev/null 2>&1
+  git -C "$w" remote add up "$SB_TMP/lv-remote.git"; git -C "$w" push -q up main >/dev/null 2>&1
+  echo y >> "$w/f"; git -C "$w" commit -qam b >/dev/null 2>&1; b="$(git -C "$w" rev-parse --short HEAD)"
+  _lv_card() { printf -- '---\nid: X-9\ndesign: [UX-001#default@%s]\n---\n' "$2" > "$1"; }
+  _lv_run() { rc=0; ( cd "$w" && KWT_REMOTE=up bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
+  _lv_card "$w/progress/in_progress/X-1-c.md" "$a"
+  _lv_run; [ "$rc" -eq 0 ] || cf "(a) a pin on the trunk fails the Verify line with no up/HEAD ref (exit $rc)"
+  _lv_card "$w/progress/in_progress/X-2-c.md" "$b"
+  _lv_run; [ "$rc" -eq 1 ] || cf "(b) a pin only the clone has, on a card, does not fail it (exit $rc)"
+  rm -f "$w/progress/in_progress/X-2-c.md"
+  _lv_card "$w/progress/subtasks/X-1/in_progress/X-1-s1-c.md" "$b"
+  _lv_run; [ "$rc" -eq 1 ] || cf "(c) a pin only the clone has, on a slice, does not fail it (exit $rc)"
+  rm -f "$w/progress/subtasks/X-1/in_progress/X-1-s1-c.md"
+  _lv_card "$w/progress/blocked/X-3-c.md" "$b"
+  _lv_run; [ "$rc" -eq 1 ] || cf "(d) a pin only the clone has, on a blocked card, does not fail it (exit $rc)"
   finish "$L"
   teardown
 }
