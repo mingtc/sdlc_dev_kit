@@ -4128,6 +4128,12 @@ case_prepare_commit_msg_edges() {
   out="$( cd "$W" && env -u MSG_OK git commit -q -m "[Dev] reworded under a QA hat" 2>&1 )"
   n="$(grep -c "Warning: this commit's role tag" <<< "$out")"
   [ "$n" -eq 1 ] || cf "(f) the hat-mismatch warning printed $n times, expected once: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  # a conforming commit replayed under a different hat is somebody else's tag on purpose: no warning at all
+  _reset
+  printf 'QA sandbox\n' > "$W/$(_sandbox_hat_file)"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$goodsha" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) a conforming cherry-pick under another hat was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *"Warning: this commit's role tag"*) cf "(f) a replayed commit drew the hat-mismatch warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   _reset
   echo f > "$W/f.txt"; git -C "$W" add f.txt; sbcommit -q -m "[Foo] a tag outside the set"
   local foosha; foosha="$(git -C "$W" rev-parse HEAD)"; git -C "$W" reset -q --hard "$base"
