@@ -4534,7 +4534,8 @@ case_a_page_save_re_spelling_data_props_reads_as_no_change_and_a_wire_token_is_n
   local D="$SB_WORK/requirements/design/app/project" P0 P
   P0="data-props='{\"view\":{\"default\":\"list\",\"options\":[\"list\",\"empty\"]},\"t\":\"a&amp;b\"}'"
   _dm_props_art "$D/A.dc.html" "$P0"
-  _dm_commit "the screen carries props"; P="$_DM_SHA"
+  _dm_tokens '{"color":{"primary":{"$value":"#777777"},"surface":{"$value":"#ffffff"}}}' app.wire.tokens.json
+  _dm_commit "the screen carries props, and a greyscale token file exists at the pin"; P="$_DM_SHA"
   _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$P|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   _dm_card 851 in_progress "design: [UX-001#default@$P]"
   _dm_commit "approve UX-001 and pin a card to it"
@@ -4566,18 +4567,18 @@ case_a_page_save_re_spelling_data_props_reads_as_no_change_and_a_wire_token_is_n
   git -C "$SB_WORK" checkout -q "$P" -- requirements/design/app/project/A.dc.html >/dev/null 2>&1
   _dm_commit "the props are back"
   # (d) a wireframe token file that appears, then changes, after the pin
-  _dm_tokens '{"color":{"primary":{"$value":"#777777"},"surface":{"$value":"#ffffff"}}}' app.wire.tokens.json
-  _dm_commit "a greyscale token file appears"
+  _dm_tokens '{"color":{"primary":{"$value":"#888888"},"surface":{"$value":"#ffffff"}}}' other.wire.tokens.json
+  _dm_commit "a second greyscale token file appears"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token file appearing stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token file appearing after the pin stales the approval (exit $_dm_rc): $(_dm_brief 300)"
   _dm_py scripts/design/pin-drift.py
-  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token file appearing reads as drift: $(_dm_brief 300)"
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token file appearing after the pin reads as drift: $(_dm_brief 300)"
   _dm_tokens '{"color":{"primary":{"$value":"#666666"},"surface":{"$value":"#ffffff"}}}' app.wire.tokens.json
   _dm_commit "a greyscale tweak"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token changing stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(d) a .wire token the pin held, changing, stales the approval (exit $_dm_rc): $(_dm_brief 300)"
   _dm_py scripts/design/pin-drift.py
-  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token changing reads as drift: $(_dm_brief 300)"
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-851" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a .wire token the pin held, changing, reads as drift: $(_dm_brief 300)"
   # (e) the base token still counts
   _dm_tokens '{"color":{"primary":{"$value":"#3b4f82"},"surface":{"$value":"#ffffff"}}}'
   _dm_commit "the brand token changes"
