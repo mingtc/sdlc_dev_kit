@@ -28,8 +28,9 @@ case "$rc" in
      printf '%s\n' "$out"
      case "$out" in
        *"on no commit the trunk holds"*)
-         echo "Next: a pin the trunk does not hold: push the commit that holds it so the trunk has it (git branch -a --contains <pin> says where it is; git fetch --unshallow if this clone is shallow), or have the PM re-pin the card's entry to a commit the trunk holds, then land $id again."
-         exit 3 ;;   # exit-class: internal — the check contract's refusal status; the mover turns it into its own refusal
+         echo "Next: a pin the trunk does not hold: push the commit that holds it so the trunk has it (git branch -a --contains <pin> says where it is; git fetch --unshallow if this clone is shallow; write more of a short sha that is ambiguous), or have the PM re-pin the card's entry to a commit the trunk holds, then land $id again."
+         [ "$(printf '%s\n' "$out" | awk '/^  - / && !/on no commit the trunk holds/ { n++ } END { print n + 0 }')" -gt 0 ] || exit 3   # exit-class: internal — the check contract's refusal status
+         ;;
      esac
      echo "Next: give each AC named above, and each design: entry the card pins, a place in a verdict row of evidence kind design: one cell holding one UX-NNN#state@<pin> entry per state (.claude/templates/design/QA-verdict-design.fragment.md), commit the images and the card to the trunk (./scripts/register-commit.sh), then land again."
      exit 3   # exit-class: internal — the check contract's refusal status; the mover turns it into its own refusal
