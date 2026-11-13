@@ -117,9 +117,10 @@ UXREF = re.compile(r'^(UX-\d+)(?:#([A-Za-z0-9_-]+))?$')
 STORY_ROW = re.compile(r'^\s*\|\s*(F\d+-S\d+)\s*\|', re.M)
 STORY_HEAD = re.compile(r'^#{3,6}\s*(F\d+-S\d+)\b', re.M)
 STORY_H = re.compile(r'^(#{3,6})\s*(F\d+-S\d+)\b')
-# a card's AC bullet: the id is any letter then letters and digits (AC1, B1, R2) followed by the separator the core's reader takes
-# (a dash, an em dash or a colon), and not a hyphenated word (`Re-enable`)
-CARD_AC = re.compile(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?([A-Za-z][A-Za-z0-9]*)(?!-[A-Za-z0-9])\s*(?:\u2014|-|:)')
+# a card's AC bullet, as the core's reader takes it (KIT_AC_LEAD and KIT_AC_SEP in scripts/lib/qa-gate.sh): at the start of the line,
+# optionally quoted (`>`), a `-` or a numbered (`1.` `1)`) checkbox bullet; an id of a letter then letters and digits (AC1, B1) and a dash,
+# an em dash or a colon, the id not directly followed by `-` and an alphanumeric (`Re-enable`). A plain bullet is no AC.
+CARD_AC = re.compile(r'^(?:>\s*)?(?:-|\d+[.)]) \[[ xX]\] ([A-Za-z][A-Za-z0-9]*)(?!-[A-Za-z0-9])\s*(?:\u2014|-|:)')
 AC_LINE = re.compile(r'^\s*[-*]\s*(?:\[[ xX]\]\s*)?(AC\d+)\b(.{0,24})')
 PENDING = re.compile(r'^design\s*:\s*pending\b', re.I)
 UI_FIELD = re.compile(r'^ui\s*:\s*(.*)$', re.I)
