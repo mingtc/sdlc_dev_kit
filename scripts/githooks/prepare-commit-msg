@@ -30,9 +30,10 @@ GIT_DIR_NOW="$(git rev-parse --git-dir 2>/dev/null || true)"
 
 # Is the message being committed the replayed commit's own? Both sides are raw messages put through the
 # same extraction: the first line that is not blank, with a carriage return and trailing blanks stripped
-# (a `%s` subject would join a wrapped first paragraph and differ from the file's first line).
+# (a `%s` subject would join a wrapped first paragraph and differ from the file's first line). The
+# replayed side is read in the encoding the sequencer wrote the file in (i18n.commitEncoding).
 _first_line() { sed -e 's/\r$//' -e 's/[[:space:]]*$//' | sed -e '/^$/d' | head -1; }
-replayed="$(git cat-file commit CHERRY_PICK_HEAD 2>/dev/null | sed '1,/^$/d' | _first_line || true)"
+replayed="$(git -c i18n.logOutputEncoding="$(git config i18n.commitEncoding || echo UTF-8)" log -1 --format=%B CHERRY_PICK_HEAD 2>/dev/null | _first_line || true)"
 subj="$(_first_line < "$MSG_FILE" 2>/dev/null || true)"
 [ "$subj" = "$replayed" ] || exit 0
 

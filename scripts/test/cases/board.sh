@@ -4184,22 +4184,24 @@ case_prepare_commit_msg_compares_raw_messages() {
     git -C "$W" checkout -q -b rw "$base" >/dev/null 2>&1
     echo "$1" > "$W/$1.txt"; git -C "$W" add "$1.txt"
     printf "$2" > "$SB_TMP/msg-$1.txt"
-    MSG_OK=1 git -C "$W" commit -q --cleanup=verbatim -F "$SB_TMP/msg-$1.txt" >/dev/null 2>&1 || _fixture_die "case_prepare_commit_msg_compares_raw_messages: could not plant the $1 message"
+    MSG_OK=1 git -C "$W" -c "i18n.commitEncoding=${3:-UTF-8}" commit -q --cleanup=verbatim -F "$SB_TMP/msg-$1.txt" >/dev/null 2>&1 || _fixture_die "case_prepare_commit_msg_compares_raw_messages: could not plant the $1 message"
     git -C "$W" rev-parse HEAD
     git -C "$W" checkout -q "$T" >/dev/null 2>&1; git -C "$W" branch -q -D rw >/dev/null 2>&1
   }
 
   # (a) a replayed commit whose raw first line differs from its %s subject (a wrapped first paragraph, CRLF,
   # trailing blanks, a leading #) is still held.
-  for label in wrapped crlf trailing hash; do
+  for label in wrapped crlf trailing hash latin1; do
+    enc=UTF-8
     case "$label" in
       wrapped)  body='untagged wrapped line one\nline two of subject\n' ;;
       crlf)     body='untagged crlf\r\n\r\nbody\r\n' ;;
       trailing) body='untagged trail   \n' ;;
       hash)     body='# untagged hash\n' ;;
+      latin1)   body='untagged caf\351 latin\n'; enc=ISO-8859-1 ;;
     esac
     _reset
-    sha="$(_mk "$label" "$body")"
+    sha="$(_mk "$label" "$body" "$enc")"
     head0="$(git -C "$W" rev-parse HEAD)"
     out="$( cd "$W" && env -u MSG_OK git cherry-pick "$sha" 2>&1 )"; rc=$?
     [ "$rc" -ne 0 ] || cf "(a $label) an untagged cherry-pick with this raw message committed"
@@ -4218,6 +4220,14 @@ case_prepare_commit_msg_compares_raw_messages() {
   sha="$(_mk okwrapped '[Dev] a conforming wrapped line one\nline two\n')"
   out="$( cd "$W" && env -u MSG_OK git cherry-pick "$sha" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(a control) a conforming wrapped message was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  # a commit in another encoding: the rebase holds it too (the file is written in UTF-8, the object is not)
+  _reset
+  sha="$(_mk latin1r 'untagged caf\351 rb\n' ISO-8859-1)"
+  git -C "$W" checkout -q -b rw "$sha"; git -C "$W" checkout -q "$T"
+  echo t > "$W/tm.txt"; git -C "$W" add tm.txt; sbcommit -q -m "[PM] the trunk moves"
+  git -C "$W" checkout -q rw
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a latin1 rebase) a rebase over an untagged ISO-8859-1 commit ran to the end"
 
   # (b) inside a stopped `rebase --apply`, the user's own resolution commit is an ordinary commit: the ordinary
   # Next, and nothing printed discards the staged work.
@@ -4235,6 +4245,25 @@ case_prepare_commit_msg_compares_raw_messages() {
   case "$out" in *"rebase --abort"*|*"rebase applies patches"*) cf "(b) the user's own commit got the rebase --apply block, whose line discards the staged work: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   case "$out" in *"commit again"*) : ;; *) cf "(b) the ordinary Next is missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   case "$(git -C "$W" diff --cached --name-only)" in *mine.txt*) : ;; *) cf "(b) the user's staged work is gone" ;; esac
+
+  # (b2) a commit of the user's own that carries the refused patch's own message is still the user's: it is told
+  # apart by the file git hands the hook, not by the text. Hand-applied patch plus a staged new file.
+  _reset
+  git -C "$W" checkout -q -b ap "$base"
+  echo ax > "$W/ax.txt"; git -C "$W" add ax.txt; sbcommit -q -m "untagged second patch"
+  git -C "$W" checkout -q "$T"
+  echo t2 > "$W/tm2.txt"; git -C "$W" add tm2.txt; sbcommit -q -m "[PM] the trunk moves again"
+  git -C "$W" checkout -q ap
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase --apply "$T" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b2 control) an untagged patch under rebase --apply was not refused"
+  case "$out" in *"rebase --quit"*) : ;; *) cf "(b2 control) the patch's own refusal does not print git rebase --quit: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  ( cd "$W" && git apply --index .git/rebase-apply/patch ) >/dev/null 2>&1 || _fixture_die "case_prepare_commit_msg_compares_raw_messages: could not hand-apply the patch, so (b2) proves nothing"
+  echo extra > "$W/extra.txt"; git -C "$W" add extra.txt
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "untagged second patch" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b2) an untagged commit was accepted"
+  case "$out" in *"rebase applies patches"*|*"rebase --quit"*|*"rebase --abort"*) cf "(b2) the user's own commit got the rebase --apply block: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"commit again"*) : ;; *) cf "(b2) the ordinary Next is missing" ;; esac
+  case "$(git -C "$W" diff --cached --name-only)" in *extra.txt*) : ;; *) cf "(b2) the user's staged file is gone" ;; esac
 
   # (c) the kit's own push retry blames a hook only when a hook refused: an untracked file in the way is a plain failure.
   _reset
