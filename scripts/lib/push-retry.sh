@@ -86,17 +86,28 @@ git_push_with_retry() {
           echo "         git -C '$repo' rebase $remote/$branch   # fix conflicts, git rebase --continue"
           echo "         git -C '$repo' push $remote HEAD:$branch"
         } >&2
-      else
+      elif grep -q 'Commit-message guard' <<< "$rb_err"; then
         {
           echo "Error: git_push_with_retry: rebase onto $remote/$branch STOPPED with no conflict — stopping."
-          echo "       git said:"
-          sed 's/^/         /' <<< "$rb_err"
-          echo "       A hook refused a commit being replayed (the commit-msg role-tag rule refuses one with no tag)."
+          echo "       A hook refused a commit being replayed. The guard said:"
+          grep -E 'Commit-message guard|Subject:' <<< "$rb_err" | sed 's/^ */         /'
           echo "       The rebase was aborted, so HEAD is back where this attempt started: $at_head."
           echo "       Commits that did NOT land:"
           git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
-          echo "       Replay them with the escape, then push:"
+          echo "       Replay them with the escape (it also waives the guard's trailer rule for them), then push:"
           echo "         MSG_OK=1 git -C '$repo' rebase $remote/$branch"
+          echo "         git -C '$repo' push $remote HEAD:$branch"
+        } >&2
+      else
+        {
+          echo "Error: git_push_with_retry: rebase onto $remote/$branch FAILED with no conflict — stopping."
+          echo "       git said:"
+          sed 's/^/         /' <<< "$rb_err"
+          echo "       The rebase was aborted, so HEAD is back where this attempt started: $at_head."
+          echo "       Commits that did NOT land:"
+          git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
+          echo "       Fix what git names, then:"
+          echo "         git -C '$repo' rebase $remote/$branch"
           echo "         git -C '$repo' push $remote HEAD:$branch"
         } >&2
       fi

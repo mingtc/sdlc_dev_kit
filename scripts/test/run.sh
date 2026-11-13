@@ -594,6 +594,7 @@ CASES=(
   case_commit_msg_reads_trailers_through_the_one_reader
   case_prepare_commit_msg_holds_a_replay
   case_prepare_commit_msg_edges
+  case_prepare_commit_msg_compares_raw_messages
   case_check_board_arm_e_reports_an_empty_subject
   case_pre_commit_undeclared_code_globs_is_a_noop
   case_pre_commit_refuses_metadata_off_trunk

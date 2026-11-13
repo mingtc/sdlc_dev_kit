@@ -12,9 +12,10 @@
 # A rebase is told from a cherry-pick run at its edit stop by the rebase's own last todo line.
 #
 # What it does not judge, and commit-msg or the drift report does: an ordinary `git commit`; a message
-# git hands the editor first (`cherry-pick -e`, a rebase reword: source `commit` or `merge`); and a rebase
+# git hands the editor first (`cherry-pick -e`, a rebase reword: source `commit` or `merge`); a rebase
 # pick finished with `rebase --continue` after a conflict, where git keeps REBASE_HEAD and no
-# CHERRY_PICK_HEAD. `rebase --apply` runs applypatch-msg, which delegates to commit-msg, not this hook.
+# CHERRY_PICK_HEAD; and a `fixup -C` in `rebase -i`, which has no CHERRY_PICK_HEAD either.
+# `rebase --apply` runs applypatch-msg, which delegates to commit-msg, not this hook.
 #
 # Bypass: MSG_OK=1, the same escape commit-msg documents (`MSG_OK=1 git cherry-pick <sha>`). `--no-verify`
 # does not reach this hook: git skips only pre-commit and commit-msg under it, and `cherry-pick` has no
@@ -27,10 +28,12 @@ MSG_FILE="${1:-}"; SOURCE="${2:-}"
 GIT_DIR_NOW="$(git rev-parse --git-dir 2>/dev/null || true)"
 [ -n "$GIT_DIR_NOW" ] && [ -f "$GIT_DIR_NOW/CHERRY_PICK_HEAD" ] || exit 0
 
-# Is the message being committed the replayed commit's own? Subject against subject, comment lines
-# and blanks dropped as git drops them.
-replayed="$(git log -1 --format=%s CHERRY_PICK_HEAD 2>/dev/null || true)"
-subj="$(sed -E '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$MSG_FILE" 2>/dev/null | head -1 || true)"
+# Is the message being committed the replayed commit's own? Both sides are raw messages put through the
+# same extraction: the first line that is not blank, with a carriage return and trailing blanks stripped
+# (a `%s` subject would join a wrapped first paragraph and differ from the file's first line).
+_first_line() { sed -e 's/\r$//' -e 's/[[:space:]]*$//' | sed -e '/^$/d' | head -1; }
+replayed="$(git cat-file commit CHERRY_PICK_HEAD 2>/dev/null | sed '1,/^$/d' | _first_line || true)"
+subj="$(_first_line < "$MSG_FILE" 2>/dev/null || true)"
 [ "$subj" = "$replayed" ] || exit 0
 
 KIT_REPLAY=cherry-pick

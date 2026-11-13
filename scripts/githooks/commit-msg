@@ -140,10 +140,18 @@ _hat_lookup() {
 # names a role of this set, else the first of the set, and a tag outside the set is replaced.
 _replay_op() {
   [ -z "${KIT_REPLAY:-}" ] || { printf '%s' "$KIT_REPLAY"; return 0; }
+  # A rebase that applies patches: only the patch's own message (rebase-apply/final-commit), not a
+  # resolution commit the user makes inside the stopped rebase, is the replay.
   local _gd; _gd="$(git rev-parse --git-dir 2>/dev/null || true)"
-  if [ -n "$_gd" ] && [ -f "$_gd/rebase-apply/rebasing" ]; then printf 'rebase-apply'; fi
+  if [ -n "$_gd" ] && [ -f "$_gd/rebase-apply/rebasing" ] && [ -f "$_gd/rebase-apply/final-commit" ] \
+     && [ "$(_msg_first_line < "$MSG_FILE")" = "$(_msg_first_line < "$_gd/rebase-apply/final-commit")" ]; then
+    printf 'rebase-apply'
+  fi
   return 0
 }
+# The first line of a message that is not blank, a carriage return and trailing blanks stripped
+# (prepare-commit-msg compares messages the same way).
+_msg_first_line() { sed -e 's/\r$//' -e 's/[[:space:]]*$//' | sed -e '/^$/d' | head -1; }
 _replay_next() {
   local _s="$subject" _q _role _op _go
   _op="$(_replay_op)"
@@ -158,7 +166,7 @@ _replay_next() {
   _q="$(printf '%s' "$_s" | sed "s/'/'\\\\''/g")"
   case "$_op" in
     rebase)
-      printf '%s\n' "Next: this commit is being replayed by a rebase; reword it with a role tag, keep it as it is, or stop the rebase where it is (--quit leaves HEAD and the staged change as they are):" \
+      printf '%s\n' "Next: this commit is being replayed by a rebase; reword it with a role tag, keep it as it is, or stop the rebase where it is (--quit leaves a detached HEAD at the partly rebased tip, your branch where it was, and the change staged):" \
         "    git commit -m '$_q' && git rebase --continue" \
         "    MSG_OK=1 git commit -C CHERRY_PICK_HEAD && git rebase --continue" \
         "    git rebase --quit" ;;

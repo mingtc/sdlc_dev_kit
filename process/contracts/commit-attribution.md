@@ -26,8 +26,8 @@ filtered, audited and trusted years later without asking anybody.
   `cherry-pick -n` or `merge --squash`, and a commit replayed by `cherry-pick` or a rebase's pick
   (which run no `commit-msg`; the hook that runs on a replay applies the same rule). Plumbing
   (`commit-tree`), `--no-verify` on an ordinary commit, a clone with no hooks wired, and two
-  replays that reach no message hook after the message is final (`cherry-pick -e`, and a rebase pick
-  finished with `rebase --continue` after a conflict) are caught after the fact by the drift
+  replays that reach no message hook after the message is final (`cherry-pick -e`, a rebase pick
+  finished with `rebase --continue` after a conflict, and `fixup -C` in `rebase -i`) are caught after the fact by the drift
   report's role-prefix scan on the trunk.
   *Why:* one unguarded entrance is the whole fence, so each entrance names the layer that covers it.
 - **The rejection explains the rule and shows a correct subject.** A refusal that only says "no"

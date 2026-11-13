@@ -3912,6 +3912,7 @@ case_prepare_commit_msg_holds_a_replay() {
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) a rebase replaying an untagged commit ran to the end"
   [ -d "$W/.git/rebase-merge" ] || cf "(d) the rebase did not stop at the untagged commit"
+  case "$out" in *"detached HEAD"*"your branch where it was"*) : ;; *) cf "(d) the rebase Next does not say where --quit leaves the branch and HEAD: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   lines="$(_printed "$out")"; n="$(grep -c . <<< "$lines")"
   [ "$n" -ge 3 ] || cf "(d) the Next prints $n runnable lines: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
   i=0
@@ -4043,7 +4044,7 @@ case_prepare_commit_msg_edges() {
   }
   _printed() { printf '%s\n' "$1" | sed -n 's/^    \(\(MSG_OK=1 \)\{0,1\}git .*\)$/\1/p'; }
 
-  # (a) F3 — a stale CHERRY_PICK_HEAD (an empty pick leaves it) does not turn the user's own commit into a replay.
+  # (a) a stale CHERRY_PICK_HEAD (an empty pick leaves it) does not turn the user's own commit into a replay.
   _reset
   git -C "$W" cherry-pick "$goodsha" >/dev/null 2>&1                       # applies it
   git -C "$W" reset -q --hard "$base"; git -C "$W" cherry-pick "$goodsha" >/dev/null 2>&1   # a pick of what is already there ...
@@ -4057,14 +4058,14 @@ case_prepare_commit_msg_edges() {
   out="$( cd "$W" && env -u MSG_OK git commit -q -m "[Dev] my own change" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(a) a tagged commit beside a stale marker was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
-  # (b) F7 — `git commit -e -m` during a live pick reaches its editor before anything judges the message.
+  # (b) `git commit -e -m` during a live pick reaches its editor before anything judges the message.
   _reset
   ( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" >/dev/null 2>&1 )
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR="sed -i.bak '1s/.*/[Dev] tagged in the editor/'" git commit -e -m "wip" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(b) commit -e -m beside a live pick was refused before its editor: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   [ "$(git -C "$W" log -1 --format=%s)" = "[Dev] tagged in the editor" ] || cf "(b) the edited subject was not kept: $(git -C "$W" log -1 --format=%s)"
 
-  # (c) F4 — a cherry-pick run at a rebase edit stop gets the cherry-pick's commands, and they leave the stop alone.
+  # (c) a cherry-pick run at a rebase edit stop gets the cherry-pick's commands, and they leave the stop alone.
   _reset
   git -C "$W" checkout -q -b es "$base"
   echo e1 > "$W/e1.txt"; git -C "$W" add e1.txt; sbcommit -q -m "[Dev] edit-stop one"
@@ -4079,7 +4080,7 @@ case_prepare_commit_msg_edges() {
   [ "$rc" -eq 0 ] || cf "(c) the printed line '$cmd' failed as printed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   [ -d "$W/.git/rebase-merge" ] || cf "(c) the printed cherry-pick line ended the user's rebase edit stop"
 
-  # (d) F8 — a range of picks: the reword and keep lines carry the range on; an untagged LAST pick works too.
+  # (d) a range of picks: the reword and keep lines carry the range on; an untagged LAST pick works too.
   _reset
   out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha^..$goodsha" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) a range starting with an untagged commit committed it"
@@ -4106,7 +4107,7 @@ case_prepare_commit_msg_edges() {
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true bash -c "$cmd" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(d2) the printed line '$cmd' failed on the last pick of a range (rc $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
-  # (e) F2 — `rebase --apply` runs the patch-application hook and says what to do; the printed line works.
+  # (e) `rebase --apply` runs the patch-application hook and says what to do; the printed line works.
   _reset
   git -C "$W" checkout -q side
   out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase --apply "$T" 2>&1 )"; rc=$?
@@ -4120,7 +4121,7 @@ case_prepare_commit_msg_edges() {
     [ ! -d "$W/.git/rebase-apply" ] || cf "(e) the rebase is still in progress after '$cmd'"
   fi
 
-  # (f) F9 — the reword carries the hat's role, replaces a tag outside the set, and the hat warning prints once.
+  # (f) the reword carries the hat's role, replaces a tag outside the set, and the hat warning prints once.
   _reset
   printf 'QA sandbox\n' > "$W/$(_sandbox_hat_file)"
   out="$( cd "$W" && env -u MSG_OK git cherry-pick "$badsha" 2>&1 )"
@@ -4140,7 +4141,7 @@ case_prepare_commit_msg_edges() {
   out="$( cd "$W" && env -u MSG_OK git cherry-pick "$foosha" 2>&1 )"
   case "$(_printed "$out" | head -1)" in "git commit -m '[Dev] a tag outside the set'") : ;; *) cf "(f) a tag outside the set was not replaced: $(_printed "$out" | head -1)" ;; esac
 
-  # (g) F5 — the kit's own push retry names a hook refusal, not a conflict.
+  # (g) the kit's own push retry names a hook refusal, not a conflict.
   _reset
   git -C "$W" checkout -q "$T"
   echo u > "$W/u.txt"; git -C "$W" add u.txt; sbcommit -q -m "an unpushed commit from before the rule"
@@ -4154,7 +4155,101 @@ case_prepare_commit_msg_edges() {
   case "$out" in *CONFLICTED*) cf "(g) a hook refusal was reported as a conflict: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$out" in *"role tag"*) : ;; *) cf "(g) the failure does not carry what the hook said: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$out" in *"MSG_OK=1 git -C"*) : ;; *) cf "(g) the failure names no way on" ;; esac
+  case "$out" in *"waives the guard's trailer rule"*) : ;; *) cf "(g) the escape line does not say it also waives the trailer rule" ;; esac
 
   finish "prepare-commit-msg: a stale CHERRY_PICK_HEAD makes no replay, commit -e -m beside a pick reaches its editor, a cherry-pick at a rebase edit stop and a range of picks get commands that fit, rebase --apply says to run it again, the reword carries the hat's role and warns once, and the push retry names a hook refusal"
+  teardown
+}
+
+# =============================================================================
+# CASE — the replay hook compares raw messages, a resolution commit inside a stopped `rebase --apply` is an
+# ordinary commit, and the kit's push retry names a hook refusal only when a hook refused
+# =============================================================================
+case_prepare_commit_msg_compares_raw_messages() {
+  cf_reset
+  make_sandbox
+  local W="$SB_WORK" T="$SB_TRUNK" out rc base head0 sha label body
+  publish_sandbox
+  echo A > "$W/c.txt"; git -C "$W" add c.txt; sbcommit -q -m "[PM] c base"
+  git -C "$W" push -q origin "$T" >/dev/null 2>&1
+  base="$(git -C "$W" rev-parse HEAD)"
+  _reset() {
+    git -C "$W" cherry-pick --quit >/dev/null 2>&1; git -C "$W" rebase --abort >/dev/null 2>&1
+    git -C "$W" checkout -q -f "$T" >/dev/null 2>&1; git -C "$W" reset -q --hard "$base" >/dev/null 2>&1
+    git -C "$W" clean -qfd >/dev/null 2>&1
+    git -C "$W" branch -qD rw ap >/dev/null 2>&1 || true
+  }
+  # _mk <label> <printf-format> — a commit on branch rw (off the base) whose raw message is exactly the format.
+  _mk() {
+    git -C "$W" checkout -q -b rw "$base" >/dev/null 2>&1
+    echo "$1" > "$W/$1.txt"; git -C "$W" add "$1.txt"
+    printf "$2" > "$SB_TMP/msg-$1.txt"
+    MSG_OK=1 git -C "$W" commit -q --cleanup=verbatim -F "$SB_TMP/msg-$1.txt" >/dev/null 2>&1 || _fixture_die "case_prepare_commit_msg_compares_raw_messages: could not plant the $1 message"
+    git -C "$W" rev-parse HEAD
+    git -C "$W" checkout -q "$T" >/dev/null 2>&1; git -C "$W" branch -q -D rw >/dev/null 2>&1
+  }
+
+  # (a) a replayed commit whose raw first line differs from its %s subject (a wrapped first paragraph, CRLF,
+  # trailing blanks, a leading #) is still held.
+  for label in wrapped crlf trailing hash; do
+    case "$label" in
+      wrapped)  body='untagged wrapped line one\nline two of subject\n' ;;
+      crlf)     body='untagged crlf\r\n\r\nbody\r\n' ;;
+      trailing) body='untagged trail   \n' ;;
+      hash)     body='# untagged hash\n' ;;
+    esac
+    _reset
+    sha="$(_mk "$label" "$body")"
+    head0="$(git -C "$W" rev-parse HEAD)"
+    out="$( cd "$W" && env -u MSG_OK git cherry-pick "$sha" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "(a $label) an untagged cherry-pick with this raw message committed"
+    [ "$(git -C "$W" rev-parse HEAD)" = "$head0" ] || cf "(a $label) HEAD moved despite the refusal"
+  done
+  _reset
+  sha="$(_mk wrapped 'untagged wrapped line one\nline two of subject\n')"
+  [ "$(git -C "$W" log -1 --format=%s "$sha")" = "untagged wrapped line one line two of subject" ] \
+    || _fixture_die "case_prepare_commit_msg_compares_raw_messages: the wrapped message did not wrap, so (a) proves nothing"
+  git -C "$W" checkout -q -b rw "$sha"; git -C "$W" checkout -q "$T"
+  echo t > "$W/tm.txt"; git -C "$W" add tm.txt; sbcommit -q -m "[PM] the trunk moves"
+  git -C "$W" checkout -q rw
+  out="$( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase "$T" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a rebase) a rebase over a wrapped untagged commit ran to the end"
+  _reset
+  sha="$(_mk okwrapped '[Dev] a conforming wrapped line one\nline two\n')"
+  out="$( cd "$W" && env -u MSG_OK git cherry-pick "$sha" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a control) a conforming wrapped message was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # (b) inside a stopped `rebase --apply`, the user's own resolution commit is an ordinary commit: the ordinary
+  # Next, and nothing printed discards the staged work.
+  _reset
+  git -C "$W" checkout -q -b ap "$base"
+  echo B > "$W/c.txt"; git -C "$W" add c.txt; sbcommit -q -m "[Dev] ap change"
+  git -C "$W" checkout -q "$T"
+  echo C > "$W/c.txt"; git -C "$W" add c.txt; sbcommit -q -m "[PM] trunk changes c"
+  git -C "$W" checkout -q ap
+  ( cd "$W" && env -u MSG_OK GIT_EDITOR=true git rebase --apply "$T" >/dev/null 2>&1 )
+  [ -f "$W/.git/rebase-apply/rebasing" ] || _fixture_die "case_prepare_commit_msg_compares_raw_messages: the --apply rebase did not stop on its conflict, so (b) proves nothing"
+  echo R > "$W/c.txt"; git -C "$W" add c.txt; echo m > "$W/mine.txt"; git -C "$W" add mine.txt
+  out="$( cd "$W" && env -u MSG_OK git commit -q -m "my resolution" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an untagged resolution commit inside a stopped rebase --apply was accepted"
+  case "$out" in *"rebase --abort"*|*"rebase applies patches"*) cf "(b) the user's own commit got the rebase --apply block, whose line discards the staged work: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"commit again"*) : ;; *) cf "(b) the ordinary Next is missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$(git -C "$W" diff --cached --name-only)" in *mine.txt*) : ;; *) cf "(b) the user's staged work is gone" ;; esac
+
+  # (c) the kit's own push retry blames a hook only when a hook refused: an untracked file in the way is a plain failure.
+  _reset
+  git -C "$W" checkout -q "$T"
+  echo v > "$W/v.txt"; git -C "$W" add v.txt; sbcommit -q -m "[Dev] an unpushed tagged commit"
+  git clone -q "$SB_ORIGIN" "$SB_TMP/other" >/dev/null 2>&1
+  echo o > "$SB_TMP/other/fb.txt"; git -C "$SB_TMP/other" add fb.txt
+  MSG_OK=1 git -C "$SB_TMP/other" -c user.email=o@sandbox.invalid -c user.name=Other commit -q -m "[PM] the remote adds fb.txt" >/dev/null 2>&1
+  git -C "$SB_TMP/other" push -q origin "HEAD:$T" >/dev/null 2>&1
+  echo mine > "$W/fb.txt"                                            # untracked here, in the way of the rebase
+  out="$( cd "$W" && env -u MSG_OK bash -c '. scripts/lib/push-retry.sh; git_push_with_retry "$PWD" origin "$1"' _ "$T" 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(c control) exit $rc, expected 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"A hook refused"*|*"MSG_OK"*) cf "(c) an untracked file in the way was reported as a hook refusal, with the hook escape: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *fb.txt*) : ;; *) cf "(c) git's own account (the file in the way) is not quoted: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  finish "prepare-commit-msg: a wrapped, CRLF, trailing-blank or # first line is still held; a resolution commit inside a stopped rebase --apply gets the ordinary Next and loses nothing; the push retry blames a hook only when a hook refused"
   teardown
 }
