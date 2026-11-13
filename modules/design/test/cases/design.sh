@@ -361,6 +361,8 @@ _dm_python() { command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; sys
 _dm_has() { case "$1" in *"$2"*) return 0 ;; esac; return 1; }   # <text> <fixed needle>
 # _dm_py <args…> — python3 in the sandbox, status in _dm_rc and output in _dm_out.
 _dm_py() { _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env PYTHONDONTWRITEBYTECODE=1 python3 "$@" 2>&1 </dev/null )" || _dm_rc=$?; }
+# _dm_why — what the last render said: its exit status and the first 200 characters of its output. A failed row prints it, so a Chrome that timed out or died is named, never a bare "got ".
+_dm_why() { printf 'render exit %s: %s' "$_dm_rc" "$(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"; }
 # _dm_commit <message> — commit the whole sandbox tree; the new commit is in _DM_SHA.
 _dm_commit() { git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] $_MD_ID: $1" >/dev/null 2>&1; _DM_SHA="$(git -C "$SB_WORK" rev-parse HEAD)"; }
 _dm_report() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 ); }
@@ -2496,7 +2498,8 @@ case_render_py_draws_the_pulled_boards_in_real_chrome_with_the_scheme_and_the_th
   local L="render.py in real Chrome draws the pulled plant board with its ground #f7fbf0 by default and #10150f with --scheme dark, draws the pulled settings board wire (#f9f9f9) under --theme wire, says NO-THEME-RULE for the boards no sheet answers (they stay #faf8f3), refuses an unknown theme, fails a board drawn with a runtime that is cut short, empty or another file, and puts NOTE-LOGIC and NOTE-404 on the OK line of a board whose logic throws or whose sheet is missing"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
-  local c rt="${KIT_TEST_DC_RUNTIME:-}" chrome=""
+  # tmo: seconds Chrome may take per board, set once for every render below. render.py's own default (90) is for an adopter's single draw; a loaded machine runs several harnesses at once.
+  local c rt="${KIT_TEST_DC_RUNTIME:-}" chrome="" tmo="${KIT_TEST_DC_TIMEOUT:-300}"
   for c in google-chrome chromium chromium-browser chrome; do command -v "$c" >/dev/null 2>&1 && { chrome="$(command -v "$c")"; break; }; done
   [ -n "$chrome" ] || { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] && chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; }
   [ -n "$chrome" ] || { skp "$L" "no Chrome or Chromium on this machine"; return; }
@@ -3077,24 +3080,24 @@ EOF
 {"v":3,"createdOnFiles":{"v":1,"at":"2026-11-01T04:30:00Z"},"title":"Brews","launch":{"view":"canvas"},"pages":[],"boards":{"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"UX-001 Brews (phone)","is_interactive":true},"Timer.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"UX-002 Timer (phone)"},"Settings.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"UX-003 Settings (phone)"}},"order":["Main.dc.html","Timer.dc.html","Settings.dc.html"],"notes":{"note-brief":{"x":0,"y":-200,"w":320,"text":"Authored from a brief."}},"designSystems":[]}
 EOF
   pix() { python3 "$d/pngpix.py" "$1" 5 5; }
-  _dm_py "$m/render.py" "$d/plant" "$d/o1" --runtime "$rt" --only Plant.dc.html
+  _dm_py "$m/render.py" "$d/plant" "$d/o1" --runtime "$rt" --timeout "$tmo" --only Plant.dc.html
   { [ "$_dm_rc" -eq 0 ] && [ "$(pix "$d/o1/Plant.png")" = "#f7fbf0" ]; } || cf "(a) the default scheme does not draw the plant board's light ground #f7fbf0 (exit $_dm_rc, got $(pix "$d/o1/Plant.png" 2>/dev/null)): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
-  _dm_py "$m/render.py" "$d/plant" "$d/o2" --runtime "$rt" --only Plant.dc.html --scheme dark
-  [ "$(pix "$d/o2/Plant.png" 2>/dev/null)" = "#10150f" ] || cf "(b) --scheme dark does not draw the plant board's dark ground #10150f (got $(pix "$d/o2/Plant.png" 2>/dev/null))"
-  _dm_py "$m/render.py" "$d/steep" "$d/o3" --runtime "$rt" --theme wire
+  _dm_py "$m/render.py" "$d/plant" "$d/o2" --runtime "$rt" --timeout "$tmo" --only Plant.dc.html --scheme dark
+  { [ "$_dm_rc" -eq 0 ] && [ "$(pix "$d/o2/Plant.png" 2>/dev/null)" = "#10150f" ]; } || cf "(b) --scheme dark does not draw the plant board's dark ground #10150f (got $(pix "$d/o2/Plant.png" 2>/dev/null); $(_dm_why))"
+  _dm_py "$m/render.py" "$d/steep" "$d/o3" --runtime "$rt" --timeout "$tmo" --theme wire
   [ "$_dm_rc" -eq 0 ] || cf "(c) --theme wire on the steep boards failed (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
-  [ "$(pix "$d/o3/Settings.png" 2>/dev/null)" = "#f9f9f9" ] || cf "(c) the settings board, which links the themed sheet, is not drawn wire (#f9f9f9): got $(pix "$d/o3/Settings.png" 2>/dev/null)"
+  [ "$(pix "$d/o3/Settings.png" 2>/dev/null)" = "#f9f9f9" ] || cf "(c) the settings board, which links the themed sheet, is not drawn wire (#f9f9f9): got $(pix "$d/o3/Settings.png" 2>/dev/null); $(_dm_why)"
   for b in Main Timer; do
-    [ "$(pix "$d/o3/$b.png" 2>/dev/null)" = "#faf8f3" ] || cf "(c) the $b board, which no sheet answers wire for, is not the brand ground #faf8f3: got $(pix "$d/o3/$b.png" 2>/dev/null)"
+    [ "$(pix "$d/o3/$b.png" 2>/dev/null)" = "#faf8f3" ] || cf "(c) the $b board, which no sheet answers wire for, is not the brand ground #faf8f3: got $(pix "$d/o3/$b.png" 2>/dev/null); $(_dm_why)"
     printf '%s\n' "$_dm_out" | grep "$b.dc.html" | grep NO-THEME-RULE >/dev/null || cf "(c) $b.dc.html is not said to draw as the brand version"
   done
-  _dm_py "$m/render.py" "$d/steep" "$d/o4" --runtime "$rt" --theme no-such
+  _dm_py "$m/render.py" "$d/steep" "$d/o4" --runtime "$rt" --timeout "$tmo" --theme no-such
   { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "UNKNOWN-THEME"; } || cf "(d) an unknown theme id is not refused (exit $_dm_rc): $_dm_out"
   # (f) what the runtime logged and what the project lacks are on the line; a healthy board has neither
   rm -rf "$d/p2"; cp -R "$d/plant" "$d/p2"
   sed "s/const v = this.props.view ?? 'due';/throw new Error('boom');/" "$d/plant/Plant.dc.html" > "$d/p2/Throws.dc.html"
   sed 's|ds/plant/tokens.css|ds/plant/gone.css|' "$d/plant/Plant.dc.html" > "$d/p2/Missing.dc.html"
-  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Plant.dc.html
+  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --timeout "$tmo" --only Plant.dc.html
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(f) the healthy plant board carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
   cat > "$d/p2/Dashboard.dc.html" <<'EOF'
 <!doctype html>
@@ -3169,11 +3172,11 @@ return { rows };
 </body>
 </html>
 EOF
-  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Dashboard.dc.html
+  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --timeout "$tmo" --only Dashboard.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "OK" && ! _dm_has "$_dm_out" "NOTE-"; } || cf "(f) the pulled dashboard, whose runtime only warns while its rows resolve, carries a note (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
-  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Throws.dc.html
+  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --timeout "$tmo" --only Throws.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "NOTE-LOGIC" && _dm_has "$_dm_out" "boom"; } || cf "(f) a board whose logic throws is OK with no word of it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
-  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --only Missing.dc.html
+  _dm_py "$m/render.py" "$d/p2" "$d/o6" --runtime "$rt" --timeout "$tmo" --only Missing.dc.html
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "NOTE-404" && _dm_has "$_dm_out" "gone.css"; } || cf "(f) a board linking a sheet the project lacks is OK with no word of it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-250)"
   # (e) a runtime that is cut short, empty or another file draws a plausible screen without running: it is a FAIL with no PNG
   head -c 100000 "$rt" > "$d/rt-cut.js"; : > "$d/rt-empty.js"; printf 'window.somethingElse = 1;\n' > "$d/rt-other.js"
