@@ -2068,8 +2068,8 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   [ -n "$v" ] || { cf "(prereq) the notes carry no Verify line under the cell-check item"; finish "$L"; teardown; return; }
   _vl_run() { rc=0; ( cd "$SB_WORK" && bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
   _vl_run; [ "$rc" -eq 0 ] || cf "(a) the line fails on a tree with no card in flight (exit $rc)"
-  seed_issue dev_complete "$SB_PREFIX-871" cellrule chore "A card of one added kind"
-  card="$SB_WORK/progress/dev_complete/$SB_PREFIX-871-cellrule.md"
+  seed_issue in_progress "$SB_PREFIX-871" cellrule chore "A card of one added kind"
+  card="$SB_WORK/progress/in_progress/$SB_PREFIX-871-cellrule.md"
   _vl_run; [ "$rc" -eq 0 ] || cf "(b) the line fails on a card whose AC1 row is the seeded file:line row (exit $rc)"
   perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
   _vl_run; [ "$rc" -eq 1 ] || cf "(c) the line passes a begun table whose only AC row is of an added kind (exit $rc)"
