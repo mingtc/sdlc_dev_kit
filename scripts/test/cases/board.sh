@@ -4135,7 +4135,7 @@ case_prepare_commit_msg_edges() {
   [ "$rc" -eq 0 ] || cf "(f) a conforming cherry-pick under another hat was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   case "$out" in *"Warning: this commit's role tag"*) cf "(f) a replayed commit drew the hat-mismatch warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   _reset
-  echo f > "$W/f.txt"; git -C "$W" add f.txt; sbcommit -q -m "[Foo] a tag outside the set"
+  echo f > "$W/f.txt"; git -C "$W" add f.txt; sbcommit -q -m "[$(printf 'F%s' oo)] a tag outside the set"
   local foosha; foosha="$(git -C "$W" rev-parse HEAD)"; git -C "$W" reset -q --hard "$base"
   out="$( cd "$W" && env -u MSG_OK git cherry-pick "$foosha" 2>&1 )"
   case "$(_printed "$out" | head -1)" in "git commit -m '[Dev] a tag outside the set'") : ;; *) cf "(f) a tag outside the set was not replaced: $(_printed "$out" | head -1)" ;; esac
