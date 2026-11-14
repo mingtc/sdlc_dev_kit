@@ -4702,7 +4702,7 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   trunk="$(git -C "$shal" rev-parse "origin/$SB_TRUNK")"
   rc=0; out="$( bash "$hook" "$id" dev_complete qa_complete QA "$card" "$shal" "$trunk" 2>&1 </dev/null )" || rc=$?
   { [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -E '^  - .*on no commit the trunk holds.*cut off.*this clone is shallow.*git fetch --unshallow' >/dev/null; } || cf "(f) a pin a shallow clone cannot join to the trunk is not refused with the unshallow hint (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
-  printf '%s\n' "$out" | grep -E '^  - .*only a branch or a local checkout has it$' >/dev/null && cf "(f) the shallow reason claims only a branch or a local checkout has a pin that is on the trunk"
+  printf '%s\n' "$out" | grep -E '^  - .*\): only a branch or a local checkout' >/dev/null && cf "(f) the shallow reason leads with the claim that only a branch or a local checkout has a pin that is on the trunk"
   finish "$L"
   teardown
 }

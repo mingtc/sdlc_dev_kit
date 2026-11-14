@@ -190,7 +190,7 @@ def pin_reach(repo, trunk, text):
                 out.append(f'{tag}: the pin is on no commit the trunk holds ({trunk[:7]}): it is not a commit of this repository (a shallow clone cannot see an older one: `git fetch --unshallow`)')
         elif git(repo, 'merge-base', '--is-ancestor', full, trunk)[0] != 0:
             if git(repo, 'rev-parse', '--is-shallow-repository')[1].strip() == b'true':
-                why_ = "the history that would join it to the trunk is cut off (this clone is shallow: `git fetch --unshallow`), or only a branch or a local checkout has it"
+                why_ = "the history that would join it to the trunk is cut off (this clone is shallow: `git fetch --unshallow` first); if it still is not on the trunk, only a branch or a local checkout has it"
             else:
                 why_ = 'only a branch or a local checkout has it'
             out.append(f'{tag}: the pin is on no commit the trunk holds ({trunk[:7]}): {why_}')
