@@ -41,6 +41,9 @@ _spec.loader.exec_module(cdl)
 ANCHOR = re.compile(r'(UX-\d+)#([A-Za-z0-9_-]+)@([0-9a-fA-F]{7,40}):')
 IMAGE = re.compile(r'dev/evidence/[^\s,;]+?\.png')
 PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
+# A pointer a row may end with, for the QA gate's own check: `path:line` or `path:a-b`, then its quotes. The gate reads it; these
+# checks read the row without it, so a quote or a path in it can be neither an entry nor an image of the design cell.
+POINTER = re.compile(r'[^\s`"(),;]+:\d+(?:-\d+)?(?:\s*"(?:[^"\\]|\\.)*")*')
 
 
 def git(repo, *args):
@@ -122,7 +125,13 @@ def registry_at(repo, rev):
     return rows
 
 
+def without_pointers(cell):
+    """The design cell with any `path:line "quote"` pointer taken out: what the design checks judge."""
+    return re.sub(r'(?:;\s*)+;', ';', re.sub(r'\s+', ' ', POINTER.sub(' ', cell))).strip(' ;,')
+
+
 def judge_cell(repo, trunk, card_id, ac, cell, text):
+    cell = without_pointers(cell)
     dv = cdl.design_value(text)
     why = []
     anchors = list(ANCHOR.finditer(cell))
@@ -210,7 +219,7 @@ def judge_rows(text, repo=None, trunk=None):
         if kind != 'design':
             why.append(f'{ac}: its row is of evidence kind `{kind or "none"}`, not `design`')
             continue
-        pointer = row[3] if len(row) > 3 else ''   # the one cell the QA gate hands the cell check
+        pointer = without_pointers(row[3]) if len(row) > 3 else ''   # the one cell the QA gate hands the cell check, without a pointer it ends with
         got = {(m.group(1), m.group(2)) for m in ANCHOR.finditer(pointer)}
         if not got:
             why.append(f'{ac}: its design row holds no `UX-NNN#state@<pin>` entry')
@@ -218,7 +227,7 @@ def judge_rows(text, repo=None, trunk=None):
             if (state is None and not any(g[0] == ux for g in got)) or (state is not None and (ux, state) not in got):
                 why.append(f'{ac}: its design row has no entry for {ux}{"#" + state if state else ""}, which the AC cites')
     for ux, state, _ in cdl.design_value(text)['items']:
-        if state and not any(r[2].strip('`* ').lower() == 'design' and (ux, state) in {(m.group(1), m.group(2)) for m in ANCHOR.finditer(r[3])}
+        if state and not any(r[2].strip('`* ').lower() == 'design' and (ux, state) in {(m.group(1), m.group(2)) for m in ANCHOR.finditer(without_pointers(r[3]))}
                              for r in rows if len(r) > 3):
             why.append(f'the card pins {ux}#{state}, and no design row of the verdict table holds an entry for it')
     if repo and trunk:

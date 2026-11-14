@@ -332,7 +332,7 @@ is the Dev's act.
 4. **QA walks the AC line by line**, recording the walk in the card's `## QA Verdict` table — one
    row per AC id, plus a fixed `shadow-check` row — as `PASS`/`FAIL` per bullet with **concrete
    evidence** (a test name, a diff, a command's output, a payload shape); `finish-pr.sh` refuses a
-   PASS landing with no such table, a row with no usable evidence, a pointer to the card's own file (`qa-verdict-self-pointer`), a table with no `test`/`file:line` row (a passing `qa-cell` check does not stand in for one), or a row whose verdict does not
+   PASS landing with no such table, a row with no usable evidence, a pointer to the card's own file (`qa-verdict-self-pointer`), a table with no `test`/`file:line` row and no row of another kind ending in a quoted `path:line` (a passing `qa-cell` check does not stand in for one), or a row whose verdict does not
    match step 6's token (`.claude/roles/qa.md` step 4). **An illustrative
    example inside an AC must cite its source or be labelled approximate** — an uncited example
    is read as the contract, and when it is wrong the review has no honest verdict left except the

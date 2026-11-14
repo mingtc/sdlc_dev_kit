@@ -18,3 +18,12 @@ The pointer is one cell, holding one entry per pinned state (a further cell is r
 - A design row names both images (the pinned PNG, `-pin`, and the build's screenshot, `-build`), committed **on the trunk** under `dev/evidence/<PREFIX>-NNN/`, each a PNG, the build image not the pin image. [`dev/evidence/README.md`](../../../dev/evidence/README.md) says who commits them and who compares them: QA cites the images by sha and records the comparison's result. A row with no image is not a PASS: if the
   committed PNG is missing or unusable, say so on the row and do not pass it.
 - Write the pointer so no `word:number` appears other than a real `path:line`: the gate reads every one as a path.
+- The design row is not an observed row on its own: the landing needs one `test` or `file:line` row, or a row that ends with a pointer
+  the gate re-reads. A card or slice whose only AC is `(UI)` has one row, so end its `design` cell with `; <path>:<line> "<quote>"`,
+  the code that shows the AC met and a verbatim quote of it, eight characters or more, found on that line:
+
+```
+| AC1 | PASS | design | UX-001#<state>@<pin>: identical; dev/evidence/<PREFIX>-NNN/UX-001-<state>-pin.png, dev/evidence/<PREFIX>-NNN/UX-001-<state>-build.png; src/list.css:14 "gap: var(--space-12)" |
+```
+
+  The design checks read the cell without that pointer. A `path:line` that does not resolve is refused as in any row.

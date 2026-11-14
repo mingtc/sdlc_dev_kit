@@ -559,8 +559,8 @@ _qav_cell_step() { local t=$'\t' x; x="${2#?"$t"}"; x="${x#*"$t"}"; [ -z "$x" ] 
 
 # _qav_cell_verdict <repo> <rev> <trunk-rev> <kind> <card-id> <ac-id> <cell> — run the cell checks of
 # <kind> (scripts/qa-cell.d/<kind>/, lib/addon-check.sh) on one PASS row, stopping at the first that does
-# not pass. Prints `K` when at least one check ran and all passed (the row is judged; it is not an observed
-# row, which only a test or file:line row is), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>
+# not pass. Prints `K` when at least one check ran and all passed (the row is judged; that is not an observed
+# row, which is a line the gate re-read: a test or file:line row, or a row of any kind that quotes a resolving path:line), nothing when the kind has no check, else one line: `R<TAB><check>: <what it printed>
 # <TAB><its Next: step, or empty>` for a refusal (status 3) or `B<TAB>…` for a check that did not run to an
 # answer. What it printed is every line but the `Next: ` one, whole (addon-check.sh `_kit_ac_message`). The check's code is read at
 # <trunk-rev>; what it examines is <rev>, which it is given to read.
@@ -670,7 +670,7 @@ kit_qa_verdict_check() {
       #    line to quote), but the token rule above still binds any path:line they carry.
       local _qav_events _qav_ev _qav_ev_kind _qav_ev_rest _qav_ev_detail
       local _qav_cur="" _qav_cur_state="" _qav_cur_lo="" _qav_cur_hi="" _qav_cur_quotes=0
-      local _qav_tok_count=0 _qav_quote_count=0 _qav_orphans="" _qav_quote _qav_wants_quote=""
+      local _qav_tok_count=0 _qav_quote_count=0 _qav_orphans="" _qav_quote _qav_wants_quote="" _qav_read_line=""
       case "$_qkind" in
         file:line|test) _qav_wants_quote=1; _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;
       esac
@@ -706,7 +706,18 @@ kit_qa_verdict_check() {
             fi
             ;;
           Q)
-            [ -n "$_qav_wants_quote" ] || continue
+            if [ -z "$_qav_wants_quote" ]; then
+              # A row of another kind needs no quote, but one that follows a pointer that resolves and is on its
+              # line, as long as a file:line quote is, is a line the gate re-read: the row is an observed row.
+              _qav_quote="$(_qav_squeeze "$_qav_ev_rest")"
+              if [ "$_qav_cur_state" = OK ] \
+                 && { [ "${#_qav_quote}" -ge "$KIT_QAV_MIN_QUOTE" ] \
+                      || [ "$(_qav_range_text "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi")" = "$_qav_quote" ]; } \
+                 && _qav_quote_in_range "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi" "$_qav_quote"; then
+                _qav_read_line=1
+              fi
+              continue
+            fi
             _qav_quote_count=$((_qav_quote_count+1))
             _qav_quote="$(_qav_squeeze "$_qav_ev_rest")"
             if [ -z "$_qav_cur" ]; then
@@ -742,6 +753,7 @@ kit_qa_verdict_check() {
           esac
         done <<< "$(_qav_artifact_events "$repo" "$trunk_rev" "$issue_id" "$_qptr_stripped")"
       fi
+      [ -z "$_qav_read_line" ] || _qav_quoted_rows=$((_qav_quoted_rows+1))
       if [ "$_qkind" = "file:line" ] && [ "$_qav_tok_count" -eq 0 ]; then
         _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (no path:line token in a file:line row)"
       fi
@@ -871,11 +883,12 @@ kit_qa_verdict_check() {
       case "$_qav_k" in test|file:line) ;; *) _qav_unquoted="${_qav_unquoted}${_qav_unquoted:+|}${_qav_k}" ;; esac
     done
     kit_refuse 1 qa-verdict-no-observed \
-      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted}." \
-      "       Those kinds carry no quote, so the gate has no line to re-read, and a passing qa-cell check does not stand in for one." \
-      "       Give at least one AC row a test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
+      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is one of ${_qav_unquoted} — and no row quotes a path:line the gate could re-read." \
+      "       Those kinds need no quote, so a table of them gives the gate no line to re-read unless a row ends with a path:line" \
+      "       and its quote; a passing qa-cell check does not stand in for one." \
+      "       Give an AC row a test or file:line pointer with a verbatim quote, or end a row of another kind with the path:line of the code that shows the AC met and a verbatim quote of it, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \
-      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. If every AC of the card is one only another kind can judge, the card has no AC the code can be read against: send it back to the PM to add one (.claude/roles/pm.md), then re-run." \
+      "Next: read the line that shows the behaviour of one AC and cite it, with a quote of eight characters or more found on that line: as the pointer of a test or file:line row, or after the existing pointer of a row of another kind (the pointer cell may end '; <path>:<line> \"<quote>\"'); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

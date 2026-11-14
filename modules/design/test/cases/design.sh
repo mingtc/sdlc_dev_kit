@@ -1949,7 +1949,7 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
 case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_subtask() {
   cf_reset
   if ! has_issue_template; then skp "a card or slice with a (UI) AC lands only with its design row" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  local L="finish-pr.sh and subtask.sh move land a card and a slice with a (UI) AC and a test or file:line row once their design row is backed, refuse a card or a slice whose every AC is (UI) with qa-verdict-no-observed (a design row is not core evidence: one test or file:line row is owed), and refuse a card or a slice whose (UI) AC has no design row, or a slice pinned to a screen with no design row at all, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
+  local L="finish-pr.sh and subtask.sh move land a card and a slice with a (UI) AC and a test or file:line row once their design row is backed, refuse a card or a slice whose every AC is (UI) with qa-verdict-no-observed unless its one design row ends with a quoted path:line the gate resolves (a design row alone is not core evidence), refuse a quoted path:line that does not resolve, and refuse a card or a slice whose (UI) AC has no design row, or a slice pinned to a screen with no design row at all, or a row whose images the trunk does not hold, on a project with CODE_GLOBS filled, and land the card and the slice once QA committed the images and the verdict to the trunk with register-commit.sh"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
@@ -2034,13 +2034,13 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-855" in_progress
   lf="$(_seed_subtask "$SB_PREFIX-855" s1 dev_complete twocell "A slice of two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n- [ ] AC2 — the list loads.\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m; s/(\| shadow-check )/| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |\n$1/' "$lf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
   _dm_png "$SB_WORK/$lev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$lev/UX-001-default-build.png" BUILD
   _dm_land "a slice of two states, the second in a second cell"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-l" ./scripts/subtask.sh move "$lid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -ne 0 ] && _dm_has "$out" "UX-001#empty" && origin_has_path "progress/subtasks/$SB_PREFIX-855/dev_complete/$lid-twocell.md"; } || cf "(l) a design row with a second pointer cell lets a state with no image land (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
-  # (i) a card whose only AC is (UI), its only row a design row: a design row is not core evidence, so the landing wants a test or file:line row
+  # (i) a card whose only AC is (UI), its only row a design row with no pointer: a design row is not core evidence, so the landing wants a test or file:line row, or a quoted path:line on the row ((k))
   local aid="$SB_PREFIX-853" aev of
   aev="dev/evidence/$aid"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
@@ -2058,7 +2058,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-i" ./scripts/finish-pr.sh "$aid" 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -ne 0 ] && _dm_has "$out" "no test/file:line row" && _dm_has "$out" "does not stand in for one" && ! origin_has_path "progress/qa_complete/$aid-allui.md"; } || cf "(i) a card whose every AC is (UI), its design row passed, is not refused for the missing test or file:line row (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
   grep -F 'refusal=qa-verdict-no-observed' "$SB_TMP"/rec-i/*.tsv >/dev/null 2>&1 || cf "(i) no refusal=qa-verdict-no-observed record"
-  # (j) a slice with the one AC, (UI), its one row a design row, through subtask.sh
+  # (j) a slice with the one AC, (UI), its one row a design row with no pointer, through subtask.sh
   local oid="$SB_PREFIX-854-s1" of oev
   oev="dev/evidence/$oid"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1

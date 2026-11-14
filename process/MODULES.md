@@ -182,7 +182,7 @@ is the template; `modules/example/` is the module to copy.
 - A manifest key a newer kit adds is refused by an older kit's `module.sh`.
 - Placed files are tracked in `process/MODULES`, not in `process/KIT-MANIFEST`: tools that ask which scripts the
   kit ships do not see a script a module placed.
-- An evidence kind a module adds is pointer-only: the gate reads no quote from it, so it has nothing to re-read. A `qa-cell:` check of that kind is what judges it; its pass is not an observed row, so the landing still needs a `test`/`file:line` row ([`contracts/landing-gate.md`](contracts/landing-gate.md) § 3) and a card whose every AC is of that kind is refused.
+- An evidence kind a module adds is pointer-only: the gate reads no quote from it, so it has nothing to re-read. A `qa-cell:` check of that kind is what judges it; its pass is not an observed row, so the landing still needs a `test`/`file:line` row or a row of that kind ending in a quoted, resolving `path:line` ([`contracts/landing-gate.md`](contracts/landing-gate.md) § 3), and a card whose every AC is of that kind with neither is refused.
 - `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
   `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
   an Action required entry.

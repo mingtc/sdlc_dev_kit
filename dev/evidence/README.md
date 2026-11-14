@@ -27,4 +27,4 @@ A file is committed in one place, by Dev or the project's tooling, and which pla
 - **Name each file for the AC it shows** (`AC2-login-error.png`); a row citing several files lists
   each `<path> <sha>` pair.
 - **A file is never edited after a verdict cites it.** A changed render is a new file, cited from that AC's row.
-- The table still needs one `test` or `file:line` row with a quote (the gate re-reads that line); a passing `qa-cell` check does not stand in for it.
+- The table still needs one row the gate re-reads a line for: a `test` or `file:line` row with a quote, or an `artifact` row whose pointer cell ends `; <path>:<line> "<quote>"` (the gate re-reads that line); a passing `qa-cell` check does not stand in for it.
