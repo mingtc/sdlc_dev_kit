@@ -961,7 +961,7 @@ case_qa_gate_reads_its_evidence_kinds_from_one_function_at_the_trunk() {
   _qk_gate
   printf '%s\n' "$out" | grep -F 'test|file:line|gate-diff|fixture-diff|artifact|observation' >/dev/null \
     || cf "(b3) the evidence refusal's list does not carry the added kind: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
-  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/; s/\| AC1 \| PASS \| [^|]* \|/| AC1 | PASS | gate-diff |/' "$card"
+  perl -pi -e 's/\| AC2 \| PASS \| vibes \|/| AC2 | PASS | observation |/; s/\| AC1 \| PASS \| [^|]* \| [^|]* \|/| AC1 | PASS | gate-diff | ARCHIVE.md:1 |/' "$card"
   _qk_gate
   grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
     || cf "(b3) (control) a table with no test/file:line row was not refused as qa-verdict-no-observed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
@@ -2085,7 +2085,7 @@ exit 0
   _qc_gate "$card"
   { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(c) a quote that is not on the line counts as the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
   case "$_qc_out" in *"quotes a path:line"*|*"quote a path:line"*) ;; *) cf "(c) the refusal does not say a quoted path:line counts: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-500)" ;; esac
-  _qa_row 'ARCHIVE.md:1 "condensed"'
+  _qa_row 'ARCHIVE.md:1 "index"'
   _qc_gate "$card"
   { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(d) a quote under eight characters counts as the observed row (exit $_qc_rc)"
   _qa_row 'ARCHIVE.md:1'

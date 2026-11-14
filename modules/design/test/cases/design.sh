@@ -2034,7 +2034,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-855" in_progress
   lf="$(_seed_subtask "$SB_PREFIX-855" s1 dev_complete twocell "A slice of two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png; ARCHIVE.md:1 \"condensed index of completed issues\" | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
   _dm_png "$SB_WORK/$lev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$lev/UX-001-default-build.png" BUILD
   _dm_land "a slice of two states, the second in a second cell"
