@@ -643,6 +643,66 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
 }
 
 # =============================================================================
+# CASE — A RUN WHOSE ONLY WORK IS THE MODULE RECORD MOVES THE RECORD, SAYS SO, AND STAGES NOTHING.
+#   The same kit version is run over a project where (a) the module's version moved and nothing it places did, (b) the
+#   record carries a `pending` section. The run names the record as the reason, writes it, leaves no checklist and no
+#   staging directory, tells the adopter to commit (never to --finish), and the same run again has nothing to do. A second
+#   such run after another version move leaves no archive to collide with; --finish after one is refused as nothing to finish.
+# =============================================================================
+case_a_record_only_kit_upgrade_moves_the_record_says_so_and_stages_nothing() {
+  cf_reset
+  local L="kit-upgrade.sh over a project whose only work is an enabled module's record (another version than the kit holds, or a pending section) names the record move, writes the record, leaves no checklist and no staging, points at a commit and not at --finish, repeats cleanly, and --finish after it is refused as nothing to finish"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local m newv newv2
+
+  # (a) the version moved, twice in a row.
+  _mu_pair
+  m="$MU_NEW/modules/example"
+  newv="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  _mu_manifest "$MU_NEW"
+  cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  _mu_land "the core files are current"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "(a) the run does not say it moved the record: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F -e '--finish' >/dev/null && cf "(a) the run points at --finish: $(_mu_flat)"
+  [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] || cf "(a) a checklist was written for a record-only run"
+  [ ! -e "$SB_WORK/.kit-upgrade" ] || cf "(a) a staging directory was left for a record-only run"
+  grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the record does not name $newv: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
+  _mu_land "commit the record"
+  _mu_up "$SB_WORK"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null || cf "(a) the run again still has work: $(_mu_flat)"
+  _mu_rc=0; _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR "$MU_NEW/scripts/kit-upgrade.sh" --finish --into "$SB_WORK" 2>&1 </dev/null )" || _mu_rc=$?
+  { [ "$_mu_rc" -ne 0 ] && printf '%s\n' "$_mu_out" | grep -F 'no upgrade is in progress' >/dev/null; } || cf "(a) --finish after a record-only run was not refused as nothing to finish (rc $_mu_rc): $(_mu_flat)"
+  # the module moves on again at the same kit version: no archive stands in the way
+  newv2="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv2/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  _mu_manifest "$MU_NEW"
+  cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  _mu_land "the core files are current again"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(a) the second upgrade exited $_mu_rc: $(_mu_flat)"
+  [ ! -e "$SB_WORK/process/upgrades" ] || cf "(a) an archive directory exists after two record-only runs"
+  grep -F -x "module example $newv2" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the second run left the record at another version than $newv2"
+  teardown
+
+  # (b) a pending section left by a killed run, the version unchanged.
+  _mu_pair
+  printf 'pending example %s\n' "$(sed -n 's/^module example //p' "$SB_WORK/process/MODULES")" >> "$SB_WORK/process/MODULES"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(b) the upgrade exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "(b) the run does not say it moved the record: $(_mu_flat)"
+  { [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] && [ ! -e "$SB_WORK/.kit-upgrade" ]; } || cf "(b) a checklist or staging was left for a record-only run"
+  grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(b) the pending section is still in the record"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — WITH TWO MODULES ENABLED, EACH IS CARRIED AND RECORDED AT ITS OWN VERSION.
 #   The record's version decides which release-notes entries the next upgrade raises, so a module recorded at another
 #   module's version drops or repeats entries silently. The example module moves on; `second` (a fixture module built
