@@ -353,7 +353,7 @@ case_archive_progress_refuses_before_the_first_write() {
   # (c2) the last file to be staged cannot be: the chunk and the log are not touched either
   mkdir "$R/progress/history/INDEX.md.new"
   rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone stg --keep-last 1 --apply 2>&1 )" || rc=$?
-  rmdir "$R/progress/history/INDEX.md.new"
+  rm -rf "$R/progress/history/INDEX.md.new"   # cp -p put the index inside it
   [ "$rc" -ne 0 ] || cf "(c2) exited 0 although the index could not be staged"
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c2) no Next: line"
   [ ! -e "$R/progress/history/stg.md" ] || cf "(c2) the chunk was written before the index was staged, so the re-run says chunk-exists"
