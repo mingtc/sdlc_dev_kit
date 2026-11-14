@@ -605,13 +605,10 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
   [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(a) a module that only changed version was reported as nothing to do: $(_mu_flat)"
   grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the record does not name $newv: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
-  # the run converges: committed, finished, committed, the same upgrade again has nothing to do
-  _mu_land "stage the upgrade"
-  _mu_rc=0; _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR "$MU_NEW/scripts/kit-upgrade.sh" --finish --into "$SB_WORK" 2>&1 </dev/null )" || _mu_rc=$?
-  [ "$_mu_rc" -eq 0 ] || cf "(a) --finish exited $_mu_rc: $(_mu_flat)"
-  _mu_land "finish the upgrade"
+  # the run converges: the record committed, the same upgrade again has nothing to do
+  _mu_land "commit the record"
   _mu_up "$SB_WORK"
-  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null || cf "(a) the upgrade run again after --finish still has work: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null || cf "(a) the upgrade run again after the record was committed still has work: $(_mu_flat)"
   teardown
 
   # (b) a pending section left by a killed run, the version unchanged.

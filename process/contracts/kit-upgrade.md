@@ -36,6 +36,12 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   the work order for each module's record, so that a run killed anywhere is finished by running it again.
   *Why:* left alone, a placed file goes stale beside a module whose disarmed copy was refreshed, and no tool but this
   one is placed to say so.
+- **A run whose only work is an enabled module's record writes the record and says so.** When the kit's version is
+  the one the project records and nothing else is to write, merge, remove or check, but a module's record names another
+  version than the kit holds or carries a `pending` section, the run moves the record, names the module, writes no
+  checklist and no staging, and tells the adopter to commit `process/MODULES`; there is no `--finish` and no archive.
+  *Why:* a checklist with no items, a second commit and an archive of nothing cost the adopter three steps for one
+  write, and a second such run under the same version would be refused for the archive's name.
 - **What the upgrade adds or replaces is written down before the first file is.** A file a killed run had already
   placed reads as current on the run that finishes it, so the "stamp what arrived" item is counted from the record in
   `.kit-upgrade/arrived`, not from the files' state; the record is used only when its first row names the kit being

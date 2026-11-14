@@ -810,7 +810,7 @@ ITEMS_EOF
 # ── THE ENABLED MODULES: what the new kit changes in the files they placed. ───
 # Scanned now, and written with the other files below. MOD_NAMES is every module process/MODULES records as
 # enabled; each leaves its findings in $MODTMP/up-<name>/ (lib/modules.sh says what they are).
-MOD_NAMES=""; MOD_LIVE=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_RECORD=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
+MOD_NAMES=""; MOD_LIVE=""; MOD_REC_NAMES=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_RECORD=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
 MOD_NOTES=()   # "<module>|<notes file>" for each live module that declares release notes: staged for --finish's Verify: run
 if mod_lib_need; then
   MOD_NAMES="$(kit_mod_enabled_names)"
@@ -835,7 +835,8 @@ MODPEND_EOF
     MOD_LIVE="$MOD_LIVE$mn
 "
     # The record is work too: it names another version than the kit holds, or an earlier run left its `pending` section.
-    if [ "$KMU_OLD_VERSION" != "$KMU_VERSION" ] || kit_mod_is_pending "$mn"; then MOD_N_RECORD=$((MOD_N_RECORD + 1)); fi
+    if [ "$KMU_OLD_VERSION" != "$KMU_VERSION" ] || kit_mod_is_pending "$mn"; then MOD_N_RECORD=$((MOD_N_RECORD + 1)); MOD_REC_NAMES="$MOD_REC_NAMES$mn
+"; fi
     while IFS="$(printf '\t')" read -r a k t s _ _ _; do
       case "$a" in
         write)   MOD_N_WRITE=$((MOD_N_WRITE + 1)); MOD_WRITE_PATHS+=("$t") ;;
@@ -921,6 +922,24 @@ fail_write() {
     "Error: could not write $1. This run had written $N_WROTE of ${#WRITE[@]} kit file(s) before it stopped, and may have written module files, staged copies and the record; the tree is part-written ('git -C $TGT status' lists it)." \
     "Next: fix the write failure, then run this again: it takes a file already written as done and finishes the rest. To undo instead: 'git -C $TGT checkout -- .', then remove $STAGE_DIR/ and $UPGRADE_CHECKLIST."
 }
+# A run whose only work is an enabled module's record (another version than the kit holds, or a `pending` section) has
+# no file to merge and nothing to check: it writes the record and stops, with no checklist, no staging and no --finish.
+# The record moves in one write, so a kill leaves the old record or the new one, and the run again finishes it.
+if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] \
+   && [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -eq 0 ]; then
+  while IFS= read -r mn; do
+    [ -n "$mn" ] || continue
+    kit_mod_upgrade_apply "$mn" && kit_mod_upgrade_stage_record "$mn" "$MODTMP/records" \
+      && kit_mod_upgrade_finish_record "$mn" "$MODTMP/records" || fail_write "the record of module $mn (process/MODULES)"
+  done <<MODNAMES_EOF
+$MOD_REC_NAMES
+MODNAMES_EOF
+  echo "kit-upgrade: $TGT already runs kit $NEW_V and every file is current; moved the record of enabled module(s) $(printf '%s' "$MOD_REC_NAMES" | tr '\n' ' ' | sed 's/ *$//') to the version this kit holds, and cleared any pending section (process/MODULES)."
+  echo "  No checklist was written and nothing is staged."
+  echo
+  echo "Nothing is committed. Next: commit process/MODULES through your own board and gates."
+  exit 0
+fi
 # What arrives is written down BEFORE the first file is: a file this loop has placed reads as current on a re-run, and
 # the "stamp what arrived" item must still count it. The rows replace a killed run's by a rename.
 if [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
