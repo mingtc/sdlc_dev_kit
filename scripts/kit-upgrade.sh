@@ -924,21 +924,43 @@ fail_write() {
 }
 # A run whose only work is an enabled module's record (another version than the kit holds, or a `pending` section) has
 # no file to merge and nothing to check: it writes the record and stops, with no checklist, no staging and no --finish.
-# The record moves in one write, so a kill leaves the old record or the new one, and the run again finishes it.
+# A module whose placed files or hosts have uncommitted changes is a killed run's: that run takes the full path, whose
+# Next names the whole diff. The record moves in one write per module, so a kill leaves each module's old record or its
+# new one, and the run again finishes the rest.
+REC_UNCOMMITTED=""
 if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] \
    && [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -eq 0 ]; then
   while IFS= read -r mn; do
     [ -n "$mn" ] || continue
-    kit_mod_upgrade_apply "$mn" && kit_mod_upgrade_stage_record "$mn" "$MODTMP/records" \
-      && kit_mod_upgrade_finish_record "$mn" "$MODTMP/records" || fail_write "the record of module $mn (process/MODULES)"
+    rec_paths=()
+    while IFS="$(printf '\t')" read -r _ rp _; do
+      [ -z "$rp" ] || rec_paths+=(":(literal)$rp")
+    done < "$MODTMP/up-$mn/plan"
+    [ "${#rec_paths[@]}" -gt 0 ] || continue
+    [ -z "$(cd "$TGT" && git status --porcelain --untracked-files=all -- "${rec_paths[@]}" 2>/dev/null)" ] || REC_UNCOMMITTED=1
   done <<MODNAMES_EOF
 $MOD_REC_NAMES
 MODNAMES_EOF
-  echo "kit-upgrade: $TGT already runs kit $NEW_V and every file is current; moved the record of enabled module(s) $(printf '%s' "$MOD_REC_NAMES" | tr '\n' ' ' | sed 's/ *$//') to the version this kit holds, and cleared any pending section (process/MODULES)."
-  echo "  No checklist was written and nothing is staged."
-  echo
-  echo "Nothing is committed. Next: commit process/MODULES through your own board and gates."
-  exit 0
+  if [ -z "$REC_UNCOMMITTED" ]; then
+    rec_pend=""
+    while IFS= read -r mn; do
+      [ -n "$mn" ] || continue
+      ! kit_mod_is_pending "$mn" || rec_pend="$rec_pend$mn "
+      if ! { kit_mod_upgrade_apply "$mn" && kit_mod_upgrade_stage_record "$mn" "$MODTMP/records" \
+             && kit_mod_upgrade_finish_record "$mn" "$MODTMP/records"; }; then
+        kit_refuse 1 upgrade-write-failed \
+          "Error: could not write the record of module $mn in $TGT/$KIT_MOD_STATE_REL. Only that file was touched, and a module before this one may already have its record moved." \
+          "Next: fix the write failure (permissions, free space under $TGT/process/), then run this again; there is nothing to undo."
+      fi
+    done <<MODNAMES_EOF
+$MOD_REC_NAMES
+MODNAMES_EOF
+    echo "kit-upgrade: $TGT already runs kit $NEW_V and every file is current; moved the record of enabled module(s) $(printf '%s' "$MOD_REC_NAMES" | tr '\n' ' ' | sed 's/ *$//') to the version this kit holds${rec_pend:+, and cleared the pending section of $(printf '%s' "$rec_pend" | sed 's/ *$//')} ($KIT_MOD_STATE_REL)."
+    echo "  No checklist was written and nothing is staged."
+    echo
+    echo "Nothing is committed. Next: commit $KIT_MOD_STATE_REL through your own board and gates."
+    exit 0
+  fi
 fi
 # What arrives is written down BEFORE the first file is: a file this loop has placed reads as current on a re-run, and
 # the "stamp what arrived" item must still count it. The rows replace a killed run's by a rename.

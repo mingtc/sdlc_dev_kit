@@ -58,7 +58,7 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
 2. **Run the new release's copy, from outside the project:**
    `unzip -q <zip> -d <scratch outside the project> && <scratch>/scripts/kit-upgrade.sh --into <the worktree>`.
    It takes what the project never changed, stages the rest, writes `process/UPGRADE-CHECKLIST.md` and
-   commits nothing. Land its output.
+   commits nothing. Land its output. (A run whose only work is a module's record stops after writing it: no checklist, so skip steps 3 and 4's `--finish`, and step 6's archive; [`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 2.)
 3. **Work the checklist item by item**, mark each `- [x]` as it is done, and land the marks once every
    item is marked, or when you stop short, so the next session reads them. An item that tells you to
    rename or replace a file that governs you is covered by the authority above.
@@ -73,11 +73,11 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
    `<worktree>/scripts/kit-upgrade.sh --finish --into <worktree>` once every item is marked and the marked
    checklist is landed. Finishing refuses on an unmarked item, a failing `Verify:` command, or an open
    card the new kit's landing checks would refuse; fix what it names, never route around it. It writes
-   the archive and stamps the version in the worktree; they land at step 6.
+   the archive and stamps the version in the worktree; they land at step 6. A run with no checklist has no `--finish`.
 5. **Verify the project's side, in the worktree:** `./scripts/verify.sh`, and every other gate
    [`PROJECT.md`](../PROJECT.md) § Quality gates declares for the project. All green before you land the
    archive. A red you did not cause is a card, not a reason to skip the gate.
-6. **Land the archive and the stamped version**, by the route above. Never force-push, never
+6. **Land the archive and the stamped version** (a record-only run has none: land `process/MODULES`), by the route above. Never force-push, never
    fast-forward the trunk around that route, and never decline to land on a rule you cannot name: if a
    refusal stops you, quote it.
 7. **Write the handoff** as `dev/handoffs/<today's date>-upgrade.md` (the convention is in
