@@ -634,6 +634,8 @@ case_kit_upgrade_at_an_unchanged_kit_version_carries_an_enabled_modules_record()
   printf '%s\n' "$_mu_out" | grep -F 'Nothing to do' >/dev/null && cf "(c) files written under the old record were reported as nothing to do: $(_mu_flat)"
   grep -F -x "module example $MU_NEWVER" "$SB_WORK/process/MODULES" >/dev/null || cf "(c) the record still names the old version: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
   grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(c) a pending section is left in the record"
+  printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null && cf "(c) written module files beside the old record were taken as record-only, whose Next commits process/MODULES alone: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'Review:' >/dev/null || cf "(c) the run does not say to review the whole diff: $(_mu_flat)"
 
   finish "$L"
   teardown
@@ -666,6 +668,7 @@ case_a_record_only_kit_upgrade_moves_the_record_says_so_and_stages_nothing() {
   [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "(a) the run does not say it moved the record: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F -e '--finish' >/dev/null && cf "(a) the run points at --finish: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'pending' >/dev/null && cf "(a) the run speaks of a pending section there was none of: $(_mu_flat)"
   [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] || cf "(a) a checklist was written for a record-only run"
   [ ! -e "$SB_WORK/.kit-upgrade" ] || cf "(a) a staging directory was left for a record-only run"
   grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(a) the record does not name $newv: $(grep '^module ' "$SB_WORK/process/MODULES" | tr '\n' '|')"
@@ -692,8 +695,84 @@ case_a_record_only_kit_upgrade_moves_the_record_says_so_and_stages_nothing() {
   _mu_up "$SB_WORK"
   [ "$_mu_rc" -eq 0 ] || cf "(b) the upgrade exited $_mu_rc: $(_mu_flat)"
   printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "(b) the run does not say it moved the record: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'cleared the pending section of example' >/dev/null || cf "(b) the run does not say it cleared the pending section: $(_mu_flat)"
   { [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] && [ ! -e "$SB_WORK/.kit-upgrade" ]; } || cf "(b) a checklist or staging was left for a record-only run"
   grep -E '^pending ' "$SB_WORK/process/MODULES" >/dev/null && cf "(b) the pending section is still in the record"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A RECORD-ONLY RUN IS NOT TAKEN OVER A KILLED MODULE WRITE, AND ITS OWN FAILURE UNDOES NOTHING IT DID NOT DO.
+#   (a) The same kit version, a module that moved a version and changed a role doc. The upgrade is killed at the first write
+#   after its module files (the staging directory), leaving the new role doc and a `pending` section uncommitted. The run
+#   again is the full one: it names the whole diff to commit, and an adopter who commits it and finishes ends with the module
+#   intact and nothing to do. (b) A record-only run whose record cannot be written is refused with a Next that undoes nothing:
+#   it does not tell the adopter to discard the tree or to remove files it never wrote.
+# =============================================================================
+case_a_killed_module_write_is_rerun_as_the_full_path_and_a_record_only_failure_undoes_nothing() {
+  cf_reset
+  local L="kit-upgrade.sh re-run after a kill that left a module's new file uncommitted beside a pending record takes the full path (the checklist and the review-the-whole-diff Next, not a commit of process/MODULES alone), and the adopter who follows it ends with the module intact; a record-only run whose record cannot be written is refused as upgrade-write-failed with a Next that undoes nothing"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local m newv run rootp n pts G
+  G=(git -c user.email=s@k.invalid -c user.name=s -c commit.gpgsign=false -c core.hooksPath=/dev/null)
+
+  # (a) kill after the module's role doc is written, before the staging directory
+  _mu_pair
+  m="$MU_NEW/modules/example"
+  newv="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  printf 'A line the new version adds to the role doc.\n' >> "$m/_claude/roles/example.md"
+  _mu_manifest "$MU_NEW"
+  cp -R "$m/." "$SB_WORK/modules/example/"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  _mu_land "the core files are current"
+  _md_make_count_shim
+  run="$SB_TMP/run"; rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"
+  echo 0 > "$SB_TMP/count"; rm -f "$SB_TMP/trace"
+  _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH=999999999 KILL_COUNT="$SB_TMP/count" KILL_TRACE="$SB_TMP/trace"
+  n="$(awk -F'\t' '$2 == "mkdir" && $3 ~ /\.kit-upgrade\/files/ { print $1; exit }' "$SB_TMP/trace" 2>/dev/null)"
+  if [ -z "$n" ]; then cf "(a) (control) the counted run made no write to .kit-upgrade/files: $(_mu_flat)"; else
+    rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
+    _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
+    [ "$_mu_rc" -eq 137 ] || cf "(a) the kill stand-in did not kill (exit $_mu_rc): $(_mu_flat)"
+    grep -F -x ' M .claude/roles/example.md' <<<"$(git -C "$run" status --porcelain)" >/dev/null || cf "(a) the kill did not leave the role doc modified: $(git -C "$run" status --porcelain | tr '\n' '|')"
+    grep -E '^pending example ' "$run/process/MODULES" >/dev/null || cf "(a) the kill did not leave a pending section"
+    _mu_up "$run"
+    [ "$_mu_rc" -eq 0 ] || cf "(a) the re-run exited $_mu_rc: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null && cf "(a) the re-run after a killed module write was taken as record-only, whose Next commits process/MODULES alone: $(_mu_flat)"
+    [ -f "$run/process/UPGRADE-CHECKLIST.md" ] || cf "(a) the re-run wrote no checklist"
+    printf '%s\n' "$_mu_out" | grep -F 'Review:' >/dev/null || cf "(a) the re-run's Next does not say to review the whole diff: $(_mu_flat)"
+    # the adopter follows it: commit everything, finish, commit; the module is intact
+    "${G[@]}" -C "$run" add -A >/dev/null 2>&1; "${G[@]}" -C "$run" commit -q -m "the upgrade" >/dev/null 2>&1
+    _mu_rc=0; _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR "$MU_NEW/scripts/kit-upgrade.sh" --finish --into "$run" 2>&1 </dev/null )" || _mu_rc=$?
+    [ "$_mu_rc" -eq 0 ] || cf "(a) --finish exited $_mu_rc: $(_mu_flat)"
+    "${G[@]}" -C "$run" add -A >/dev/null 2>&1; "${G[@]}" -C "$run" commit -q -m "finish" >/dev/null 2>&1
+    grep -F 'A line the new version adds to the role doc.' "$run/.claude/roles/example.md" >/dev/null || cf "(a) the module's role doc lost the new version's line"
+    ( cd "$run" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/rec9" ./scripts/module.sh status example 2>&1 </dev/null ) | grep -E 'edited|missing' >/dev/null && cf "(a) status shows the module's file edited or missing after the adopter followed the Next"
+  fi
+  teardown
+
+  # (b) a record that cannot be written
+  _mu_pair
+  m="$MU_NEW/modules/example"
+  newv="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  _mu_manifest "$MU_NEW"
+  cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  _mu_land "the core files are current"
+  chmod a-w "$SB_WORK/process"
+  if [ -w "$SB_WORK/process" ]; then chmod u+w "$SB_WORK/process"; echo "      (b) skipped: this user can write a read-only directory"; else
+    _mu_up "$SB_WORK"
+    chmod u+w "$SB_WORK/process"
+    [ "$_mu_rc" -eq 1 ] || cf "(b) a record-only run that could not write the record exited $_mu_rc, not 1: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F 'upgrade-write-failed' >/dev/null || [ "$(_mu_recs upgrade-write-failed)" -ge 1 ] || cf "(b) no upgrade-write-failed refusal: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -E 'checkout -- \.|UPGRADE-CHECKLIST|\.kit-upgrade/' >/dev/null && cf "(b) the refusal describes the full path's writes or undo: $(_mu_flat 500)"
+    printf '%s\n' "$_mu_out" | grep -F 'nothing to undo' >/dev/null || cf "(b) the Next does not say there is nothing to undo: $(_mu_flat 500)"
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(b) the failed run left the tree dirty: $(git -C "$SB_WORK" status --porcelain | tr '\n' '|')"
+  fi
 
   finish "$L"
   teardown
