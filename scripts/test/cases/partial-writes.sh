@@ -34,6 +34,7 @@ case_register_commit_leaves_the_kanban_worktree_as_found_when_a_later_write_fail
   printf 'x\n' > "$SB_WORK/ignored.txt"
   printf 'x\n' > "$SB_WORK/docs/b.md"; chmod 000 "$SB_WORK/docs/b.md"
   printf 'outside\n' > "$SB_TMP/outsider.txt"
+  printf 'MINE\n' > "$SB_WORK/outsider.txt"   # the user's own file where the worktree's ../outsider.txt lands
   for fault in ignored dir unreadable outside trailer; do
     n=$((n + 1))
     local args=(docs/a.md) msg="m$n"
@@ -51,7 +52,7 @@ case_register_commit_leaves_the_kanban_worktree_as_found_when_a_later_write_fail
       _pw_kwt_clean || cf "($fault) the kanban worktree holds staged changes: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
     fi
   done
-  [ ! -e "$SB_WORK/outsider.txt" ] || cf "(outside) a path outside the project was copied into $SB_WORK"
+  [ "$(cat "$SB_WORK/outsider.txt" 2>/dev/null)" = MINE ] || cf "(outside) the user's own $SB_WORK/outsider.txt was overwritten or deleted"
   rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "control" docs/a.md 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) the call after the refusals did not land (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   chmod 644 "$SB_WORK/docs/b.md" 2>/dev/null
@@ -147,6 +148,16 @@ case_set_models_refuses_a_write_it_cannot_make_and_prints_no_success_line() {
   done
   rc=0; out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model mX --effort high 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) the write that can be made was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # the record of what was written: read-only, it is refused before any write like the files it sits beside
+  if ! _pw_is_root && [ -f "$SB_WORK/.claude/model-pins.record" ]; then
+    before="$(cat "$ad/dev-worker.md" "$orch")"
+    chmod 444 "$SB_WORK/.claude/model-pins.record"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model mY --effort low 2>&1 )" || rc=$?
+    chmod 644 "$SB_WORK/.claude/model-pins.record"
+    [ "$rc" -ne 0 ] || cf "(record) exited 0 although the record cannot be written"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(record) no Next: line"
+    [ "$before" = "$(cat "$ad/dev-worker.md" "$orch")" ] || cf "(record) a pin or the ladder changed although the run refused"
+  fi
   finish "$L"
   teardown
 }
@@ -296,6 +307,7 @@ case_kit_init_names_the_recovery_from_a_run_cut_off_before_its_commit() {
     fi
     rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
     [ "$rc" -ne 0 ] || cf "($window) kit-init ran over a half-stamped tree"
+    case "$out" in *"placeholder the kit ships"*) cf "($window) refuses the user's own prefix as the shipped placeholder: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
     if [ "$window" = w1 ]; then
       case "$out" in *"commit or stash"*|*"commit them"*) cf "(w1) tells the user to commit a half-stamped tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
     else
@@ -358,9 +370,53 @@ case_archive_progress_refuses_before_the_first_write() {
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c2) no Next: line"
   [ ! -e "$R/progress/history/stg.md" ] || cf "(c2) the chunk was written before the index was staged, so the re-run says chunk-exists"
   cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(c2) progress.md was rewritten before the index was staged"
+  # (c3) a kill between the log's rename and the index's: the log is rotated, the chunk is there, the index lacks it
+  printf '# progress.md\n\n## Log\n\n## 2026-08-21 [Dev] two\nbody\n\n' > "$R/progress.md"
+  printf -- '---\narchived_at: x\n---\n\n## 2026-08-20 [Dev] one\nbody\n\n' > "$R/progress/history/killed.md"
+  touch -t 203001010000 "$R/progress/history/killed.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone later --keep-last 1 --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c3) a rotated log with an unindexed chunk was reported as nothing to do: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F 'killed.md' >/dev/null || cf "(c3) the output does not name the unindexed chunk"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c3) no Next: line"
+  rm -f "$R/progress/history/killed.md"
+  cp "$SB_TMP/progress.before" "$R/progress.md"
   # (d) the control still rotates
   rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ok --keep-last 1 --apply 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] && [ -s "$R/progress/history/ok.md" ] || cf "(d) the control rotation failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — register-commit.sh REFUSES A PATH THROUGH A SYMBOLIC LINK ON THE TRUNK, AND NO ROLLBACK FOLLOWS ONE.
+# A link inside the repository and a link that leads out of the kanban worktree. After each: a Next, the kanban
+# worktree clean, the user's own file where the link leads unchanged, and a later call lands.
+# =============================================================================
+case_register_commit_refuses_a_path_through_a_link() {
+  cf_reset
+  local L="register-commit.sh refuses a path whose part is a symbolic link on the trunk, with a Next, the kanban worktree clean and the file the link leads to untouched, and a later call lands"
+  make_sandbox
+  mkdir -p "$SB_WORK/docs" "$SB_WORK/other" "$SB_TMP/other"
+  printf 'one\n' > "$SB_WORK/docs/a.md"
+  ln -s docs "$SB_WORK/dl"
+  ln -s ../other "$SB_WORK/lnk"
+  printf 'USER\n' > "$SB_WORK/other/x"
+  publish_sandbox
+  printf 'USER\nmore\n' > "$SB_TMP/other/x"   # what the caller's own lnk/x holds
+  printf 'two\n' >> "$SB_WORK/docs/a.md"
+  local out rc via
+  for via in dl/a.md lnk/x; do
+    rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "via link" "$via" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($via) exited 0 through a link"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "($via) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    if [ -d "$SB_WORK/.kanban-wt" ]; then
+      _pw_kwt_clean || cf "($via) the kanban worktree is not clean: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
+    fi
+    [ "$(cat "$SB_WORK/other/x")" = USER ] || cf "($via) the file the link leads to was changed or deleted"
+    [ -f "$SB_WORK/docs/a.md" ] || cf "($via) docs/a.md was deleted"
+  done
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "control" docs/a.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) a later call was stuck (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
   teardown
 }
