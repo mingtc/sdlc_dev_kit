@@ -344,7 +344,7 @@ fi
 # Every path must exist on one side BEFORE any is staged: a refusal part-way would leave the earlier
 # paths staged in the kanban worktree, which every other board op then refuses to touch.
 for rel in "${PATHS[@]}"; do
-  if [ ! -e "$CALLER_ROOT/$rel" ] && [ ! -e "$KWT/$rel" ]; then
+  if [ ! -e "$CALLER_ROOT/$rel" ] && [ ! -e "$KWT/$rel" ] && [ ! -L "$KWT/$rel" ]; then
     kit_refuse 1 path-not-found \
       "Error: '$rel' exists in neither your checkout ($CALLER_ROOT) nor the trunk ($KWT) — nothing to commit for it." \
       "Next: check the path (relative to your checkout's root) and write the file there before re-running."
@@ -353,22 +353,26 @@ done
 
 # A PATH WITH A SYMBOLIC LINK FOR ANY PART OF IT is refused: a copy would write through the link, to wherever it
 # leads (inside the worktree or out of it), and git refuses to stage it beyond a link.
-_rc_link_part() {   # <rel> — status 0 when $KWT/<rel> or a directory above it is a symbolic link
+_rc_link_part() {   # <rel> <final-ok> — status 0 when a directory above <rel> in $KWT is a link, or <rel> itself is and <final-ok> is not 1
   local acc="$KWT" part rest="$1"
   while [ -n "$rest" ]; do
     part="${rest%%/*}"
     if [ "$part" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
     [ -n "$part" ] || continue
     acc="$acc/$part"
-    [ ! -L "$acc" ] || return 0
+    if [ -L "$acc" ]; then
+      [ -z "$rest" ] && [ "${2:-0}" = 1 ] || return 0
+    fi
   done
   return 1
 }
 for rel in "${PATHS[@]}"; do
-  if _rc_link_part "$rel"; then
+  # A path absent from the caller is a deletion, which removes a tracked link itself and follows nothing.
+  _rc_fok=0; { [ -e "$CALLER_ROOT/$rel" ] || [ -L "$CALLER_ROOT/$rel" ]; } || _rc_fok=1
+  if _rc_link_part "$rel" "$_rc_fok"; then
     kit_refuse 1 register-path-through-link \
-      "Error: '$rel' passes through a symbolic link on the trunk, so a copy would land where the link leads, not at that path. Nothing was changed." \
-      "Next: name the path the link points to (the real file or directory), then re-run."
+      "Error: '$rel' is, or passes through, a symbolic link on the trunk, so landing it would write where the link leads, not at that path. Nothing was changed." \
+      "Next: name the real file or directory the link points to; to delete a link itself, remove it from your checkout and name its path."
   fi
 done
 

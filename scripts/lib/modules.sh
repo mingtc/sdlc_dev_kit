@@ -1204,7 +1204,7 @@ ROLE_TAGS_EOF
     kit_refuse 1 module-disable-incomplete \
       "Error: module $name was only partly disabled: $removed file(s) and block(s) were removed, and these could not be:" \
       "$(printf '%s' "$failed" | sed 's/^/    /')" \
-      "  They still act, and $KIT_MOD_STATE_REL still records $name as it was, with exactly these rows." \
+      "  They still act, and $KIT_MOD_STATE_REL still records $name with exactly these rows." \
       "Next: make each path above removable — a file goes with the write permission of the directory that holds it, so check the directory's mode as well as the file's, and clear any immutable flag — then run ./scripts/module.sh disable $name again; what was removed stays removed."
   fi
   if [ -s "$keptf" ]; then _kit_mod_state_put "$name" "$ver" "$keptf" kept; else _kit_mod_state_put "$name" "" /dev/null; fi

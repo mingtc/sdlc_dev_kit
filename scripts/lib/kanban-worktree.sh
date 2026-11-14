@@ -588,7 +588,7 @@ kwt_commit() {
   if git -C "$KWT" reset -q --hard HEAD >/dev/null 2>&1; then
     kit_refuse 1 kanban-commit-refused \
       "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
-      "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
+      "       The kanban worktree was put back as the sync left it (a hand edit made in it during this run is dropped with the staged change); nothing was changed on the trunk." \
       "Next: ${nxt:-remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again.}"
   fi
   kit_refuse 1 kanban-commit-refused \

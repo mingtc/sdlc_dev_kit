@@ -352,26 +352,44 @@ awk -v before="$BEFORE" \
 # nested under a "## DATE" is counted too — it is physically in the pre bucket.
 PRE_COUNT=$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' "$PRE_TMP" || true)
 
+# A CHUNK THE INDEX DOES NOT NAME is a rotation cut off between its writes, found on every run, whatever the cut asks
+# for now. Either the log was already rewritten (its entries are gone from progress.md: only the index row is
+# missing, and the row is printed), or it was not (its first entry is still in progress.md: the chunk is a stray
+# copy and is deleted, so the entries are not archived twice).
+if [ -f "$INDEX" ]; then
+  while IFS= read -r _uc; do
+    [ -n "$_uc" ] || continue
+    _un="${_uc##*/}"
+    grep -F "($_un)" "$INDEX" >/dev/null && continue
+    # The entries are what follows the chunk's frontmatter: the span and the count are read from them alone,
+    # the way the row of a real rotation is, never from the dates in the frontmatter.
+    _ubody="$(awk 'c >= 2 { print } /^---$/ { c++ }' "$_uc")"
+    _ufirst_line="$(printf '%s\n' "$_ubody" | grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' | sed -n '1p' || true)"
+    if [ -n "$_ufirst_line" ] && grep -Fx -- "$_ufirst_line" "$PROGRESS" >/dev/null; then
+      kit_refuse 1 rotation-chunk-orphan \
+        "Error: ${_uc#"$REPO_ROOT"/} is in the history directory, ${INDEX#"$REPO_ROOT"/} does not name it, and its first entry is still in progress.md — an earlier rotation was cut off after it wrote the chunk, before it rewrote the log." \
+        "Next: delete the chunk (rm '${_uc#"$REPO_ROOT"/}'), then run this command again."
+    fi
+    _u_first="$(printf '%s\n' "$_ubody" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort | sed -n '1p' || true)"
+    _u_last="$(printf '%s\n' "$_ubody" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort | sed -n '$p' || true)"
+    _u_n="$(printf '%s\n' "$_ubody" | grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' || true)"
+    _u_day="$(sed -n 's/^archived_at: \([0-9-]*\)T.*/\1/p' "$_uc" | sed -n '1p')"
+    _u_cut="$(sed -n 's/^cutoff: //p' "$_uc" | sed -n '1p')"
+    case "$_u_cut" in
+      "none (kept the newest "*) _u_cut="${_u_cut#none (kept the newest }"; _u_cut="\`--keep-last ${_u_cut%% *}\`" ;;
+      ?*) _u_cut="\`--before $_u_cut\`" ;;
+      *) _u_cut="(unknown)" ;;
+    esac
+    kit_refuse 1 rotation-chunk-unindexed \
+      "Error: ${_uc#"$REPO_ROOT"/} is in the history directory and ${INDEX#"$REPO_ROOT"/} does not name it — an earlier rotation was cut off after it rewrote the log, before it indexed the chunk. The log is already rotated." \
+      "Next: add this row directly below the header's separator line in ${INDEX#"$REPO_ROOT"/}, then run this command again:" \
+      "    | [\`$_un\`]($_un) | ${_u_first:-(undated)} → ${_u_last:-(undated)} | $_u_n | ${_u_day:-$(date +%Y-%m-%d)} | $_u_cut |"
+  done < <(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'INDEX.md' 2>/dev/null | sort)
+fi
+
 # Idempotency: after a clean rotation, no entries match the cutoff → no-op
 # (checked BEFORE the chunk-exists guard, so a re-run does not error on the existing file)
 if [ "$PRE_COUNT" = "0" ]; then
-  # A CHUNK THE INDEX DOES NOT NAME, newer than the index, is a rotation cut off after the log was rewritten and
-  # before the index row went in: nothing is left to rotate, so without this the re-run says "nothing to archive".
-  if [ -f "$INDEX" ]; then
-    while IFS= read -r _uc; do
-      [ -n "$_uc" ] || continue
-      _un="${_uc##*/}"
-      if ! grep -F "($_un)" "$INDEX" >/dev/null; then
-        _u_first="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$_uc" | sort | sed -n '1p')"
-        _u_last="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$_uc" | sort | sed -n '$p')"
-        _u_n="$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' "$_uc" || true)"
-        kit_refuse 1 rotation-chunk-unindexed \
-          "Error: ${_uc#"$REPO_ROOT"/} is in the history directory and ${INDEX#"$REPO_ROOT"/} does not name it — an earlier rotation was cut off after it rewrote the log, before it indexed the chunk. The log is already rotated." \
-          "Next: add this row directly below the header's separator line in ${INDEX#"$REPO_ROOT"/}, then you are done (fix the Cut column if you know it):" \
-          "    | [\`$_un\`]($_un) | ${_u_first:-(undated)} → ${_u_last:-(undated)} | $_u_n | $(date +%Y-%m-%d) | (unknown) |"
-      fi
-    done < <(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'INDEX.md' -newer "$INDEX" 2>/dev/null | sort)
-  fi
   # "NOTHING MATCHED MY SELECTOR" IS NOT "NOTHING IS DUE": over the board's threshold a clean
   # "nothing to archive" would be a false all-clear. The threshold is DERIVED from the board
   # checker, never re-declared here (lookup-tables.md § A.1).
@@ -560,12 +578,12 @@ awk -v hdr="$IDX_HEADER" -v row="$IDX_ROW" '
 ' "$INDEX" > "$INDEX_NEW" || _ap_stage_failed "$INDEX"
 
 # The renames. Chunk first, so no kill loses log text. A kill after the first leaves a chunk and an unrotated log
-# (the re-run refuses as chunk-exists); a kill after the second leaves a rotated log and an unindexed chunk (the
-# re-run refuses as rotation-chunk-unindexed and prints the row to add).
+# (the next run of any cut refuses as rotation-chunk-orphan); a kill after the second leaves a rotated log and an
+# unindexed chunk (the next run of any cut refuses as rotation-chunk-unindexed and prints the row to add).
 mv "$CHUNK_NEW" "$CHUNK" && mv "$PROGRESS_NEW" "$PROGRESS" && mv "$INDEX_NEW" "$INDEX" \
   || kit_refuse 1 archive-rename-failed \
        "Error: a rename into place failed (the reason is printed above); the files renamed before it are done, the others are as they were." \
-       "Next: fix what is named above, then re-run this command. If the chunk ${CHUNK#"$REPO_ROOT"/} exists and progress.md still holds its entries it says chunk-exists: delete the chunk and re-run. If progress.md is already rotated and the index lacks the chunk, it prints the row to add."
+       "Next: fix what is named above, then run this command again. It finds the state the failed rename left: a chunk whose entries are still in progress.md is refused with the command that deletes it, and a rotated log whose chunk the index lacks is refused with the row to add."
 
 echo ""
 echo "Done. Wrote:"
