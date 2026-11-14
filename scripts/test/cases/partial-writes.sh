@@ -1,0 +1,358 @@
+# KIT-CLASS: MIXED — self-test harness, a write that fails part-way. See process/EXTRACTION.md.
+# =============================================================================
+# scripts/test/cases/partial-writes.sh — sourced by scripts/test/run.sh, never run on its own.
+# One class: a sequence of writes where a later one fails (a hook refusal, an unwritable path, an
+# ignored path). The script must say so, leave the state it found or name the exit from the state it
+# left, and never print the success line of a write that did not happen.
+# Faults are made with chmod and a directory in a file's place; a run as root cannot fail that way,
+# so the cases that need it say so and skip.
+# =============================================================================
+
+_pw_is_root() { [ "$(id -u)" = 0 ]; }
+
+# _pw_kwt_clean — status 0 when the kanban worktree holds no staged or modified path.
+_pw_kwt_clean() { [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain --untracked-files=no 2>/dev/null)" ]; }
+
+# =============================================================================
+# CASE — register-commit.sh: A PATH THAT FAILS AFTER THE FIRST IS STAGED LEAVES THE KANBAN WORKTREE
+# AS IT FOUND IT, AND THE REFUSAL NAMES A NEXT.
+# Five faults, each behind a first path that stages cleanly: a gitignored path, a directory, an
+# unreadable file, a path outside the project, and a message the commit hook refuses. After each, the
+# kanban worktree is clean, a Next is printed, and the next call lands. The outside path writes nothing.
+# =============================================================================
+case_register_commit_leaves_the_kanban_worktree_as_found_when_a_later_write_fails() {
+  cf_reset
+  local L="register-commit.sh refuses a later path that is ignored, a directory, unreadable or outside the project, and a message the hook refuses, each with a Next, the kanban worktree clean and nothing written outside"
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a file unreadable"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/docs"
+  printf 'one\n' > "$SB_WORK/docs/a.md"
+  printf 'ignored.txt\n' > "$SB_WORK/.gitignore"
+  publish_sandbox
+  local out rc n=0 fault
+  printf 'two\n' >> "$SB_WORK/docs/a.md"
+  printf 'x\n' > "$SB_WORK/ignored.txt"
+  printf 'x\n' > "$SB_WORK/docs/b.md"; chmod 000 "$SB_WORK/docs/b.md"
+  printf 'outside\n' > "$SB_TMP/outsider.txt"
+  for fault in ignored dir unreadable outside trailer; do
+    n=$((n + 1))
+    local args=(docs/a.md) msg="m$n"
+    case "$fault" in
+      ignored)    args+=(ignored.txt) ;;
+      dir)        args+=(docs) ;;
+      unreadable) args+=(docs/b.md) ;;
+      outside)    args+=(../outsider.txt) ;;
+      trailer)    msg=$'trailer\n\nCo-Authored-By: Claude <noreply@example.invalid>' ;;
+    esac
+    rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$msg" "${args[@]}" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($fault) exited 0 on a write that cannot land: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "($fault) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    if [ -d "$SB_WORK/.kanban-wt" ]; then
+      _pw_kwt_clean || cf "($fault) the kanban worktree holds staged changes: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
+    fi
+  done
+  [ ! -e "$SB_WORK/outsider.txt" ] || cf "(outside) a path outside the project was copied into $SB_WORK"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "control" docs/a.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the call after the refusals did not land (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  chmod 644 "$SB_WORK/docs/b.md" 2>/dev/null
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — register-commit.sh RECORDS `landed` ONLY AFTER THE PUBLISH.
+# A pre-receive hook on the remote refuses the push: the commit stays local, and no record says it landed.
+# =============================================================================
+case_register_commit_records_landed_only_after_the_push() {
+  cf_reset
+  local L="register-commit.sh writes its landed record after the publish, so a refused push leaves no record that anything landed"
+  make_sandbox
+  printf 'one\n' > "$SB_WORK/note.md"
+  publish_sandbox
+  printf '#!/bin/sh\nexit 1\n' > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  printf 'two\n' >> "$SB_WORK/note.md"
+  local out rc
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/register-commit.sh --role PM --message "refused push" note.md 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(prereq) the push was not refused, so the premise is gone: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  if cat "$SB_TMP"/records/*.tsv 2>/dev/null | grep -F 'landed 1 metadata' >/dev/null; then
+    cf "a landed record exists for a commit the remote refused"
+  fi
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — move-issue.sh AND subtask.sh: A COMMIT THE HOOK REFUSES UNDOES THE MOVE, SAYS SO, AND PRINTS
+# NO `Moved:` LINE. The next move is not refused for a dirty worktree.
+# =============================================================================
+case_a_refused_board_commit_undoes_the_move_and_says_so() {
+  cf_reset
+  local L="move-issue.sh and subtask.sh, when the commit hook refuses the note, print no Moved: line, put the kanban worktree back, print a Next, and the next move lands"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-871" q="$SB_PREFIX-872" out rc bad=$'bad\n\nCo-Authored-By: Claude <noreply@example.invalid>'
+  seed_issue todo "$id" hookmv chore "A card the hook refuses to move"
+  seed_issue in_progress "$q" parent chore "Parent in progress"
+  mkdir -p "$SB_WORK/progress/subtasks/$q/todo"
+  seed_issue "subtasks/$q/todo" "$q-s1" slice chore "A slice"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "$bad" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(move-issue) exited 0 on a refused commit"
+  printf '%s\n' "$out" | grep -E '^Moved:' >/dev/null && cf "(move-issue) printed Moved: for a move that did not happen"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(move-issue) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  _pw_kwt_clean || cf "(move-issue) the kanban worktree holds the staged move: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "clean" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(move-issue control) the next move was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/subtask.sh move "$q-s1" in_progress --note "$bad" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(subtask) exited 0 on a refused commit"
+  printf '%s\n' "$out" | grep -E '^Moved:' >/dev/null && cf "(subtask) printed Moved: for a move that did not happen"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(subtask) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  _pw_kwt_clean || cf "(subtask) the kanban worktree holds the staged move: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — set-models.sh: A WRITE IT CANNOT MAKE IS REFUSED BEFORE THE FIRST WRITE; NO SUCCESS LINE, NO RECORD.
+# A directory where a rewrite's scratch file goes, for the pin and for the ladder; and a pin directory
+# the user cannot write to. Nothing changes, a Next is printed, and the control still sets.
+# =============================================================================
+case_set_models_refuses_a_write_it_cannot_make_and_prints_no_success_line() {
+  cf_reset
+  local L="set-models.sh refuses before writing when a pin, the ladder or their directory cannot be written, prints no success line, records nothing and names a Next"
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "$L" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh" out rc fault before after
+  before="$(cat "$ad/dev-worker.md" "$orch")"
+  for fault in pin-new ladder-new agents-dir; do
+    case "$fault" in
+      pin-new)    mkdir "$ad/dev-worker.md.new" ;;
+      ladder-new) mkdir "$orch.new" ;;
+      agents-dir) if _pw_is_root; then continue; fi; chmod 555 "$ad" ;;
+    esac
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model mX --effort high 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($fault) exited 0 on a write that cannot be made: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -E '^set-models: dev -> ' >/dev/null && cf "($fault) printed the success line for a write that did not happen"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "($fault) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    after="$(cat "$ad/dev-worker.md" "$orch")"
+    [ "$before" = "$after" ] || cf "($fault) the pin or the ladder changed although the run refused"
+    grep -F 'dev-worker.md' "$SB_WORK/.claude/model-pins.record" 2>/dev/null | grep -F mX >/dev/null && cf "($fault) the record names the pin the run did not write"
+    case "$fault" in
+      pin-new)    rmdir "$ad/dev-worker.md.new" ;;
+      ladder-new) rmdir "$orch.new" ;;
+      agents-dir) chmod 755 "$ad" ;;
+    esac
+  done
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model mX --effort high 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the write that can be made was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — update_vendored.sh: A FAILED rm OR cp ON THE FAST PATH IS NOT A VENDORING.
+# A vendor directory the user cannot write to, beside an older artifact. The updater exits non-zero, prints
+# no pin line on stdout (consumers capture it), and the older artifact is the only one there.
+# =============================================================================
+case_update_vendored_does_not_print_a_pin_for_an_artifact_it_could_not_write() {
+  cf_reset
+  local L="update_vendored.sh exits non-zero with an empty stdout when the vendor directory cannot be written, and vendors normally when it can"
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a directory unwritable"; return; fi
+  make_sandbox
+  if [ ! -f "$SB_WORK/consumers/update_vendored.sh" ]; then teardown; skp "$L" "consumers/ absent"; return; fi
+  local P="$SB_TMP/cp" out err rc upd
+  mkdir -p "$P"
+  _consumer_project "$P"
+  upd="$P/consumers/update_vendored.sh"
+  _consumer_fill "$upd" pin first refresh config docs
+  mkdir -p "$P/consumer/vendor-ro" "$P/consumer/vendor-ok"
+  : > "$P/consumer/vendor-ro/thing-0.9.0.tgz"
+  chmod 555 "$P/consumer/vendor-ro"
+  rc=0; out="$( cd "$P/consumer" && env VENDORED_NAME=thing ARTIFACT_GLOB='thing-*.tgz' VENDORED_REPO_URL="file://$P/upstream" VENDOR_DIR=./vendor-ro bash "$upd" 2>"$SB_TMP/upd.err" )" || rc=$?
+  err="$(cat "$SB_TMP/upd.err")"
+  [ "$rc" -ne 0 ] || cf "(fault) exited 0 although the artifact could not be written: $(printf '%s' "$err" | tr '\n' '|' | cut -c1-240)"
+  [ -z "$out" ] || cf "(fault) printed a pin line on stdout for an artifact that is not there: $out"
+  case "$err" in *"Vendored:"*) cf "(fault) said Vendored: for an artifact that is not there" ;; esac
+  [ ! -e "$P/consumer/vendor-ro/thing-1.0.0.tgz" ] || cf "(prereq) the artifact was written, so the fault did nothing"
+  chmod 755 "$P/consumer/vendor-ro"
+  rc=0; out="$( cd "$P/consumer" && env VENDORED_NAME=thing ARTIFACT_GLOB='thing-*.tgz' VENDORED_REPO_URL="file://$P/upstream" VENDOR_DIR=./vendor-ok bash "$upd" 2>/dev/null )" || rc=$?
+  [ "$rc" -eq 0 ] && [ -f "$P/consumer/vendor-ok/thing-1.0.0.tgz" ] && [ -n "$out" ] \
+    || cf "(control) a writable vendor directory did not vendor (rc=$rc, stdout [$out])"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — module.sh disable: A REMOVAL THAT FAILS IS NOT COUNTED, THE RECORD IS NOT DROPPED, AND THE
+# REFUSAL IS TRUE ABOUT WHAT WAS CHANGED. Three shapes: a placed file in a directory the user cannot
+# write to, a block host the user cannot write, and a dangling symlink at a placed path. After the
+# first two a re-run recovers; the third is kept and named.
+# =============================================================================
+case_module_disable_does_not_count_a_removal_that_failed() {
+  cf_reset
+  local L="module.sh disable keeps the record and names the path when a removal fails, does not say NOTHING WAS CHANGED after removing others, recovers on a re-run, and names a dangling link instead of calling it gone"
+  if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _md_sandbox
+  local d="$SB_WORK/process/roles.d" f
+  # (a) a placed file in a directory that cannot be written.
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq) enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  chmod 555 "$d"
+  _md_mod disable example
+  [ "$_md_rc" -ne 0 ] || cf "(a) disable exited 0 although process/roles.d/example could not be removed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'process/roles.d/example' >/dev/null || cf "(a) the output does not name the path that stayed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'record dropped' >/dev/null && cf "(a) said the record was dropped with a file still on disk"
+  printf '%s\n' "$_md_out" | grep -F 'Next:' >/dev/null || cf "(a) no Next: line"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'not enabled' >/dev/null && cf "(a) status says the module is not enabled while its role layer still acts"
+  chmod 755 "$d"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(a) the re-run after the fix exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  [ ! -e "$d/example" ] || cf "(a) the re-run left process/roles.d/example"
+
+  # (b) a block host that cannot be written.
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq b) enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  chmod 444 "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -ne 0 ] || cf "(b) disable exited 0 although PROJECT.md could not be rewritten"
+  printf '%s\n' "$_md_out" | grep -F 'NOTHING WAS CHANGED' >/dev/null && cf "(b) said NOTHING WAS CHANGED after removing the module's other files: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'PROJECT.md' >/dev/null || cf "(b) the output does not name PROJECT.md"
+  [ -z "$(ls "$SB_WORK"/PROJECT.md.kit-mb.* 2>/dev/null)" ] || cf "(b) a scratch copy was left beside PROJECT.md"
+  chmod 644 "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(b) the re-run after the fix exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  grep -F 'The example module' "$SB_WORK/PROJECT.md" >/dev/null && cf "(b) the block is still in PROJECT.md after the re-run"
+
+  # (c) a dangling symlink at a placed path.
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq c) enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  f="$SB_WORK/.claude/skills/example-skill/SKILL.md"
+  rm -f "$f" && ln -s "$SB_TMP/nowhere" "$f"
+  _md_mod disable example
+  [ -L "$f" ] || cf "(c) the dangling link was removed without being judged"
+  printf '%s\n' "$_md_out" | grep -F '.claude/skills/example-skill/SKILL.md' >/dev/null || cf "(c) the output does not name the link it left: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  rm -f "$f"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — kit-init.sh: A STRAY .gitkeep UNDER progress/ DOES NOT FAIL THE RUN AFTER IT STAMPED, AND A
+# --prefix THE KIT SHIPS IS REFUSED BEFORE ANYTHING IS WRITTEN.
+# =============================================================================
+case_kit_init_does_not_fail_after_stamping_on_what_the_preflight_could_see() {
+  cf_reset
+  local L="kit-init.sh completes over a .gitkeep the project keeps under progress/, and refuses a --prefix equal to the shipped placeholder before it writes"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local shipped out rc head
+  shipped="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$SB_WORK/scripts/config.sh" | head -1)"
+  [ -n "$shipped" ] || _fixture_die "case_kit_init_does_not_fail_after_stamping_on_what_the_preflight_could_see: could not read the shipped prefix from scripts/config.sh"
+  publish_sandbox
+  head="$(git -C "$SB_WORK" rev-parse HEAD)"
+  # (a) the shipped prefix: refused in the preflight, nothing written.
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix "$shipped" --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) --prefix $shipped was accepted"
+  printf '%s\n' "$out" | grep -F 'NOTHING WAS WRITTEN' >/dev/null || cf "(a) the refusal does not say nothing was written: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head" ] || cf "(a) HEAD moved on a refused run"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(a) the tree changed on a refused run: $(git -C "$SB_WORK" status --porcelain | tr '\n' '|')"
+  # (b) a stray .gitkeep of the project's own, committed.
+  mkdir -p "$SB_WORK/progress/todo/parked"
+  : > "$SB_WORK/progress/todo/parked/.gitkeep"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "project keeps a parked folder" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a stray .gitkeep failed the run after the stamp (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — kit-init.sh: A RUN CUT OFF BEFORE ITS COMMIT IS TOLD A RECOVERY THAT WORKS AS PRINTED.
+# Two windows, built by hand: the stamp's first write (config.sh modified, its .bak beside it, no stamp
+# line) and the stamp present with no commit. The refusal prints a stash command on its own line; running
+# it and re-running kit-init completes. The first window's text does not tell the user to commit.
+# =============================================================================
+case_kit_init_names_the_recovery_from_a_run_cut_off_before_its_commit() {
+  cf_reset
+  local L="kit-init.sh, over a half-run that never committed, prints a stash command that clears it and a re-run completes; it does not say to commit a half-stamped tree"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local window out rc cmd
+  for window in w1 w2; do
+    kit_init_sandbox
+    publish_sandbox
+    cp "$SB_WORK/scripts/config.sh" "$SB_WORK/scripts/config.sh.bak"
+    sed -i.tmp -e 's|^ISSUE_PREFIX=.*|ISSUE_PREFIX="${ISSUE_PREFIX:-SBX}"|' "$SB_WORK/scripts/config.sh"; rm -f "$SB_WORK/scripts/config.sh.tmp"
+    if [ "$window" = w2 ]; then
+      printf '\n%s on 2026-01-01 — prefix SBX, trunk %s (kit-init.sh --help explains the re-run refusal).\n' "$KIT_STAMP_MARK" "$SB_TRUNK" >> "$SB_WORK/scripts/config.sh"
+    fi
+    rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+    [ "$rc" -ne 0 ] || cf "($window) kit-init ran over a half-stamped tree"
+    if [ "$window" = w1 ]; then
+      case "$out" in *"commit or stash"*|*"commit them"*) cf "(w1) tells the user to commit a half-stamped tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+    else
+      case "$out" in *"revert the initialization commit"*) cf "(w2) names an initialization commit that does not exist: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+    fi
+    cmd="$(printf '%s\n' "$out" | sed -n 's/^ *\(git stash push --include-untracked.*\)$/\1/p' | head -1)"
+    if [ -z "$cmd" ]; then
+      cf "($window) the refusal prints no stash command on a line of its own: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    else
+      ( cd "$SB_WORK" && bash -c "$cmd" ) >/dev/null 2>&1 || cf "($window) the printed command failed: $cmd"
+      rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+      [ "$rc" -eq 0 ] || cf "($window) after the printed command the re-run did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+    fi
+    teardown
+  done
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — archive-progress.sh: --apply CHECKS WHAT IT WILL WRITE BEFORE IT WRITES, AND AGREES WITH ITSELF
+# ABOUT THE INDEX HEADER. A read-only progress.md, an indented index header, and a --milestone with a
+# path separator each refuse with a Next and write nothing, including outside the history directory.
+# =============================================================================
+case_archive_progress_refuses_before_the_first_write() {
+  cf_reset
+  local L="archive-progress.sh --apply refuses a read-only progress.md, an indented index header and a milestone with a path separator, each with a Next and no chunk, no rewrite and nothing outside progress/history"
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a file read-only"; return; fi
+  make_sandbox
+  local R="$SB_TMP/apw" out rc
+  mkdir -p "$R/progress/history"
+  _ap_seed_small_log "$R"
+  printf '# rotation index\n\n| Chunk | Covers | Entries | Rotated | Cut |\n|---|---|---|---|---|\n' > "$R/progress/history/INDEX.md"
+  cp "$R/progress.md" "$SB_TMP/progress.before"
+  # (a) progress.md read-only
+  chmod 444 "$R/progress.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ro --keep-last 1 --apply 2>&1 )" || rc=$?
+  chmod 644 "$R/progress.md"
+  [ "$rc" -ne 0 ] || cf "(a) exited 0 although progress.md could not be rewritten"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(a) no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  [ ! -e "$R/progress/history/ro.md" ] || cf "(a) the chunk was written before the failure, so the re-run says chunk-exists"
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(a) progress.md changed"
+  # (b) an indented header: the precheck and the insert must agree
+  printf '# rotation index\n\n  | Chunk | Covers | Entries | Rotated | Cut |\n  |---|---|---|---|---|\n' > "$R/progress/history/INDEX.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ind --keep-last 1 --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an indented header passed the precheck: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F 'one row added' >/dev/null && cf "(b) said one row was added to an index it could not insert into"
+  [ ! -e "$R/progress/history/ind.md" ] || cf "(b) the chunk was written"
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(b) progress.md changed"
+  # (c) a milestone with a path separator
+  printf '# rotation index\n\n| Chunk | Covers | Entries | Rotated | Cut |\n|---|---|---|---|---|\n' > "$R/progress/history/INDEX.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ../../escaped --keep-last 1 --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a milestone with a path separator was accepted"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c) no Next: line"
+  [ ! -e "$R/escaped.md" ] || cf "(c) a file was written outside progress/history"
+  # (d) the control still rotates
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ok --keep-last 1 --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$R/progress/history/ok.md" ] || cf "(d) the control rotation failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
