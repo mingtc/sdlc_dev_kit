@@ -577,6 +577,19 @@ kwt_sync() {
   return 0
 }
 
+# kwt_commit <message> <what> — commit what the caller staged in $KWT. A refusal (the commit-msg hook, a
+# pre-commit gate) puts the worktree back as the sync left it and ends the op, so the half-done change is
+# not left staged for the next op to refuse over. <what> is the noun the Error line names ("the move").
+kwt_commit() {
+  local msg="$1" what="${2:-this change}"
+  if git -C "$KWT" commit -m "$msg" --quiet; then return 0; fi
+  git -C "$KWT" reset -q --hard HEAD >/dev/null 2>&1 || true
+  kit_refuse 1 kanban-commit-refused \
+    "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
+    "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
+    "Next: remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again."
+}
+
 # ---------------------------------------------------------------------------
 # Finalize: push the worktree's HEAD to the trunk, then keep the operator's
 # view / local branch ref current:

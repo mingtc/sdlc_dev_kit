@@ -556,7 +556,7 @@ drop_release_docs() {   # <source dir> <"tag"|"dist">
             from="$src/$path"
         fi
         if [ -f "$from" ]; then
-            cp "$from" "$to"
+            cp "$from" "$to" || return 1
             log "Refreshed ${label}: $to"
         else
             log "NOTE: this release carries no ${from#$src/} — skipping the ${label} drop."
@@ -575,11 +575,14 @@ vendor_from_dir() {  # <dir> <"tag"|"dist"> -> echoes the artifact filename
     # a stale artifact (./vendor/ gets the refusal in vendored_version()).
     art=$(printf '%s\n' "$arts" | head -1)
     name="${art##*/}"
-    mkdir -p "$VENDOR_DIR"
+    # EVERY STEP IS CHECKED BY HAND: the caller runs this inside an `if`, which turns `set -e` off here, so a
+    # failed write would otherwise fall through to the echo and the caller would pin an artifact that is not there.
+    mkdir -p "$VENDOR_DIR" || return 1
     # Remove older vendored artifacts so EXACTLY ONE is pinned.
-    rm -f "$VENDOR_DIR"/$ARTIFACT_GLOB
-    cp "$art" "$VENDOR_DIR/$name"
-    drop_release_docs "$src" "$mode"
+    rm -f "$VENDOR_DIR"/$ARTIFACT_GLOB || return 1
+    cp "$art" "$VENDOR_DIR/$name" || return 1
+    drop_release_docs "$src" "$mode" || return 1
+    [ -f "$VENDOR_DIR/$name" ] || return 1
     echo "$name"
 }
 

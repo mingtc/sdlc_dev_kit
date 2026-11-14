@@ -441,8 +441,8 @@ case "$CMD" in
 
     git -C "$KWT" add "$DEST"
     MSG="[$ROLE] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
-    git -C "$KWT" commit -m "$MSG" --quiet
-    echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
+    kwt_commit "$MSG" "the slice"
+    echo "Created:${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree; publishing to the trunk next."
     # THE RETURN IS CHECKED: a failed push must not exit 0 while the card is only a local
@@ -597,12 +597,13 @@ case "$CMD" in
     ENTRY="- ${TODAY} [${ROLE}] ${NOTE}"
     [ -n "$(tail -c1 "$DEST" 2>/dev/null)" ] && printf '\n' >> "$DEST"
     printf '%s\n' "$ENTRY" >> "$DEST"
-    echo "Moved: subtasks/${PARENT}/${SRC_FOLDER}/ → ${TARGET}/"
-    echo "File:  ${DEST#"$KWT"/}"
 
     git -C "$KWT" add "$DEST"
     MSG="[${ROLE}] ${ID} → ${TARGET}: ${NOTE}"
-    git -C "$KWT" commit -m "$MSG" --quiet
+    kwt_commit "$MSG" "the move"
+    # REPORTED ONLY NOW: a commit the hook refuses is put back, and a line saying it happened would be false.
+    echo "Moved: subtasks/${PARENT}/${SRC_FOLDER}/ → ${TARGET}/"
+    echo "File:  ${DEST#"$KWT"/}"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree; publishing to the trunk next."
     # THE RETURN IS CHECKED — same reason as the `new` arm above.

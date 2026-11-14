@@ -147,6 +147,24 @@ if [ "$LIST" = true ]; then
   exit 0
 fi
 
+# kit_check_writable <file> — refuse before the first write when <file> cannot be rewritten the way every
+# write below does it: a scratch file beside it, then a rename over it. Writes nothing.
+kit_check_writable() {
+  local f="$1" d; d="$(dirname "$f")"
+  if [ ! -w "$f" ] || [ ! -w "$d" ] || [ -d "$f.new" ]; then
+    kit_refuse 1 pin-write-unwritable \
+      "Error: $f cannot be rewritten ($( [ -d "$f.new" ] && echo "a directory is where its scratch file $f.new goes" || echo "it or its directory is not writable by this user" )). Nothing was changed." \
+      "Next: make $f and its directory writable (and remove anything at $f.new), then run the same command again."
+  fi
+}
+
+# kit_write_failed <file> — a write that was checked and failed anyway; earlier writes of this run stay.
+kit_write_failed() {
+  kit_refuse 1 pin-write-failed \
+    "Error: the rewrite of $1 failed, so the ladder and the pins may now disagree: the writes before it in this run are done, this one and the ones after it are not." \
+    "Next: fix what is named above, then run the same command again — it rewrites every file it names, so a second run leaves them agreeing."
+}
+
 # kit_check_pin <file> — refuse a pin file that is missing or does not already carry both keys,
 # rather than inventing frontmatter shape. Writes nothing.
 kit_check_pin() {
@@ -154,6 +172,7 @@ kit_check_pin() {
   [ -f "$f" ] || kit_refuse 1 pin-file-missing "Error: $f does not exist." "Next: restore $f (the class's leaf-worker definition under .claude/agents/) from version control or the release zip, then re-run."
   grep -qE '^model:' "$f" && grep -qE '^effort:' "$f" \
     || kit_refuse 1 pin-shape-unrecognised "Error: $f has no 'model:'/'effort:' frontmatter pair to rewrite." "Next: restore the 'model:' and 'effort:' frontmatter lines in $f from version control or the release zip, then re-run."
+  kit_check_writable "$f"
 }
 
 # kit_set_pin <file> — rewrite the model:/effort: frontmatter pair kit_check_pin accepted. THE KIT'S
@@ -166,7 +185,7 @@ kit_set_pin() {
     /^model:/  { print "model: " m;  next }
     /^effort:/ { print "effort: " e; next }
     { print }
-  ' "$f" > "$f.new" && mv "$f.new" "$f"
+  ' "$f" > "$f.new" && mv "$f.new" "$f" || kit_write_failed "$f"
   # Record what was written, so check-board.sh [s] can tell a later hand edit from this seam.
   kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT"
 }
@@ -175,6 +194,7 @@ kit_set_pin() {
 kit_check_ladder_row() {
   grep -qE "^\| \*\*${1}" "$ORCH_DOC" \
     || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${1}'." "Next: restore that row in $ORCH_DOC's § Model & effort contract table from version control or the release zip, then re-run."
+  kit_check_writable "$ORCH_DOC"
 }
 
 # kit_set_ladder_row <label> — rewrite orchestrator.md's row for <label>: the first backticked token
@@ -212,7 +232,7 @@ kit_set_ladder_row() {
       }
       print
     }
-  ' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC"
+  ' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC" || kit_write_failed "$ORCH_DOC"
 }
 
 # kit_check_runners — refuse a runner that is missing or has no fallback of the recognised shape.
@@ -223,6 +243,7 @@ kit_check_runners() {
     [ -f "$rf" ] || kit_refuse 1 runner-file-missing "Error: $rf does not exist." "Next: restore $rf from version control or the release zip, then re-run."
     grep -qE "defaultModel:.*\|\|" "$rf" && grep -qE "defaultEffort:.*\|\|" "$rf" \
       || kit_refuse 1 runner-shape-unrecognised "Error: $rf has no defaultModel/defaultEffort fallback of the recognised shape." "Next: restore its 'defaultModel:' and 'defaultEffort:' fallback lines from version control or the release zip, then re-run."
+    kit_check_writable "$rf"
   done
 }
 
@@ -252,7 +273,7 @@ kit_set_runners() {
         else if (index($0, "defaultEffort:") > 0 && index($0, "ARGS.defaultEffort") > 0) $0 = last_quoted_replace($0, e)
         print
       }
-    ' "$rf" > "$rf.new" && mv "$rf.new" "$rf"
+    ' "$rf" > "$rf.new" && mv "$rf.new" "$rf" || kit_write_failed "$rf"
   done
 }
 
@@ -285,7 +306,7 @@ kit_say_skipped() {
   for c in $SKIPPED; do
     label="$(kit_model_class_label "$c")"; pin="$(kit_model_class_pin "$c")"
     if awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { f = 1 } END { exit !f }' "$ORCH_DOC"; then
-      awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { next } { print }' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC"
+      awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { next } { print }' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC" || kit_write_failed "$ORCH_DOC"
       echo "set-models: ${c} skipped — ${pin} was removed from this project, so its blank ladder row was removed."
     else
       echo "set-models: ${c} skipped — ${pin} was removed from this project; its filled ladder row and pin are left as they are (delete the row by hand if the ladder should drop it)."

@@ -1113,7 +1113,8 @@ _kit_mod_disable_blockers() {
 # because history uses the role) and KIT_MOD_ROLES_KEPT (the tags). What is kept stays recorded, under a
 # `kept` line, so status can say whose it was. Idempotent.
 kit_mod_disable() {
-  local name="$1" rows="$KIT_MOD_TMP/rows" keptf="$KIT_MOD_TMP/kept-rows" ver kind sha tgt slot dst bid removed=0 gone=0 was=module blockers tag t
+  local name="$1" rows="$KIT_MOD_TMP/rows" keptf="$KIT_MOD_TMP/kept-rows" failf="$KIT_MOD_TMP/failed-rows" ver kind sha tgt slot dst bid removed=0 gone=0 was=module blockers tag t
+  local failed="" mbout
   KIT_MOD_TOUCHED=""; KIT_MOD_KEPT=""; KIT_MOD_ROLES_KEPT=""
   _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before the name is checked, as enable does: a run killed between the record's copy and its move leaves the copy, with no row naming it
   _kit_mod_need_name "$name"
@@ -1126,7 +1127,7 @@ kit_mod_disable() {
     "Next: install one, then re-run ./scripts/module.sh disable $name."
   if kit_mod_is_pending "$name" && ! kit_mod_is_enabled "$name"; then was=pending; ver="$(awk -v n="$name" '$1 == "pending" && $2 == n { print $3; exit }' "$(_kit_mod_state)")"
   else ver="$(kit_mod_enabled_version "$name")"; fi
-  kit_mod_rows_merged "$name" > "$rows"; : > "$keptf"
+  kit_mod_rows_merged "$name" > "$rows"; : > "$keptf"; : > "$failf"
   blockers="$(_kit_mod_disable_blockers "$rows" "$name")"
   [ -z "$blockers" ] || kit_refuse 1 module-disable-blocked \
     "Error: module $name cannot be disabled yet; a block it placed sits in a file that cannot be rewritten as it is:" \
@@ -1138,7 +1139,7 @@ kit_mod_disable() {
     dst="$KIT_MOD_ROOT/$tgt"
     _kit_mod_clean_strays "$tgt"
     if [ "$kind" = file ]; then
-      if [ ! -e "$dst" ]; then gone=$((gone + 1)); _kit_mod_prune "$tgt"; continue; fi
+      if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then gone=$((gone + 1)); _kit_mod_prune "$tgt"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_sha "$dst")" "$sha"; then
         sha="$(_kit_mod_sha "$dst")"
         # A role layer that history uses stays: [e] would flag every commit under the role without it.
@@ -1157,9 +1158,16 @@ ROLE_TAGS_EOF
             continue
           fi
         fi
-        rm -f "${dst:?}" && _kit_mod_prune "$tgt"
-        removed=$((removed + 1)); KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${tgt}
+        # A removal that fails is not counted, and its row stays on the record: the file still acts.
+        if rm -f "${dst:?}" && [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+          _kit_mod_prune "$tgt"
+          removed=$((removed + 1)); KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${tgt}
 "
+        else
+          failed="${failed}${tgt} (could not be removed)
+"
+          printf 'file %s %s\n' "$sha" "$tgt" >> "$failf"
+        fi
       else
         KIT_MOD_KEPT="${KIT_MOD_KEPT}${tgt}
 "
@@ -1169,9 +1177,16 @@ ROLE_TAGS_EOF
       bid="$(_kit_mod_bid "$name" "$slot")"
       if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); continue; fi
       if _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha"; then
-        kit_mb_remove "$dst" "$bid"
-        removed=$((removed + 1)); KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${tgt}
+        # In a subshell: its refusal speaks for the one file, and says NOTHING WAS CHANGED, which is not true
+        # of the run once other files have been removed.
+        if mbout="$( kit_mb_remove "$dst" "$bid" 2>&1 )"; then
+          removed=$((removed + 1)); KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${tgt}
 "
+        else
+          failed="${failed}${tgt} (block $name, slot $slot: $(printf '%s' "$mbout" | sed -n '1p' | cut -c1-200))
+"
+          printf 'block %s %s %s\n' "$(_kit_mod_block_sha "$dst" "$bid")" "$tgt" "$slot" >> "$failf"
+        fi
       else
         KIT_MOD_KEPT="${KIT_MOD_KEPT}${tgt} (block $name, slot $slot)
 "
@@ -1179,6 +1194,18 @@ ROLE_TAGS_EOF
       fi
     fi
   done < "$rows"
+  if [ -n "$failed" ]; then
+    # What could not be removed stays recorded as enabled, with the rows kept for an edit, so a re-run retries it.
+    cat "$keptf" >> "$failf"
+    _kit_mod_state_put "$name" "$ver" "$failf" module
+    KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${KIT_MOD_STATE_REL}
+"
+    kit_refuse 1 module-disable-incomplete \
+      "Error: module $name was only partly disabled: $removed file(s) and block(s) were removed, and these could not be:" \
+      "$(printf '%s' "$failed" | sed 's/^/    /')" \
+      "  They still act, and $KIT_MOD_STATE_REL still records $name as enabled with exactly these rows." \
+      "Next: make each path above writable (and clear any immutable flag), then run ./scripts/module.sh disable $name again; what was removed stays removed."
+  fi
   if [ -s "$keptf" ]; then _kit_mod_state_put "$name" "$ver" "$keptf" kept; else _kit_mod_state_put "$name" "" /dev/null; fi
   KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${KIT_MOD_STATE_REL}
 "

@@ -350,6 +350,14 @@ case_archive_progress_refuses_before_the_first_write() {
   [ "$rc" -ne 0 ] || cf "(c) a milestone with a path separator was accepted"
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c) no Next: line"
   [ ! -e "$R/escaped.md" ] || cf "(c) a file was written outside progress/history"
+  # (c2) the last file to be staged cannot be: the chunk and the log are not touched either
+  mkdir "$R/progress/history/INDEX.md.new"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone stg --keep-last 1 --apply 2>&1 )" || rc=$?
+  rmdir "$R/progress/history/INDEX.md.new"
+  [ "$rc" -ne 0 ] || cf "(c2) exited 0 although the index could not be staged"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c2) no Next: line"
+  [ ! -e "$R/progress/history/stg.md" ] || cf "(c2) the chunk was written before the index was staged, so the re-run says chunk-exists"
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(c2) progress.md was rewritten before the index was staged"
   # (d) the control still rotates
   rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone ok --keep-last 1 --apply 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] && [ -s "$R/progress/history/ok.md" ] || cf "(d) the control rotation failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"

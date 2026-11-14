@@ -349,6 +349,14 @@ PF_STATUS=1
 if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
 fi
+# THE SHIPPED PLACEHOLDER IS NOT A PREFIX: the census skips a value equal to it, so the stamp would change nothing
+# and the self-check would fail after the commit. Read from the seam, never typed here.
+if [ -n "$PREFIX" ] && [ -f "$ROOT/scripts/config.sh" ]; then
+  _shipped_prefix="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$ROOT/scripts/config.sh" | head -1)"
+  if [ -n "$_shipped_prefix" ] && [ "$PREFIX" = "$_shipped_prefix" ]; then
+    pf "--prefix '$PREFIX' is the placeholder the kit ships, so stamping it would change nothing and the self-check would fail after the commit. Choose your project's own prefix (e.g. --prefix XYZ)."
+  fi
+fi
 # THE SAME RULE FOR --prd-prefix: the hygiene instruments derive their PRD id pattern
 # (`[A-Za-z0-9]+`) from it, so a prefix outside that class makes them silently miss PRD ids.
 if [ -n "$PRD_PREFIX_NEW" ] && ! printf '%s' "$PRD_PREFIX_NEW" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
@@ -486,7 +494,12 @@ if [ -n "$TRUNK" ] && [ "$CUR_BRANCH" != "$TRUNK" ]; then
   pft "this checkout is on '${CUR_BRANCH:-a detached HEAD}', not the trunk '$TRUNK' — initialize from the trunk (the board lives there)."
 fi
 if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null || true)" ]; then
-  pf "this checkout has uncommitted changes to TRACKED files — commit or stash them; kit-init commits the tree it initializes."
+  if [ -e "$ROOT/scripts/config.sh.bak" ]; then
+    pf "this checkout holds a kit-init run that was cut off before it finished (scripts/config.sh.bak is its leftover). Do not commit it — set it aside, then run kit-init again:
+        git stash push --include-untracked -m 'kit-init half-run'"
+  else
+    pf "this checkout has uncommitted changes to TRACKED files — commit or stash them; kit-init commits the tree it initializes."
+  fi
 fi
 
 # --- the kit itself must be COMMITTED: no shipped path on disk and untracked ---
@@ -585,6 +598,18 @@ if command -v kit_lived_signals >/dev/null 2>&1 && [ -n "${KIT_STATUS_FOLDERS:-}
       archive\|*) LIVED+=("ARCHIVE.md indexes ${rec#archive|} archived line(s)") ;;
     esac
   done < <(kit_lived_signals "$ROOT" "$STAMP_MARK" "${STATUS_FOLDERS[@]}")
+fi
+
+# A STAMP THAT IS ONLY IN THE WORKING TREE is a run that was cut off before its commit: no initialization commit exists
+# to revert, and the way out is to set the half-run aside.
+if [ ${#LIVED[@]} -eq 1 ] && [ "${LIVED[0]#scripts/config.sh: }" != "${LIVED[0]}" ] \
+   && ! git -C "$ROOT" show HEAD:scripts/config.sh 2>/dev/null | grep -F -- "$STAMP_MARK" >/dev/null; then
+  kit_refuse 1 repository-half-initialized \
+    "✗ kit-init REFUSES: scripts/config.sh carries kit-init's stamp, but no commit does — an earlier run was cut off before it committed." \
+    "" \
+    "  NOTHING WAS WRITTEN. There is no resume path, and there is no initialization commit to revert; the half-stamped files are only in this working tree." \
+    "Next: set them aside, then run kit-init again with the arguments you gave before:" \
+    "        git stash push --include-untracked -m 'kit-init half-run'"
 fi
 
 if [ ${#LIVED[@]} -gt 0 ]; then
@@ -1058,9 +1083,14 @@ for d in "${BOARD_FOLDERS[@]}"; do
   # board, and move-issue.sh ABORTS on a missing target folder.
   [ -e "$ROOT/progress/$d/.gitkeep" ] || : > "$ROOT/progress/$d/.gitkeep"
 done
-KEEPS="$(find "$ROOT/progress" -name .gitkeep | wc -l | tr -d ' ')"
+# THE BOARD'S OWN FILES ARE COUNTED, one per board folder: a .gitkeep the project keeps deeper under progress/
+# is the project's, and counting it failed this run after it had stamped.
+KEEPS=0
+for d in "${BOARD_FOLDERS[@]}"; do
+  [ ! -f "$ROOT/progress/$d/.gitkeep" ] || KEEPS=$((KEEPS + 1))
+done
 if [ "$KEEPS" -ne "$GITKEEP_EXPECTED" ]; then
-  echo "Error: expected $GITKEEP_EXPECTED .gitkeep files under progress/, found $KEEPS." >&2; exit 1   # exit-class: internal
+  echo "Error: expected $GITKEEP_EXPECTED .gitkeep files, one in each board folder under progress/, found $KEEPS." >&2; exit 1   # exit-class: internal
 fi
 say "  progress/: ${#BOARD_FOLDERS[@]} folders, ${KEEPS}/${GITKEEP_EXPECTED} .gitkeep files ✓"
 

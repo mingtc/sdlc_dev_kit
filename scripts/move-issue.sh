@@ -676,16 +676,6 @@ if [ -n "$(tail -c1 "$DEST" 2>/dev/null)" ]; then
 fi
 printf '%s\n' "$ENTRY" >> "$DEST"
 
-if [ "$NOTE_ONLY" -eq 1 ]; then
-  # NO from→to LINE, because nothing moved. Printing one would be the tool
-  # asserting a transition it did not perform (contracts/board-mover.md § 4).
-  echo "Recorded (no move): ${ISSUE_ID} stays in progress/${SRC_FOLDER}/"
-else
-  echo "Moved: progress/${SRC_FOLDER}/ → progress/${TARGET}/"
-fi
-echo "File:  ${DEST#"$KWT"/}"
-echo "Entry: ${ENTRY}"
-
 # --set-pr: persist the PR/MR reference into the moved file's `pr:` frontmatter, AFTER
 # kwt_sync's reset --hard and inside $KWT, so it lands in the same commit. Idempotent; only
 # the FIRST `^pr:` line is rewritten, and any trailing comment on it is dropped.
@@ -717,7 +707,17 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
 else
   MSG="[${ROLE}] ${ISSUE_ID} → ${TARGET}: ${NOTE}"
 fi
-git -C "$KWT" commit -m "$MSG" --quiet
+kwt_commit "$MSG" "the move"
+# REPORTED ONLY NOW: a commit the hook refuses is put back, and a line saying it happened would be false.
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  # NO from→to LINE, because nothing moved. Printing one would be the tool
+  # asserting a transition it did not perform (contracts/board-mover.md § 4).
+  echo "Recorded (no move): ${ISSUE_ID} stays in progress/${SRC_FOLDER}/"
+else
+  echo "Moved: progress/${SRC_FOLDER}/ → progress/${TARGET}/"
+fi
+echo "File:  ${DEST#"$KWT"/}"
+echo "Entry: ${ENTRY}"
 # Local first; published after the push, whose rebase can replace this sha.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} — made locally in the kanban worktree; publishing to the trunk next."

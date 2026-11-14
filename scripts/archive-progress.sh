@@ -120,6 +120,14 @@ fi
   "Error: --milestone <name> is required." \
   "Next: re-run with  --milestone <name>  (the chunk's name under progress/history/)."
 
+# THE MILESTONE NAMES A FILE UNDER progress/history/: a path separator would write the chunk somewhere else.
+case "$MILESTONE" in
+  */*|*\\*|.|..)
+    kit_refuse 1 milestone-not-a-name \
+      "Error: --milestone '$MILESTONE' must be a plain name — no '/' or backslash, and not '.' or '..' — because it becomes progress/history/<name>.md. Nothing was written." \
+      "Next: re-run with a name such as  --milestone 2026-q1." ;;
+esac
+
 # EXACTLY ONE KNIFE PER RUN. Both is a caller who has named two different cuts
 # and cannot be given both; neither leaves nothing to cut by.
 if [ -n "$BEFORE" ] && [ -n "$KEEP_LAST" ]; then
@@ -193,6 +201,16 @@ INDEX="$HISTORY_DIR/INDEX.md"
   || kit_refuse 1 lived-probe-missing \
        "Error: scripts/lib/lived-probe.sh is missing or declares no KIT_LOG_HEADING_ERE — it declares the '## Log' heading this script splits on. Nothing was written." \
        "Next: restore scripts/lib/lived-probe.sh (git checkout -- scripts/lib/lived-probe.sh), then re-run."
+# EVERYTHING --apply WRITES MUST BE WRITABLE, asked before the first write (the tag, the chunk, the index): a run
+# that fails on the last one leaves a chunk the re-run then refuses as existing.
+if [ "$DRY_RUN" != "true" ]; then
+  for _wt in "$PROGRESS" "$HISTORY_DIR" "$INDEX"; do
+    [ -e "$_wt" ] || continue
+    [ -w "$_wt" ] || kit_refuse 1 archive-target-unwritable \
+      "Error: ${_wt#"$REPO_ROOT"/} is not writable by this user, and --apply rewrites it. Nothing was written." \
+      "Next: make it writable (chmod u+w '${_wt#"$REPO_ROOT"/}'), then re-run."
+  done
+fi
 # A MISSING INDEX (archive-sweep.md § 3: a new empty index reads as "nothing was ever
 # archived"). Chunks present -> REFUSE: the rows carry spans only the adopter can supply.
 # No chunks -> CREATE, loudly: the empty index is then true, and an unconditional refusal
@@ -414,7 +432,9 @@ IDX_SEP='|---|---|---|---|---|'
 # Checked BEFORE any write, so a refusal leaves the log and the chunk as they were. A dry run
 # with no index skips it: --apply creates one with this header.
 if [ -f "$INDEX" ]; then
-  _idx_hdr_line="$(grep -nF -m1 "$IDX_HEADER" "$INDEX" | cut -d: -f1 || true)"
+  # AT THE START OF THE LINE, the way the insert below finds it: a header indented or quoted passed the
+  # precheck and then took no row.
+  _idx_hdr_line="$(awk -v h="$IDX_HEADER" 'index($0, h) == 1 { print NR; exit }' "$INDEX" || true)"
   if [ -z "$_idx_hdr_line" ]; then
     # REFUSE rather than append at a guess: the one document that must stay ordered
     # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
@@ -477,7 +497,18 @@ if [ "$DO_TAG" = "true" ]; then
   fi
 fi
 
-# Write the chunk: header + pre entries (exact original content)
+# EVERY FILE IS BUILT BESIDE ITS TARGET FIRST AND RENAMED INTO PLACE AFTER: a full disk or a kill while one is
+# being written leaves the real files as they were, never a truncated log whose only other copy is a temp file
+# this script's exit removes. The three renames at the end are the only writes to the real files.
+CHUNK_NEW="$CHUNK.new"; PROGRESS_NEW="$PROGRESS.new"; INDEX_NEW="$INDEX.new"
+kit_on_exit 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP" "$TAIL_TMP" "$CHUNK_NEW" "$PROGRESS_NEW" "$INDEX_NEW"'
+_ap_stage_failed() {  # <file>
+  kit_refuse 1 archive-stage-failed \
+    "Error: could not write ${1#"$REPO_ROOT"/} (the reason is printed above). Nothing was changed: the chunk, progress.md and the index are as they were." \
+    "Next: fix what is named above (free space, permissions), then re-run the same command."
+}
+
+# Stage the chunk: header + pre entries (exact original content)
 {
   echo "---"
   # UTC with an explicit Z: an INSTANT. The Rotated column below is a local calendar DAY.
@@ -487,10 +518,10 @@ fi
   echo "---"
   echo ""
   cat "$PRE_TMP"
-} > "$CHUNK"
+} > "$CHUNK_NEW" || _ap_stage_failed "$CHUNK"
 
-# Rewrite progress.md: preamble + post entries + whatever followed § Log
-cat "$PREAMBLE_TMP" "$POST_TMP" "$TAIL_TMP" > "$PROGRESS"
+# Stage progress.md: preamble + post entries + whatever followed § Log
+{ cp -p "$PROGRESS" "$PROGRESS_NEW" && cat "$PREAMBLE_TMP" "$POST_TMP" "$TAIL_TMP" > "$PROGRESS_NEW"; } || _ap_stage_failed "$PROGRESS"
 
 # INDEX THE CHUNK (the running log rotates on the same preserve-and-index rules as the board
 # sweep; lookup-tables.md § A.6). The span is DERIVED from the chunk's own content, not from
@@ -505,10 +536,18 @@ if [ -n "$KEEP_LAST" ]; then CUT_DESC="\`--keep-last $KEEP_LAST\`"; else CUT_DES
 IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date +%Y-%m-%d) | $CUT_DESC |"
 
 # Append DIRECTLY BELOW the header row, newest first, rewriting no existing row.
+cp -p "$INDEX" "$INDEX_NEW" || _ap_stage_failed "$INDEX"
 awk -v hdr="$IDX_HEADER" -v row="$IDX_ROW" '
   { print }
   index($0, hdr) == 1 && !done { getline sep; print sep; print row; done = 1 }
-' "$INDEX" > "$INDEX.tmp" && mv "$INDEX.tmp" "$INDEX"
+' "$INDEX" > "$INDEX_NEW" || _ap_stage_failed "$INDEX"
+
+# The renames. Chunk first: a kill between them leaves an unindexed chunk and an unrotated log, which the
+# re-run refuses as chunk-exists with the Next that names it, never a log with its entries gone.
+mv "$CHUNK_NEW" "$CHUNK" && mv "$PROGRESS_NEW" "$PROGRESS" && mv "$INDEX_NEW" "$INDEX" \
+  || kit_refuse 1 archive-rename-failed \
+       "Error: a rename into place failed (the reason is printed above); the files renamed before it are done, the others are as they were." \
+       "Next: look at  ls progress/history/  and  git status progress.md progress/history  — if the chunk ${CHUNK#"$REPO_ROOT"/} exists and progress.md still holds its entries, delete the chunk and re-run; otherwise fix what is named above and re-run."
 
 echo ""
 echo "Done. Wrote:"

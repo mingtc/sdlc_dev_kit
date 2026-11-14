@@ -132,6 +132,17 @@ done
 [ -n "$MSG" ]  || { echo "Error: --message is required." >&2; usage >&2; exit 2; }
 [ ${#PATHS[@]} -gt 0 ] || { echo "Error: at least one <path> is required." >&2; usage >&2; exit 2; }
 
+# A PATH IS RELATIVE TO THE CHECKOUT'S ROOT AND STAYS INSIDE IT: one that climbs out (a `..` part) or
+# starts at `/` would be copied to a place outside the kanban worktree before git refused it.
+for rel in "${PATHS[@]}"; do
+  case "/$rel/" in
+    //*|*/../*)
+      kit_refuse 1 register-path-outside-project \
+        "Error: '$rel' is not a path inside the project — it starts at / or climbs out with '..'. Nothing was changed." \
+        "Next: name the path relative to your checkout's root, without '..', and re-run." ;;
+  esac
+done
+
 # Derived by lib/role-set.sh kit_role_resolve; this literal is only its stamped default (see
 # there) — SAME SHAPE move-issue.sh uses, validated BEFORE the worktree is touched: an
 # unvalidated role would otherwise reach the commit subject and the hook would reject it
@@ -340,7 +351,39 @@ for rel in "${PATHS[@]}"; do
   fi
 done
 
+# The same for what a copy or an add would trip over, which a path-exists test cannot see: a directory, a
+# file this user cannot read, a path the trunk's .gitignore covers. Asked here, before the first copy.
+for rel in "${PATHS[@]}"; do
+  src="$CALLER_ROOT/$rel"
+  [ -e "$src" ] || continue
+  if [ -d "$src" ]; then
+    kit_refuse 1 register-path-is-directory \
+      "Error: '$rel' is a directory — this script lands files, one path each. Nothing was changed on the trunk." \
+      "Next: name the files inside it that you changed, then re-run."
+  fi
+  if [ ! -r "$src" ]; then
+    kit_refuse 1 register-path-unreadable \
+      "Error: '$rel' cannot be read by this user, so it cannot be copied. Nothing was changed on the trunk." \
+      "Next: make it readable (chmod u+r '$rel'), then re-run."
+  fi
+  if git -C "$KWT" check-ignore -q --no-index -- "$rel" 2>/dev/null && ! git -C "$KWT" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1; then
+    kit_refuse 1 register-path-ignored \
+      "Error: '$rel' is covered by a .gitignore rule on the trunk, so git will not stage it. Nothing was changed on the trunk." \
+      "Next: drop '$rel' from this call, or un-ignore it on the trunk first (git check-ignore -v '$rel' names the rule), then re-run."
+  fi
+done
+
+# A REFUSAL AFTER THE FIRST PATH IS STAGED PUTS THE WORKTREE BACK AS THE SYNC LEFT IT, the way the role check
+# below does: every other board op refuses a worktree that holds staged changes.
 CHANGED=()
+_rc_rollback() {
+  local r
+  for r in ${CHANGED[@]+"${CHANGED[@]}"}; do
+    # LITERAL pathspecs: a name like docs/[a].md is a glob to git, and would match a tracked sibling.
+    GIT_LITERAL_PATHSPECS=1 git -C "$KWT" reset -q -- "$r" >/dev/null 2>&1 || true
+    GIT_LITERAL_PATHSPECS=1 git -C "$KWT" checkout -q -- "$r" >/dev/null 2>&1 || rm -f "$KWT/$r"
+  done
+}
 for rel in "${PATHS[@]}"; do
   src="$CALLER_ROOT/$rel"
   dst="$KWT/$rel"
@@ -348,14 +391,24 @@ for rel in "${PATHS[@]}"; do
     if [ -f "$dst" ] && cmp -s "$src" "$dst" 2>/dev/null; then
       continue   # identical — nothing to carry for this path
     fi
-    mkdir -p "$(dirname "$dst")"
-    cp "$src" "$dst"
-    git -C "$KWT" add -- "$rel"
-    CHANGED+=("$rel")
+    CHANGED+=("$rel")   # before the copy, so a copy that dies half-way is undone with the rest
+    if ! { mkdir -p "$(dirname "$dst")" && cp "$src" "$dst" && git -C "$KWT" add -- "$rel"; }; then
+      _rc_rollback
+      kit_refuse 1 register-stage-failed \
+        "Error: could not stage '$rel' in the kanban worktree (the reason is printed above)." \
+        "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
+        "Next: fix what is named above, or drop '$rel' from this call, then re-run."
+    fi
   else
     # Absent from the caller, present on the trunk → a deletion.
-    git -C "$KWT" rm -q -- "$rel"
     CHANGED+=("$rel")
+    if ! git -C "$KWT" rm -q -- "$rel"; then
+      _rc_rollback
+      kit_refuse 1 register-stage-failed \
+        "Error: could not stage the deletion of '$rel' in the kanban worktree (the reason is printed above)." \
+        "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
+        "Next: fix what is named above, or drop '$rel' from this call, then re-run."
+    fi
   fi
 done
 
@@ -373,30 +426,26 @@ if command -v kit_require_role_on_trunk >/dev/null 2>&1; then
   _rc_chk=0
   ( kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "--role $ROLE" ) || _rc_chk=$?
   if [ "$_rc_chk" -ne 0 ]; then
-    for rel in "${CHANGED[@]}"; do
-      # LITERAL pathspecs: a name like docs/[a].md is a glob to git, and would match a tracked sibling.
-      GIT_LITERAL_PATHSPECS=1 git -C "$KWT" reset -q -- "$rel" >/dev/null 2>&1 || true
-      GIT_LITERAL_PATHSPECS=1 git -C "$KWT" checkout -q -- "$rel" >/dev/null 2>&1 || rm -f "$KWT/$rel"
-    done
+    _rc_rollback
     exit "$_rc_chk"   # exit-class: internal
   fi
 fi
 
 if [ -n "$TAGGED" ]; then MESSAGE="$MSG"; else MESSAGE="[${ROLE}] ${MSG}"; fi
-git -C "$KWT" commit -m "$MESSAGE" --quiet
+kwt_commit "$MESSAGE" "the landing"
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} — made locally in the kanban worktree; publishing to the trunk next."
 echo "Paths:  ${CHANGED[*]}"
 
+# A push failure AFTER the local commit is FATAL, same as move-issue.sh: propagate it rather
+# than reporting success on a commit that never reached the remote.
+kwt_finalize || exit 1   # exit-class: internal
+# THE RECORD, AFTER THE PUSH: it can only describe something that reached the trunk.
 # paths= must be ONE TOKEN (progress-record.md § Reserved extra keys' "collapsed to one token"
 # rule applies to every extra, not only the reserved ones — the record is read back by splitting
 # on spaces): comma-joined, never CHANGED[*]'s space-joined form.
 _paths_tok="$(IFS=,; echo "${CHANGED[*]}")"
 kit_progress "register-commit.sh" status "landed ${#CHANGED[@]} metadata path(s) as ${ROLE}" "paths=${_paths_tok}" >/dev/null 2>&1 || true
-
-# A push failure AFTER the local commit is FATAL, same as move-issue.sh: propagate it rather
-# than reporting success on a commit that never reached the remote.
-kwt_finalize || exit 1   # exit-class: internal
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MESSAGE}\""
 # Your checkout still holds the edited copy of each path: name the ones git sees as modified or
 # untracked, because a later pull is refused for them until the copy is discarded.
