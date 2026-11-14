@@ -2154,6 +2154,8 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   _vl_run; [ "$rc" -eq 0 ] || cf "(h) the line fails a row with prose between the pointer and its quote, which the gate allows (exit $rc)"
   perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 "index" |/m' "$slc"
   _vl_run; [ "$rc" -eq 1 ] || cf "(i) the line passes a row whose quote is under the floor, which the gate does not count (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 "`aa` `b`" |/m' "$slc"
+  _vl_run; [ "$rc" -eq 1 ] || cf "(j) the line counts the backticks of a quote the gate reads without them, so a quote under the floor passes (exit $rc)"
   finish "$L"
   teardown
 }
