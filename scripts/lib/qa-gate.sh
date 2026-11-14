@@ -25,7 +25,8 @@
 #     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
-#     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only the other kinds (nothing the
+#     per AC id. At least one AC row must be an observed row (process/contracts/landing-gate.md § 3: a `test`/`file:line`
+#     row, or a row of another kind with a resolving path:line and a quote found on it), so a table with none (nothing the
 #     gate can re-read) is refused, whether or not a cell check (scripts/qa-cell.d/<kind>/) passed one of its rows. Refuses through
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
@@ -591,7 +592,7 @@ kit_qa_verdict_check() {
   local _qav_artifact_bad="" _qav_artifact_malformed="" _qav_name_bad="" _qav_dir_bad="" _qav_kinds
   local _qav_body _qav_ac_ids _qav_rows
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
-  local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
+  local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0 _qav_unread=""
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
   local _qav_cell_dir=0 _qav_cell_bad="" _qav_cell_broken="" _qav_cell_res _qav_cell_next="" _qav_cell_bnext=""
 
@@ -708,13 +709,18 @@ kit_qa_verdict_check() {
           Q)
             if [ -z "$_qav_wants_quote" ]; then
               # A row of another kind needs no quote, but one that follows a pointer that resolves and is on its
-              # line, as long as a file:line quote is, is a line the gate re-read: the row is an observed row.
-              _qav_quote="$(_qav_squeeze "$_qav_ev_rest")"
-              if [ "$_qav_cur_state" = OK ] \
-                 && { [ "${#_qav_quote}" -ge "$KIT_QAV_MIN_QUOTE" ] \
-                      || [ "$(_qav_range_text "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi")" = "$_qav_quote" ]; } \
-                 && _qav_quote_in_range "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi" "$_qav_quote"; then
-                _qav_read_line=1
+              # range, held to the floor of a file:line quote, is a line the gate re-read: the row is an observed row.
+              # A quote that fails is not itself refused; it is listed if the table then has no observed row.
+              if [ "$_qav_cur_state" = OK ]; then
+                _qav_quote="$(_qav_squeeze "$_qav_ev_rest")"
+                if [ "${#_qav_quote}" -lt "$KIT_QAV_MIN_QUOTE" ] \
+                   && [ "$(_qav_range_text "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi")" != "$_qav_quote" ]; then
+                  _qav_unread="${_qav_unread}${_qav_unread:+, }${_qid} (${_qav_cur} \"${_qav_quote}\": shorter than ${KIT_QAV_MIN_QUOTE} characters)"
+                elif _qav_quote_in_range "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi" "$_qav_quote"; then
+                  _qav_read_line=1
+                else
+                  _qav_unread="${_qav_unread}${_qav_unread:+, }${_qid} (${_qav_cur} \"${_qav_quote}\": not found at ${_qav_cur%%:*}:${_qav_cur_lo}-${_qav_cur_hi})"
+                fi
               fi
               continue
             fi
@@ -888,7 +894,8 @@ kit_qa_verdict_check() {
       "       and its quote; a passing qa-cell check does not stand in for one." \
       "       Give an AC row a test or file:line pointer with a verbatim quote, or end a row of another kind with the path:line of the code that shows the AC met and a verbatim quote of it, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \
-      "Next: read the line that shows the behaviour of one AC and cite it, with a quote of eight characters or more found on that line: as the pointer of a test or file:line row, or after the existing pointer of a row of another kind (the pointer cell may end '; <path>:<line> \"<quote>\"'); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      ${_qav_unread:+"       Quoted pointers in rows of another kind that did not count: ${_qav_unread}."} \
+      "Next: read the line that shows the behaviour of one AC and cite it, with a quote of the length qa.md step 4 gives, found on that line: as the pointer of a test or file:line row, or after the existing pointer of a row of another kind (the pointer cell may end '; <path>:<line> \"<quote>\"'); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

@@ -92,7 +92,7 @@ one list of them**; each point's contract is stated once, in the sheet it cites.
 |---|---|---|---|
 | `role: <Tag> [text]` | a role to the set | `process/roles.d/<name>` | `scripts/lib/role-set.sh`, so the commit-msg hook, the board scripts and `check-board.sh` agree; [`EXTRACTION.md`](EXTRACTION.md) § 2.4 |
 | `arm: <source> -> NN-<name>.sh` | a drift-report arm; it declares itself `advisory` or `deciding` | `scripts/check-board.d/NN-<name>.sh` | `check-board.sh`; [`contracts/drift-report.md`](contracts/drift-report.md) § 5 |
-| `evidence-kind: <kind> [text]` | a QA evidence kind, pointer-only (a `qa-cell:` check judges its row; the landing still needs a `test` or `file:line` row) | `process/evidence-kinds.d/<name>` | `kit_qa_evidence_kinds`, on the trunk; [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3 |
+| `evidence-kind: <kind> [text]` | a QA evidence kind, pointer-only (a `qa-cell:` check judges its row; the landing still needs an observed row, [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3) | `process/evidence-kinds.d/<name>` | `kit_qa_evidence_kinds`, on the trunk; [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3 |
 | `qa-cell: <source> -> <kind>/NN-<name>.sh` | a check on each PASS row of that kind | `scripts/qa-cell.d/<kind>/NN-<name>.sh` | the QA gate, from the trunk; [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3 |
 | `move-check: <source> -> <status folder>/NN-<name>.sh` | a check before a card moves to that folder | `scripts/move-check.d/<status folder>/NN-<name>.sh` | the board mover, the landing script, `subtask.sh` and the archive sweep, from the trunk; [`contracts/board-mover.md`](contracts/board-mover.md) § 3 |
 | `fragment: <PRD\|ISSUE> <mode> <source>` | text minted into every new PRD or card; `<mode>` is `frontmatter`, `body-end` or `slot-<slot>` | `process/fragments.d/<template>/<name>.<mode>` | `new-prd.sh` and `new-issue.sh`; [`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 |
@@ -182,7 +182,7 @@ is the template; `modules/example/` is the module to copy.
 - A manifest key a newer kit adds is refused by an older kit's `module.sh`.
 - Placed files are tracked in `process/MODULES`, not in `process/KIT-MANIFEST`: tools that ask which scripts the
   kit ships do not see a script a module placed.
-- An evidence kind a module adds is pointer-only: the gate reads no quote from it, so it has nothing to re-read. A `qa-cell:` check of that kind is what judges it; its pass is not an observed row, so the landing still needs a `test`/`file:line` row or a row of that kind ending in a quoted, resolving `path:line` ([`contracts/landing-gate.md`](contracts/landing-gate.md) § 3), and a card whose every AC is of that kind with neither is refused.
+- An evidence kind a module adds is pointer-only: the gate reads no quote from it, so it has nothing to re-read. A `qa-cell:` check of that kind is what judges it; its pass is not an observed row, so a card whose every AC is of that kind, with no row of the kinds [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3 names as observed, is refused.
 - `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
   `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
   an Action required entry.

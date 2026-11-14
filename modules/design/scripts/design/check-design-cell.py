@@ -126,8 +126,8 @@ def registry_at(repo, rev):
 
 
 def without_pointers(cell):
-    """The design cell with any `path:line "quote"` pointer taken out: what the design checks judge."""
-    return re.sub(r'(?:;\s*)+;', ';', re.sub(r'\s+', ' ', POINTER.sub(' ', cell))).strip(' ;,')
+    """The design cell as the QA gate hands it over (backticks gone) with any `path:line "quote"` pointer taken out: what the design checks judge."""
+    return re.sub(r'(?:;\s*)+;', ';', re.sub(r'\s+', ' ', POINTER.sub(' ', cell.replace('`', '')))).strip(' ;,')
 
 
 def judge_cell(repo, trunk, card_id, ac, cell, text):

@@ -92,10 +92,10 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 - The item's `## QA Verdict` table is missing, has a row whose verdict is not one of the four
   tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve, a `test` row's `path:"name"` whose name does not occur exactly once in the file, a pointer
   to the card's own file (in any board column, `progress/<status>/`: the card records the review, it is not the content reviewed),
-  a pointer with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
+  a pointer with no quote of its own, a quote shorter than eight characters (unless it is the cited range's
   whole text) or not on the line its own pointer cites (backticks ignored on both sides; a pointer's
   quotes are the first after it and each that follows the previous with only whitespace or `;`
-  between; `\"` inside a quote reads as a double quote), no observed row (no `test` or `file:line` row, and no row of another kind whose cell has a `path:line` that resolves followed by a quote of eight characters or more found on that line, or the whole line: every row one of the kinds `kit_qa_evidence_kinds` in `scripts/lib/qa-gate.sh` reads, other than `test` and `file:line`, with none such; a cell check that passed a row of another kind does not stand in for one, and a quote that does not match counts for nothing and is not itself refused), an `artifact` row (a file committed on the trunk, cited as `<path> <full blob sha>`) whose path is not that blob on the trunk — it is read there, never on the branch — no
+  between; `\"` inside a quote reads as a double quote), no observed row (no `test` or `file:line` row, and no row of another kind whose cell has a `path:line` that resolves and, after it, a quote that clears the length floor above and is found on the cited range: every row one of the kinds `kit_qa_evidence_kinds` in `scripts/lib/qa-gate.sh` reads, other than `test` and `file:line`, with none such; a cell check that passed a row of another kind does not stand in for one. A quote in a row of another kind is read for this count only: one that fails counts for nothing and is not itself refused, and the refusal lists it), an `artifact` row (a file committed on the trunk, cited as `<path> <full blob sha>`) whose path is not that blob on the trunk — it is read there, never on the branch — no
   filled `shadow-check` row, two rows for one AC id, or AC ids
   that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
   row and, for a quote, its pointer. The board move into the reviewed state runs the same check on an
@@ -121,7 +121,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   saying what clears it, as a move check does ([`board-mover.md`](board-mover.md) § 3). The refusal
   quotes up to twenty of the other lines, each whole, and leads its own `Next:` with that step; a
   check that prints none gets the gate's generic step. A check only adds refusals: every check above has already run, and
-  a failing row is refused whole without being handed to one. A pass adds nothing either: the row is judged, and the table still needs one `test` or `file:line` row the gate re-read.
+  a failing row is refused whole without being handed to one. A pass adds nothing either: the row is judged, and the table still needs an observed row (above).
 - The item's `forks:` field (which reads `D-NN` registers only; a register declared with another id shape is
   not read here) is missing, is neither `none` nor a bracketed list of register ids,
   names an id that is no live register entry (on the branch or on the trunk, where a ruling can land after the branch is cut), omits a fork the branch's own diff shows or that a

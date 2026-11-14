@@ -1751,6 +1751,11 @@ case_qa_evidence_kind_sentences_cite_the_declaration() {
     ! grep -qE "ran and passed|whose .?qa-cell|check that passes makes|counts as the .test./.file:line. row" "$r/$f" \
       || cf "$f still says a row whose qa-cell check passed counts as the test or file:line row, which the landing no longer reads"
   done
+  # the observed row is stated once, in landing-gate.md § 3, and the sentences that cite it do not say only a test or file:line row counts
+  for f in process/contracts/landing-gate.md process/MODULES.md scripts/lib/qa-gate.sh; do
+    ! grep -qE 'still needs (one|a) .test. or .file:line. row|must be a .test./.file:line. row' "$r/$f" \
+      || cf "$f still says the landing needs a test or file:line row, where a row of another kind with a quoted resolving path:line is observed too"
+  done
   finish "README and the four card templates cite kit_qa_evidence_kinds and its built-in declaration lists the artifact kind, qa.md lets a row list every <path> sha pair and states the dispatched-leg ruling, qa-worker.md allows citing an artifact row, and dev.md no longer says 'the evidence directory'"
 }
 

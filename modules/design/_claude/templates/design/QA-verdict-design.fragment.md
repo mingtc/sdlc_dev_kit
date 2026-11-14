@@ -20,10 +20,10 @@ The pointer is one cell, holding one entry per pinned state (a further cell is r
 - Write the pointer so no `word:number` appears other than a real `path:line`: the gate reads every one as a path.
 - The design row is not an observed row on its own: the landing needs one `test` or `file:line` row, or a row that ends with a pointer
   the gate re-reads. A card or slice whose only AC is `(UI)` has one row, so end its `design` cell with `; <path>:<line> "<quote>"`,
-  the code that shows the AC met and a verbatim quote of it, eight characters or more, found on that line:
+  the code that shows the AC met and a verbatim quote of it, as `qa.md` step 4 asks for a `file:line` quote:
 
 ```
 | AC1 | PASS | design | UX-001#<state>@<pin>: identical; dev/evidence/<PREFIX>-NNN/UX-001-<state>-pin.png, dev/evidence/<PREFIX>-NNN/UX-001-<state>-build.png; src/list.css:14 "gap: var(--space-12)" |
 ```
 
-  The design checks read the cell without that pointer. A `path:line` that does not resolve is refused as in any row.
+  The design checks read the cell without that pointer. A `path:line` that does not resolve is refused as in any row. The row's quote is read only to count the row as observed: a quote that is not on the line, or too short, is not refused, it counts for nothing, and when the table then has no observed row the refusal lists it.
