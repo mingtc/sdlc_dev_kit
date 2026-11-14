@@ -912,6 +912,10 @@ CASES=(
   case_kit_init_names_the_recovery_from_a_run_cut_off_before_its_commit
   case_archive_progress_refuses_before_the_first_write
   case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_writes
+  case_register_commit_refuses_a_path_spelled_non_canonically
+  case_the_movers_refuse_a_bare_prefix_for_an_issue_id
+  case_an_issue_id_is_its_integer_not_its_spelling
+  case_a_heading_id_ends_at_the_same_place_in_every_reader
   case_ship_state
   case_isolation
 )
