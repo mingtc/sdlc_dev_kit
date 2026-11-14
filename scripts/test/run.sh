@@ -905,6 +905,7 @@ CASES=(
   case_kit_init_does_not_fail_after_stamping_on_what_the_preflight_could_see
   case_kit_init_names_the_recovery_from_a_run_cut_off_before_its_commit
   case_archive_progress_refuses_before_the_first_write
+  case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_writes
   case_ship_state
   case_isolation
 )

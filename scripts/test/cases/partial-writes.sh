@@ -273,6 +273,16 @@ case_kit_init_does_not_fail_after_stamping_on_what_the_preflight_could_see() {
   printf '%s\n' "$out" | grep -F 'NOTHING WAS WRITTEN' >/dev/null || cf "(a) the refusal does not say nothing was written: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head" ] || cf "(a) HEAD moved on a refused run"
   [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(a) the tree changed on a refused run: $(git -C "$SB_WORK" status --porcelain | tr '\n' '|')"
+  # (a2) the stamp phrase in the MIDDLE of a committed comment is not the stamp: the prefix is still refused
+  printf "# note: the line '%s on <date>' is what kit-init writes\n" "$KIT_STAMP_MARK" >> "$SB_WORK/scripts/config.sh"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "a comment that quotes the stamp" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  head="$(git -C "$SB_WORK" rev-parse HEAD)"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix "$shipped" --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a2) --prefix $shipped was accepted over a comment that quotes the stamp"
+  printf '%s\n' "$out" | grep -F 'placeholder the kit ships' >/dev/null || cf "(a2) the shipped prefix was not refused as the placeholder: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head" ] || cf "(a2) HEAD moved on a refused run"
   # (b) a stray .gitkeep of the project's own, committed.
   mkdir -p "$SB_WORK/progress/todo/parked"
   : > "$SB_WORK/progress/todo/parked/.gitkeep"
@@ -401,6 +411,7 @@ case_register_commit_refuses_a_path_through_a_link() {
   ln -s docs "$SB_WORK/dl"
   ln -s ../other "$SB_WORK/lnk"
   printf 'USER\n' > "$SB_WORK/other/x"
+  ln -s a.md "$SB_WORK/docs/f.md"
   publish_sandbox
   printf 'USER\nmore\n' > "$SB_TMP/other/x"   # what the caller's own lnk/x holds
   printf 'two\n' >> "$SB_WORK/docs/a.md"
@@ -415,8 +426,65 @@ case_register_commit_refuses_a_path_through_a_link() {
     [ "$(cat "$SB_WORK/other/x")" = USER ] || cf "($via) the file the link leads to was changed or deleted"
     [ -f "$SB_WORK/docs/a.md" ] || cf "($via) docs/a.md was deleted"
   done
+  # (delete) a tracked link is removed by naming it once it is gone from the checkout; nothing it leads to is touched
+  rm -f "$SB_WORK/docs/f.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "delete a link" docs/f.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(delete) deleting a tracked link was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ -z "$(git -C "$SB_ORIGIN" ls-tree "$SB_TRUNK" -- docs/f.md)" ] || cf "(delete) the link is still on the trunk"
+  [ "$(git -C "$SB_ORIGIN" show "$SB_TRUNK:docs/a.md")" = one ] || cf "(delete) the file the link led to changed on the trunk"
   rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "control" docs/a.md 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) a later call was stuck (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — archive-progress.sh FINDS A CUT-OFF ROTATION ON EVERY RUN, AND THE ROW IT PRINTS IS THE ROW A ROTATION WRITES.
+# The state a kill leaves after the log's rename is built from a real rotation. The printed row's Covers, Entries
+# and Cut equal the real row's. A grown log and another milestone do not lose the unindexed chunk. A chunk whose
+# entries are still in the log (a kill after the chunk's rename) is refused with the command that deletes it.
+# =============================================================================
+case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_writes() {
+  cf_reset
+  local L="archive-progress.sh refuses a chunk the index lacks on every run, prints the row a real rotation writes, and names the delete for a chunk whose entries are still in the log"
+  make_sandbox
+  local R="$SB_TMP/apk" R2="$SB_TMP/apk2" R3="$SB_TMP/apk3" out rc real printed a b
+  local hdr='# idx\n\n| Chunk | Covers | Entries | Rotated | Cut |\n|---|---|---|---|---|\n'
+  local d
+  for d in "$R" "$R2" "$R3"; do
+    mkdir -p "$d/progress/history"
+    { echo "# progress.md"; echo ""; echo "## Log"; echo ""
+      for n in 1 2 3 4 5 6; do echo "## 2026-08-0$n [Dev] e$n"; echo "body"; echo ""; done
+    } > "$d/progress.md"
+    printf "$hdr" > "$d/progress/history/INDEX.md"
+  done
+  # the real rotation
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R2" --milestone q3 --keep-last 2 --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "${FUNCNAME[0]}: the real rotation failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  real="$(grep -F 'q3.md' "$R2/progress/history/INDEX.md" | head -1)"
+  # the state a kill after the log's rename leaves: the rotated log, the chunk, the index as it was
+  cp "$R2/progress.md" "$R/progress.md"; cp "$R2/progress/history/q3.md" "$R/progress/history/q3.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone later --keep-last 5 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) the cut-off rotation was reported as nothing to do"
+  printed="$(printf '%s\n' "$out" | grep -F '| [`q3.md`]' | head -1)"
+  [ -n "$printed" ] || cf "(a) no index row printed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  for a in 3 4 6; do
+    b="$(printf '%s' "$real" | awk -F'|' -v f=$a '{ gsub(/^ +| +$/, "", $f); print $f }')"
+    c="$(printf '%s' "$printed" | awk -F'|' -v f=$a '{ gsub(/^ +| +$/, "", $f); print $f }')"
+    [ "$b" = "$c" ] || cf "(a) column $a of the printed row is [$c], a real rotation writes [$b]"
+  done
+  # a grown log and another milestone: the chunk is still found
+  { echo "## 2026-08-07 [Dev] e7"; echo "body"; echo ""; } >> "$R/progress.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone q5 --keep-last 2 --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a rotation ran over an unindexed chunk"
+  printf '%s\n' "$out" | grep -F 'q3.md' >/dev/null || cf "(b) the refusal does not name q3.md"
+  [ ! -e "$R/progress/history/q5.md" ] || cf "(b) a second chunk was written over the unindexed one"
+  # a kill after the chunk's rename: the entries are still in the log
+  cp "$R2/progress/history/q3.md" "$R3/progress/history/q3.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R3" --milestone other --keep-last 2 --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a rotation ran over a chunk whose entries are still in the log"
+  printf '%s\n' "$out" | grep -F "rm 'progress/history/q3.md'" >/dev/null || cf "(c) no delete command: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ ! -e "$R3/progress/history/other.md" ] || cf "(c) a duplicate chunk was written"
   finish "$L"
   teardown
 }
