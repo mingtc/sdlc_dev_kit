@@ -221,6 +221,7 @@ ISSUE_ID="${1:-}"
 case "$ISSUE_ID" in
   -*) echo "Error: '$ISSUE_ID' is not an issue id — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
 esac
+kit_require_issue_id "$ISSUE_ID" "<issue-id>"
 shift
 
 BRANCH=""; NOTE=""; NOTE_GIVEN=false; DRY_RUN=false; DISCARD_DIRTY=false; WORKTREE=""
@@ -314,10 +315,18 @@ kwt_sync
 kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
 
 # Find the issue file in dev_complete/ inside the kanban worktree.
-SRC=""
+SRC=""; _fpr_matches=()
 while IFS= read -r f; do
-  SRC="$f"
-done < <(find "$KWT/progress/dev_complete" -maxdepth 1 -name "${ISSUE_ID}-*.md" -type f 2>/dev/null)
+  _fpr_matches+=("$f")
+done < <(find "$KWT/progress/dev_complete" -maxdepth 1 -name "${ISSUE_ID}-*.md" -type f 2>/dev/null | sort)
+# One id names one card: two files for it is a board fault to clear, not a choice for this script to make.
+if [ ${#_fpr_matches[@]} -gt 1 ]; then
+  kit_refuse 1 card-id-ambiguous \
+    "Error: multiple files match ${ISSUE_ID}-*.md in progress/dev_complete/:" \
+    "$(printf '  %s\n' "${_fpr_matches[@]#"$KWT"/}")" \
+    "Next: one id must name one card — keep the real card and renumber or remove the other on the trunk (./scripts/check-board.sh names duplicate ids), then re-run."
+fi
+[ ${#_fpr_matches[@]} -eq 0 ] || SRC="${_fpr_matches[0]}"
 
 if [ -z "$SRC" ]; then
   # Name the column the card IS in (process/contracts/landing-gate.md § 3): each has its own next step.

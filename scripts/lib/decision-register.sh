@@ -74,12 +74,14 @@ kit_prd_surface() {
 #   Echoes, one per line, every id matching <heading-mark><id-shape> at line start. <heading-mark>
 #   and <id-shape> are the register's own declared shape (REGISTERS in check-board.sh), never
 #   re-typed by a caller.
+# An id ends at a space or the end of the line, the same place the entry cutter (board-properties.sh
+# _bp_entry_spans) ends it: `### D-08: title` is no entry to either, and check-board [d] names it.
 # ALWAYS RETURNS 0: "no id found" is a legitimate answer (an empty or day-one-blank register),
 # never a failure a `pipefail` caller should abort on.
 kit_decision_register_live() {
   local file="$1" mark="$2" shape="$3"
   [ -f "$file" ] || return 0
-  grep -oE "^${mark}${shape}" "$file" 2>/dev/null | sed "s|^${mark}||" || true
+  grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | grep -oE "^${mark}${shape}" | sed "s|^${mark}||" || true
 }
 
 # kit_decision_register_retired <file> <id-shape>

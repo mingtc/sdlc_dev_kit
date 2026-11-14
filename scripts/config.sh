@@ -171,6 +171,19 @@ kit_trunk_ref() {
     git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )   # exit-class: internal  # card-read-exempt: the trunk, not a card branch
 }
 
+# kit_first_card_numbered <number> — reads paths on stdin and prints the first whose file name is
+# <ISSUE_PREFIX>-<digits>-….md with those digits equal to <number> as an integer (<number> carries no
+# leading zero). The one place an id's width is ignored; validate_issue_id reads it.
+kit_first_card_numbered() {
+  awk -v p="$ISSUE_PREFIX" -v n="$1" '
+    { b = $0; sub(".*/", "", b)
+      if (index(b, p "-") != 1) next
+      r = substr(b, length(p) + 2)
+      if (!match(r, /^[0-9]+-.*\.md$/)) next
+      d = r; sub(/-.*$/, "", d); sub(/^0+/, "", d); if (d == "") d = "0"
+      if (d == n && !done) { print; done = 1 } }'
+}
+
 # validate_issue_id "$ID" "$ROOT" — validate a caller-supplied id and check collisions
 # (read-only). The creation scripts are STATELESS: the caller picks the number (typically via
 # ./scripts/next-id.sh) and passes --id. Uses ISSUE_PREFIX. A malformed id returns non-0 (a usage
@@ -188,21 +201,27 @@ validate_issue_id() {
     echo "Error: --id '$id' must look like ${ISSUE_PREFIX}-NNN." >&2
     return 1
   fi
-  # Hard collision: this id is already a live file anywhere under progress/ — here, or on the
+  # AN ID IS ITS INTEGER: ABC-1, ABC-001 and ABC-0001 are one number (next-id.sh compares integers), so
+  # the collision checks below compare the number, never the spelling.
+  local num="${id#"${ISSUE_PREFIX}"-}" spelled=""
+  num="${num#"${num%%[!0]*}"}"; num="${num:-0}"
+  # Hard collision: this number is already a live card file anywhere under progress/ — here, or on the
   # trunk, which a branch cut before a mint there cannot see.
-  existing="$(find "$root/progress" -type f -name "${id}-*.md" 2>/dev/null | head -1)"
+  existing="$(find "$root/progress" -type f -name "${ISSUE_PREFIX}-*.md" 2>/dev/null | kit_first_card_numbered "$num")"
   if [ -n "$existing" ]; then
+    case "${existing##*/}" in "${id}-"*) ;; *) spelled=" (the same number, spelled differently)" ;; esac
     kit_refuse 1 issue-id-taken \
-      "Error: ${id} already exists at ${existing#"$root"/}." \
+      "Error: ${id} already exists at ${existing#"$root"/}${spelled}." \
       "Next: take a free id:  ./scripts/next-id.sh  (then sanity-check it), and re-run with --id <that id>."
   fi
-  local ref rc=0 idre="(^|[^A-Za-z0-9])${id}([^0-9]|\$)"
+  local ref rc=0 idre="(^|[^A-Za-z0-9])${ISSUE_PREFIX}-0*${num}([^0-9]|\$)"
   ref="$(kit_trunk_ref "$root")" || rc=$?
   if [ "$rc" -eq 0 ]; then
-    existing="$(git -C "$root" ls-tree -r --name-only "refs/remotes/$ref" -- progress 2>/dev/null | grep -E "/${id}-[^/]*\.md\$" || true)"
+    existing="$(git -C "$root" ls-tree -r --name-only "refs/remotes/$ref" -- progress 2>/dev/null | kit_first_card_numbered "$num")"
     if [ -n "$existing" ]; then
+      case "${existing##*/}" in "${id}-"*) ;; *) spelled=" (the same number, spelled differently)" ;; esac
       kit_refuse 1 issue-id-taken \
-        "Error: ${id} already exists on $ref (as last fetched) at ${existing%%$'\n'*} — not yet in this checkout." \
+        "Error: ${id} already exists on $ref (as last fetched) at ${existing%%$'\n'*}${spelled} — not yet in this checkout." \
         "Next: take a free id:  ./scripts/next-id.sh  (then sanity-check it), and re-run with --id <that id>."
     fi
   fi

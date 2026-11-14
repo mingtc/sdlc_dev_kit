@@ -132,14 +132,20 @@ done
 [ -n "$MSG" ]  || { echo "Error: --message is required." >&2; usage >&2; exit 2; }
 [ ${#PATHS[@]} -gt 0 ] || { echo "Error: at least one <path> is required." >&2; usage >&2; exit 2; }
 
-# A PATH IS RELATIVE TO THE CHECKOUT'S ROOT AND STAYS INSIDE IT: one that climbs out (a `..` part) or
-# starts at `/` would be copied to a place outside the kanban worktree before git refused it.
+# A PATH IS RELATIVE TO THE CHECKOUT'S ROOT, STAYS INSIDE IT, AND IS SPELLED ONE WAY. One that climbs out
+# (a `..` part) or starts at `/` would be copied to a place outside the kanban worktree before git refused
+# it; one with a `.` part or a `//` names a file the guards below compare as typed, so `./progress/…` or
+# `progress//…` would pass a check the plain spelling fails. Refused, not rewritten.
 for rel in "${PATHS[@]}"; do
-  case "/$rel/" in
+  case "/${rel%/}/" in
     //*|*/../*)
       kit_refuse 1 register-path-outside-project \
         "Error: '$rel' is not a path inside the project — it starts at / or has a '..' part. Nothing was changed." \
         "Next: name the path relative to your checkout's root, without '..', and re-run." ;;
+    *//*|*/./*)
+      kit_refuse 1 register-path-not-canonical \
+        "Error: '$rel' is not spelled canonically — it has a '.' part or a '//', and the checks below compare paths as typed, so another spelling of a guarded path would skip them. Nothing was changed." \
+        "Next: name the path from your checkout's root with single slashes and no '.' part (progress/todo/<card>.md, not ./progress/todo/<card>.md) and re-run." ;;
   esac
 done
 

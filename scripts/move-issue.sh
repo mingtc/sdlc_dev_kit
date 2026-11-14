@@ -280,6 +280,7 @@ esac
 if [ $# -lt 2 ]; then usage >&2; exit 1; fi
 
 ISSUE_ID="$1"; shift
+kit_require_issue_id "$ISSUE_ID" "<issue-id>"
 
 # THE TARGET IS POSITIONAL AND OPTIONAL, because --note-only is a DIFFERENT
 # OPERATION rather than a move with a missing argument: it records without

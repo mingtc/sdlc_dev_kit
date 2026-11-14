@@ -101,3 +101,15 @@ kit_refuse() {
   fi
   exit "$status"
 }
+
+# kit_require_issue_id <id> <what> — refuse (usage, exit 2) an <id> that is not one card's full id:
+# letters, a dash, digits (check-board.sh's ISSUE_ID_PATTERN). A bare prefix, or an id with text after
+# its number, would match more than the card named, because the board lookups read `<id>-*.md`.
+# <what> names the argument in the message. It exits, so call it outside $( … ).
+kit_require_issue_id() {
+  [[ "$1" =~ ^[A-Za-z]+-[0-9]+$ ]] && return 0
+  kit_refuse 2 issue-id-malformed \
+    "Error: '$1' is not an issue id — $2 takes one card's full id: letters, a dash, then digits (for example ABC-012)." \
+    "       A bare prefix, or an id with more after its number, would match other cards. Nothing was read or changed." \
+    "Next: name the card by its full id (ls progress/*/ lists them) and re-run."
+}

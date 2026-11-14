@@ -316,6 +316,8 @@ case "$CMD" in
            "Error: '$PARENT' is a subtask id — decompose its parent instead. NOTHING WAS CHANGED." \
            "Next: re-run naming the issue as the parent: ./scripts/subtask.sh new ${PARENT%-s*} <suffix> <slug> --title \"…\"." ;;
     esac
+    # AND A FULL ID: the parent lookup below reads `${PARENT}-*.md`, so a bare prefix matches the first card listed.
+    kit_require_issue_id "$PARENT" "<PARENT-ID>"
 
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
     # so the create lands on the current <remote>/<trunk> tip.

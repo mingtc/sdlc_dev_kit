@@ -170,6 +170,11 @@ kit_bp_ids() {
     d_out="$(_bp_awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" \
                  -v root="$tree/" -v dq='"' -v sq="'" '
       function short(p) { s = p; sub("^" root, "", s); return s }
+      function norm(x,  i, d) {
+        i = match(x, /-[0-9]+$/); if (!i) return x
+        d = substr(x, i + 1); sub(/^0+/, "", d); if (d == "") d = "0"
+        return substr(x, 1, i) d
+      }
       FNR == 1 { n++; path[n] = FILENAME; val[n] = ""; inf = 0; closed = 0; got = 0 }
       # The OPENING fence: the first bare `---` within the first `scan` lines. It is
       # deliberately not required on line 1: a card minted from a template carries an HTML
@@ -202,9 +207,10 @@ kit_bp_ids() {
           if (fid != "" && v != fid) {
             printf "d:disagree:%s\t    ⚠ %s: frontmatter %s: %s DISAGREES with its filename prefix %s — one of the two is wrong; make them match (rename the file, or correct the frontmatter — whichever is the stray)\n", short(path[i]), short(path[i]), key, v, fid
           }
-          seen[v] = seen[v] ", " short(path[i])
-          count[v]++
-          order[++m] = v
+          k = norm(v)    # an id is its integer: X-1, X-01 and X-001 are one number
+          seen[k] = seen[k] ", " short(path[i])
+          count[k]++
+          order[++m] = k
         }
         for (j = 1; j <= m; j++) {
           v = order[j]
@@ -235,7 +241,13 @@ kit_bp_ids() {
       reg_skipped=$((reg_skipped+1)); continue
     fi
     # Every id in the file, in the order the file happens to hold them.
-    reg_ids="$(grep -oE "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | sed "s|^${reg_mark}||" || true)"
+    # A heading that opens like an entry but whose id runs into other text (`### D-08: title`) is read
+    # by no arm; named here so it is not silently absent from every count below.
+    while IFS= read -r e; do
+      [ -n "$e" ] || continue
+      _bp_hit "    ⚠ $reg_path: heading '${e:0:80}' — its id is followed by something other than a space or the end of the line, so no arm reads it as an entry; put a space after the id" "d:regboundary:$reg_path:$e"
+    done <<< "$(grep -E "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | grep -vE "^${reg_mark}${reg_shape}([[:space:]]|\$)" || true)"
+    reg_ids="$(kit_decision_register_live "$reg_file" "$reg_mark" "$reg_shape")"
     if [ -z "$reg_ids" ]; then
       # "0 entry headings" must be falsifiable: look for the id shape anywhere and say which.
       if grep -qE "$reg_shape" "$reg_file" 2>/dev/null; then
