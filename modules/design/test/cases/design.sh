@@ -2100,11 +2100,23 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-858" in_progress
   nf="$(_seed_subtask "$SB_PREFIX-858" s1 dev_complete twostate "A slice of one UI AC citing two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $nev/UX-001-default-pin.png, $nev/UX-001-default-build.png; ARCHIVE.md:1 \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$nf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $nev/UX-001-default-pin.png, $nev/UX-001-default-build.png; ARCHIVE.md:1 \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$nf"
   _dm_land "a slice citing two states, the second spelled only inside a quote"
   trunk_n="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
   out="$( bash "$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh" "$nid" dev_complete qa_complete QA "$nf" "$SB_WORK" "$trunk_n" 2>&1 </dev/null )"; rc=$?
-  { [ "$rc" -eq 3 ] && _dm_has "$out" "no entry for UX-001#empty"; } || cf "(n) an entry spelled inside a pointer's quote stands for the state the AC cites (status $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  { [ "$rc" -eq 3 ] && _dm_has "$out" "no entry for UX-001#empty" && _dm_has "$out" "the card pins UX-001#empty, and no design row"; } || cf "(n) an entry spelled inside a pointer's quote stands for a state the AC cites, or one the card pins (status $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  # (p) the cell check reads the cell without the pointer wherever it stands: a pointer before the images lands as one after them
+  local pid="$SB_PREFIX-859-s1" pf pev
+  pev="dev/evidence/$pid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  _seed_parent "$SB_PREFIX-859" in_progress
+  pf="$(_seed_subtask "$SB_PREFIX-859" s1 dev_complete midptr "A slice of one UI AC with the pointer before the images")"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $ptr; $pev/UX-001-default-pin.png, $pev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$pf"
+  _dm_png "$SB_WORK/$pev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$pev/UX-001-default-build.png" BUILD
+  _dm_land "a slice of one UI AC, its pointer before the images"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-p" ./scripts/subtask.sh move "$pid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-859/qa_complete/$pid-midptr.md"; } || cf "(p) a design row with its pointer before the images does not land (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
   finish "$L"
   teardown
 }
