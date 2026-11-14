@@ -581,7 +581,7 @@ kwt_sync() {
 # pre-commit gate) resets the WHOLE board worktree to its HEAD (`reset --hard`; untracked files stay) and ends the
 # op, so the half-done change is not left staged for the next op to refuse over. That is safe because the sync
 # refused tracked changes at the start and the lock excludes other ops; a hand edit made in the worktree during
-# the op is lost. <what> is the noun the Error line names ("the move"); <next> replaces the default Next text.
+# the op is lost. <what> is the noun the Error line names ("the move"); <next> (text only, no "Next:") replaces the default.
 kwt_commit() {
   local msg="$1" what="${2:-this change}" nxt="${3:-}"
   if git -C "$KWT" commit -m "$msg" --quiet; then return 0; fi
@@ -589,7 +589,7 @@ kwt_commit() {
     kit_refuse 1 kanban-commit-refused \
       "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
       "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
-      "${nxt:-Next: remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again.}"
+      "Next: ${nxt:-remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again.}"
   fi
   kit_refuse 1 kanban-commit-refused \
     "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \

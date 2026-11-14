@@ -732,7 +732,7 @@ if git -C "$KWT" diff --cached --quiet 2>/dev/null; then
     "Next: if '${BRANCH}' was already merged, delete the stale branch by hand (git branch -D '${BRANCH}') and advance the card with ./scripts/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note \"<what the review found>\"; if it should carry changes, send ${ISSUE_ID} back to Dev."
 fi
 
-kwt_commit "$SQUASH_MSG" "the squash" "Next: the branch's own content is what was refused (a hook names the staged path, for example a hat file the branch committed): fix it on '${BRANCH}', push the branch, then run finish-pr.sh again. ${ISSUE_ID} stays in dev_complete/."
+kwt_commit "$SQUASH_MSG" "the squash" "the branch's own content is what was refused (a hook names the staged path, for example a hat file the branch committed): fix it on '${BRANCH}', push the branch, then run finish-pr.sh again. ${ISSUE_ID} stays in dev_complete/."
 # Two lines, the second after the push: a push race rebases and remakes the commit, so the
 # local sha is not yet the published one.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
