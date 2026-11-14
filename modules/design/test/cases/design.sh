@@ -2117,6 +2117,29 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   _dm_land "a slice of one UI AC, its pointer before the images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-p" ./scripts/subtask.sh move "$pid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-859/qa_complete/$pid-midptr.md"; } || cf "(p) a design row with its pointer before the images does not land (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
+  # (q) a pointer in backticks is taken out as the gate takes it out: an entry spelled in its quote is no entry
+  local qid="$SB_PREFIX-860-s1" qf qtrunk
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  _seed_parent "$SB_PREFIX-860" in_progress
+  qf="$(_seed_subtask "$SB_PREFIX-860" s1 dev_complete tick "A slice citing two states, the pointer in backticks")"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; dev/evidence/$qid/UX-001-default-pin.png, dev/evidence/$qid/UX-001-default-build.png; \`ARCHIVE.md:1\` \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$qf"
+  _dm_land "a slice citing two states, the second spelled only inside the quote of a backticked pointer"
+  qtrunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  out="$( bash "$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh" "$qid" dev_complete qa_complete QA "$qf" "$SB_WORK" "$qtrunk" 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -eq 3 ] && _dm_has "$out" "no entry for UX-001#empty"; } || cf "(q) an entry spelled inside the quote of a backticked pointer stands for a state the AC cites (status $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
+  # (r) a design row whose quote is not on its line is not refused for it, counts for nothing, and the refusal for the missing observed row lists it; the fragment says so
+  local rid="$SB_PREFIX-861-s1" rf rev
+  rev="dev/evidence/$rid"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  _seed_parent "$SB_PREFIX-861" in_progress
+  rf="$(_seed_subtask "$SB_PREFIX-861" s1 dev_complete wrongq "A slice of one UI AC whose pointer quote is not on its line")"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $rev/UX-001-default-pin.png, $rev/UX-001-default-build.png; ARCHIVE.md:1 \"a quote the line does not hold\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$rf"
+  _dm_png "$SB_WORK/$rev/UX-001-default-pin.png" LIST
+  _dm_png "$SB_WORK/$rev/UX-001-default-build.png" BUILD
+  _dm_land "a slice of one UI AC, its pointer quote not on the line"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-r" ./scripts/subtask.sh move "$rid" qa_complete 2>&1 </dev/null )"; rc=$?
+  { [ "$rc" -ne 0 ] && _dm_has "$out" "did not count" && _dm_has "$out" "not found at ARCHIVE.md:1-1" && ! origin_has_path "progress/subtasks/$SB_PREFIX-861/qa_complete/$rid-wrongq.md"; } || cf "(r) a design row whose quote is not on its line is not refused with the quote listed (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 700)"
+  _dm_has "$(cat "$SB_WORK/.claude/templates/design/QA-verdict-design.fragment.md" 2>/dev/null)" "counts for nothing" || cf "(r) the QA fragment does not say a quote that is not found counts for nothing"
   finish "$L"
   teardown
 }

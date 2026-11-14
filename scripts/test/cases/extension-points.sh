@@ -2013,8 +2013,9 @@ case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enable
 
 # =============================================================================
 # CASE — A PASS ROW WHOSE CELL CHECK RAN AND PASSED IS NOT THE OBSERVED ROW THE LANDING NEEDS.
-#   The landing needs one `test`/`file:line` row, a row the gate can re-read. A kind a module adds is pointer-only: a cell check
-#   (scripts/qa-cell.d/<kind>/) judges its row, but a pass is no line the gate re-read, so a table of only such rows is refused as
+#   The landing needs an observed row, one the gate re-read a line for: a `test`/`file:line` row, or a row of another kind with a
+#   quoted resolving path:line (the next case). A kind a module adds is pointer-only: a cell check (scripts/qa-cell.d/<kind>/)
+#   judges its row, but a pass is no line the gate re-read, so a table of only such rows, with no pointer, is refused as
 #   qa-verdict-no-observed whatever the check says, and the refusal says a test or file:line row is owed.
 # =============================================================================
 case_a_pass_row_whose_cell_check_passed_is_not_the_observed_row() {
@@ -2085,9 +2086,21 @@ exit 0
   _qc_gate "$card"
   { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(c) a quote that is not on the line counts as the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
   case "$_qc_out" in *"quotes a path:line"*|*"quote a path:line"*) ;; *) cf "(c) the refusal does not say a quoted path:line counts: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_qc_out" in *"did not count"*"AC1 (ARCHIVE.md:1 \"a quote the line does not hold\": not found at ARCHIVE.md:1-1)"*) ;; *) cf "(c) the refusal does not list the row and say its quote is not on the range: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-600)" ;; esac
   _qa_row 'ARCHIVE.md:1 "index"'
   _qc_gate "$card"
   { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(d) a quote under eight characters counts as the observed row (exit $_qc_rc)"
+  case "$_qc_out" in *"did not count"*"AC1 (ARCHIVE.md:1 \"index\": shorter than 8 characters)"*) ;; *) cf "(d) the refusal does not list the row and say its quote is too short: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-600)" ;; esac
+  _qa_row 'ARCHIVE.md:1'
+  _qc_gate "$card"
+  case "$_qc_out" in *"did not count"*) cf "(e) the refusal lists a row that has no quote" ;; esac
+  _qa_row 'ARCHIVE.md:1 "condensed index of completed issues"'
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | `ARCHIVE.md:1` "condensed index of completed issues" |/m' "$card"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(h) a backticked pointer followed by its quote is not the observed row (exit $_qc_rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 is where it says "condensed index of completed issues" |/m' "$card"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(i) a pointer, prose, then its quote is not the observed row (exit $_qc_rc)"
   _qa_row 'ARCHIVE.md:1'
   _qc_gate "$card"
   { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(e) a path:line with no quote counts as the observed row (exit $_qc_rc)"
@@ -2134,6 +2147,13 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   _vl_run; [ "$rc" -eq 1 ] || cf "(e) the line passes a slice whose only AC row is of an added kind (exit $rc)"
   perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 "condensed index of completed issues" |/m' "$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress/$SB_PREFIX-871-s1-cellrule.md"
   _vl_run; [ "$rc" -eq 0 ] || cf "(f) the line fails a slice whose only AC row is of an added kind that quotes a path:line (exit $rc)"
+  local slc="$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress/$SB_PREFIX-871-s1-cellrule.md"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | `ARCHIVE.md:1` "condensed index of completed issues" |/m' "$slc"
+  _vl_run; [ "$rc" -eq 0 ] || cf "(g) the line fails a row whose pointer is in backticks, which the gate strips (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 is where it says "condensed index of completed issues" |/m' "$slc"
+  _vl_run; [ "$rc" -eq 0 ] || cf "(h) the line fails a row with prose between the pointer and its quote, which the gate allows (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 "index" |/m' "$slc"
+  _vl_run; [ "$rc" -eq 1 ] || cf "(i) the line passes a row whose quote is under the floor, which the gate does not count (exit $rc)"
   finish "$L"
   teardown
 }
