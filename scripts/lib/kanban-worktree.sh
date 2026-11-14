@@ -577,17 +577,24 @@ kwt_sync() {
   return 0
 }
 
-# kwt_commit <message> <what> — commit what the caller staged in $KWT. A refusal (the commit-msg hook, a
-# pre-commit gate) puts the worktree back as the sync left it and ends the op, so the half-done change is
-# not left staged for the next op to refuse over. <what> is the noun the Error line names ("the move").
+# kwt_commit <message> <what> [<next>] — commit what the caller staged in $KWT. A refusal (the commit-msg hook, a
+# pre-commit gate) resets the WHOLE board worktree to its HEAD (`reset --hard`; untracked files stay) and ends the
+# op, so the half-done change is not left staged for the next op to refuse over. That is safe because the sync
+# refused tracked changes at the start and the lock excludes other ops; a hand edit made in the worktree during
+# the op is lost. <what> is the noun the Error line names ("the move"); <next> replaces the default Next text.
 kwt_commit() {
-  local msg="$1" what="${2:-this change}"
+  local msg="$1" what="${2:-this change}" nxt="${3:-}"
   if git -C "$KWT" commit -m "$msg" --quiet; then return 0; fi
-  git -C "$KWT" reset -q --hard HEAD >/dev/null 2>&1 || true
+  if git -C "$KWT" reset -q --hard HEAD >/dev/null 2>&1; then
+    kit_refuse 1 kanban-commit-refused \
+      "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
+      "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
+      "${nxt:-Next: remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again.}"
+  fi
   kit_refuse 1 kanban-commit-refused \
     "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
-    "       The kanban worktree was put back as the sync left it; nothing was changed on the trunk." \
-    "Next: remove what the refusal named (a tool trailer, a bad role prefix, a note the commit-msg hook rejects), then run the same command again."
+    "       The kanban worktree could NOT be put back: it still holds the staged change, and every board op refuses until it is cleared." \
+    "Next: git -C '$KWT' reset --hard HEAD   # then fix what the refusal named and run the same command again"
 }
 
 # ---------------------------------------------------------------------------

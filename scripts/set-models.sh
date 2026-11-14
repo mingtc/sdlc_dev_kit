@@ -30,7 +30,9 @@
 # --list           print the classes the ladder declares, and exit. Read-only.
 # -h, --help       this text.
 #
-# Every file it will write is checked before the first write, so a refusal changes nothing.
+# Every file it will write is checked for shape and writability before the first write, so those refusals change
+# nothing. A write that fails anyway (a full disk) refuses as pin-write-failed and names the writes already made;
+# the same command run again rewrites every file and leaves them agreeing.
 #
 # Each pin file it writes is also recorded in .claude/model-pins.record; check-board.sh [s] compares
 # the pins with the ladder, and with that record where a ladder cell is unfilled, so a pin edited
@@ -151,7 +153,7 @@ fi
 # write below does it: a scratch file beside it, then a rename over it. Writes nothing.
 kit_check_writable() {
   local f="$1" d; d="$(dirname "$f")"
-  if [ ! -w "$f" ] || [ ! -w "$d" ] || [ -d "$f.new" ]; then
+  if { [ -e "$f" ] && [ ! -w "$f" ]; } || [ ! -w "$d" ] || [ -d "$f.new" ]; then
     kit_refuse 1 pin-write-unwritable \
       "Error: $f cannot be rewritten ($( [ -d "$f.new" ] && echo "a directory is where its scratch file $f.new goes" || echo "it or its directory is not writable by this user" )). Nothing was changed." \
       "Next: make $f and its directory writable (and remove anything at $f.new), then run the same command again."
@@ -173,6 +175,7 @@ kit_check_pin() {
   grep -qE '^model:' "$f" && grep -qE '^effort:' "$f" \
     || kit_refuse 1 pin-shape-unrecognised "Error: $f has no 'model:'/'effort:' frontmatter pair to rewrite." "Next: restore the 'model:' and 'effort:' frontmatter lines in $f from version control or the release zip, then re-run."
   kit_check_writable "$f"
+  kit_check_writable "$CLAUDE_DIR/$KIT_MODEL_RECORD_NAME"
 }
 
 # kit_set_pin <file> — rewrite the model:/effort: frontmatter pair kit_check_pin accepted. THE KIT'S
@@ -187,7 +190,7 @@ kit_set_pin() {
     { print }
   ' "$f" > "$f.new" && mv "$f.new" "$f" || kit_write_failed "$f"
   # Record what was written, so check-board.sh [s] can tell a later hand edit from this seam.
-  kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT"
+  kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT" || kit_write_failed "$CLAUDE_DIR/$KIT_MODEL_RECORD_NAME"
 }
 
 # kit_check_ladder_row <label> — refuse a ladder with no row for <label>. Writes nothing.

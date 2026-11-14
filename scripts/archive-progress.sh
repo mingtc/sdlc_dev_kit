@@ -355,6 +355,23 @@ PRE_COUNT=$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9
 # Idempotency: after a clean rotation, no entries match the cutoff → no-op
 # (checked BEFORE the chunk-exists guard, so a re-run does not error on the existing file)
 if [ "$PRE_COUNT" = "0" ]; then
+  # A CHUNK THE INDEX DOES NOT NAME, newer than the index, is a rotation cut off after the log was rewritten and
+  # before the index row went in: nothing is left to rotate, so without this the re-run says "nothing to archive".
+  if [ -f "$INDEX" ]; then
+    while IFS= read -r _uc; do
+      [ -n "$_uc" ] || continue
+      _un="${_uc##*/}"
+      if ! grep -F "($_un)" "$INDEX" >/dev/null; then
+        _u_first="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$_uc" | sort | sed -n '1p')"
+        _u_last="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$_uc" | sort | sed -n '$p')"
+        _u_n="$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' "$_uc" || true)"
+        kit_refuse 1 rotation-chunk-unindexed \
+          "Error: ${_uc#"$REPO_ROOT"/} is in the history directory and ${INDEX#"$REPO_ROOT"/} does not name it — an earlier rotation was cut off after it rewrote the log, before it indexed the chunk. The log is already rotated." \
+          "Next: add this row directly below the header's separator line in ${INDEX#"$REPO_ROOT"/}, then you are done (fix the Cut column if you know it):" \
+          "    | [\`$_un\`]($_un) | ${_u_first:-(undated)} → ${_u_last:-(undated)} | $_u_n | $(date +%Y-%m-%d) | (unknown) |"
+      fi
+    done < <(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'INDEX.md' -newer "$INDEX" 2>/dev/null | sort)
+  fi
   # "NOTHING MATCHED MY SELECTOR" IS NOT "NOTHING IS DUE": over the board's threshold a clean
   # "nothing to archive" would be a false all-clear. The threshold is DERIVED from the board
   # checker, never re-declared here (lookup-tables.md § A.1).
@@ -405,7 +422,7 @@ fi
 if [ -s "$CHUNK" ]; then
   kit_refuse 1 chunk-exists \
     "Error: $CHUNK already exists and is non-empty." \
-    "Next: choose another --milestone name, or delete the existing chunk first."
+    "Next: if an earlier run of this command was cut off, compare progress.md with the chunk: when progress.md still holds the chunk's entries, delete the chunk and re-run; when it does not, the rotation is done and the chunk needs its row in ${INDEX#"$REPO_ROOT"/}. Name another --milestone only for a different cut, never to repeat this one."
 fi
 
 # Name the cut that was actually used.
@@ -542,12 +559,13 @@ awk -v hdr="$IDX_HEADER" -v row="$IDX_ROW" '
   index($0, hdr) == 1 && !done { getline sep; print sep; print row; done = 1 }
 ' "$INDEX" > "$INDEX_NEW" || _ap_stage_failed "$INDEX"
 
-# The renames. Chunk first: a kill between them leaves an unindexed chunk and an unrotated log, which the
-# re-run refuses as chunk-exists with the Next that names it, never a log with its entries gone.
+# The renames. Chunk first, so no kill loses log text. A kill after the first leaves a chunk and an unrotated log
+# (the re-run refuses as chunk-exists); a kill after the second leaves a rotated log and an unindexed chunk (the
+# re-run refuses as rotation-chunk-unindexed and prints the row to add).
 mv "$CHUNK_NEW" "$CHUNK" && mv "$PROGRESS_NEW" "$PROGRESS" && mv "$INDEX_NEW" "$INDEX" \
   || kit_refuse 1 archive-rename-failed \
        "Error: a rename into place failed (the reason is printed above); the files renamed before it are done, the others are as they were." \
-       "Next: look at  ls progress/history/  and  git status progress.md progress/history  — if the chunk ${CHUNK#"$REPO_ROOT"/} exists and progress.md still holds its entries, delete the chunk and re-run; otherwise fix what is named above and re-run."
+       "Next: fix what is named above, then re-run this command. If the chunk ${CHUNK#"$REPO_ROOT"/} exists and progress.md still holds its entries it says chunk-exists: delete the chunk and re-run. If progress.md is already rotated and the index lacks the chunk, it prints the row to add."
 
 echo ""
 echo "Done. Wrote:"

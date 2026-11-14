@@ -442,7 +442,7 @@ case "$CMD" in
     git -C "$KWT" add "$DEST"
     MSG="[$ROLE] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
     kwt_commit "$MSG" "the slice"
-    echo "Created:${DEST#"$KWT"/}  (branch: ${BRANCH})"
+    echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree; publishing to the trunk next."
     # THE RETURN IS CHECKED: a failed push must not exit 0 while the card is only a local

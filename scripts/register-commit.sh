@@ -138,7 +138,7 @@ for rel in "${PATHS[@]}"; do
   case "/$rel/" in
     //*|*/../*)
       kit_refuse 1 register-path-outside-project \
-        "Error: '$rel' is not a path inside the project — it starts at / or climbs out with '..'. Nothing was changed." \
+        "Error: '$rel' is not a path inside the project — it starts at / or has a '..' part. Nothing was changed." \
         "Next: name the path relative to your checkout's root, without '..', and re-run." ;;
   esac
 done
@@ -351,6 +351,27 @@ for rel in "${PATHS[@]}"; do
   fi
 done
 
+# A PATH WITH A SYMBOLIC LINK FOR ANY PART OF IT is refused: a copy would write through the link, to wherever it
+# leads (inside the worktree or out of it), and git refuses to stage it beyond a link.
+_rc_link_part() {   # <rel> — status 0 when $KWT/<rel> or a directory above it is a symbolic link
+  local acc="$KWT" part rest="$1"
+  while [ -n "$rest" ]; do
+    part="${rest%%/*}"
+    if [ "$part" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+    [ -n "$part" ] || continue
+    acc="$acc/$part"
+    [ ! -L "$acc" ] || return 0
+  done
+  return 1
+}
+for rel in "${PATHS[@]}"; do
+  if _rc_link_part "$rel"; then
+    kit_refuse 1 register-path-through-link \
+      "Error: '$rel' passes through a symbolic link on the trunk, so a copy would land where the link leads, not at that path. Nothing was changed." \
+      "Next: name the path the link points to (the real file or directory), then re-run."
+  fi
+done
+
 # The same for what a copy or an add would trip over, which a path-exists test cannot see: a directory, a
 # file this user cannot read, a path the trunk's .gitignore covers. Asked here, before the first copy.
 for rel in "${PATHS[@]}"; do
@@ -375,13 +396,17 @@ done
 
 # A REFUSAL AFTER THE FIRST PATH IS STAGED PUTS THE WORKTREE BACK AS THE SYNC LEFT IT, the way the role check
 # below does: every other board op refuses a worktree that holds staged changes.
-CHANGED=()
+CHANGED=(); CREATED=()   # CREATED: the paths this run made, the only ones a rollback may delete
 _rc_rollback() {
-  local r
+  local r c
   for r in ${CHANGED[@]+"${CHANGED[@]}"}; do
     # LITERAL pathspecs: a name like docs/[a].md is a glob to git, and would match a tracked sibling.
     GIT_LITERAL_PATHSPECS=1 git -C "$KWT" reset -q -- "$r" >/dev/null 2>&1 || true
-    GIT_LITERAL_PATHSPECS=1 git -C "$KWT" checkout -q -- "$r" >/dev/null 2>&1 || rm -f "$KWT/$r"
+    if ! GIT_LITERAL_PATHSPECS=1 git -C "$KWT" checkout -q -- "$r" >/dev/null 2>&1; then
+      for c in ${CREATED[@]+"${CREATED[@]}"}; do
+        [ "$c" != "$r" ] || { [ -L "$KWT/$r" ] || rm -f "$KWT/$r"; }
+      done
+    fi
   done
 }
 for rel in "${PATHS[@]}"; do
@@ -391,6 +416,7 @@ for rel in "${PATHS[@]}"; do
     if [ -f "$dst" ] && cmp -s "$src" "$dst" 2>/dev/null; then
       continue   # identical — nothing to carry for this path
     fi
+    if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then CREATED+=("$rel"); fi
     CHANGED+=("$rel")   # before the copy, so a copy that dies half-way is undone with the rest
     if ! { mkdir -p "$(dirname "$dst")" && cp "$src" "$dst" && git -C "$KWT" add -- "$rel"; }; then
       _rc_rollback

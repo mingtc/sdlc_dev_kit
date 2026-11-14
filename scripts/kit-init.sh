@@ -350,9 +350,12 @@ if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
 fi
 # THE SHIPPED PLACEHOLDER IS NOT A PREFIX: the census skips a value equal to it, so the stamp would change nothing
-# and the self-check would fail after the commit. Read from the seam, never typed here.
-if [ -n "$PREFIX" ] && [ -f "$ROOT/scripts/config.sh" ]; then
-  _shipped_prefix="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$ROOT/scripts/config.sh" | head -1)"
+# and the self-check would fail after the commit. Read from the COMMITTED config.sh, never the working tree: a run
+# cut off mid-stamp has already written the user's own prefix there. A committed copy that carries the stamp is a
+# lived repository, which its own refusal below names.
+_cfg_head="$(git -C "$ROOT" show HEAD:scripts/config.sh 2>/dev/null || true)"
+if [ -n "$PREFIX" ] && [ -n "$_cfg_head" ] && [[ "$_cfg_head" != *"$STAMP_MARK"* ]]; then
+  _shipped_prefix="$(printf '%s\n' "$_cfg_head" | sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' | head -1)"
   if [ -n "$_shipped_prefix" ] && [ "$PREFIX" = "$_shipped_prefix" ]; then
     pf "--prefix '$PREFIX' is the placeholder the kit ships, so stamping it would change nothing and the self-check would fail after the commit. Choose your project's own prefix (e.g. --prefix XYZ)."
   fi

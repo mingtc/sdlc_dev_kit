@@ -33,7 +33,7 @@ case_register_commit_leaves_the_kanban_worktree_as_found_when_a_later_write_fail
   printf 'two\n' >> "$SB_WORK/docs/a.md"
   printf 'x\n' > "$SB_WORK/ignored.txt"
   printf 'x\n' > "$SB_WORK/docs/b.md"; chmod 000 "$SB_WORK/docs/b.md"
-  printf 'outside\n' > "$SB_TMP/outsider.txt"
+  printf 'MINE\nextra\n' > "$SB_TMP/outsider.txt"   # holds every line of the user's file below, so the stale guard lets it through
   printf 'MINE\n' > "$SB_WORK/outsider.txt"   # the user's own file where the worktree's ../outsider.txt lands
   for fault in ignored dir unreadable outside trailer; do
     n=$((n + 1))

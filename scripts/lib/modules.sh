@@ -1195,16 +1195,17 @@ ROLE_TAGS_EOF
     fi
   done < "$rows"
   if [ -n "$failed" ]; then
-    # What could not be removed stays recorded as enabled, with the rows kept for an edit, so a re-run retries it.
+    # What could not be removed stays recorded in the state it was in (enabled, or an enable that had not
+    # finished), with the rows kept for an edit, so a re-run retries it.
     cat "$keptf" >> "$failf"
-    _kit_mod_state_put "$name" "$ver" "$failf" module
+    _kit_mod_state_put "$name" "$ver" "$failf" "$( [ "$was" = pending ] && echo pending || echo module )"
     KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${KIT_MOD_STATE_REL}
 "
     kit_refuse 1 module-disable-incomplete \
       "Error: module $name was only partly disabled: $removed file(s) and block(s) were removed, and these could not be:" \
       "$(printf '%s' "$failed" | sed 's/^/    /')" \
-      "  They still act, and $KIT_MOD_STATE_REL still records $name as enabled with exactly these rows." \
-      "Next: make each path above writable (and clear any immutable flag), then run ./scripts/module.sh disable $name again; what was removed stays removed."
+      "  They still act, and $KIT_MOD_STATE_REL still records $name as it was, with exactly these rows." \
+      "Next: make each path above removable — a file goes with the write permission of the directory that holds it, so check the directory's mode as well as the file's, and clear any immutable flag — then run ./scripts/module.sh disable $name again; what was removed stays removed."
   fi
   if [ -s "$keptf" ]; then _kit_mod_state_put "$name" "$ver" "$keptf" kept; else _kit_mod_state_put "$name" "" /dev/null; fi
   KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${KIT_MOD_STATE_REL}
