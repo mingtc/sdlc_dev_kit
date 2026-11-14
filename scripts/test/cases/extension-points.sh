@@ -2066,6 +2066,10 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   [ -f "$notes" ] || { skp_lived "$L" "process/KIT-RELEASE-NOTES.md is absent from this tree"; teardown; return; }
   v="$(awk '/^- \*\*Give each card in flight whose QA Verdict rows/ { f = 1 } f && /^  Verify:/ { sub(/^  Verify: /, ""); print; exit }' "$notes")"
   [ -n "$v" ] || { cf "(prereq) the notes carry no Verify line under the cell-check item"; finish "$L"; teardown; return; }
+  # the item is core text: it names a module's kind, not a module's AC tag or its evidence kind
+  case "$(grep -F '**Give each card in flight whose QA Verdict rows' "$notes")" in
+    *'(UI)'*|*'`design`'*) cf "(prereq) the core Action required item names a design module term, (UI) or design, where it should say a module's kind" ;;
+  esac
   _vl_run() { rc=0; ( cd "$SB_WORK" && bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
   _vl_run; [ "$rc" -eq 0 ] || cf "(a) the line fails on a tree with no card in flight (exit $rc)"
   seed_issue in_progress "$SB_PREFIX-871" cellrule chore "A card of one added kind"

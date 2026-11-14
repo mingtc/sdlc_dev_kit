@@ -4701,7 +4701,8 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   git -C "$shal" fetch -q --depth 1 origin "$Q" >/dev/null 2>&1
   trunk="$(git -C "$shal" rev-parse "origin/$SB_TRUNK")"
   rc=0; out="$( bash "$hook" "$id" dev_complete qa_complete QA "$card" "$shal" "$trunk" 2>&1 </dev/null )" || rc=$?
-  { [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -E '^  - .*on no commit the trunk holds.*this clone is shallow.*git fetch --unshallow' >/dev/null; } || cf "(f) a pin a shallow clone cannot join to the trunk is not refused with the unshallow hint (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  { [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -E '^  - .*on no commit the trunk holds.*cut off.*this clone is shallow.*git fetch --unshallow' >/dev/null; } || cf "(f) a pin a shallow clone cannot join to the trunk is not refused with the unshallow hint (status $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$out" | grep -E '^  - .*only a branch or a local checkout has it$' >/dev/null && cf "(f) the shallow reason claims only a branch or a local checkout has a pin that is on the trunk"
   finish "$L"
   teardown
 }
@@ -4882,6 +4883,15 @@ case_the_normaliser_decodes_an_attribute_as_a_browser_does_and_the_pull_walks_a_
   printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props='"'"'{"u":"©x"}'"'"'>\n</script>\n' > "$d/new.dc.html"
   _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); c = importlib.util.module_from_spec(s); s.loader.exec_module(c); print(c.plain(open('$d/old.dc.html').read()) == c.plain(open('$d/new.dc.html').read()))"
   [ "$_dm_out" = False ] || cf "(a3) the literal text &copyx and the sign followed by x compare equal, so a real change reads as a re-save: $_dm_out"
+  # (a4) the character after a legacy name keeps the reference literal only when it is `=` or ASCII alphanumeric: a letter with an accent or a superscript does not
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;a&quot;:&quot;&noté&quot;,&quot;b&quot;:&quot;&ampé&quot;,&quot;c&quot;:&quot;&copy²&quot;}">\n</script>\n' > "$d/p/Uni.dc.html"
+  _dm_py "$m/normalise-canvas.py" "$d/p"
+  _dm_has "$(cat "$d/p/Uni.dc.html")" '{"a":"¬é","b":"&amp;é","c":"©²"}' || cf "(a4) a legacy name before a non-ASCII character was kept literal, where the spec decodes it: $(sed -n 2p "$d/p/Uni.dc.html")"
+  # (a5) and the real change that rule would hide: &ampé reads as &é, &amp;ampé reads as &ampé
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props="{&quot;u&quot;:&quot;&ampé&quot;}">\n</script>\n' > "$d/old2.dc.html"
+  printf '<x-dc></x-dc>\n<script type="text/x-dc" data-dc-script data-props='"'"'{"u":"&amp;ampé"}'"'"'>\n</script>\n' > "$d/new2.dc.html"
+  _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); c = importlib.util.module_from_spec(s); s.loader.exec_module(c); print(c.plain(open('$d/old2.dc.html').read()) == c.plain(open('$d/new2.dc.html').read()))"
+  [ "$_dm_out" = False ] || cf "(a5) the value &é and the value &ampé compare equal, so a real change reads as a re-save: $_dm_out"
   # (b) the anchor resolver, a board with a space in its name, written percent-encoded
   cp "$pd/project/Settings.dc.html" "$d/p/My Board.dc.html"
   _dm_py "$m/resolve-anchor.py" "$d/p" 'My%20Board.dc.html#2:1'
@@ -4938,6 +4948,23 @@ case_the_local_only_pin_verify_line_reads_the_trunk_as_the_kit_does_and_covers_s
   rm -f "$w/progress/subtasks/X-1/in_progress/X-1-s1-c.md"
   _lv_card "$w/progress/blocked/X-3-c.md" "$b"
   _lv_run; [ "$rc" -eq 1 ] || cf "(d) a pin only the clone has, on a blocked card, does not fail it (exit $rc)"
+  # (e) a project whose trunk is not main: no origin/HEAD, no init.defaultBranch, the last-resort name kit-init wrote into kanban-worktree.sh
+  local w2="$SB_TMP/lv2" c d2
+  mkdir -p "$w2/progress/in_progress" "$w2/scripts/lib"
+  printf 'KWT_TRUNK_LAST_RESORT="${KWT_TRUNK_LAST_RESORT:-trunk}"\n' > "$w2/scripts/lib/kanban-worktree.sh"
+  git -C "$w2" init -q -b trunk . >/dev/null 2>&1; git -C "$w2" config user.email t@t; git -C "$w2" config user.name t
+  git -C "$w2" add -A >/dev/null 2>&1; git -C "$w2" commit -qm a >/dev/null 2>&1; c="$(git -C "$w2" rev-parse HEAD)"
+  git init -q --bare "$SB_TMP/lv2-remote.git" >/dev/null 2>&1
+  git -C "$w2" remote add up "$SB_TMP/lv2-remote.git"; git -C "$w2" push -q up trunk >/dev/null 2>&1
+  echo y >> "$w2/f"; git -C "$w2" add f >/dev/null 2>&1; git -C "$w2" commit -qm b >/dev/null 2>&1; d2="$(git -C "$w2" rev-parse HEAD)"
+  _lv_run2() { rc=0; ( cd "$w2" && env -u KWT_TRUNK_LAST_RESORT GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null KWT_REMOTE=up bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
+  _lv_card "$w2/progress/in_progress/X-1-c.md" "$c"
+  _lv_run2; [ "$rc" -eq 0 ] || cf "(e) a pin on a trunk that is not main fails the Verify line, which should read the last-resort name from kanban-worktree.sh (exit $rc)"
+  _lv_card "$w2/progress/in_progress/X-2-c.md" "$d2"
+  _lv_run2; [ "$rc" -eq 1 ] || cf "(e) a pin only the clone has, on a trunk that is not main, does not fail it (exit $rc)"
+  # (f) an upper-case pin is read: the link check accepts A-F and lower-cases it
+  _lv_card "$w2/progress/in_progress/X-2-c.md" "$(printf '%s' "$d2" | cut -c1-12 | tr 'a-f' 'A-F')"
+  _lv_run2; [ "$rc" -eq 1 ] || cf "(f) an upper-case pin only the clone has is not read by the Verify line (exit $rc)"
   finish "$L"
   teardown
 }
