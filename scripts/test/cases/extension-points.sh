@@ -2054,6 +2054,55 @@ echo 'PROBE-CELL no'; echo 'Next: fix it'; exit 3
 }
 
 # =============================================================================
+# CASE — A ROW OF ANY KIND THAT QUOTES A RESOLVING path:line IS AN OBSERVED ROW; ONE THAT DOES NOT, OR WHOSE QUOTE IS NOT ON THE LINE, IS NOT.
+#   The landing needs a row the gate re-read a line for. A `test`/`file:line` row is that. So is a row of another kind whose cell ends
+#   with a `path:line` that resolves and a quote found on that line (as long as a file:line quote: eight characters, or the line whole).
+#   The table keeps one row per AC. A `path:line` that does not resolve is refused as it is for every kind; a quote that is not on the
+#   line, is too short, or is missing counts for nothing, and the table is refused qa-verdict-no-observed, saying what would count.
+# =============================================================================
+case_a_row_of_another_kind_that_quotes_a_resolving_path_line_is_an_observed_row() {
+  cf_reset
+  local L="a QA table whose only row is of an added kind lands when that row's cell quotes a resolving path:line and a quote found on the line (cell check or none), and is refused when the path:line does not resolve (qa-verdict-pointer-unresolved), when the quote is not on the line, is under eight characters, or is absent (qa-verdict-no-observed, which says a quoted path:line counts), and two rows for one AC are still refused"
+  make_sandbox
+  QC_ID="$SB_PREFIX-823"
+  local card="$SB_TMP/card.md" dir="scripts/qa-cell.d/observation" good='ARCHIVE.md:1 "condensed index of completed issues"'
+  seed_issue in_progress "$QC_ID" cell chore "Observed by a quoted pointer"
+  printf 'x\n' > "$SB_WORK/probe.txt"
+  mkdir -p "$SB_WORK/process/evidence-kinds.d"
+  printf 'observation\n' > "$SB_WORK/process/evidence-kinds.d/probe"
+  publish_sandbox
+  cp "$SB_WORK/progress/in_progress/$QC_ID-cell.md" "$card"
+  _qa_row() { CELL="$1" perl -0pi -e 's/^\| AC1 \|[^\n]*$/| AC1 | PASS | observation | $ENV{CELL} |/m' "$card"; }
+  _qa_row "$good; design notes"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(a) a row of an added kind that quotes a resolving path:line is not the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  _qc_land "$dir/10-probe.sh" "#!/usr/bin/env bash
+exit 0
+"
+  _qc_gate "$card"
+  [ "$_qc_rc" -eq 0 ] || cf "(b) the same row, its cell check passing, is not the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  _qa_row 'ARCHIVE.md:1 "a quote the line does not hold"'
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(c) a quote that is not on the line counts as the observed row (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-300)"
+  case "$_qc_out" in *"quotes a path:line"*|*"quote a path:line"*) ;; *) cf "(c) the refusal does not say a quoted path:line counts: $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-500)" ;; esac
+  _qa_row 'ARCHIVE.md:1 "condensed"'
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(d) a quote under eight characters counts as the observed row (exit $_qc_rc)"
+  _qa_row 'ARCHIVE.md:1'
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-no-observed; } || cf "(e) a path:line with no quote counts as the observed row (exit $_qc_rc)"
+  _qa_row 'no-such-file.md:1 "condensed index of completed issues"'
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-pointer-unresolved && case "$_qc_out" in *"does not exist"*"Next: re-read the code each row cites"*) true ;; *) false ;; esac; } || cf "(f) a path:line that does not resolve is not refused as qa-verdict-pointer-unresolved with its reason and a Next (exit $_qc_rc): $(printf '%s' "$_qc_out" | tr '\n' '|' | cut -c1-400)"
+  _qa_row "$good"
+  perl -0pi -e 's/(\| shadow-check )/| AC1 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |\n$1/' "$card"
+  _qc_gate "$card"
+  { [ "$_qc_rc" -eq 1 ] && _qc_refused_for qa-verdict-ac-duplicate; } || cf "(g) two rows for one AC id are no longer refused (exit $_qc_rc)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE ACTION REQUIRED VERIFY LINE FOR THE CELL-CHECK RULE FAILS ON A BEGUN QA TABLE WITH NO test OR file:line ROW, AND ONLY ON ONE.
 #   The line is read from KIT-RELEASE-NOTES.md and run by bash -c in a sandbox: a card whose rows are all of an added kind fails it, on a
 #   card and on a slice; a card with a file:line row, and a card whose table QA has not begun, pass it.
@@ -2083,6 +2132,8 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 |/m' "$card"
   mv "$card" "$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress/$SB_PREFIX-871-s1-cellrule.md"
   _vl_run; [ "$rc" -eq 1 ] || cf "(e) the line passes a slice whose only AC row is of an added kind (exit $rc)"
+  perl -0pi -e 's/^\| AC1 \| PASS \|[^\n]*$/| AC1 | PASS | observation | ARCHIVE.md:1 "condensed index of completed issues" |/m' "$SB_WORK/progress/subtasks/$SB_PREFIX-871/in_progress/$SB_PREFIX-871-s1-cellrule.md"
+  _vl_run; [ "$rc" -eq 0 ] || cf "(f) the line fails a slice whose only AC row is of an added kind that quotes a path:line (exit $rc)"
   finish "$L"
   teardown
 }
