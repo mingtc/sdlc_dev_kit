@@ -617,6 +617,12 @@ if [ "$FINISH" = true ]; then
   new_v="$(read_version "$ST/KIT-VERSION")"
   old_v="$(read_version "$TGT/process/KIT-VERSION")"
   ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
+  # Two upgrades at one kit version are two upgrades: the second takes the next free name, so none is refused or overwritten.
+  if [ -n "$old_v" ] && [ "$old_v" = "$new_v" ] && [ -e "$TGT/$ARCHIVE_REL" ]; then
+    arch_base="${ARCHIVE_REL%.md}"; arch_n=2
+    while [ -e "$TGT/$arch_base-$arch_n.md" ]; do arch_n=$((arch_n + 1)); done
+    ARCHIVE_REL="$arch_base-$arch_n.md"
+  fi
   [ ! -e "$TGT/$ARCHIVE_REL" ] || { undo_gone; kit_refuse 1 upgrade-archive-exists \
     "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
     "Next: move or rename it (commit that), then run --finish again."; }
@@ -863,7 +869,8 @@ MODNAMES_EOF
 fi
 
 total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} + ${#MOD_ACTION[@]} + MOD_N_MERGE + MOD_N_REMOVED ))
-if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] && [ "$MOD_N_RECORD" -eq 0 ]; then
+if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] && [ "$MOD_N_RECORD" -eq 0 ] \
+   && [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -eq 0 ]; then
   echo "kit-upgrade: $TGT already runs kit $NEW_V, and every file is current. Nothing to do."
   exit 0
 fi

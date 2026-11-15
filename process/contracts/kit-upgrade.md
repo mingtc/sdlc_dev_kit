@@ -47,7 +47,8 @@ made its own**, and without the upgrade's unfinished part living only in somebod
 - **What the upgrade adds or replaces is written down before the first file is.** A file a killed run had already
   placed reads as current on the run that finishes it, so the "stamp what arrived" item is counted from the record in
   `.kit-upgrade/arrived`, not from the files' state; the record is used only when its first row names the kit being
-  installed, and `--finish` removes it with the rest of `.kit-upgrade/`.
+  installed, and `--finish` removes it with the rest of `.kit-upgrade/`. A file counted from the record is work: a
+  tree whose every file is current but for that record is staged with the item, not answered "Nothing to do".
   *Why:* the item exists to make the adopter check exactly the files that arrived unstamped, and a count taken
   from the tree loses them in proportion to how far the first run got.
 - **Nothing staged carries a live name.** A staged copy sits inside the project's repository, so it
@@ -73,7 +74,9 @@ made its own**, and without the upgrade's unfinished part living only in somebod
 - **The tree's version is stamped only when every item is marked done**, never by the first run.
   *Why:* a version that moves before the work does tells the next reader the work is done.
 - **The marked checklist outlives the upgrade, in the tree.** Finishing moves it to
-  `process/upgrades/<from>-to-<to>.md`, and refuses rather than overwrite an archive of that name.
+  `process/upgrades/<from>-to-<to>.md`, and refuses rather than overwrite an archive of that name. When the two versions
+  are equal (a second upgrade at the same kit version), it takes the next free name, `<v>-to-<v>-2.md`, then `-3`, and
+  refuses none; the line `--finish` prints names the file it wrote.
   *Why:* the branch an upgrade is staged on may be squash-merged, which erases the commits that marked
   each item; the file is then the only record of what was done.
 - **The new kit's landing checks judge the project's open cards, and are read from the new kit.** The
@@ -143,7 +146,7 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) Â
 | `upgrade-checklist-unmarked` | finishing was asked for with an item still unmarked |
 | `upgrade-open-card-refused` | finishing was asked for while an open card would still be refused by the new kit's landing checks |
 | `upgrade-verify-failed` | finishing was asked for while a marked Action required item's `Verify:` command exits non-zero |
-| `upgrade-archive-exists` | finishing was asked for and `process/upgrades/<from>-to-<to>.md` already exists |
+| `upgrade-archive-exists` | finishing was asked for, the two versions differ, and `process/upgrades/<from>-to-<to>.md` already exists |
 | `upgrade-checklist-uncommitted` | finishing was asked for while the marked checklist is uncommitted: finishing removes it, and the marks are the record |
 | `unknown-option`, `unexpected-argument` | a mis-invocation |
 
