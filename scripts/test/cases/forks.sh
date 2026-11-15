@@ -708,6 +708,10 @@ _forks_drift_land() {
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   seed_issue todo "$id" "$slug" chore "AC rewritten after pickup" "feature/$id-work"
   f="$SB_WORK/progress/todo/$id-$slug.md"
+  if [ -n "${_FDL_TODO_CONT:-}" ]; then
+    CONT="$_FDL_TODO_CONT" perl -i -pe 'BEGIN { $c = $ENV{CONT} } s/^(- \[ \] AC1 — .*)$/$1\n$c/' "$f"
+    grep -qF -- "$_FDL_TODO_CONT" "$f" || _fixture_die "_forks_drift_land: the todo/ continuation line was not planted"
+  fi
   if [ "$ac2" = 1 ]; then
     perl -i -pe 's/^(- \[ \] AC1 — .*)$/$1\n- [ ] AC2 — the second seeded behaviour holds, per [decision: D-01]./' "$f"
     grep -qF 'AC2 — the second seeded behaviour holds, per [decision: D-01].' "$f" \
@@ -795,6 +799,51 @@ case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet() {
   teardown
 
   finish "the citation that answers a changed AC bullet is on that bullet: a card that already cites a ruling on another AC, or in its Activity, is still refused (refusal=forks-ac-changed-uncited, the Next: naming the bullet's AC id); the same edit with the citation on the bullet lands; a citation on a continuation line below the bullet is not on the bullet"
+}
+
+# =============================================================================
+# CASE — AN INDENTED CONTINUATION LINE IS PART OF ITS AC BULLET: ADDING OR CHANGING ONE AFTER THE
+# CARD LEFT todo/ IS A TEXT CHANGE THAT NEEDS THE CITATION ON THE BULLET, AND AN UNCHANGED ONE IS NOT.
+#   (a) a continuation line added under AC1, forks: none: refused, naming AC1;
+#   (b) CONTROL: the todo/ copy already holds the continuation line and it is untouched: lands;
+#   (c) the todo/ copy holds one continuation line and a second is added: refused, naming AC1;
+#   (d) the checklist line itself carries the citation while a continuation line is added: lands.
+# RED FIRST: (a) and (c) land while the bullet is compared by its checklist line alone.
+# =============================================================================
+case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
+  cf_reset
+  local id
+  local base="- [ ] AC1 — the sandbox's seeded behaviour holds."
+
+  id="$SB_PREFIX-833"
+  _forks_drift_land work-a "$id" contadd 0 \
+    "$(printf '%s\n%s' "$base" "  and now also a second condition, written on a line below.")" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(a) a continuation line was added under AC1 with no citation — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$id-contadd.md" && cf "(a) the card advanced despite the refusal"
+  teardown
+
+  id="$SB_PREFIX-834"
+  _FDL_TODO_CONT="  the first condition, written on a line below." _forks_drift_land work-b "$id" contsame 0 \
+    "$base" "" "none"
+  [ "$_FDL_RC" -eq 0 ] || cf "(b, control) an untouched continuation line was read as a change — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$id-contsame.md" || cf "(b, control) the card did not advance to qa_complete/"
+  teardown
+
+  id="$SB_PREFIX-835"
+  _FDL_TODO_CONT="  the first condition, written on a line below." _forks_drift_land work-c "$id" contmore 0 \
+    "$(printf '%s\n%s' "$base" "  a second condition, added later.")" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(c) a second continuation line was added under AC1 with no citation — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(c) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-836"
+  _forks_drift_land work-d "$id" contcited 1 \
+    "$(printf '%s\n%s' "- [ ] AC1 — the sandbox's seeded behaviour holds [decision: D-01]." "  and now also a second condition, written on a line below.")" "" "[D-01]"
+  [ "$_FDL_RC" -eq 0 ] || cf "(d) the citation is on the checklist line and a continuation line was added — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  teardown
+
+  finish "an indented continuation line is read as part of its AC bullet: one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, and the citation on the checklist line (d) answers it"
 }
 
 # =============================================================================
