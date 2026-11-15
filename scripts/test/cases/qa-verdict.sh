@@ -756,7 +756,7 @@ case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
 # (not only '## Acceptance Criteria'), because a refactor or bug card keeps its criteria under another
 # heading. Rows: (a) a fenced example 'AC12' beside the real AC1 lands with a one-row table (a ~~~ fence
 # too); (b) the same bullet outside a fence is refused naming AC12; (c) a bullet under '## Context' is
-# still an AC and is refused.
+# still an AC and is refused; (d) the bullet-text readers skip a fenced bullet that precedes the real one.
 # RED FIRST: (a) is refused qa-verdict-ac-mismatch while a fenced bullet is an id.
 # =============================================================================
 case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac() {
@@ -804,7 +804,15 @@ case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac() {
   [ "$rc" -ne 0 ] || cf "(c) a graded bullet outside '## Acceptance Criteria' with no table row — finish-pr.sh exited 0"
   case "$out" in *AC12*) : ;; *) cf "(c) the refusal does not name AC12: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
 
-  finish "a checklist bullet inside a code fence (backtick or tilde) is an example and needs no QA Verdict row (a); the same bullet outside a fence is refused naming it (b), and so is one outside '## Acceptance Criteria' (c), because the id reader reads the whole body above the table"
+  # (d) the reader of a bullet's own text skips a fenced line too: a fenced 'AC1' before the real one is not AC1's wording.
+  local body got_t got_b
+  body="$(printf '%s\n' '```' '- [ ] AC1 — the fenced wording.' '```' '- [ ] AC1 — the real wording.' '  and its continuation.')"
+  got_t="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_bullet_text "$2" AC1' _ "$REAL_SCRIPTS" "$body" 2>&1)"
+  got_b="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_bullet_block "$2" AC1' _ "$REAL_SCRIPTS" "$body" 2>&1)"
+  [ "$got_t" = "the real wording." ] || cf "(d) the bullet text of AC1 read '$got_t' where the fenced example precedes the real bullet: want 'the real wording.'"
+  [ "$got_b" = "the real wording. and its continuation." ] || cf "(d) the bullet block of AC1 read '$got_b': want 'the real wording. and its continuation.'"
+
+  finish "a checklist bullet inside a code fence (backtick or tilde) is an example and needs no QA Verdict row (a); the same bullet outside a fence is refused naming it (b), and so is one outside '## Acceptance Criteria' (c), because the id reader reads the whole body above the table; the reader of a bullet's own text skips a fenced line too (d)"
   teardown
 }
 

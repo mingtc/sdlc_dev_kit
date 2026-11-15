@@ -224,11 +224,18 @@ KIT_AC_SEP='[[:space:]]*(—|-|:)'
 # carries an id is graded; one without is refused (_qav_ac_stray_bullets).
 KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 
-# _qav_ac_idlines <body> — the id-shaped bullet lines of <body>, in order. An id directly followed by
+# _qav_unfenced — stdin without the lines of a fenced code block (a line opening or closing a fence, indented
+# or not, and everything between): an example in a fence is text, never a heading or a checklist bullet. The
+# fence rule of this file's readers.
+_qav_unfenced() {
+  LC_ALL=C awk '/^[ \t]*(```|~~~)/ { fence = !fence; next } fence { next } { print }'
+}
+
+# _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
 # '-' and an alphanumeric ('AC-1', 'S1-AC1') is not one: the separator rule would read it as the id
 # 'AC', and every such line would fold into one graded id.
 _qav_ac_idlines() {
-  { printf '%s\n' "$1" | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+  { printf '%s\n' "$1" | _qav_unfenced | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
     | grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]"; } || true   # no match: empty, never an exit under pipefail
 }
 
@@ -270,9 +277,7 @@ _qav_cut_comments() {
 # 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'), read through
 # _qav_cut_comments; a fenced block (indented or not) is skipped.
 _qav_section_lines() {
-  _qav_cut_comments | LC_ALL=C awk -v want="$1" '
-    /^[ \t]*(```|~~~)/ { fence = !fence; next }
-    fence { next }
+  _qav_cut_comments | _qav_unfenced | LC_ALL=C awk -v want="$1" '
     /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = (h == want || index(h, want " (") == 1); next }
     sect { print }'
 }
@@ -317,7 +322,7 @@ _qav_ac_removal_cited() {
 # changed, not whether the punctuation did.
 _qav_ac_bullet_text() {
   local body="$1" id="$2" _line _text
-  _line="$(printf '%s\n' "$body" | grep -E "^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" | head -1)"
+  _line="$(printf '%s\n' "$body" | _qav_unfenced | grep -E "^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" | head -1)"
   [ -n "$_line" ] || return 0
   _text="$(printf '%s' "$_line" | sed -E "s/^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*//")"
   printf '%s' "$_text" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
@@ -333,6 +338,8 @@ _qav_ac_bullet_block() {
   printf '%s\n' "$body" | KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
     LC_ALL=C awk '
       BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; item = "^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\\[[ xX]\\]" }
+      /^[ \t]*(```|~~~)/ { if (on) exit; fence = !fence; next }   # the fence rule of _qav_unfenced, plus: a fence ends the bullet
+      fence { next }
       !on { if ($0 ~ start) { on = 1; t = $0; sub(lead, "", t) } ; next }
       /^[ \t]+[^ \t]/ && $0 !~ item && $0 !~ /^[ \t]*(```|~~~)/ { t = t " " $0; next }
       { exit }
