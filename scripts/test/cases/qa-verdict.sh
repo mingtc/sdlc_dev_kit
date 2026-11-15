@@ -749,6 +749,65 @@ case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
   teardown
 }
 
+# =============================================================================
+# CASE — A CHECKLIST BULLET INSIDE A CODE FENCE IS AN EXAMPLE, NOT AN AC: THE TABLE NEEDS NO ROW FOR IT.
+# The stray-bullet check and the design module's card reader already skip a fenced line; the id reader
+# the table is matched against did too late. The id reader keeps reading the whole body above the table
+# (not only '## Acceptance Criteria'), because a refactor or bug card keeps its criteria under another
+# heading. Rows: (a) a fenced example 'AC12' beside the real AC1 lands with a one-row table (a ~~~ fence
+# too); (b) the same bullet outside a fence is refused naming AC12; (c) a bullet under '## Context' is
+# still an AC and is refused.
+# RED FIRST: (a) is refused qa-verdict-ac-mismatch while a fenced bullet is an id.
+# =============================================================================
+case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac() {
+  cf_reset
+  make_sandbox
+  local out rc id f
+
+  # (a) a fenced example, backtick and tilde.
+  id="$SB_PREFIX-844"
+  seed_issue dev_complete "$id" fenced chore "A fenced example AC" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-fenced.md"
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n\nAn AC is written like this:\n\n```\n- [ ] AC12 — an example with no QA Verdict row.\n```\n\n~~~\n1. [ ] AC13 — a second example.\n~~~/' "$f"
+  grep -qF 'AC12 — an example' "$f" || _fixture_die "case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac: (a) the fenced example was not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE844A.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) a fenced example bullet was read as an AC — finish-pr.sh exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-fenced.md" || cf "(a) the card did not advance to qa_complete/"
+  teardown
+
+  # (b) the same bullet, unfenced: still an AC with no row.
+  make_sandbox
+  id="$SB_PREFIX-845"
+  seed_issue dev_complete "$id" unfenced chore "The same example, unfenced" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-unfenced.md"
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC12 — an example with no QA Verdict row./' "$f"
+  grep -qF 'AC12 — an example' "$f" || _fixture_die "case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac: (b) AC12 was not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE844B.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an unfenced AC12 with no table row — finish-pr.sh exited 0"
+  case "$out" in *AC12*) : ;; *) cf "(b) the refusal does not name AC12: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  teardown
+
+  # (c) a checklist bullet outside '## Acceptance Criteria' and outside a fence is still graded.
+  make_sandbox
+  id="$SB_PREFIX-846"
+  seed_issue dev_complete "$id" context chore "A bullet under Context" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-context.md"
+  perl -i -pe 's/^(## Acceptance Criteria)$/## Context\n\n- [ ] AC12 — a criterion kept under another heading.\n\n$1/' "$f"
+  grep -qF 'AC12 — a criterion' "$f" || _fixture_die "case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac: (c) AC12 was not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE844C.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-c" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a graded bullet outside '## Acceptance Criteria' with no table row — finish-pr.sh exited 0"
+  case "$out" in *AC12*) : ;; *) cf "(c) the refusal does not name AC12: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+
+  finish "a checklist bullet inside a code fence (backtick or tilde) is an example and needs no QA Verdict row (a); the same bullet outside a fence is refused naming it (b), and so is one outside '## Acceptance Criteria' (c), because the id reader reads the whole body above the table"
+  teardown
+}
+
 # _fmt_token <card number> — the verdict-cell spelling planted in that card.
 _fmt_token() {
   case "$1" in

@@ -4870,11 +4870,11 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
   [ "$_dm_rc" -eq 0 ] || cf "(b2) the 0.3.0 Verify line fails on a stale approval alone, which the note says does not hold the upgrade (exit $_dm_rc): $(_dm_brief 300)"
   # (c) the bullets the core reads: a checkbox bullet, numbered or quoted; a plain bullet that mentions (UI) or cites a screen is no AC
   local cf2="$SB_TMP/h2card.md" mine core
-  printf -- '---\nid: %s-866\ntype: chore\n---\n\n## Context\n\n- Note: the list is a (UI) concern, see the story.\n- Screen: [design: UX-001#default] is the one to read.\n\n## Acceptance Criteria\n\n- [ ] AC1 — (UI) the list shows.\n1. [ ] AC2 — (UI) a numbered AC.\n> - [ ] AC3 — (UI) a quoted AC.\n- [ ] B1 — (UI) a behaviour.\n- [ ] AC4 — a plain AC.\n' "$SB_PREFIX" > "$cf2"
+  printf -- '---\nid: %s-866\ntype: chore\n---\n\n## Context\n\n- Note: the list is a (UI) concern, see the story.\n- Screen: [design: UX-001#default] is the one to read.\n\n## Acceptance Criteria\n\n- [ ] AC1 — (UI) the list shows.\n1. [ ] AC2 — (UI) a numbered AC.\n> - [ ] AC3 — (UI) a quoted AC.\n- [ ] B1 — (UI) a behaviour.\n- [ ] AC4 — a plain AC.\n\n```\n- [ ] AC9 — (UI) an example inside a code fence.\n```\n~~~\n- [ ] AC8 — (UI) a tilde-fenced example.\n~~~\n' "$SB_PREFIX" > "$cf2"
   _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(' '.join(sorted(a for a, _ in m.card_facts(open('$cf2').read())[0])))"
   mine="$_dm_out"
   core="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_ac_ids "$(cat "$1")"' _ "$cf2" 2>&1 | grep -v '^AC4$' | tr '\n' ' ' | sed 's/ $//')"
-  [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI) and one that cites a screen: want 'AC1 AC2 AC3 B1'"
+  [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI), one that cites a screen and fenced example bullets: want 'AC1 AC2 AC3 B1'"
   [ "$mine" = "$core" ] || cf "(c) the module's AC reader ('$mine') and the core's ('$core') read different bullets"
   finish "$L"
   teardown

@@ -513,6 +513,7 @@ CASES=(
   case_finish_pr_qa_verdict_evidence_missing_refuses
   case_finish_pr_qa_verdict_fail_row_on_pass_refuses
   case_finish_pr_qa_verdict_ac_mismatch_refuses
+  case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac
   case_finish_pr_qa_verdict_shadow_check_required
   case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched
   case_finish_pr_qa_verdict_well_formed_lands
