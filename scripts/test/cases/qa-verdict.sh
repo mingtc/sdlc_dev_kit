@@ -816,6 +816,98 @@ case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac() {
   teardown
 }
 
+# _fence_shape <name> — a card body holding the fence shape <name>, every AC tagged (UI) so the design module reads
+# the same set as the core. One definition for the core's rows and the module's comparison.
+_fence_shape() {
+  local head tail='' f='```'
+  head="$(printf '%s\n' '---' 'id: X-1' '---' '' '## Acceptance Criteria' '' '- [ ] AC1 — (UI) a.' '')"
+  case "$1" in
+    nested-tilde)  tail="$(printf '%s\n' '~~~' "$f" '~~~' '' '- [ ] AC2 — (UI) b.')" ;;
+    longer-outer)  tail="$(printf '%s\n' '````' "$f" '- [ ] AC9 — (UI) ex.' "$f" '````' '' '- [ ] AC2 — (UI) b.')" ;;
+    unclosed)      tail="$(printf '%s\n' "$f" '- [ ] AC9 — (UI) ex.')" ;;
+    four-indented) tail="$(printf '%s\n' "    $f" '- [ ] AC2 — (UI) b.' "    $f" '- [ ] AC3 — (UI) c.')" ;;
+    tab-indented)  tail="$(printf '%s\n' "$(printf '\t')$f" '- [ ] AC2 — (UI) b.' "$(printf '\t')$f")" ;;
+    inline-span)   tail="$(printf '%s\n' "${f}js${f} is inline code at the start of a line." '' '- [ ] AC2 — (UI) b.')" ;;
+    trailing-text) tail="$(printf '%s\n' "$f" 'code' "$f trailing" '- [ ] AC9 — (UI) ex.' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
+    in-item)       tail="$(printf '%s\n' "  $f" '  - [ ] AC9 — (UI) in item.' "  $f" '- [ ] AC2 — (UI) b.')" ;;
+    context-open)  head="$(printf '%s\n' '---' 'id: X-1' '---' '' '## Context' '' "${f}sh" 'make test' '' '## Acceptance Criteria' '')"
+                   tail="$(printf '%s\n' '- [ ] AC1 — (UI) a.' '- [ ] AC2 — (UI) b.')" ;;
+  esac
+  printf '%s\n%s\n' "$head" "$tail"
+}
+
+# _fence_shape_ids <name> — the ids the core reads from that shape. The expected set is the one the design module's
+# card reader reads (CommonMark's fence rule), written out here.
+_fence_shape_ids() {
+  case "$1" in
+    nested-tilde|longer-outer|in-item|tab-indented|inline-span|trailing-text) echo "AC1 AC2" ;;
+    four-indented) echo "AC1 AC2 AC3" ;;
+    unclosed) echo "AC1" ;;
+    context-open) echo "" ;;
+  esac
+}
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open"
+
+# =============================================================================
+# CASE — THE CORE'S FENCE RULE IS THE DESIGN MODULE'S: an opener indented by at most three spaces, a closer of the same
+# character at least as long with nothing after it, no backtick in a backtick fence's info string; an unclosed fence
+# runs to the end of the card. One rule for the id reader, the bullet readers, the section reader and the forks
+# derivation's heading reader. Rows: each shape's ids against the expected set (the module's comparison in the
+# design module's reader case reads the same shapes); (r) a heading after an unclosed fence is no heading for the
+# forks reader; (s) a '## Out of Scope' inside a longer outer fence is no heading.
+# RED FIRST: nested-tilde, four-indented, tab-indented, inline-span, trailing-text and longer-outer read other ids
+# under a plain any-indent toggle.
+# =============================================================================
+case_qa_gate_fence_rule_is_the_design_modules() {
+  cf_reset
+  local shape want got
+  for shape in $_fence_shapes; do
+    want="$(_fence_shape_ids "$shape")"
+    got="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_ids "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
+    [ "$got" = "$want" ] || cf "($shape) the core reads the ids '$got' from this shape: want '$want'"
+  done
+  # the forks reader's headings: the flags the derivation reads mark a fence delimiter or a line inside one
+  local f="\`\`\`" flags
+  flags="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; printf "%s\n" "$2" "## Out of Scope" "- x" | _qav_fence_flags | tr "\n" " "' _ "$REAL_SCRIPTS" "$f" 2>&1)"
+  [ "$flags" = "1 1 1 " ] || cf "(r) a heading after an unclosed fence is inside it for the forks reader: flags '$flags', want '1 1 1 '"
+  flags="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; printf "%s\n" "\`\`\`\`" "\`\`\`" "## Out of Scope" "\`\`\`" "\`\`\`\`" "## Activity" | _qav_fence_flags | tr "\n" " "' _ "$REAL_SCRIPTS" 2>&1)"
+  [ "$flags" = "1 1 1 1 1 0 " ] || cf "(s) a heading inside a longer outer fence is no heading: flags '$flags', want '1 1 1 1 1 0 '"
+  finish "the core reads the ids the design module reads from nine fence shapes (a ~~~ block holding a backtick line, a longer outer fence, an unclosed fence, a four-space and a tab indent, an inline span, a closing line with trailing text, a fence inside a list item, an unclosed fence in Context), and the forks reader's heading test treats an unclosed fence and a longer outer fence by the same rule"
+}
+
+# =============================================================================
+# CASE — AN AC'S BULLET TEXT, as _qav_ac_bullet_block reads it, is its list item. Pairs of old and new bodies:
+# equal for a blank line inserted inside the item, a re-wrap, a dedent into a lazy line, a CRLF file with a
+# whitespace-only line, a changed paragraph after the item, a next bullet's change; different for a changed
+# word, a fenced body, an added lazy line, an added blank-separated paragraph, an HTML comment.
+# RED FIRST: the block ends at a blank line, an unindented line or a fence, so the fenced body and the lazy and
+# paragraph rows read equal, and the blank-line and dedent rows read different.
+# =============================================================================
+case_qa_gate_ac_bullet_block_is_the_list_item() {
+  cf_reset
+  local f="\`\`\`" n=0 a b ta tb row
+  _blk() { bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_bullet_block "$2" AC1' _ "$REAL_SCRIPTS" "$1" 2>&1; }
+  _pair() {  # <want same|diff> <label> <old> <new>
+    ta="$(_blk "$3")"; tb="$(_blk "$4")"
+    if [ "$1" = same ]; then [ "$ta" = "$tb" ] || cf "($2) read as a change: '$ta' vs '$tb'"
+    else [ "$ta" != "$tb" ] || cf "($2) read as no change: '$ta'"; fi
+  }
+  local line='- [ ] AC1 — the response is:'
+  _pair same "blank line inserted" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n\n%s' "$line" "  only when beta.")"
+  _pair same "re-wrap" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s\n%s' "$line" "  only when" "  beta.")"
+  _pair same "dedent into a lazy line" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "only when beta.")"
+  _pair same "CRLF with a whitespace-only line" "$(printf '%s\r\n%s\r\n' "$line" "  only when beta.")" "$(printf '%s\r\n%s\r\n   \r\n%s\r\n' "$line" "  only when beta." "- [ ] AC2 — next.")"
+  _pair same "a paragraph after the item changed" "$(printf '%s\n\n%s' "$line" "Notes one.")" "$(printf '%s\n\n%s' "$line" "Notes two.")"
+  _pair same "the next bullet changed" "$(printf '%s\n%s' "$line" "- [ ] AC2 — one.")" "$(printf '%s\n%s' "$line" "- [ ] AC2 — two.")"
+  _pair diff "a word changed" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "  only when NOT beta.")"
+  _pair diff "a fenced body changed" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  200 OK" "  $f")" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  500 Error" "  $f")"
+  _pair diff "a fenced body with a blank line and an unindented-looking heading changed" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' "$line" "  $f" "  a" "" "  # b" "  $f")" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' "$line" "  $f" "  a" "" "  # c" "  $f")"
+  _pair diff "a lazy line added" "$line" "$(printf '%s\n%s' "$line" "Only when beta.")"
+  _pair diff "a blank-separated indented paragraph added" "$line" "$(printf '%s\n\n%s' "$line" "  Another paragraph.")"
+  _pair diff "an HTML comment added" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "  only when beta. <!-- x -->")"
+  finish "an AC's bullet text is its list item: equal for a blank line inserted inside it, a re-wrap, a dedent into a lazy line, a CRLF file with a whitespace-only line, a paragraph after it and the next bullet; different for a changed word, a changed fenced body, an added lazy line, an added blank-separated paragraph and an added HTML comment"
+}
+
 # _fmt_token <card number> — the verdict-cell spelling planted in that card.
 _fmt_token() {
   case "$1" in

@@ -731,6 +731,9 @@ _forks_drift_land() {
   NEWAC="$newac" perl -i -pe 'BEGIN { $n = $ENV{NEWAC} } s/^- \[ \] AC1 — the sandbox.s seeded behaviour holds\.$/$n/' "$f"
   grep -qF -- "$(printf '%s' "$newac" | head -1)" "$f" \
     || _fixture_die "_forks_drift_land: the AC1 rewrite was not planted"
+  if [ -n "${_FDL_EDIT:-}" ]; then
+    perl -i -pe "$_FDL_EDIT" "$f"
+  fi
   if [ -n "${_FDL_AC2_CONT:-}" ]; then
     CONT="$_FDL_AC2_CONT" perl -i -pe 'BEGIN { $c = $ENV{CONT} } s/^(- \[ \] AC2 — .*)$/$1\n$c/' "$f"
     grep -qF -- "$_FDL_AC2_CONT" "$f" || _fixture_die "_forks_drift_land: the AC2 continuation line was not planted"
@@ -854,6 +857,8 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   _FDL_AC2_CONT="  and a third condition, written on a line below." _forks_drift_land work-e "$id" contfork 1 \
     "$base" "" "none"
   [ "$_FDL_RC" -ne 0 ] || cf "(e) a continuation line was added under an AC that cites D-01, with forks: none — finish-pr.sh exited 0"
+  grep -q 'refusal=forks-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(e) the refusal is not forks-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
   origin_has_path "progress/qa_complete/$id-contfork.md" && cf "(e) the card advanced despite the refusal"
   teardown
 
@@ -864,6 +869,65 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   teardown
 
   finish "an indented continuation line is read as part of its AC bullet: one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, the citation on the checklist line (d) answers it, and an AC that already cites a ruling and gains a continuation line has changed, so the ruling is the card's fork: forks: none is refused (e), forks: [D-01] lands (f)"
+}
+
+# =============================================================================
+# CASE — AN AC'S TEXT IS ITS LIST ITEM: THE CHECKLIST LINE, ITS INDENTED LINES, A BLANK LINE FOLLOWED BY MORE
+# INDENTED CONTENT, AN INDENTED FENCED BLOCK, AND A LAZY LINE (an unindented line straight after a paragraph
+# line that opens no list item, heading, quote or fence). A formatting-only edit leaves it equal; an edit of
+# the words, an HTML comment or the fenced body changes it.
+#   (a) a fenced body under AC1 changed (200 OK -> 500 Error): refused naming AC1;
+#   (b) a lazy line added under AC1: refused; the Error says the lines below the checklist line are the bullet's;
+#   (c) a blank-separated indented paragraph added: refused;
+#   (d) an HTML comment added on a continuation line: refused;
+#   (e) a blank line inserted between the checklist line and its continuation: lands;
+#   (f) the continuation dedented into a lazy line: lands.
+# RED FIRST: (a), (b), (c) land while a bullet ends at a blank line, an unindented line or a fence.
+# =============================================================================
+case_finish_pr_forks_ac_block_follows_the_list_item_extent() {
+  cf_reset
+  local id base="- [ ] AC1 — the sandbox's seeded behaviour holds."
+  local cont="  the first condition, written on a line below."
+
+  id="$SB_PREFIX-851"
+  _FDL_TODO_CONT="$(printf '%s\n%s\n%s\n%s' "  The response is:" "  \`\`\`" "  200 OK" "  \`\`\`")" _FDL_EDIT='s/200 OK/500 Error/' \
+    _forks_drift_land work-a "$id" fencebody 0 "$base" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(a) the fenced body under AC1 changed with no citation — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-852"
+  _FDL_TODO_CONT="$cont" _forks_drift_land work-b "$id" lazyadd 0 \
+    "$(printf '%s\n%s' "$base" "Only when beta is NOT set.")" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(b) a lazy line added under AC1 with no citation — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(b) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$_FDL_OUT" in *"checklist line and the lines under it"*) : ;; *) cf "(b) the Error does not say the lines under the checklist line are part of the bullet: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-853"
+  _FDL_TODO_CONT="$cont" _forks_drift_land work-c "$id" paraadd 0 \
+    "$(printf '%s\n\n%s' "$base" "  A second paragraph of the same item.")" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(c) a blank-separated indented paragraph added under AC1 — finish-pr.sh exited 0"
+  teardown
+
+  id="$SB_PREFIX-854"
+  _FDL_TODO_CONT="$cont" _FDL_EDIT='s/^(  the first condition.*)$/$1 <!-- widened -->/' \
+    _forks_drift_land work-d "$id" commentadd 0 "$base" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(d) an HTML comment added on a continuation line — finish-pr.sh exited 0"
+  teardown
+
+  id="$SB_PREFIX-855"
+  _FDL_TODO_CONT="$cont" _FDL_EDIT='s/^(- \[ \] AC1 — .*)$/$1\n/' _forks_drift_land work-e "$id" blankins 0 \
+    "$base" "" "none"
+  [ "$_FDL_RC" -eq 0 ] || cf "(e) a blank line inserted inside the item was read as a change — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-856"
+  _FDL_TODO_CONT="$cont" _FDL_EDIT='s/^  (the first condition.*)$/$1/' _forks_drift_land work-f "$id" dedent 0 "$base" "" "none"
+  [ "$_FDL_RC" -eq 0 ] || cf "(f) a continuation dedented into a lazy line was read as a change — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  teardown
+
+  finish "an AC's text is its list item: a changed fenced body (a), an added lazy line (b) with the Error saying the lines under the checklist line are the bullet's, an added blank-separated paragraph (c) and an added HTML comment (d) are refused as uncited drift naming the AC; a blank line inserted inside the item (e) and a continuation dedented into a lazy line (f) land"
 }
 
 # =============================================================================
