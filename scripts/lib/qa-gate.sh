@@ -953,8 +953,8 @@ kit_qa_verdict_check() {
 #   The ids of the entries <register-path> holds at <rev>, one per line, sorted; nothing when the
 #   file is absent there. Only a heading whose id is the register's declared <id-shape>, followed
 #   by a space or the end of the line (the boundary kit_decision_register_live uses), is an entry,
-#   so a prose heading ('### Notes') is not one. A fenced example heading still is: no shared fence reader exists for a register, and a
-#   second parser here would drift from it.
+#   so a prose heading ('### Notes') is not one. A fenced example heading still is: no shared fence
+#   reader exists for a register, and a second parser here would drift from it.
 _forks_entry_ids() {
   git -C "$1" show "${2}:${3}" 2>/dev/null | LC_ALL=C awk -v m="$4" '
     index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); print id }' \
@@ -1426,7 +1426,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       kit_refuse 1 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
         "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
-        "Next: fix the id on the card (the check reads the register on the branch and on the trunk, so a ruling that landed on the trunk after the branch was cut needs no merge of the trunk); if the entry exists but its heading puts a character straight after the id ('### D-NN: …'), put a space after the id, since only a space or the end of the line ends an id, or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
+        "Next: fix the id on the card (the check reads the register on the branch and on the trunk, so a ruling that landed on the trunk after the branch was cut needs no merge of the trunk), or add the ruling it names to the register in this same change. If the entry exists but its heading puts a character straight after the id ('### D-NN: …'), the id is not read: put a space after it. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
         "       NOTHING WAS CHANGED."
     fi
   fi

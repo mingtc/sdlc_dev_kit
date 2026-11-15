@@ -81,7 +81,7 @@ kit_prd_surface() {
 kit_decision_register_live() {
   local file="$1" mark="$2" shape="$3"
   [ -f "$file" ] || return 0
-  grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | grep -oE "^${mark}${shape}" | sed "s|^${mark}||" || true
+  LC_ALL=C grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | LC_ALL=C grep -oE "^${mark}${shape}" | sed "s|^${mark}||" || true
 }
 
 # kit_decision_register_retired <file> <id-shape>

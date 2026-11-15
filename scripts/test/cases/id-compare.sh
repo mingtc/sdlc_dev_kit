@@ -161,6 +161,10 @@ case_a_heading_id_ends_at_the_same_place_in_every_reader() {
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'D-08:' | grep -i 'space' >/dev/null \
     || cf "(c) [d] did not name the colon heading: $(printf '%s\n' "$out" | grep -A6 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  # (c2) a no-break space after the id ends it in no locale: the live reader runs in C like the other readers.
+  printf '### D-03\xc2\xa0nbsp heading\n### D-04 plain\n' > "$SB_TMP/nbsp.md"
+  live="$( . "$SB_WORK/scripts/lib/decision-register.sh"; LC_ALL=en_US.UTF-8 kit_decision_register_live "$SB_TMP/nbsp.md" '### ' 'D-[0-9]+' | tr '\n' ' ' )"
+  [ "$live" = "D-04 " ] || cf "(c2) the live reader listed '$live' for a no-break space after D-03, want 'D-04 '"
   # (d) the forks check's two readers of the register agree: the colon heading is no entry at a revision,
   # and no touched entry, so a card is never told to cite an id the live reader then calls not live.
   local fe te

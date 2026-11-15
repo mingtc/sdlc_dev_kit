@@ -1162,10 +1162,10 @@ case_move_issue_probe() {
   # Restore from a copy of the NEUTRALIZED sandbox script, never from $REAL_SCRIPTS: that
   # re-imports the adopter's tree (a `kit-init --roles` whitelist) past _kit_neutral_config.
   cp "$mi" "$SB_TMP/move-issue.neutral"
-  grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+  grep -q '^if probe_board "\$PROBE_REF" && ' "$mi" \
     || _fixture_die "case_move_issue_probe(b): no probe condition to ablate in move-issue.sh — the anchor moved, so arm (a) above is unfalsifiable and this case proves nothing."
-  perl -i -pe 's/^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$/if false \&\& [ "\$PROBE_ID_IS_GLOB" -eq 0 ] \\/' "$mi"
-  grep -q '^if false && \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+  perl -i -pe 's/^if probe_board "\$PROBE_REF" && /if false && probe_board "\$PROBE_REF" && /' "$mi"
+  grep -q '^if false && probe_board "\$PROBE_REF" && ' "$mi" \
     || _fixture_die "case_move_issue_probe(b): the ablation did not take."
   # The mover runs only as the trunk's committed copy, so the ablated script is published.
   _mi_publish() { git -C "$SB_WORK" add scripts/move-issue.sh >/dev/null 2>&1 && sbcommit -q -m "[PM] mover copy" >/dev/null 2>&1 && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1; }
@@ -1176,7 +1176,7 @@ case_move_issue_probe() {
     || cf "(control) with the probe disabled the refusal STILL left no worktree — arm (a) is not measuring the probe: $out"
   cp "$SB_TMP/move-issue.neutral" "$mi"   # restore the NEUTRALIZED script for (c) and (d)
   _mi_publish || _fixture_die "case_move_issue_probe(b): could not publish the restored mover."
-  grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+  grep -q '^if probe_board "\$PROBE_REF" && ' "$mi" \
     || _fixture_die "case_move_issue_probe: the restore did not put the un-ablated script back, so arms (c) and (d) would run against the disabled probe."
 
   # (c) FALSE-REFUSAL CONTROL. Put a card on the trunk WITHOUT it passing through this
