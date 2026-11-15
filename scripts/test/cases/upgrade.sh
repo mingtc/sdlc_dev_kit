@@ -1728,3 +1728,75 @@ case_upgrade_seat_brief_names_the_trunk_route() {
   case "$flat" in *"worktree or the main checkout"*) cf "the brief still offers the hat in either the worktree or the main checkout" ;; esac
   finish "$L"
 }
+
+# =============================================================================
+# CASE — TWO SAME-VERSION UPGRADES WITH REAL WORK EACH ARCHIVE AND FINISH, UNDER NAMES THAT DO NOT COLLIDE.
+#
+# At an unchanged kit version a run with work (a file the kit changed) is staged, marked, finished and archived as
+# process/upgrades/<V>-to-<V>.md. A second such run is a different upgrade: it archives beside the first under the
+# next free name <V>-to-<V>-2.md, and a third under -3. Nothing earlier is overwritten and no --finish is refused.
+# =============================================================================
+case_two_same_version_upgrades_with_real_work_archive_under_different_names() {
+  cf_reset
+  make_sandbox
+  local L="at an unchanged kit version, --finish archives each real-work upgrade under its own name (<V>-to-<V>.md, then -2, then -3), overwrites no earlier archive and refuses none"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.1.0
+  local n want a="$KU_T/process/upgrades" cl="$KU_T/$KU_CHECKLIST_REL"
+  for n in 1 2 3; do
+    printf 'a-round-%s\n' "$n" > "$KU_NEW/a.txt"; _ku_manifest "$KU_NEW"
+    _ku_run "up$n" --into "$KU_T"
+    [ "$(_ku_rc "up$n")" = 0 ] && [ -f "$cl" ] || { cf "(round $n) the run did not stage: rc $(_ku_rc "up$n"): $(_ku_out "up$n")"; break; }
+    sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+    git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark $n" >/dev/null 2>&1
+    _ku_run "fin$n" --finish --into "$KU_T"
+    [ "$(_ku_rc "fin$n")" = 0 ] || { cf "(round $n) --finish exited $(_ku_rc "fin$n"): $(_ku_out "fin$n")"; break; }
+    want="process/upgrades/0.1.0-to-0.1.0.md"; [ "$n" = 1 ] || want="process/upgrades/0.1.0-to-0.1.0-$n.md"
+    [ -f "$KU_T/$want" ] || cf "(round $n) no archive at $want: $(ls "$a" 2>/dev/null | tr '\n' ' ')"
+    grep -F -- "$want" "$SB_TMP/fin$n.out" >/dev/null || cf "(round $n) --finish's output does not name $want: $(_ku_out "fin$n")"
+    git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "finish $n" >/dev/null 2>&1
+  done
+  [ "$(ls "$a" 2>/dev/null | wc -l | tr -d ' ')" = 3 ] || cf "expected three archives, found: $(ls "$a" 2>/dev/null | tr '\n' ' ')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A .kit-upgrade/arrived RECORD WITH NO OTHER WORK IS WORK: THE RUN GOES THE FULL WAY.
+#
+# A file a killed run had placed reads as current on the re-run and is counted from the arrived record as added or
+# replaced, not as a write. With nothing else to do the run must still stage and write the "stamp what arrived"
+# item, not print "Nothing to do" and leave the record behind. The same tree with no record has nothing to do.
+# =============================================================================
+case_an_arrived_record_alone_is_work_and_is_not_nothing_to_do() {
+  cf_reset
+  make_sandbox
+  local L="a tree whose every file is current but for an .kit-upgrade/arrived record of this target is not 'Nothing to do': the run writes the 'stamp what arrived' item and keeps the record; the same tree without the record has nothing to do"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.1.0
+  cp "$KU_T/process/KIT-MANIFEST" "$SB_TMP/old-manifest"
+  cp -R "$KU_NEW/." "$KU_T/"; rm -f "$KU_T/c.txt"; cp "$SB_TMP/old-manifest" "$KU_T/process/KIT-MANIFEST"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "every file current" >/dev/null 2>&1
+  rm -rf "${SB_TMP:?}/ctl"; cp -R "$KU_T" "$SB_TMP/ctl"
+  _ku_run ctl --into "$SB_TMP/ctl"
+  grep -F -- 'Nothing to do' "$SB_TMP/ctl.out" >/dev/null || cf "the control (no record) is not 'Nothing to do': $(_ku_out ctl)"
+  local tag row want
+  # <tag> <the arrived row> <the count the item must state>
+  while IFS='|' read -r tag row want; do
+    rm -rf "${SB_TMP:?}/$tag"; cp -R "$SB_TMP/ctl" "$SB_TMP/$tag"; rm -rf "$SB_TMP/$tag/.kit-upgrade" "$SB_TMP/$tag/$KU_CHECKLIST_REL"
+    mkdir -p "$SB_TMP/$tag/.kit-upgrade"; printf 'V\t0.1.0\n%b\n' "$row" > "$SB_TMP/$tag/.kit-upgrade/arrived"
+    _ku_run "$tag" --into "$SB_TMP/$tag"
+    [ "$(_ku_rc "$tag")" = 0 ] || cf "($tag) exited $(_ku_rc "$tag"): $(_ku_out "$tag")"
+    ! grep -F -- 'Nothing to do' "$SB_TMP/$tag.out" >/dev/null || cf "($tag) the run printed 'Nothing to do' over an arrived record: $(_ku_out "$tag")"
+    grep -F -- "stamp what arrived: the $want" "$SB_TMP/$tag/$KU_CHECKLIST_REL" >/dev/null 2>&1 \
+      || cf "($tag) no 'stamp what arrived' item stating $want: $(tr '\n' '|' < "$SB_TMP/$tag/$KU_CHECKLIST_REL" 2>/dev/null | cut -c1-300)"
+    [ -f "$SB_TMP/$tag/.kit-upgrade/arrived" ] || cf "($tag) the arrived record was dropped before --finish"
+  done <<'KU_ROWS_EOF'
+replaced|R\ta.txt|0 added and 1 replaced
+added|A\te.txt|1 added and 0 replaced
+KU_ROWS_EOF
+  finish "$L"
+  teardown
+}
