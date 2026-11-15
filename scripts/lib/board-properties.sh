@@ -208,6 +208,7 @@ kit_bp_ids() {
             printf "d:disagree:%s\t    ⚠ %s: frontmatter %s: %s DISAGREES with its filename prefix %s — one of the two is wrong; make them match (rename the file, or correct the frontmatter — whichever is the stray)\n", short(path[i]), short(path[i]), key, v, fid
           }
           k = norm(v)    # an id is its integer: X-1, X-01 and X-001 are one number
+          if (!(k in first)) first[k] = v
           seen[k] = seen[k] ", " short(path[i])
           count[k]++
           order[++m] = k
@@ -217,7 +218,7 @@ kit_bp_ids() {
           if (count[v] > 1 && !reported[v]) {
             reported[v] = 1
             files = seen[v]; sub(/^, /, "", files)
-            printf "d:dup:%s:%s\t    ⚠ DUPLICATE %s: %s is carried by %d files: %s — renumber the LATER mint (./scripts/next-id.sh gives the next free number) and rename its file, branch and Activity trail to match\n", v, files, key, v, count[v], files
+            printf "d:dup:%s:%s\t    ⚠ DUPLICATE %s: %s is carried by %d files: %s — renumber the LATER mint (./scripts/next-id.sh gives the next free number) and rename its file, branch and Activity trail to match\n", first[v], files, key, first[v], count[v], files
           }
         }
       }

@@ -458,15 +458,11 @@ PROBE_LISTING
   return 0
 }
 
-PROBE_ID_IS_GLOB=0
-case "$ISSUE_ID" in *'*'*|*'?'*|*'['*) PROBE_ID_IS_GLOB=1 ;; esac
-
 # ONE CHAIN, NOT NESTED ifs, so the refusal is unreachable unless every link held
 # in order — including the fetch, which is deliberately INSIDE the condition: it
 # runs only on a miss (the happy path pays nothing) and its failure is a
 # fall-through, not a refusal. Do not hoist it out.
-if [ "$PROBE_ID_IS_GLOB" -eq 0 ] \
-   && probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ] \
+if probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ] \
    && git -C "$MAIN_ROOT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null \
    && probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ]; then
   issue_not_found "read the TRUNK's board straight out of $KWT_REMOTE/$DEFAULT_BRANCH, freshly fetched — not your checkout; no kanban worktree was created"

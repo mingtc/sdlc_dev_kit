@@ -151,7 +151,7 @@ kit_decisions_touched_by_diff() {
       c=${cd_part%%,*}
       if [ "$cd_part" = "$c" ]; then d=1; else d=${cd_part#*,}; [ "$d" -eq 0 ] && d=1; fi
       end=$(( c + d - 1 ))
-      printf '%s\n' "$spans" | LC_ALL=C awk -v lo="$c" -v hi="$end" '$2 <= hi && $3 >= lo { print $1 }'
+      printf '%s\n' "$spans" | LC_ALL=C awk -v lo="$c" -v hi="$end" '$2 <= hi && $3 >= lo && $1 ~ /[A-Za-z0-9]$/ { print $1 }'
     done | sort -u; } || true
 }
 

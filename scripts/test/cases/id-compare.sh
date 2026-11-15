@@ -67,26 +67,30 @@ case_the_movers_refuse_a_bare_prefix_for_an_issue_id() {
   publish_sandbox
   for bad in "$SB_PREFIX" "$SB_PREFIX-" "$SB_PREFIX-85x" "$SB_PREFIX-852-s1"; do
     rc=0; out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$bad" --dry-run 2>&1 )" || rc=$?
-    if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'is not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
+    if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
       cf "(a) finish-pr.sh '$bad' was not refused as a malformed id with a Next (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
     fi
     rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$bad" in_progress --role Dev --note x 2>&1 )" || rc=$?
-    if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'is not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
+    if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
       cf "(b) move-issue.sh '$bad' was not refused as a malformed id with a Next (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
     fi
   done
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   origin_has_path "progress/dev_complete/$pid-first.md" || cf "(b) the card left dev_complete on the trunk"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$pid-s1" in_progress --role Dev --note x 2>&1 )" || rc=$?
+  if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F "./scripts/subtask.sh move $pid-s1" >/dev/null; then
+    cf "(b2) move-issue.sh given a slice id did not point at subtask.sh move (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
   # (c) a bare prefix as the parent of a slice.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX" s1 bogus --title T 2>&1 )" || rc=$?
-  if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'is not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
+  if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'not an issue id' >/dev/null || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
     cf "(c) subtask.sh new with a bare prefix as the parent was not refused as a malformed id (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   fi
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   if origin_has_path "progress/subtasks/$SB_PREFIX/todo/$SB_PREFIX-s1-bogus.md"; then cf "(c) a slice was published under the bare prefix"; fi
   # (d) control: a full id with one card is not refused for its shape.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$pid" --dry-run 2>&1 )" || rc=$?
-  if printf '%s\n' "$out" | grep -F 'is not an issue id' >/dev/null; then cf "(d) control: a full id was refused as malformed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"; fi
+  if printf '%s\n' "$out" | grep -F 'not an issue id' >/dev/null; then cf "(d) control: a full id was refused as malformed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"; fi
   # (f) a prefix with a digit in it is a prefix (kit-init takes letters and digits).
   rc=0; ( . "$SB_WORK/scripts/lib/refuse.sh"; kit_require_issue_id P2-001 x ) >/dev/null 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || cf "(f) a prefix with a digit (P2-001) was refused as a malformed id (rc=$rc)"
@@ -126,12 +130,12 @@ case_an_issue_id_is_its_integer_not_its_spelling() {
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh other --id "$n-002" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(b) control: a free number was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   # (c) [d] over two cards for one number, planted by hand.
-  sed "s/^id: .*/id: $n-7/" "$SB_WORK/progress/todo/$n-002-other.md" > "$SB_WORK/progress/todo/$n-7-seven.md"
+  sed "s/^id: .*/id: $n-07/" "$SB_WORK/progress/todo/$n-002-other.md" > "$SB_WORK/progress/todo/$n-07-seven.md"
   sed "s/^id: .*/id: $n-007/" "$SB_WORK/progress/todo/$n-002-other.md" > "$SB_WORK/progress/todo/$n-007-seven.md"
   publish_sandbox
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -i 'DUPLICATE' | grep -F "$n-7" >/dev/null \
-    || cf "(c) [d] did not report $n-7 and $n-007 as one number: $(printf '%s\n' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -i 'DUPLICATE' | grep -E "$n-0+7 is carried" >/dev/null \
+    || cf "(c) [d] did not report $n-07 and $n-007 as one number, naming a spelling a file carries: $(printf '%s\n' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }
@@ -157,6 +161,15 @@ case_a_heading_id_ends_at_the_same_place_in_every_reader() {
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -F 'D-08:' | grep -i 'space' >/dev/null \
     || cf "(c) [d] did not name the colon heading: $(printf '%s\n' "$out" | grep -A6 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  # (d) the forks check's two readers of the register agree: the colon heading is no entry at a revision,
+  # and no touched entry, so a card is never told to cite an id the live reader then calls not live.
+  local fe te
+  fe="$( . "$SB_WORK/scripts/lib/refuse.sh"; . "$SB_WORK/scripts/lib/decision-register.sh"; . "$SB_WORK/scripts/lib/qa-gate.sh"; _forks_entry_ids "$SB_WORK" HEAD requirements/DECISIONS.md '### ' 'D-[0-9]+' | tr '\n' ' ' )"
+  [ "$fe" = "D-01 D-09 " ] || cf "(d) the forks check's entry reader listed '$fe', want 'D-01 D-09 '"
+  printf '\n### D-10: another colon heading\n\n**Ruling.** y\n' >> "$SB_WORK/requirements/DECISIONS.md"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1; sbcommit -q -m "[PM] add a colon heading" >/dev/null 2>&1
+  te="$( . "$SB_WORK/scripts/lib/decision-register.sh"; kit_decisions_touched_by_diff "$SB_WORK" HEAD~1 HEAD requirements/DECISIONS.md '### ' | tr '\n' ' ' )"
+  case "$te" in *D-10*) cf "(e) the touched-entry reader named the colon heading: '$te'" ;; esac
   finish "$L"
   teardown
 }

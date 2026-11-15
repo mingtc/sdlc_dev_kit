@@ -108,6 +108,11 @@ kit_refuse() {
 # <what> names the argument in the message. It exits, so call it outside $( … ).
 kit_require_issue_id() {
   [[ "$1" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+$ ]] && return 0
+  if [[ "$1" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+-s[0-9]+$ ]]; then
+    kit_refuse 2 issue-id-malformed \
+      "Error: '$1' is a subtask id, not an issue id — $2 takes a card's full id. Nothing was read or changed." \
+      "Next: move a slice with  ./scripts/subtask.sh move $1 <target> --role <role>  (a decomposition's parent is moved with its own id)."
+  fi
   kit_refuse 2 issue-id-malformed \
     "Error: '$1' is not an issue id — $2 takes one card's full id: the project's prefix, a dash, then digits (for example ABC-012)." \
     "       A bare prefix, or an id with more after its number, would match other cards. Nothing was read or changed." \

@@ -132,10 +132,12 @@ done
 [ -n "$MSG" ]  || { echo "Error: --message is required." >&2; usage >&2; exit 2; }
 [ ${#PATHS[@]} -gt 0 ] || { echo "Error: at least one <path> is required." >&2; usage >&2; exit 2; }
 
-# A PATH IS RELATIVE TO THE CHECKOUT'S ROOT, STAYS INSIDE IT, AND IS SPELLED ONE WAY. One that climbs out
-# (a `..` part) or starts at `/` would be copied to a place outside the kanban worktree before git refused
-# it; one with a `.` part or a `//` names a file the guards below compare as typed, so `./progress/…` or
-# `progress//…` would pass a check the plain spelling fails. Refused, not rewritten.
+# A PATH IS RELATIVE TO THE CHECKOUT'S ROOT, STAYS INSIDE IT, AND HAS NO `.` PART OR `//`. One that climbs
+# out (a `..` part) or starts at `/` would be copied to a place outside the kanban worktree before git
+# refused it; one with a `.` part or a `//` names a file the guards below compare as typed, so
+# `./progress/…` or `progress//…` would pass a check the plain spelling fails. Refused, not rewritten.
+# Not covered: a spelling that differs in letter case, which reaches the same file on a filesystem that
+# folds case.
 for rel in "${PATHS[@]}"; do
   case "/${rel%/}/" in
     //*|*/../*)
