@@ -5105,6 +5105,16 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _dm_commit "the imported screen gets a row"
   _dm_py scripts/design/check-design-links.py --strict
   _dm_has "$_dm_out" "TOKEN-UNDECLARED" && cf "(h) a token declared in an imported screen with a row of its own is TOKEN-UNDECLARED on the importer: $(_dm_brief 400)"
+  # (i) the imported screen, which has a row, reads the token and the importer declares it: clean; the importer declaring nothing: one finding, on the importer
+  _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t" style="box-shadow: var(--elevation-1)">Import</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92; --elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _dm_commit "the imported screen reads the token, the importer declares it"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(i) a token an imported screen reads, which its importer declares, is TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _dm_commit "the importer declares nothing"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html" && ! _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/I.dc.html"; } || cf "(i) a token an imported screen reads, declared by nobody, is not one TOKEN-UNDECLARED finding on the importer (exit $_dm_rc): $(_dm_brief 400)"
   finish "$L"
   teardown
 }
