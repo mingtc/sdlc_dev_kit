@@ -54,6 +54,7 @@ case_register_commit_refuses_a_path_spelled_non_canonically() {
 case_the_movers_refuse_a_bare_prefix_for_an_issue_id() {
   cf_reset
   local L="finish-pr.sh, move-issue.sh and subtask.sh new refuse a bare prefix or a malformed id with a Next and change nothing, and finish-pr.sh refuses two cards for one id"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
     skp_lived "$L" ".claude/templates/SUBTASK.template.md is absent from this tree"; return
   fi
@@ -61,7 +62,8 @@ case_the_movers_refuse_a_bare_prefix_for_an_issue_id() {
   mkdir -p "$SB_WORK/.claude/templates"
   cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
   local pid="$SB_PREFIX-852" out rc bad
-  seed_issue dev_complete "$pid" first chore "First card"
+  seed_issue dev_complete "$pid" first chore "First card" "feature/$pid-first"
+  seed_branch "$pid" first "marker-first.txt"
   publish_sandbox
   for bad in "$SB_PREFIX" "$SB_PREFIX-" "$SB_PREFIX-85x" "$SB_PREFIX-852-s1"; do
     rc=0; out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$bad" --dry-run 2>&1 )" || rc=$?
@@ -85,6 +87,9 @@ case_the_movers_refuse_a_bare_prefix_for_an_issue_id() {
   # (d) control: a full id with one card is not refused for its shape.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$pid" --dry-run 2>&1 )" || rc=$?
   if printf '%s\n' "$out" | grep -F 'is not an issue id' >/dev/null; then cf "(d) control: a full id was refused as malformed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"; fi
+  # (f) a prefix with a digit in it is a prefix (kit-init takes letters and digits).
+  rc=0; ( . "$SB_WORK/scripts/lib/refuse.sh"; kit_require_issue_id P2-001 x ) >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) a prefix with a digit (P2-001) was refused as a malformed id (rc=$rc)"
   # (e) two cards for one id: refused, naming both, not the last silently.
   seed_issue dev_complete "$pid" second chore "Second card"
   publish_sandbox

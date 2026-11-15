@@ -75,7 +75,10 @@ state — so that every tool and every reader downstream can rely on the shape w
 - No identifier supplied ⇒ refuse; do not mint one silently. *The specification creator is § 2's
   declared exception and derives its own; every other creator here refuses.*
 - The identifier is malformed, or already in use on the board ⇒ refuse (an id found only in the retired
-  index, with no card left on the board ⇒ warn loudly, per [id-minting.md](id-minting.md)).
+  index, with no card left on the board ⇒ warn loudly, per [id-minting.md](id-minting.md)). **An id is its
+  integer:** `ABC-1`, `ABC-01` and `ABC-001` are one number, so another spelling of a number in use is in use.
+  A tool that takes an id to find a card (the movers, a decomposition's parent) takes the full id, never a bare
+  prefix, which would name every card carrying it.
 - The template for the requested kind is missing ⇒ refuse; **never** fall back to writing an
   ad-hoc shape, because that shape immediately becomes a second definition.
 - An item with the same name already exists ⇒ refuse rather than overwriting. Overwriting a

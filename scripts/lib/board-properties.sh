@@ -241,8 +241,8 @@ kit_bp_ids() {
       reg_skipped=$((reg_skipped+1)); continue
     fi
     # Every id in the file, in the order the file happens to hold them.
-    # A heading that opens like an entry but whose id runs into other text (`### D-08: title`) is read
-    # by no arm; named here so it is not silently absent from every count below.
+    # A heading that opens like an entry but whose id runs into other text (a colon straight after the
+    # id) is read by no arm; named here so it is not silently absent from every count below.
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       _bp_hit "    ⚠ $reg_path: heading '${e:0:80}' — its id is followed by something other than a space or the end of the line, so no arm reads it as an entry; put a space after the id" "d:regboundary:$reg_path:$e"
