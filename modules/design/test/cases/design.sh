@@ -5096,10 +5096,15 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(f) a var() of a name no token file holds is TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
   # (g) declared in an imported screen
   _dm_art "$D/I.dc.html" 004 '--elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<h2 id="ux-004-t">Import</h2>'
-  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<dc-import name=\"I.dc.html\" hint-size=\"390px,844px\"></dc-import>$R"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<dc-import name=\"I\" hint-size=\"390px,844px\"></dc-import>$R"
   _dm_commit "declared in an imported screen"
   _dm_py scripts/design/check-design-links.py --strict
   _dm_has "$_dm_out" "TOKEN-UNDECLARED" && cf "(g) a token declared in an imported screen is TOKEN-UNDECLARED: $(_dm_brief 400)"
+  # (h) the imported screen has a row of its own: its declaration still counts for the importer
+  printf '| UX-004 | I.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$C"
+  _dm_commit "the imported screen gets a row"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "TOKEN-UNDECLARED" && cf "(h) a token declared in an imported screen with a row of its own is TOKEN-UNDECLARED on the importer: $(_dm_brief 400)"
   finish "$L"
   teardown
 }

@@ -191,7 +191,7 @@ python3 scripts/design/flow-from-links.py requirements/design/<canvas>/project  
 python3 scripts/design/pin-drift.py                           # each pinned state against HEAD; `check-board.sh` runs it as [+design-drift]
 ```
 
-An `UNCLASSIFIED` or `UNREAD` line is a report line, not a finding. A `LITERAL-COLOUR` or `TOKEN-VALUE` line is a finding and
+An `UNCLASSIFIED` or `UNREAD` line is a report line, not a finding. A `LITERAL-COLOUR`, `TOKEN-VALUE` or `TOKEN-UNDECLARED` line is a finding and
 fails the gate: **you correct the screen with the artifact tools** (pull first, edit the screen to `var(--<token>)` or fix the
 sheet's value, publish, read back, take it in); only a `[decision: D-NN]` in the screen's registry row, the register holding it,
 excuses a colour. `STALE-APPROVAL` sends a row back to `changes` (§ The two gates). `uncompared` in the pin-drift report means it
