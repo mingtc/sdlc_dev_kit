@@ -732,7 +732,7 @@ _forks_drift_land() {
   grep -qF -- "$(printf '%s' "$newac" | head -1)" "$f" \
     || _fixture_die "_forks_drift_land: the AC1 rewrite was not planted"
   if [ -n "${_FDL_AC2_CONT:-}" ]; then
-    CONT="$_FDL_AC2_CONT" perl -i -pe 'BEGIN { $c = $ENV{CONT} } $_ .= "$c\n" if /^- \[ \] AC2 — /' "$f"
+    CONT="$_FDL_AC2_CONT" perl -i -pe 'BEGIN { $c = $ENV{CONT} } s/^(- \[ \] AC2 — .*)$/$1\n$c/' "$f"
     grep -qF -- "$_FDL_AC2_CONT" "$f" || _fixture_die "_forks_drift_land: the AC2 continuation line was not planted"
   fi
   [ -z "$extra" ] || printf '%s\n' "$extra" >> "$f"
