@@ -5038,3 +5038,68 @@ case_the_local_only_pin_verify_line_reads_the_trunk_as_the_kit_does_and_covers_s
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A SCREEN THAT READS A TOKEN THROUGH var() WITH NO FALLBACK, WHEN NO RULE OF THE SCREEN, ITS SHEETS OR ITS IMPORTS DECLARES IT, IS A TOKEN-UNDECLARED FINDING.
+#   Operand: check-design-links.py --strict over a screen reading var(--elevation-1) (a generated token) with, in turn, no declaration,
+#   one in its :root block, one in a sheet it links, one in a [data-theme] block alone, one in an imported screen, a fallback on the read,
+#   and a name that is no token's.
+# =============================================================================
+case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_unless_a_rule_it_loads_declares_it() {
+  cf_reset
+  local L="check-design-links.py --strict names a token a screen reads by var() with no fallback when no rule of the screen, a sheet it links or a screen it imports declares it, and passes it once any of those does, when the read has a fallback, and when the name is no token's"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md"
+  _dm_tokens '{"color":{"primary":{"$value":"#485d92"},"surface":{"$value":"#ffffff"}},"elevation":{"1":{"$value":"0 1px 2px rgba(0,0,0,0.2)"}}}'
+  printf '| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$C"
+  local R='<h1 id="ux-003-t" style="box-shadow: var(--elevation-1)">Raised</h1>'
+  # (a) read, declared nowhere
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$R"
+  _dm_commit "a screen reading --elevation-1 and declaring nothing"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "C.dc.html" && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "--elevation-1"; } || cf "(a) an undeclared elevation token a screen reads is not a TOKEN-UNDECLARED finding naming the screen and the property (exit $_dm_rc): $(_dm_brief 400)"
+  # (b) declared in the screen's :root block
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92; --elevation-1: 0 1px 2px rgba(0,0,0,0.2);' "$R"
+  _dm_commit "declared in :root"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(b) a token declared in the screen's :root block is still TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  # (c) declared in a linked sheet
+  printf ':root { --elevation-1: 0 1px 2px rgba(0,0,0,0.2); }\n' > "$D/app.css"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<link rel=\"stylesheet\" href=\"app.css\">$R"
+  _dm_commit "declared in a linked sheet"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(c) a token declared in a sheet the screen links is still TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  # (c2) read in a linked sheet, declared nowhere: the sheet's read is the screen's
+  printf '.card { box-shadow: var(--elevation-1); }\n' > "$D/app.css"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="card">Raised</h1>'
+  _dm_commit "read in a linked sheet, declared nowhere"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "C.dc.html"; } || cf "(c2) a token a linked sheet reads, declared nowhere, is not TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  rm -f "$D/app.css"
+  # (d) declared in a theme block alone
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<style>[data-theme=\"dark\"] { --elevation-1: none; }</style>$R"
+  _dm_commit "declared in a [data-theme] block alone"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "TOKEN-UNDECLARED" && cf "(d) a token declared in a [data-theme] block is TOKEN-UNDECLARED: $(_dm_brief 400)"
+  # (e) a read with a fallback
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-t" style="box-shadow: var(--elevation-1, 0 1px 2px)">Raised</h1>'
+  _dm_commit "a read with a fallback"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(e) a token read with a fallback is TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  # (f) a name that is no token's
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-t" style="margin: var(--gap)">Plain</h1>'
+  _dm_commit "a property that is no token's"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(f) a var() of a name no token file holds is TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  # (g) declared in an imported screen
+  _dm_art "$D/I.dc.html" 004 '--elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<h2 id="ux-004-t">Import</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<dc-import name=\"I.dc.html\" hint-size=\"390px,844px\"></dc-import>$R"
+  _dm_commit "declared in an imported screen"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "TOKEN-UNDECLARED" && cf "(g) a token declared in an imported screen is TOKEN-UNDECLARED: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
