@@ -34,11 +34,15 @@
 #   is torn down after each case. A failing case cannot mutate the real repo, and
 #   case_isolation proves that rather than asserting it.
 #
-# ONE INSTANCE PER MACHINE. Run one copy of this harness at a time. Two concurrent runs
-#   can collide in the sandbox, even against separate trees and separate bare remotes: the
-#   symptom is a FIXTURE FAILURE naming a sandbox file that does not exist, and the run
-#   passes when repeated alone. The cause is not known. Re-run alone before debugging such
-#   a red. (case_isolation is a different property: the real repository is unchanged.)
+# CONCURRENT RUNS. Instances may run side by side on one machine, each in its own tree. Nothing a run
+#   writes has a fixed name: every sandbox, bare remote and progress-record directory comes from its own
+#   `mktemp -d`, a render server takes an ephemeral port, and none writes user-level git configuration. Measured: two full
+#   runs of one build, started together in separate scratch projects, ended with the same outcomes as
+#   one run alone. What two runs cannot share is ONE TREE: case_isolation compares the real repository
+#   before and after, so a second session writing into the tree under test can fail it. If a run fails
+#   while another was running, and the failure names a sandbox file that does not exist, re-run alone
+#   before debugging; that symptom has not been reproduced. (case_isolation is a different property:
+#   the real repository is unchanged.)
 #
 # THE TRUNK IS DERIVED; THE PREFIX AND THE ROLE SET ARE THE KIT'S SHIPPED VALUES
 #   The trunk comes from this repo's own <remote>/HEAD, else kanban-worktree.sh's
