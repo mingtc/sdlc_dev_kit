@@ -61,9 +61,10 @@
 #     history shows it leaving a 'todo/' column (a rename whose OLD path ends in '/todo/' —
 #     'progress/todo/' or a subtask's own 'progress/subtasks/<parent>/todo/') needs a
 #     '[decision: D-NN]' citation ON THAT BULLET — a ruling written straight into an AC, with no
-#     register entry and no citation, is invisible to the derivation above. The bullet is its one
-#     checklist line ('- [ ] <id> — …'); a continuation line below it is neither compared nor read for
-#     a citation, and a citation elsewhere on the card (another AC, the Activity) never covers it.
+#     register entry and no citation, is invisible to the derivation above. The bullet that is
+#     compared is the AC's whole list item (_qav_ac_bullet_block: the checklist line and the lines that
+#     belong under it); the citation is read from its checklist line alone, so a citation on a
+#     continuation line, or elsewhere on the card (another AC, the Activity), never covers it.
 #     The refusal names each changed, uncited bullet by AC id. An AC the card had then and has not
 #     now (removed or renamed) is drift too, covered by a '[decision: D-NN]' on an '## Activity' line
 #     that names it or on a struck bullet ('- [ ] ~~AC3 — …~~ [decision: D-NN]'). The population is read
@@ -224,11 +225,40 @@ KIT_AC_SEP='[[:space:]]*(—|-|:)'
 # carries an id is graded; one without is refused (_qav_ac_stray_bullets).
 KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 
-# _qav_unfenced — stdin without the lines of a fenced code block (a line opening or closing a fence, indented
-# or not, and everything between): an example in a fence is text, never a heading or a checklist bullet. The
-# fence rule of this file's readers.
+# THE FENCE RULE, once (the design module's card reader holds the same rule): a fence opens on a line of at most
+# MAXIND spaces of indent (a tab is not a space) and three or more backticks or tildes, a backtick fence's
+# info string holding no backtick; it closes only on a line of the same character, at least as long as the
+# opener, with nothing else on it; one never closed runs to the end of the text. As awk source, so every
+# reader that must skip a fenced line pastes this one function: fence_skip(line, maxind) -> 1 for a delimiter
+# or a line inside a fence, 0 for any other line.
+_QAV_FENCE_FN='
+function fence_skip(ln, maxind,    ind, s, c, n, rest) {
+  sub(/\r$/, "", ln)
+  ind = 0
+  while (substr(ln, ind + 1, 1) == " ") ind++
+  s = substr(ln, ind + 1); c = substr(s, 1, 1); n = 0; rest = ""
+  if (ind <= maxind && (c == "`" || c == "~")) {
+    while (substr(s, n + 1, 1) == c) n++
+    rest = substr(s, n + 1)
+  }
+  if (fch == "") {
+    if (n >= 3 && !(c == "`" && index(rest, "`"))) { fch = c; flen = n; return 1 }
+    return 0
+  }
+  if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
+  return 1
+}'
+
+# _qav_unfenced — stdin without the lines of a fenced code block, delimiters included: an example in a fence is
+# text, never a heading or a checklist bullet.
 _qav_unfenced() {
-  LC_ALL=C awk '/^[ \t]*(```|~~~)/ { fence = !fence; next } fence { next } { print }'
+  LC_ALL=C awk "$_QAV_FENCE_FN"' { if (!fence_skip($0, 3)) print }'
+}
+
+# _qav_fence_flags — one line per stdin line: 1 when it is a fence delimiter or inside a fence, else 0. For a
+# reader that walks the lines itself (_forks_cited_ids).
+_qav_fence_flags() {
+  LC_ALL=C awk "$_QAV_FENCE_FN"' { print (fence_skip($0, 3) ? 1 : 0) }'
 }
 
 # _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
@@ -315,11 +345,10 @@ _qav_ac_removal_cited() {
   [ -n "$(kit_decisions_cited "$scratch" "$shape")" ]   # return-class: predicate
 }
 
-# _qav_ac_bullet_text <body> <id> — the NORMALISED text of AC <id>'s own checklist bullet (the
-# part after its separator), or empty if <id> has no bullet in <body>. Normalised so a pure
-# separator/whitespace reformat (em-dash <-> hyphen <-> colon, a run of spaces, trailing
-# whitespace) compares equal: kit_forks_check's history comparison asks whether the RULING
-# changed, not whether the punctuation did.
+# _qav_ac_bullet_text <body> <id> — the NORMALISED text of AC <id>'s own checklist LINE (the part after its
+# separator), or empty if <id> has no bullet in <body>. Normalised so a pure separator/whitespace reformat
+# (em-dash <-> hyphen <-> colon, a run of spaces, trailing whitespace) compares equal. This is where a
+# '[decision: D-NN]' must sit to answer a change; what is COMPARED is _qav_ac_bullet_block's.
 _qav_ac_bullet_text() {
   local body="$1" id="$2" _line _text
   _line="$(printf '%s\n' "$body" | _qav_unfenced | grep -E "^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" | head -1)"
@@ -328,21 +357,35 @@ _qav_ac_bullet_text() {
   printf '%s' "$_text" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }
 
-# _qav_ac_bullet_block <body> <id> — the NORMALISED text of AC <id>'s whole bullet: its checklist line
-# (as _qav_ac_bullet_text reads it) and the indented lines that follow it, up to a blank line, an
-# unindented line, a fence or the next checklist line. What the freeze compares, so wording written on a
-# continuation line changes the criterion as a changed first line does; the citation that answers a
-# change is still read from the checklist line alone.
+# _qav_ac_bullet_block <body> <id> — the NORMALISED text of AC <id>'s whole list item, which is what the freeze
+# compares: its checklist line, then every line that belongs to the item the way a Markdown list item holds
+# them: an indented line; a blank line followed by more indented content; an indented fenced block (its lines
+# whatever they hold, up to the closing fence or the first unindented line); a lazy line, an unindented line
+# straight after a paragraph line that opens no list item, heading, quote or fence. The next checklist line
+# ends it, as does a blank line followed by an unindented one. A carriage return is whitespace and an HTML
+# comment is text, so adding one is a change. Empty if <id> has no bullet.
 _qav_ac_bullet_block() {
   local body="$1" id="$2"
   printf '%s\n' "$body" | KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
-    LC_ALL=C awk '
+    LC_ALL=C awk "$_QAV_FENCE_FN"'
       BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; item = "^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\\[[ xX]\\]" }
-      /^[ \t]*(```|~~~)/ { if (on) exit; fence = !fence; next }   # the fence rule of _qav_unfenced, plus: a fence ends the bullet
-      fence { next }
-      !on { if ($0 ~ start) { on = 1; t = $0; sub(lead, "", t) } ; next }
-      /^[ \t]+[^ \t]/ && $0 !~ item && $0 !~ /^[ \t]*(```|~~~)/ { t = t " " $0; next }
-      { exit }
+      { line = $0; sub(/\r$/, "", line) }
+      !on { if (!fence_skip(line, 3) && line ~ start) { on = 1; t = line; sub(lead, "", t); para = 1 }; next }
+      fch != "" {                                  # inside an indented fence of the item
+        if (line !~ /^[ \t]*$/ && line !~ /^[ \t]/) exit
+        fence_skip(line, 6); t = t " " line
+        if (fch == "") para = 0
+        next }
+      line ~ /^[ \t]*$/ { blank = 1; next }
+      line ~ item { exit }
+      line ~ /^[ \t]/ {
+        if (blank && line !~ /^(  |\t)/) exit
+        blank = 0
+        if (fence_skip(line, 6)) { t = t " " line; para = 0; next }
+        t = t " " line; para = 1; next }
+      { if (blank || !para) exit                    # an unindented line: lazy only straight after paragraph text
+        if (line ~ /^(#|>|[-*+][ \t]|[0-9]+[.)][ \t]|```|~~~)/) exit
+        t = t " " line; next }
       END { if (on) print t }' \
     | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }
@@ -1174,8 +1217,8 @@ kit_ac_drift_check() {
   fi
   old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
     | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
-  # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
-  # line, the same text _qav_ac_bullet_text compares), so a citation elsewhere on the card — in
+  # A changed bullet answers for itself: the citation must be ON that bullet's checklist line
+  # (the text _qav_ac_bullet_text reads; what changed is _qav_ac_bullet_block's), so a citation elsewhere on the card — in
   # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
   # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
   # refuses, never passes).
@@ -1220,7 +1263,7 @@ kit_ac_drift_check() {
   if [ -n "$drift" ]; then
     kit_refuse 1 forks-ac-changed-uncited \
       "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${drift}" \
-      "       A ruling written straight into an AC is still a fork — cite the id that decided it on the bullet that changed; a citation elsewhere on the card does not cover it." \
+      "       A ruling written straight into an AC is still a fork — cite the id that decided it on the checklist line of the bullet that changed; a citation elsewhere on the card does not cover it. A bullet is its checklist line and the lines under it, so wording added there changed it." \
       "       (process/MANUAL.md § Execution discipline item 6.)" \
       "Next: put the register id that decided the change on the changed bullet itself (${drift}) as '[decision: D-NN]', on its checklist line, and name that id in the card's 'forks:' ('forks: [D-NN]'): a ruling written into an AC is a fork the field must carry. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
       "       NOTHING WAS CHANGED."
@@ -1241,7 +1284,7 @@ kit_ac_drift_check() {
 _forks_cited_ids() {
   local src="$1" repo="$2" leave_commit="$3" leave_path="$4" id_shape="$5" live="${6:-}"
   local new_body old_body ac ac_old ac_new unchanged="" scratch line ids seen="" in_body=1
-  local sec_scratch="" in_sec=0 in_fence=0 hd sec_id core_ids sec_ids kept=""
+  local sec_scratch="" in_sec=0 in_fence=0 rec hd sec_id core_ids sec_ids kept=""
   if [ -n "$leave_commit" ]; then
     new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
     old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
@@ -1266,10 +1309,10 @@ _forks_cited_ids() {
     return 0
   fi
   : > "$scratch"; : > "$sec_scratch"
-  while IFS= read -r line || [ -n "$line" ]; do
+  while IFS= read -r rec || [ -n "$rec" ]; do
+    in_fence="${rec%%$'\t'*}"; line="${rec#*$'\t'}"
     case "$line" in "## QA Verdict"*) in_body=0 ;; esac
-    # A heading counts outside a code fence, and the two sections are named exactly (trailing blanks aside).
-    case "$line" in '```'*|'~~~'*) in_fence=$((1 - in_fence)) ;; esac
+    # A heading counts outside a code fence (_qav_fence_flags, the one fence rule), and the two sections are named exactly (trailing blanks aside).
     if [ "$in_fence" = 0 ]; then
       hd="${line%$'\r'}"; hd="${hd%"${hd##*[![:space:]]}"}"
       case "$hd" in
@@ -1295,7 +1338,7 @@ _forks_cited_ids() {
       fi
     fi
     printf '%s\n' "$line" >> "$scratch"
-  done < "$src"
+  done < <(paste -d $'\t' <(_qav_fence_flags < "$src") "$src")
   core_ids="$(kit_decisions_cited "$scratch" "$id_shape" | sort -u || true)"
   sec_ids="$(kit_decisions_cited "$sec_scratch" "$id_shape" | sort -u || true)"
   rm -f "$scratch" "$sec_scratch"

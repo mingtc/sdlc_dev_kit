@@ -52,8 +52,8 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
   case "$out" in *"forks:"*) : ;; *) cf "(a) the refusal does not name 'forks:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE601A.txt" && cf "(a) the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$ida-absent.md" && cf "(a) the card advanced despite the refusal"
-  grep -q 'refusal=forks-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
-    || cf "(a) no progress record carries refusal=forks-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) MALFORMED — neither 'none' nor a '[D-NN, ...]' list.
   local idb="$SB_PREFIX-602"
@@ -857,8 +857,8 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   _FDL_AC2_CONT="  and a third condition, written on a line below." _forks_drift_land work-e "$id" contfork 1 \
     "$base" "" "none"
   [ "$_FDL_RC" -ne 0 ] || cf "(e) a continuation line was added under an AC that cites D-01, with forks: none — finish-pr.sh exited 0"
-  grep -q 'refusal=forks-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
-    || cf "(e) the refusal is not forks-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(e) the refusal is not forks-contradicted: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
   origin_has_path "progress/qa_complete/$id-contfork.md" && cf "(e) the card advanced despite the refusal"
   teardown
 
@@ -1084,8 +1084,8 @@ _forks_ablate_heading_prefix() {
 }
 _forks_ablate_fence() {
   local lib="$SB_WORK/scripts/lib/qa-gate.sh"
-  grep -q 'in_fence=\$((1 - in_fence))' "$lib" || { _control_did_not_run "find the fence toggle in lib/qa-gate.sh"; return 0; }
-  sed -i.bak 's/in_fence=\$((1 - in_fence))/:/' "$lib" && rm -f "$lib.bak"
+  grep -q 'in_fence="\${rec%%' "$lib" || { _control_did_not_run "find the fence flag read in lib/qa-gate.sh"; return 0; }
+  sed -i.bak 's/in_fence="[^;]*; line=/in_fence=0; line=/' "$lib" && rm -f "$lib.bak"
   return 0
 }
 
