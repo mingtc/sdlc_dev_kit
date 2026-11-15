@@ -323,6 +323,23 @@ _qav_ac_bullet_text() {
   printf '%s' "$_text" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }
 
+# _qav_ac_bullet_block <body> <id> — the NORMALISED text of AC <id>'s whole bullet: its checklist line
+# (as _qav_ac_bullet_text reads it) and the indented lines that follow it, up to a blank line, an
+# unindented line, a fence or the next checklist line. What the freeze compares, so wording written on a
+# continuation line changes the criterion as a changed first line does; the citation that answers a
+# change is still read from the checklist line alone.
+_qav_ac_bullet_block() {
+  local body="$1" id="$2"
+  printf '%s\n' "$body" | KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
+    LC_ALL=C awk '
+      BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; item = "^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\\[[ xX]\\]" }
+      !on { if ($0 ~ start) { on = 1; t = $0; sub(lead, "", t) } ; next }
+      /^[ \t]+[^ \t]/ && $0 !~ item && $0 !~ /^[ \t]*(```|~~~)/ { t = t " " $0; next }
+      { exit }
+      END { if (on) print t }' \
+    | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
+}
+
 # _qav_is_placeholder <normalised-cell> — true if <normalised-cell> (already lower-cased, with
 # backticks and outer whitespace stripped) is empty or one of KIT_QAV_PLACEHOLDER_RE's forms.
 _qav_is_placeholder() {
@@ -1162,14 +1179,14 @@ kit_ac_drift_check() {
   ac_ids="$(_qav_ac_ids "$new_body")"
   while IFS= read -r ac; do
     [ -n "$ac" ] || continue
-    ac_old="$(_qav_ac_bullet_text "$old_body" "$ac")"
-    ac_new="$(_qav_ac_bullet_text "$new_body" "$ac")"
+    ac_old="$(_qav_ac_bullet_block "$old_body" "$ac")"
+    ac_new="$(_qav_ac_bullet_block "$new_body" "$ac")"
     # A bullet absent from the leave-todo revision (a new AC added after todo) is not a
     # TEXT CHANGE of an existing ruling — nothing to compare, so it is not drift.
     [ -n "$ac_old" ] || continue
     [ "$ac_old" != "$ac_new" ] || continue
     if [ -n "$scratch" ]; then
-      printf '%s\n' "$ac_new" > "$scratch"
+      _qav_ac_bullet_text "$new_body" "$ac" > "$scratch"
       [ -z "$(kit_decisions_cited "$scratch" "$id_shape")" ] || continue
     fi
     drift="${drift}${drift:+, }$ac"
@@ -1224,8 +1241,8 @@ _forks_cited_ids() {
       | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
     while IFS= read -r ac; do
       [ -n "$ac" ] || continue
-      ac_old="$(_qav_ac_bullet_text "$old_body" "$ac")"
-      ac_new="$(_qav_ac_bullet_text "$new_body" "$ac")"
+      ac_old="$(_qav_ac_bullet_block "$old_body" "$ac")"
+      ac_new="$(_qav_ac_bullet_block "$new_body" "$ac")"
       [ -z "$ac_old" ] || [ "$ac_old" != "$ac_new" ] || unchanged="${unchanged}${ac}"$'\n'
     done <<< "$(_qav_ac_ids "$new_body")"
   fi

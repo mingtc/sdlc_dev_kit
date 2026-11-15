@@ -731,6 +731,10 @@ _forks_drift_land() {
   NEWAC="$newac" perl -i -pe 'BEGIN { $n = $ENV{NEWAC} } s/^- \[ \] AC1 — the sandbox.s seeded behaviour holds\.$/$n/' "$f"
   grep -qF -- "$(printf '%s' "$newac" | head -1)" "$f" \
     || _fixture_die "_forks_drift_land: the AC1 rewrite was not planted"
+  if [ -n "${_FDL_AC2_CONT:-}" ]; then
+    CONT="$_FDL_AC2_CONT" perl -i -pe 'BEGIN { $c = $ENV{CONT} } $_ .= "$c\n" if /^- \[ \] AC2 — /' "$f"
+    grep -qF -- "$_FDL_AC2_CONT" "$f" || _fixture_die "_forks_drift_land: the AC2 continuation line was not planted"
+  fi
   [ -z "$extra" ] || printf '%s\n' "$extra" >> "$f"
   sed -i.bak "s/^forks: .*\$/forks: $forksv/" "$f" && rm -f "$f.bak"
   git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
@@ -807,7 +811,8 @@ case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet() {
 #   (a) a continuation line added under AC1, forks: none: refused, naming AC1;
 #   (b) CONTROL: the todo/ copy already holds the continuation line and it is untouched: lands;
 #   (c) the todo/ copy holds one continuation line and a second is added: refused, naming AC1;
-#   (d) the checklist line itself carries the citation while a continuation line is added: lands.
+#   (d) the checklist line itself carries the citation while a continuation line is added: lands;
+#   (e) an AC citing D-01 gains a continuation line, forks: none: refused; (f) the control with forks: [D-01] lands.
 # RED FIRST: (a) and (c) land while the bullet is compared by its checklist line alone.
 # =============================================================================
 case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
@@ -843,7 +848,22 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   [ "$_FDL_RC" -eq 0 ] || cf "(d) the citation is on the checklist line and a continuation line was added — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
   teardown
 
-  finish "an indented continuation line is read as part of its AC bullet: one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, and the citation on the checklist line (d) answers it"
+  # (e) the checklist line cites D-01 and is untouched; only a continuation line below it is added. The bullet
+  #     changed, so its citation is a fork the card made: 'forks: none' is refused, '[D-01]' lands.
+  id="$SB_PREFIX-837"
+  _FDL_AC2_CONT="  and a third condition, written on a line below." _forks_drift_land work-e "$id" contfork 1 \
+    "$base" "" "none"
+  [ "$_FDL_RC" -ne 0 ] || cf "(e) a continuation line was added under an AC that cites D-01, with forks: none — finish-pr.sh exited 0"
+  origin_has_path "progress/qa_complete/$id-contfork.md" && cf "(e) the card advanced despite the refusal"
+  teardown
+
+  id="$SB_PREFIX-838"
+  _FDL_AC2_CONT="  and a third condition, written on a line below." _forks_drift_land work-f "$id" contforkok 1 \
+    "$base" "" "[D-01]"
+  [ "$_FDL_RC" -eq 0 ] || cf "(f, control) the same edit with forks: [D-01] — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  teardown
+
+  finish "an indented continuation line is read as part of its AC bullet: one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, the citation on the checklist line (d) answers it, and an AC that already cites a ruling and gains a continuation line has changed, so the ruling is the card's fork: forks: none is refused (e), forks: [D-01] lands (f)"
 }
 
 # =============================================================================
