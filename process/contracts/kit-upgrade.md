@@ -40,7 +40,7 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   the one the project records and nothing else is to write, merge, remove or check, but a module's record names another
   version than the kit holds or carries a `pending` section, the run moves the record, names the module, writes no
   checklist and no staging, and tells the adopter to commit `process/MODULES`; there is no `--finish` and no archive.
-  A module whose placed files or hosts have uncommitted changes (a killed run's writes) is not that run: it takes the
+  A module whose placed files or hosts have uncommitted changes (for example, a killed run's writes) is not that run: it takes the
   full path, whose output says to review the whole diff.
   *Why:* a checklist with no items, a second commit and an archive of nothing cost the adopter three steps for one
   write, and a second such run under the same version would be refused for the archive's name.

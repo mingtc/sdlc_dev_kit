@@ -924,7 +924,7 @@ fail_write() {
 }
 # A run whose only work is an enabled module's record (another version than the kit holds, or a `pending` section) has
 # no file to merge and nothing to check: it writes the record and stops, with no checklist, no staging and no --finish.
-# A module whose placed files or hosts have uncommitted changes is a killed run's: that run takes the full path, whose
+# A module with uncommitted changes under a placed path (a file, or a file it adds a block to) takes the full path, whose
 # Next names the whole diff. The record moves in one write per module, so a kill leaves each module's old record or its
 # new one, and the run again finishes the rest.
 REC_UNCOMMITTED=""
@@ -949,7 +949,7 @@ MODNAMES_EOF
       if ! { kit_mod_upgrade_apply "$mn" && kit_mod_upgrade_stage_record "$mn" "$MODTMP/records" \
              && kit_mod_upgrade_finish_record "$mn" "$MODTMP/records"; }; then
         kit_refuse 1 upgrade-write-failed \
-          "Error: could not write the record of module $mn in $TGT/$KIT_MOD_STATE_REL. Only that file was touched, and a module before this one may already have its record moved." \
+          "Error: could not write the record of module $mn in $TGT/$KIT_MOD_STATE_REL. Only that file was touched (a stray process/MODULES.kit-mod-new may be left, and a run again removes it), and a module before this one may already have its record moved." \
           "Next: fix the write failure (permissions, free space under $TGT/process/), then run this again; there is nothing to undo."
       fi
     done <<MODNAMES_EOF
