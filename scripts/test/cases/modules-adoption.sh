@@ -1072,8 +1072,9 @@ case_a_killed_kit_upgrade_in_a_crlf_checkout_is_finished_by_running_it_again() {
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _mu_subject_ok || { finish "$L"; return; }
-  local run="$SB_TMP/run" rootp pts n tried=0
+  local run rootp pts n tried=0
   MU_ENABLE="example second" _mu_pair _mu_shared_hosts_pre
+  run="$SB_TMP/run"
   _mu_new_version
   _mu_second_module "$MU_NEW" 0.6.0 blocks; _mu_manifest "$MU_NEW"
   _md_make_count_shim
