@@ -225,18 +225,26 @@ KIT_AC_SEP='[[:space:]]*(—|-|:)'
 # carries an id is graded; one without is refused (_qav_ac_stray_bullets).
 KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 
-# THE FENCE RULE, once (the design module's card reader holds the same rule): a fence opens on a line of at most
-# MAXIND spaces of indent (a tab is not a space) and three or more backticks or tildes, a backtick fence's
-# info string holding no backtick; it closes only on a line of the same character, at least as long as the
-# opener, with nothing else on it; one never closed runs to the end of the text. As awk source, so every
-# reader that must skip a fenced line pastes this one function: fence_skip(line, maxind) -> 1 for a delimiter
-# or a line inside a fence, 0 for any other line.
+# THE FENCE RULE, once: a fence opens on a line of at most MAXIND columns of indent (a tab is up to the next
+# multiple of four) and three or more backticks or tildes, a backtick fence's info string holding no
+# backtick; it closes only on a line of the same character, at least as long as the opener, with nothing
+# else on it; one never closed runs to the end of the text. As awk source, so every reader that must skip a
+# fenced line pastes this one text. fence_skip(line, maxind) -> 1 for a delimiter or a line inside a fence,
+# 0 for any other line. fence_line(line) is what a reader that walks a whole card calls: it adds the list
+# item. Inside an item (the last unindented line began a list item) an opener may sit up to six columns in,
+# since the item's content starts at two; a fence opened there ends with its item, at the next unindented
+# non-blank line, and that is a fence never closed (fence_unclosed(): the line it opened on, else nothing).
 _QAV_FENCE_FN='
-function fence_skip(ln, maxind,    ind, s, c, n, rest, res) {
+function fence_skip(ln, maxind,    ind, k, ch, s, c, n, rest, res) {
   sub(/\r$/, "", ln)
   ind = 0
-  while (substr(ln, ind + 1, 1) == " ") ind++
-  s = substr(ln, ind + 1); c = substr(s, 1, 1); n = 0; rest = ""
+  for (k = 1; k <= length(ln); k++) {
+    ch = substr(ln, k, 1)
+    if (ch == " ") ind++
+    else if (ch == "\t") ind = ind + 4 - ind % 4
+    else break
+  }
+  s = substr(ln, k); c = substr(s, 1, 1); n = 0; rest = ""
   if (ind <= maxind && (c == "`" || c == "~")) {
     while (substr(s, n + 1, 1) == c) n++
     rest = substr(s, n + 1)
@@ -247,18 +255,46 @@ function fence_skip(ln, maxind,    ind, s, c, n, rest, res) {
     if (n >= 3 && !(c == "`" && index(rest, "`"))) { fch = c; flen = n; res = 1 }
   } else if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
   return res
-}'
+}
+function fence_line(ln,    blank, ind, k, ch, lim, was, res) {
+  sub(/\r$/, "", ln)
+  blank = (ln ~ /^[ \t]*$/)
+  ind = 0
+  for (k = 1; k <= length(ln); k++) {
+    ch = substr(ln, k, 1)
+    if (ch == " ") ind++
+    else if (ch == "\t") ind = ind + 4 - ind % 4
+    else break
+  }
+  if (!blank && ind < 2) {
+    if (fch != "" && fitem) { if (!uncl) uncl = fopened; fch = ""; flen = 0; fitem = 0 }
+    if (fch == "") initem = (ln ~ /^(>[ \t]*)?([-*+]|[0-9]+[.)])[ \t]/)
+  }
+  lim = 3
+  if (fch == "" ? initem : fitem) lim = 6
+  was = (fch != "")
+  res = fence_skip(ln, lim)
+  if (!was && fch != "") { fopened = NR; fitem = initem }
+  return res
+}
+function fence_unclosed() { return uncl ? uncl : (fch != "" ? fopened : 0) }'
 
 # _qav_unfenced — stdin without the lines of a fenced code block, delimiters included: an example in a fence is
 # text, never a heading or a checklist bullet.
 _qav_unfenced() {
-  LC_ALL=C awk "$_QAV_FENCE_FN"' { if (!fence_skip($0, 3)) print }'
+  LC_ALL=C awk "$_QAV_FENCE_FN"' { if (!fence_line($0)) print }'
 }
 
 # _qav_fence_flags — one line per stdin line: 1 when it is a fence delimiter or inside a fence, else 0. For a
 # reader that walks the lines itself (_forks_cited_ids).
 _qav_fence_flags() {
-  LC_ALL=C awk "$_QAV_FENCE_FN"' { print (fence_skip($0, 3) ? 1 : 0) }'
+  LC_ALL=C awk "$_QAV_FENCE_FN"' { print (fence_line($0) ? 1 : 0) }'
+}
+
+# _qav_unclosed_fence <body> — the line (1-based, in <body>) a fence opened on that nothing closes: its text
+# ends first, or its list item does. Nothing when every fence closes.
+_qav_unclosed_fence() {
+  printf '%s\n' "$1" | LC_ALL=C awk "$_QAV_FENCE_FN"' { fence_line($0) } END { u = fence_unclosed(); if (u) print u }'
 }
 
 # _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
@@ -305,7 +341,7 @@ _qav_cut_comments() {
 # _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased, is
 # <heading> or <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
 # 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'), read through
-# _qav_cut_comments; a fenced block (indented or not) is skipped.
+# _qav_cut_comments; a fenced block (_QAV_FENCE_FN's rule) is skipped.
 _qav_section_lines() {
   _qav_cut_comments | _qav_unfenced | LC_ALL=C awk -v want="$1" '
     /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = (h == want || index(h, want " (") == 1); next }
@@ -1020,8 +1056,8 @@ kit_qa_verdict_check() {
 #   The ids of the entries <register-path> holds at <rev>, one per line, sorted; nothing when the
 #   file is absent there. Only a heading whose id is the register's declared <id-shape>, followed
 #   by a space or the end of the line (the boundary kit_decision_register_live uses), is an entry,
-#   so a prose heading ('### Notes') is not one. A fenced example heading still is: no shared fence
-#   reader exists for a register, and a second parser here would drift from it.
+#   so a prose heading ('### Notes') is not one. A fenced example heading still is: the register is read by
+#   its heading prefix, as its own readers read it, and a fence rule here would make this one disagree with them.
 _forks_entry_ids() {
   git -C "$1" show "${2}:${3}" 2>/dev/null | LC_ALL=C awk -v m="$4" '
     index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); print id }' \
@@ -1188,14 +1224,21 @@ _forks_reads_end() {  # <what> — <what> names the check in the message
 #   touches the register and never adds a '[decision: D-NN]' citation, so the register derivation
 #   cannot see it; the only trace is the AC TEXT itself changing after the card was underway, and
 #   "underway" is the card's own file history, never a commit subject a hand edit could spoof.
-#   Refuses through kit_refuse with forks-ac-changed-uncited, forks-ac-ungraded (a checklist line of
+#   Refuses through kit_refuse with forks-ac-unclosed-fence (a fence nothing closes, first), forks-ac-changed-uncited, forks-ac-ungraded (a checklist line of
 #   '## Acceptance Criteria' the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
-  local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own
+  local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own unclosed
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
-  # The population first, on every route: a checklist line the QA gate's reader would drop is never
+  # A fence nothing closes turns the rest of the card into code, criteria included: refused first, by its line.
+  unclosed="$(_qav_unclosed_fence "$new_body")"
+  if [ -n "$unclosed" ]; then
+    kit_refuse 1 forks-ac-unclosed-fence \
+      "Error: ${issue_id} has a code fence that opens on line ${unclosed} and is never closed above its '## QA Verdict', so what follows it reads as code — acceptance criteria included, which then go ungraded." \
+      "Next: close the fence on line ${unclosed}: add a line holding only its backticks or tildes (as many as it opened with) after its last line, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
+  fi
+  # The population next, on every route: a checklist line the QA gate's reader would drop is never
   # graded, and a card with no AC has nothing to grade — whether or not the card ever sat in todo/.
   stray="$(_qav_ac_stray_bullets "$new_body")"
   if [ -n "$stray" ]; then
