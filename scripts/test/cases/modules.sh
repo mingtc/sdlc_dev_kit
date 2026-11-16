@@ -1110,3 +1110,32 @@ case_module_enable_refuses_a_host_or_directory_in_another_case_and_a_role_the_ba
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE MODULE-LESS SKIP NAMES A FILE THAT IS ABSENT, AND THE SHAPE TEST READS A MANIFEST AS A FILE.
+#   Operand: the two reasons the module cases give when the example module has no manifest (_md_gone_reason, _mu_example_reason), run
+#   against a tree that keeps modules/example/ with its notes and setup steps and has no manifest. A reason that names a file that is
+#   present there is false, and _lived_names_a_file must read a manifest as a file.
+# =============================================================================
+case_the_module_less_skip_reason_names_a_file_that_is_absent_and_the_shape_test_reads_a_manifest() {
+  cf_reset
+  local L="when a tree keeps modules/ and has deleted the manifests, the skip reason of the module cases names a file that is absent there (the manifest), not one that is present, and the shape test skp_lived applies reads a manifest as a file"
+  local root fn r named n
+  root="$(mktemp -d)" || { cf "(prereq) no scratch directory"; finish "$L"; return; }
+  mkdir -p "$root/modules/example"
+  : > "$root/modules/example/RELEASE-NOTES.md"; : > "$root/modules/example/SETUP.md"
+  for fn in _md_gone_reason _mu_example_reason; do
+    r="$(REAL_REPO_ROOT="$root" "$fn")"
+    [ -n "$r" ] || { cf "($fn) gives no reason on a tree with no manifest"; continue; }
+    _lived_names_a_file "$r" || cf "($fn) its reason names no file the shape test reads: $r"
+    n=0
+    for named in $(printf '%s' "$r" | grep -oE '[A-Za-z0-9_./-]+\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template|manifest)'); do
+      n=$((n + 1))
+      [ ! -e "$root/$named" ] || cf "($fn) its reason names $named, which is present in the tree it judged: $r"
+    done
+    [ "$n" -gt 0 ] || cf "($fn) its reason names no file at all: $r"
+  done
+  _lived_names_a_file "modules/example/module.manifest is absent from this tree" || cf "(shape) a reason naming module.manifest is not read as naming a file"
+  rm -rf "$root"
+  finish "$L"
+}
