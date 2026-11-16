@@ -102,7 +102,7 @@ validate_slug "$SLUG" || exit 2   # exit-class: usage
 # PRD ids are derived here rather than passed in: PRDs are few and authored by one role
 # (process/contracts/id-minting.md § "Spaces and streams").
 LAST_NUM=$(find "$DEST_DIR" -maxdepth 1 -name "${PRD_PREFIX}-*.md" -type f 2>/dev/null \
-  | sed -E "s@.*/${PRD_PREFIX}-0*([0-9]+)-.*@\\1@" \
+  | sed -nE "s@.*/${PRD_PREFIX}-0*([0-9]+)-.*@\\1@p" \
   | sort -n | tail -1)
 NEXT_NUM=$(( ${LAST_NUM:-0} + 1 ))
 ID=$(printf "${PRD_PREFIX}-%03d" "$NEXT_NUM")

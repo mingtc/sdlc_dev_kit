@@ -111,7 +111,8 @@ fi
 ROLE="${ARCHIVE_ROLE:-Orchestrator}"
 # CHECKED BEFORE THE LOCK AND THE WORKTREE: past this point the git mv and the ARCHIVE.md edit
 # have happened, and a hook that rejects the tag would leave them uncommitted.
-kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE
+# A preview commits nothing, so only --apply is held to the role set.
+[ "$DRY_RUN" = true ] || kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE
 
 # Resolve repo root + trunk, take the lock, and route through the standing
 # detached worktree synced to the trunk. The lock is trap-released on EXIT
@@ -121,7 +122,7 @@ kwt_lock
 kwt_bootstrap
 kwt_sync
 # THE COMMIT IS JUDGED BY THE HOOK IN $KWT, a copy of the trunk; the check above read this checkout's.
-kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
+[ "$DRY_RUN" = true ] || kit_require_role_on_trunk "$KWT" "$ROLE" "${KWT_SYNCED:-false}" "$KWT_REMOTE/$DEFAULT_BRANCH" "the role tag '$ROLE'"
 
 ARCHIVE="$KWT/ARCHIVE.md"
 QA_DIR="$KWT/progress/qa_complete"

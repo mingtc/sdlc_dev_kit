@@ -257,6 +257,8 @@ def main(argv=None) -> int:
     parser.add_argument("--self-test", action="store_true", help="re-verify roots + blind spot")
     parser.add_argument("--show-exempt", action="store_true", help="list exempted orphans too")
     args = parser.parse_args(argv)
+    if not Path(args.root).is_dir():
+        parser.error(f"--root {args.root} is not a directory")
     root = Path(args.root)
     if args.self_test:
         return self_test(root)

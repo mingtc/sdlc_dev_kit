@@ -48,7 +48,7 @@ if [[ -f "$PID_FILE" ]]; then
   printf '{"reason": "stopped", "timestamp": %s000}\n' "$(date +%s)" > "${STATE_DIR}/server-stopped"
 
   # Only delete ephemeral /tmp directories
-  if [[ "$SESSION_DIR" == /tmp/* ]]; then
+  if [[ "$SESSION_DIR" == /tmp/* && "$SESSION_DIR" != *..* ]]; then
     rm -rf "$SESSION_DIR"
   fi
 

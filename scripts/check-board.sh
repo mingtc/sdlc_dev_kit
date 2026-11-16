@@ -961,7 +961,8 @@ fi
 # checkout is read by none of them. Printed every run so a clean tree is a visible fact; a ⚠ only where a
 # path sits in a place an arm reads (the board, requirements, PROJECT.md, a declared register, the question
 # channel). Reports only, like [f1]'s count: it never sets `drift`.
-f0_porc="$(git -C "$kwt_main" status --porcelain --untracked-files=all 2>/dev/null | sed 's/^...//; s/^.* -> //' || true)"
+# -z: git quotes a path with a space or a non-ASCII byte in the line form; the record form never does. A rename or copy carries its old path as the next record.
+f0_porc="$(git -C "$kwt_main" status --porcelain -z --untracked-files=all 2>/dev/null | tr '\0' '\n' | LC_ALL=C awk '{ if (skip) { skip = 0; next } print substr($0, 4); if (substr($0, 1, 2) ~ /[RC]/) skip = 1 }' || true)"
 if [ -z "$f0_porc" ]; then
   echo "      [f0] main checkout working tree (reports only): clean ✓ — no change here that an arm below does not see"
 else
@@ -1312,7 +1313,7 @@ else
       }
       {
         line = $0
-        while (match(line, /<!--.*-->/)) sub(/<!--.*-->/, "", line)
+        while ((cs = index(line, "<!--")) > 0 && (ce = index(substr(line, cs + 4), "-->")) > 0) line = substr(line, 1, cs - 1) substr(line, cs + ce + 6)
         if (inc) { if (match(line, /-->/)) { sub(/^.*-->/, "", line); inc = 0 } else next }
         if (match(line, /<!--/)) { sub(/<!--.*$/, "", line); inc = 1 }
         if (fence) { if (fence_close(line)) fence = 0; else held[++nh] = line; next }
@@ -1758,7 +1759,7 @@ else
         # A trailing "Status:" declaration wins over the cell opening words.
         if (match(cell, /Status:[[:space:]]*/)) cell = substr(cell, RSTART + RLENGTH)
         if (cell !~ /^open/) next                 # struck or ruled dead: not our business
-        if (match(cell, /[A-Z][A-Z0-9]*-[0-9]+/)) {
+        if (match(cell, /[A-Za-z][A-Za-z0-9]*-[0-9]+/)) {
           print substr(cell, RSTART, RLENGTH)
         }
       }' "$CB_TREE/$DQ_FILE" | sort -u | while IFS= read -r id; do

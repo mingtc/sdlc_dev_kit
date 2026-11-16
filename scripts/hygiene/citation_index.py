@@ -301,6 +301,8 @@ def main(argv=None) -> int:
     parser.add_argument("--root", default=str(REPO_ROOT), help="tree to measure (default: this repo)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args(argv)
+    if not Path(args.root).is_dir():
+        parser.error(f"--root {args.root} is not a directory")
     index = Index(Path(args.root))
     targets = args.paths or sorted(index.by_target)
     rows = []

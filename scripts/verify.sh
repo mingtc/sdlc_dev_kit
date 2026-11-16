@@ -213,7 +213,7 @@ fi
 # (2) Every record must parse, and its class must be one of the three.
 for rec in "${GATES[@]}"; do
   g_name="${rec%%|*}"; rest="${rec#*|}"; g_class="${rest%%|*}"; g_cmd="${rest#*|}"
-  if [ -z "$g_name" ] || [ -z "$g_class" ] || [ -z "$g_cmd" ] || [ "$rest" = "$rec" ]; then
+  if [ -z "$g_name" ] || [ -z "$g_class" ] || [ -z "${g_cmd//[[:space:]]/}" ] || [ "$rest" = "$rec" ]; then
     kit_refuse 2 gate-record-malformed \
       "verify.sh: REFUSING — malformed gate record: '$rec'" \
       "Next: rewrite it in the GATES array as \"<name>|<core|select|full>|<command…>\"."

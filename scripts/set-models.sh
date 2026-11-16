@@ -39,7 +39,10 @@
 # by hand shows up as a disagreement.
 #
 # Model ids are written EXACTLY as given — this script never hard-codes one (EXTRACTION.md, "THE
-# MODEL PINS ARE PRODUCT NAMES"). It writes only what you pass.
+# MODEL PINS ARE PRODUCT NAMES"). It writes only what you pass, and refuses (exit 2) an id it could not
+# write as given: one that does not start with a letter or digit, or holds anything but letters, digits
+# and . _ : / [ ] - (an apostrophe breaks the runner's JavaScript, a backslash is read by awk, a `|`
+# adds a column to the ladder's table row).
 #
 # Every refusal leaves a progress record (refusal=<rule-id>) where the project has one to write to.
 # Exit 2: a usage error, as scripts/finish-pr.sh's exit table defines it. Exit 1: any other
@@ -95,6 +98,14 @@ if [ "$LIST" = false ]; then
 
   [ -n "$MODEL" ]  || kit_refuse 2 no-model  "Error: --model <id> is required." "Next: re-run with --model <id>, the product name exactly as you were given it — never guessed here. If you were not given one, the choice is the owner's: stop and hand off."
   [ -n "$EFFORT" ] || kit_refuse 2 no-effort "Error: --effort <tier> is required." "Next: re-run with --effort <tier>, spelled as the ladder in the Orchestrator's § Model & effort contract spells its tiers. If you were not given one, the choice is the owner's: stop and hand off."
+  for _v in "$MODEL" "$EFFORT"; do
+    case "$_v" in
+      ''|[!A-Za-z0-9]*|*[!]A-Za-z0-9._:/[-]*)
+        kit_refuse 2 id-shape \
+          "Error: '$_v' cannot be written as given: an id starts with a letter or digit and holds only letters, digits and . _ : / [ ] -." \
+          "Next: re-run with --model and --effort spelled as the product spells them; if the real id has another character, stop and hand off — it would be written into a JavaScript string, a table cell and a YAML line." ;;
+    esac
+  done
 fi
 
 # ── NOW THE ENVIRONMENT: every argument is well-formed, so a refusal past this point is about
@@ -185,8 +196,9 @@ kit_check_pin() {
 kit_set_pin() {
   local f="$AGENTS_DIR/$1"
   awk -v m="$MODEL" -v e="$EFFORT" '
-    /^model:/  { print "model: " m;  next }
-    /^effort:/ { print "effort: " e; next }
+    /^---[ \t]*$/ { fm++ }
+    fm == 1 && /^model:/  { print "model: " m;  next }
+    fm == 1 && /^effort:/ { print "effort: " e; next }
     { print }
   ' "$f" > "$f.new" && mv "$f.new" "$f" || kit_write_failed "$f"
   # Record what was written, so check-board.sh [s] can tell a later hand edit from this seam.

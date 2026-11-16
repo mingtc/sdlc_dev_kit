@@ -115,6 +115,12 @@ def main(argv=None) -> int:
     parser.add_argument("--root", default=str(REPO_ROOT), help="tree to measure (default: this repo)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not Path(args.root).is_dir():
+        parser.error(f"--root {args.root} is not a directory")
+    if args.n < 1:
+        parser.error("--n must be at least 1")
+    if not 0 < args.min <= 1:
+        parser.error("--min must be above 0 and at most 1")
     files, rows = scan(root=Path(args.root), size=args.n, minimum=args.min,
                        min_bytes=args.min_bytes)
     if args.json:

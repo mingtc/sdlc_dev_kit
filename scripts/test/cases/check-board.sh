@@ -4108,6 +4108,11 @@ Owner: <owner>.'
   printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md still holds 1 <angle-bracket> blank' >/dev/null \
     || cf "(7) a blank after a fence that never closes was hidden: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
 
+  # (8) two inline comments with a real blank between them: the blank counts (a greedy comment strip swallowed it)
+  _cb_fill_sheet "$decl" '- <!-- a note --> `<fill me>` <!-- another -->'
+  printf '%s\n' "$_cb_fill_out" | grep 'still holds 1 <angle-bracket> blank' >/dev/null \
+    || cf "(8) a blank between two inline comments was swallowed: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+
   finish "check (g2): usage metavariables in code spans and fenced blocks are not blanks while a whole-span <blank> still is, a fence closes only on its own shape and an unclosed one hides nothing, and a PROJECT.md that lost its FILL declaration is read — a finding while a blank remains, graduated once none does — never skipped"
   teardown
 }

@@ -160,6 +160,10 @@ def main(argv=None) -> int:
     parser.add_argument("--limit", type=int, default=40, help="rows printed (0 = all)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not Path(args.root).is_dir():
+        parser.error(f"--root {args.root} is not a directory")
+    if args.days < 0:
+        parser.error("--days must be 0 or more")
     if args.no_excludes:
         excluded: tuple = ()
     elif args.exclude:

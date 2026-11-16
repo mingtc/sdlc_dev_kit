@@ -135,8 +135,8 @@ if [ "$NOTIFY_BACKEND" = "none" ]; then
   exit 0   # silent no-op for sends
 fi
 
-if [ ! -f "$ADAPTER" ]; then
-  # An adapter is a script with a `send)` verb arm; stall.sh, the watchdog beside them, has none.
+# An adapter is a script with a `send)` verb arm; stall.sh, the watchdog beside them, has none.
+if [ ! -f "$ADAPTER" ] || ! grep -qE '^[[:space:]]*send\)' "$ADAPTER"; then
   avail="$( { grep -lE '^[[:space:]]*send\)' "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | paste -sd, -)"
   _na_what="no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
   [ "$MODE" != "test" ] || kit_refuse 1 notify-no-adapter \
