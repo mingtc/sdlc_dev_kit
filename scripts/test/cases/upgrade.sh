@@ -94,7 +94,8 @@ _ku_kit() {
     mkdir -p "$d/scripts/lib"
     cp "$REAL_SCRIPTS/kit-upgrade.sh" "$d/scripts/" 2>/dev/null
     local l
-    for l in refuse.sh progress-record.sh usage.sh; do
+    # The list is the script's own unconditional source lines; progress-record.sh is read by refuse.sh.
+    for l in progress-record.sh $(sed -n 's/^\. "\$SCRIPT_DIR\/lib\/\([^"]*\)"$/\1/p' "$REAL_SCRIPTS/kit-upgrade.sh" 2>/dev/null); do
       cp "$REAL_SCRIPTS/lib/$l" "$d/scripts/lib/" 2>/dev/null
     done
   fi
@@ -1797,6 +1798,38 @@ case_an_arrived_record_alone_is_work_and_is_not_nothing_to_do() {
 replaced|R\ta.txt|0 added and 1 replaced
 added|A\te.txt|1 added and 0 replaced
 KU_ROWS_EOF
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE FABRICATED NEW KIT CARRIES EVERY LIBRARY kit-upgrade.sh SOURCES AT START.
+#
+# The list is read from the script's own unconditional `. "$SCRIPT_DIR/lib/…"` lines, so a library it
+# gains is one the fixture must carry. With an open card in the tree, the run must read its id from the
+# card (a missing card-field.sh falls back to the file's name) and print no shell error.
+# =============================================================================
+case_the_upgrade_fixture_carries_every_library_the_script_sources() {
+  cf_reset
+  make_sandbox
+  local L="the fabricated new kit carries every library kit-upgrade.sh sources unconditionally, and a run over an open card reads its id from the card and prints no shell error"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  local l n=0 cl
+  _ku_pair 0.1.0 0.2.0
+  while IFS= read -r l; do
+    n=$((n + 1))
+    [ -f "$KU_NEW/scripts/lib/$l" ] || cf "the fabricated new kit lacks scripts/lib/$l, which kit-upgrade.sh sources at start"
+  done < <(sed -n 's/^\. "\$SCRIPT_DIR\/lib\/\([^"]*\)"$/\1/p' "$REAL_SCRIPTS/kit-upgrade.sh")
+  [ "$n" -gt 0 ] || cf "read no sourced library from kit-upgrade.sh; the reader no longer matches its source lines"
+  git -C "$KU_T" branch -M main >/dev/null 2>&1
+  _ku_card in_progress ROTA-001 feat/one 'forks: none' noqa
+  cl="$KU_T/$KU_CHECKLIST_REL"
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "the upgrade exited $(_ku_rc up), want 0: $(_ku_out up)"
+  grep -E 'No such file|not found' "$SB_TMP/up.out" >/dev/null && cf "the run printed a shell error: $(grep -E 'No such file|not found' "$SB_TMP/up.out" | head -2 | tr '\n' '|')"
+  grep -F 'open card ROTA-001 (in_progress)' "$cl" >/dev/null \
+    || cf "no item names the open card by its id: $(grep -F ROTA "$cl" | tr '\n' '|')"
   finish "$L"
   teardown
 }
