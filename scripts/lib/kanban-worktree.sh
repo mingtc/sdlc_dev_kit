@@ -349,9 +349,9 @@ kwt_unlock() {
   # reports its own failures and clears this first, so what reaches here was cut off.
   if [ -n "$KWT_UNPUSHED" ]; then
     {
-      echo "Error: this op ended after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree and before its push; it is NOT on $KWT_REMOTE."
-      echo "       The next kanban op's sync REFUSES over it, and nothing else will publish it."
-      echo "Next: publish it once $KWT_REMOTE answers (a rebase that conflicts: resolve, git rebase --continue), then push:"
+      echo "Error: this op ended after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree, while its push was still to run or in flight."
+      echo "       The push may or may not have landed on $KWT_REMOTE. If it did not, the next kanban op's sync REFUSES over this commit and nothing else will publish it."
+      echo "Next: run these; they are safe whether or not the push landed (a rebase that conflicts: resolve, git rebase --continue):"
       kwt__publish_next
     } >&2
     KWT_UNPUSHED=""
@@ -588,7 +588,7 @@ kwt_sync() {
       "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync." \
       "$detail" \
       "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$DEFAULT_BRANCH for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
-      "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list. The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
+      "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list (or in the exit text of an op that ended before its push). The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
       "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
       "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
       "      A commit that  git log $KWT_REMOTE/$DEFAULT_BRANCH..$DEFAULT_BRANCH  run in your main checkout also lists is local work of the main checkout, which this worktree was built from. It is not this tool's to publish: the person who made it publishes it from the main checkout when it is ready, never through this worktree. If you did not make it, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \

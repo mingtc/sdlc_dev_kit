@@ -619,9 +619,13 @@ fi
 if [ ${#LIVED[@]} -gt 0 ]; then
   _lv_list=""
   for l in "${LIVED[@]}"; do _lv_list="${_lv_list}    • $l"$'\n'; done
-  # Every commit a kit-init run makes (the initialization and the self-check's): a run cut off after them leaves
-  # them all, and reverting only the first is refused over the scratch card the others made.
-  _lv_shas="$(git -C "$ROOT" log --format=%h -E --grep='kit-init: initialize the kit|kit-init self-check' 2>/dev/null | tr '\n' ' ' || true)"
+  # Every commit the NEWEST kit-init run made (the initialization and the self-check's), newest first: a run cut off
+  # after them leaves them all, and reverting only the first is refused over the scratch card the others made. Matched
+  # on the subject's own start, so a user commit or a revert that quotes one is not taken, and an earlier run already
+  # undone is not reverted again.
+  _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' 2>/dev/null | awk -F '\t' '
+    $2 ~ /^\[[^]]*\] kit-init: initialize the kit/ { print $1; exit }
+    $2 ~ /^\[[^]]*\] kit-init self-check/ || $2 ~ /^\[[^]]*\] .*: kit-init self-check → / { print $1 }' | tr '\n' ' ' || true)"
   _lv_shas="${_lv_shas% }"
   if [ -n "$_lv_shas" ]; then
     kit_refuse 1 repository-already-lived \
@@ -635,7 +639,7 @@ if [ ${#LIVED[@]} -gt 0 ]; then
       "Next: do not initialize this repository. If this is a re-run you meant to make, or an earlier run was cut off" \
       "  after its commits, undo every commit kit-init made, then run it again:" \
       "        git revert --no-commit ${_lv_shas}" \
-      "        MSG_OK=1 git commit -m 'undo kit-init'" \
+      "        MSG_OK=1 git commit -m '[${SELF_ROLE}] undo kit-init'" \
       "        git push" \
       "  On a repository that has lived, make the changes by hand."
   fi

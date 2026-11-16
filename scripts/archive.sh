@@ -385,7 +385,7 @@ git -C "$KWT" add "$ARCHIVE"
 SUBTASK_NOTE=""
 [ ${#SUBTASK_TREES[@]} -gt 0 ] && SUBTASK_NOTE=" + ${#SUBTASK_TREES[@]} subtask tree(s)"
 MSG="[$ROLE] archive: sweep ${#FILES[@]} issue(s) qa_complete/ → done/${SUBTASK_NOTE} + index in ARCHIVE.md"
-kwt_commit "$MSG" "the sweep"
+kwt_commit "$MSG" "the sweep" "fix what the hook named (ARCHIVE_ROLE sets the sweep's role tag), then run archive.sh --apply again. Nothing was swept."
 # This sha is taken before the push; a contested push rebases, so the landed sha is printed
 # separately below (board-mover.md § 4: a reader can check each line).
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
