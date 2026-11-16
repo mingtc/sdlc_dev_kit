@@ -88,7 +88,10 @@ Reports (each line starts with its class)
   TOKEN-UNDECLARED a token-named custom property (as TOKEN-VALUE names it) that a screen, or a sheet or screen it loads, reads by `var(--name)` with no
                 fallback while no rule of the screen, its sheets or its imported screens declares it (any selector counts, a [data-theme] block's
                 included): the canvas gives the screen no value, and an elevation or a radius shows nothing in the render. A read with a fallback is
-                left to the colour checks. A screen that another screen imports is judged through its importer, which has to declare what the imported one reads. A `superseded` row is not read
+                left to the colour checks. A var() is read in a style block, a style attribute or a sheet (comments, strings and url() left out), not in a script, an
+                HTML comment or text; in `var(--a, var(--b))` only --a is read. A screen with a row that a checked row's screen imports is judged through that
+                row (it reads what the importer declares), so a finding for it is on the importer; a row no checked row reaches (an import cycle among rows,
+                a self-import) is judged on its own row. A `superseded` row is not read
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
                 heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
@@ -104,6 +107,8 @@ Report lines, not findings (shown; never counted, never an exit status):
                 cites a screen: shown, not refused (a card that builds no screen moves and lands; only a tag, a marker or a pin asks for design work)
   UNCOMPARED    a `[data-theme="x"]` block that sets a token-named property when no <ns>.x.tokens.json holds that theme: nothing to compare it
                 with, said and not passed as clean
+  TOKEN-VIA-IMPORTER a token an imported screen with a row reads, which nothing it loads declares and a screen that imports it does: said on the imported
+                screen's row (the clean route is a sheet every screen links), never counted
   SCRIPT-COLOUR a colour-looking string in the component script: a script cannot be read as CSS, so this is shown, never counted
   UNCLASSIFIED  a PRD with no `UI:` line in any story ("not design-classified"), or the stories of a PRD that has some and these
                 lack it. A story with no `UI:` line reads as none declared
@@ -134,7 +139,7 @@ REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
 REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY',
-                  'MODE', 'CONTENT-ONLY', 'UNCOVERED-WIRE', 'STALE-PENDING-WIRE')
+                  'MODE', 'CONTENT-ONLY', 'UNCOVERED-WIRE', 'STALE-PENDING-WIRE', 'TOKEN-VIA-IMPORTER')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 MODE_LINE = re.compile(r'^\s*[-*]\s*\*\*Mode:\*\*\s*(.*?)\s*$')
 MODES = ('', 'none', 'wireframe')
@@ -906,16 +911,55 @@ def token_value_problems(markup, loaded, files, unreadable=()):
     return out, unc
 
 
+VAR_OPEN = re.compile(r'(?i:var)\(')
+VAR_BARE = re.compile(r'\s*--([\w-]+)\s*\)')
+
+
+def style_texts(text, css=False):
+    """The CSS a var() is read in: a sheet (css), or the style blocks and style attributes of an artboard (a script, an HTML comment and
+    text content are not CSS), each with comments, strings and url() left out. One function for the screen and for what it loads."""
+    def clean(c):
+        return CSS_STRING.sub('""', CSS_URL.sub(' ', CSS_COMMENT.sub(' ', c)))
+    if css:
+        return [clean(text)]
+    h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', text))
+    return [clean(m.group(1)) for m in STYLE_BLOCK.finditer(h)] + [clean(at['style']) for _, at in tags_of(h) if 'style' in at]
+
+
+def var_reads(css):
+    """The names `var(--name)` reads with no fallback in CSS text. A var() with a fallback is skipped whole, its fallback's own var() with it."""
+    out, i = set(), 0
+    while True:
+        m = VAR_OPEN.search(css, i)
+        if not m:
+            return out
+        n = VAR_BARE.match(css, m.end())
+        if n:
+            out.add(n.group(1))
+        depth, i = 1, m.end()
+        while i < len(css) and depth:
+            depth += (css[i] == '(') - (css[i] == ')')
+            i += 1
+
+
+def token_reads(markup, loaded, files):
+    """The token-named custom properties (a name some token file holds) that the artboard, or a sheet or screen it loads, reads by var() with no fallback."""
+    known = {n for v in files.values() for n in v}
+    texts = style_texts(markup) + [c for n, t in loaded for c in style_texts(t, n.lower().endswith('.css'))]
+    return {n for c in texts for n in var_reads(c)} & known
+
+
+def declared_names(markup, loaded):
+    """The custom properties any rule of the artboard, or of a sheet or screen it loads, declares (any selector, a [data-theme] block's included)."""
+    pieces = [markup_rule_decls(markup)] + [rule_decls(t) if n.lower().endswith('.css') else markup_rule_decls(t) for n, t in loaded]
+    return {n for decls in pieces for _, n, _ in decls}
+
+
 def token_undeclared(markup, loaded, files):
     """-> [name] of each token-named custom property that the artboard, or a sheet or screen it loads, reads by var() with no fallback
-    while no rule of the artboard or of what it loads declares it: the canvas gives a screen no value for it. A declaration in any rule counts, a [data-theme] block's included; a read with a
-    fallback is left to the colour checks."""
-    known = {n for v in files.values() for n in v}
-    read_re = re.compile(r'(?i:var)\(\s*--([\w-]+)\s*\)')
-    texts = [SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', markup))] + [CSS_COMMENT.sub(' ', t) for _, t in loaded]
-    read = {n for t in texts for n in read_re.findall(t)} & known
-    pieces = [markup_rule_decls(markup)] + [rule_decls(t) if n.lower().endswith('.css') else markup_rule_decls(t) for n, t in loaded]
-    return sorted(read - {n for decls in pieces for _, n, _ in decls})
+    while no rule of the artboard or of what it loads declares it: the canvas gives a screen no value for it. A read with a fallback is
+    left to the colour checks."""
+    return sorted(token_reads(markup, loaded, files) - declared_names(markup, loaded))
 
 
 def used_vars(*htmls, sheets=()):
@@ -1279,12 +1323,20 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 rowfiles.add((r['canvas'] / PROJECT_SUBDIR / r['file']).relative_to(root).as_posix())
         except ValueError:
             pass
-    imported = set()       # the screens with a row that another row's screen imports: they read what the importer declares
+    # A screen with a row that another row's screen imports reads what the importer declares, so it is judged through that importer, but only
+    # through a CHECKED one: a row nothing checked reaches (an import cycle among rows, a self-import) is judged on its own row.
+    rowtext, reach = {}, {}
     for r in rows:
         art = r['canvas'] / PROJECT_SUBDIR / r['file']
         if r['superseded'] or not art.is_file():
             continue
-        imported |= {n for n, _ in loaded_files(root, art, read(art))[0] if n in rowfiles and n != art.relative_to(root).as_posix()}
+        key = art.relative_to(root).as_posix()
+        text = read(art)
+        rowtext[key] = (text, loaded_files(root, art, text)[0])
+        reach[key] = {n for n, _ in rowtext[key][1] if n in rowfiles}
+    checked = {k for k in reach if not any(k in v for v in reach.values())}
+    seen = set().union(*(reach[k] for k in checked))
+    checked |= {k for k in reach if k not in seen}
     cited, ncites = set(), 0
 
     def check_ref(where, ref):
@@ -1391,7 +1443,16 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                     out.append(line('UNCOMPARED', f"{art.relative_to(root)}: {tu}, so it is not compared (info)"))
                 for tv in tvs:
                     out.append(line('TOKEN-VALUE', f"{art.relative_to(root)}: {tv}; the Designer corrects the screen with the artifact tools (pull first), or the token if the token is what changed"))
-                for tn in ([] if art.relative_to(root).as_posix() in imported else token_undeclared(html, loaded + own_row, tfiles)):
+                key = art.relative_to(root).as_posix()
+                if key in checked:
+                    undeclared = token_undeclared(*rowtext[key], tfiles)
+                else:
+                    heard = set().union(*(declared_names(*rowtext[k]) for k, v in reach.items() if key in v))
+                    for tn in sorted(token_undeclared(*rowtext[key], tfiles)):
+                        if tn in heard:
+                            out.append(line('TOKEN-VIA-IMPORTER', f"{key}: reads var(--{tn}) and only a screen that imports it declares --{tn}; declare it in a sheet every screen links, where this screen is shown on its own (info)"))
+                    undeclared = []
+                for tn in undeclared:
                     out.append(line('TOKEN-UNDECLARED', f"{art.relative_to(root)}: reads var(--{tn}) and no rule of the screen, a sheet it links or a screen it imports declares --{tn}, so the canvas gives it no value; the Designer corrects the screen with the artifact tools (pull first): declare --{tn} with the token's value in a :root block, or in a sheet the screen links"))
             problem = waiver_problem(get_register(), requirements, r['waivers']) if r['waivers'] else 'no waiver'
             if r['waivers'] and problem:

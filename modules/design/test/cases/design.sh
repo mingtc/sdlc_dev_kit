@@ -5110,11 +5110,49 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92; --elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
   _dm_commit "the imported screen reads the token, the importer declares it"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(i) a token an imported screen reads, which its importer declares, is TOKEN-UNDECLARED (exit $_dm_rc): $(_dm_brief 400)"
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED" && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(i) a token an imported screen reads, which its importer declares, is TOKEN-UNDECLARED or counted (exit $_dm_rc): $(_dm_brief 400)"
+  { _dm_line_has "$_dm_out" "TOKEN-VIA-IMPORTER" "requirements/design/app/project/I.dc.html" && _dm_line_has "$_dm_out" "TOKEN-VIA-IMPORTER" "--elevation-1"; } || cf "(i) an imported screen's read that only its importer declares is not a TOKEN-VIA-IMPORTER line naming the screen and the token: $(_dm_brief 400)"
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
   _dm_commit "the importer declares nothing"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html" && ! _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/I.dc.html"; } || cf "(i) a token an imported screen reads, declared by nobody, is not one TOKEN-UNDECLARED finding on the importer (exit $_dm_rc): $(_dm_brief 400)"
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html" && ! _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/I.dc.html" && ! _dm_has "$_dm_out" "TOKEN-VIA-IMPORTER"; } || cf "(i) a token an imported screen reads, declared by nobody, is not one TOKEN-UNDECLARED finding on the importer (exit $_dm_rc): $(_dm_brief 400)"
+  # (j) a cycle between two rows, the one that reads is C: neither is exempt, so the finding is not lost
+  _dm_art "$D/I.dc.html" 004 '' '<dc-import name="C" hint-size="390px,844px"></dc-import><h2 id="ux-004-t">Import</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<dc-import name=\"I\" hint-size=\"390px,844px\"></dc-import>$R"
+  _dm_commit "a cycle, C reads"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(j) a token read in a screen of an import cycle between two rows, declared nowhere, is not a finding (exit $_dm_rc): $(_dm_brief 400)"
+  # (k) the same cycle, the one that reads is I
+  _dm_art "$D/I.dc.html" 004 '' '<dc-import name="C" hint-size="390px,844px"></dc-import><h2 id="ux-004-t" style="box-shadow: var(--elevation-1)">Import</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _dm_commit "a cycle, I reads"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "(k) the same cycle with the read in the other screen is not a finding (exit $_dm_rc): $(_dm_brief 400)"
+  # (l) a screen that imports itself is judged on its own row
+  _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t">Import</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "<dc-import name=\"C\" hint-size=\"390px,844px\"></dc-import>$R"
+  _dm_commit "a self-import"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "C.dc.html"; } || cf "(l) a screen that imports itself escapes the check (exit $_dm_rc): $(_dm_brief 400)"
+  # (m)-(s) where a var() is a read: style blocks, style attributes and sheets only, whole-name, never a fallback's own var()
+  _u841() {  # <label> <want: 1 a finding, 0 none> <screen body>
+    _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$3"
+    _dm_commit "$1"
+    _dm_py scripts/design/check-design-links.py --strict
+    if [ "$2" = 1 ]; then
+      { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "C.dc.html"; } || cf "($1) is not a TOKEN-UNDECLARED finding (exit $_dm_rc): $(_dm_brief 300)"
+    else
+      { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED"; } || cf "($1) is a TOKEN-UNDECLARED finding (exit $_dm_rc): $(_dm_brief 300)"
+    fi
+  }
+  _dm_art "$D/N.dc.html" 005 '--color-primary: #485d92;' '<script>var a = "<style>.a { box-shadow: var(--elevation-1) }</style>";</script><!-- <style>.b { color: var(--color-surface) }</style> --><p id="ux-005-t">Plain</p>'
+  _u841 "m: a style block inside a script string and inside an HTML comment of an imported screen" 0 '<dc-import name="N" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _u841 "n: a var() in a CSS comment of the screen's own style block" 0 '<style>/* .a { box-shadow: var(--elevation-1) } */</style><h1 id="ux-003-t">Plain</h1>'
+  _u841 "o: var(--elevation-1 /* c */) in a style block" 1 '<style>.a { box-shadow: var(--elevation-1 /* c */) }</style><h1 id="ux-003-t" class="a">Raised</h1>'
+  _u841 "p: a var() in text content" 0 '<p id="ux-003-t">use var(--elevation-1) for a shadow</p>'
+  _u841 "q: a var() inside a CSS string" 0 '<style>.a::before { content: "var(--elevation-1)" }</style><h1 id="ux-003-t" class="a">Plain</h1>'
+  _u841 "r: a var() in the fallback of a declared one" 0 '<h1 id="ux-003-t" style="box-shadow: var(--color-primary, var(--elevation-1))">Plain</h1>'
+  _u841 "s: VAR(--elevation-1) in upper case" 1 '<h1 id="ux-003-t" style="box-shadow: VAR(--elevation-1)">Raised</h1>'
   finish "$L"
   teardown
 }
