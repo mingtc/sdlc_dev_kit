@@ -88,10 +88,10 @@ Reports (each line starts with its class)
   TOKEN-UNDECLARED a token-named custom property (as TOKEN-VALUE names it) that a screen, or a sheet or screen it loads, reads by `var(--name)` with no
                 fallback while no rule of the screen, its sheets or its imported screens declares it (any selector counts, a [data-theme] block's
                 included): the canvas gives the screen no value, and an elevation or a radius shows nothing in the render. A read with a fallback is
-                left to the colour checks. A var() is read in a style block, a style attribute or a sheet (comments, strings and url() left out), not in a script, an
-                HTML comment or text; in `var(--a, var(--b))` only --a is read. A screen with a row that a checked row's screen imports is judged through that
-                row (it reads what the importer declares), so a finding for it is on the importer; a row no checked row reaches (an import cycle among rows,
-                a self-import) is judged on its own row. A `superseded` row is not read
+                not judged (left to the colour checks), the fallback's own var() with it; an empty fallback, `var(--a,)`, is a bare read. A var() is read in a
+                style block, a style attribute or a sheet (comments, strings and url() left out), not in a script, an HTML comment, text or a presentation attribute. A screen with a row that a checked row's screen imports is judged through that
+                row (it reads what the importer declares), so a finding for it is on the importer; a row no checked row reaches (a row of an import cycle that
+                no outside row imports, a self-import) is judged on its own row, one such row at a time, and what it reaches is judged through it. A `superseded` row is not read
   WAIVER        a waiver, on a card's `design:` line or a registry row, citing a D-NN the register has no entry for (a `### D-NN`
                 heading with a `**Ruling.**` field, outside fences and comments), or whose Ruling is WITHDRAWN, or no register to check
   REGISTRY      a malformed registry row
@@ -912,14 +912,15 @@ def token_value_problems(markup, loaded, files, unreadable=()):
 
 
 VAR_OPEN = re.compile(r'(?i:var)\(')
-VAR_BARE = re.compile(r'\s*--([\w-]+)\s*\)')
+VAR_BARE = re.compile(r'\s*--([\w-]+)\s*(?:,\s*)?\)')
+CSS_NOISE = re.compile(r'/\*.*?(?:\*/|\Z)|"(?:[^"\\]|\\.)*(?:"|\Z)|\'(?:[^\'\\]|\\.)*(?:\'|\Z)|url\(\s*(?![\s"\'])[^)]*\)', re.S | re.I)
 
 
 def style_texts(text, css=False):
     """The CSS a var() is read in: a sheet (css), or the style blocks and style attributes of an artboard (a script, an HTML comment and
     text content are not CSS), each with comments, strings and url() left out. One function for the screen and for what it loads."""
-    def clean(c):
-        return CSS_STRING.sub('""', CSS_URL.sub(' ', CSS_COMMENT.sub(' ', c)))
+    def clean(c):    # one left-to-right pass: a comment, a string or an unquoted url() ends where CSS ends it; an unterminated one runs to the end
+        return CSS_NOISE.sub(lambda m: '""' if m.group(0)[0] in '"\'' else ' ', c)
     if css:
         return [clean(text)]
     h = SCRIPT_BLOCK.sub(' ', HTML_COMMENT.sub(' ', text))
@@ -927,7 +928,8 @@ def style_texts(text, css=False):
 
 
 def var_reads(css):
-    """The names `var(--name)` reads with no fallback in CSS text. A var() with a fallback is skipped whole, its fallback's own var() with it."""
+    """The names `var(--name)` reads with no fallback in CSS text; an empty fallback (`var(--name,)`) substitutes nothing and is a bare read. A var()
+    with a fallback is skipped whole, its fallback's own var() with it."""
     out, i = set(), 0
     while True:
         m = VAR_OPEN.search(css, i)
@@ -1335,8 +1337,12 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         rowtext[key] = (text, loaded_files(root, art, text)[0])
         reach[key] = {n for n, _ in rowtext[key][1] if n in rowfiles}
     checked = {k for k in reach if not any(k in v for v in reach.values())}
-    seen = set().union(*(reach[k] for k in checked))
-    checked |= {k for k in reach if k not in seen}
+    while True:       # to a fixed point: a row nothing checked reaches is taken in, one at a time, and what it reaches is judged through it
+        seen = set().union(*(reach[k] for k in checked))
+        left = sorted(k for k in reach if k not in checked and k not in seen)
+        if not left:
+            break
+        checked.add(left[0])
     cited, ncites = set(), 0
 
     def check_ref(where, ref):

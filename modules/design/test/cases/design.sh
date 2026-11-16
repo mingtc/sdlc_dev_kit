@@ -5153,6 +5153,37 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _u841 "q: a var() inside a CSS string" 0 '<style>.a::before { content: "var(--elevation-1)" }</style><h1 id="ux-003-t" class="a">Plain</h1>'
   _u841 "r: a var() in the fallback of a declared one" 0 '<h1 id="ux-003-t" style="box-shadow: var(--color-primary, var(--elevation-1))">Plain</h1>'
   _u841 "s: VAR(--elevation-1) in upper case" 1 '<h1 id="ux-003-t" style="box-shadow: VAR(--elevation-1)">Raised</h1>'
+  _u841 "y: an empty fallback, var(--elevation-1,), is a bare read" 1 '<h1 id="ux-003-t" style="box-shadow: var(--elevation-1,)">Raised</h1>'
+  _u841 "x: an unterminated comment ends the CSS, as it does in a browser" 0 '<style>.a { margin: 0 } /* never closed .b { box-shadow: var(--elevation-1) }</style><h1 id="ux-003-t">Plain</h1>'
+  # (u)-(w) a sheet whose stripping must not swallow the read that follows: a data URI with parentheses, a quoted url with one, a string holding a comment opener
+  printf '.i{background:url("data:image/svg+xml,%%3Csvg transform=%%27rotate(45)%%27%%3E%%3C/svg%%3E")}.c{box-shadow:var(--elevation-1)}.t{font-family:"Inter"}\n' > "$D/app.css"
+  _u841 "u: a minified sheet with an SVG data URI holding rotate(45), then a read, then a quoted font" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  printf '.i{background:url("a)b.png")}.c{box-shadow:var(--elevation-1)}.t{font-family:"Inter"}\n' > "$D/app.css"
+  _u841 "v: url(\"a)b.png\") then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  printf '.i::before{content:"/*"}.c{box-shadow:var(--elevation-1)}.k::after{content:"*/"}\n' > "$D/app.css"
+  _u841 "w: a string holding a comment opener, then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  rm -f "$D/app.css"
+  # (t) a superseded importer does not exempt the screen it imports
+  _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t" style="box-shadow: var(--elevation-1)">Import</h2>'
+  _dm_edit "$C" 's#| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |#| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | superseded | superseded |#'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _dm_commit "a superseded importer, I reads"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/I.dc.html"; } || cf "(t) a screen imported only by a superseded row is exempted from the check (exit $_dm_rc): $(_dm_brief 400)"
+  _dm_edit "$C" 's#| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | superseded | superseded |#| UX-003 | C.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |#'
+  _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t">Import</h2>'
+  # (C4) (C5) an import cycle C <-> Q, with C also importing the row R that reads
+  printf '| UX-006 | Q.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n| UX-007 | R.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$C"
+  _dm_art "$D/Q.dc.html" 006 '' '<dc-import name="C" hint-size="390px,844px"></dc-import><h2 id="ux-006-t">Q</h2>'
+  _dm_art "$D/R.dc.html" 007 '' '<h2 id="ux-007-t" style="box-shadow: var(--elevation-1)">R</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92; --elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<dc-import name="Q" hint-size="390px,844px"></dc-import><dc-import name="R" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">C</h1>'
+  _dm_commit "a cycle that declares, and a row it imports that reads"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED" && _dm_line_has "$_dm_out" "TOKEN-VIA-IMPORTER" "requirements/design/app/project/R.dc.html"; } || cf "(C4) a row imported by a cycle member that declares what it reads is a finding, or has no TOKEN-VIA-IMPORTER line (exit $_dm_rc): $(_dm_brief 400)"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="Q" hint-size="390px,844px"></dc-import><dc-import name="R" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">C</h1>'
+  _dm_commit "the cycle declares nothing"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | /usr/bin/grep -c '^TOKEN-UNDECLARED')" = 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html"; } || cf "(C5) one undeclared read reached through a cycle and a row is not one finding, on the checked row (exit $_dm_rc): $(_dm_brief 500)"
   finish "$L"
   teardown
 }
