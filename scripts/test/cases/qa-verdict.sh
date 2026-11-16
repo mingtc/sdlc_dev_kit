@@ -751,7 +751,7 @@ case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
 
 # =============================================================================
 # CASE — A CHECKLIST BULLET INSIDE A CODE FENCE IS AN EXAMPLE, NOT AN AC: THE TABLE NEEDS NO ROW FOR IT.
-# The stray-bullet check and the design module's card reader already skip a fenced line; the id reader
+# The stray-bullet check already skips a fenced line; the id reader
 # the table is matched against did too late. The id reader keeps reading the whole body above the table
 # (not only '## Acceptance Criteria'), because a refactor or bug card keeps its criteria under another
 # heading. Rows: (a) a fenced example 'AC12' beside the real AC1 lands with a one-row table (a ~~~ fence
@@ -816,8 +816,8 @@ case_finish_pr_qa_verdict_a_fenced_example_bullet_is_not_an_ac() {
   teardown
 }
 
-# _fence_shape <name> — a card body holding the fence shape <name>, every AC tagged (UI) so the design module reads
-# the same set as the core. One definition for the core's rows and the module's comparison.
+# _fence_shape <name> — a card body holding the fence shape <name>, every AC tagged (UI) so a reader that grades
+# only the tagged ones reads the same set. One definition for the rows that read a fence shape, wherever they live.
 _fence_shape() {
   local head tail='' f='```'
   head="$(printf '%s\n' '---' 'id: X-1' '---' '' '## Acceptance Criteria' '' '- [ ] AC1 — (UI) a.' '')"
@@ -830,35 +830,45 @@ _fence_shape() {
     inline-span)   tail="$(printf '%s\n' "${f}js${f} is inline code at the start of a line." '' '- [ ] AC2 — (UI) b.')" ;;
     trailing-text) tail="$(printf '%s\n' "$f" 'code' "$f trailing" '- [ ] AC9 — (UI) ex.' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
     in-item)       tail="$(printf '%s\n' "  $f" '  - [ ] AC9 — (UI) in item.' "  $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-four)     tail="$(printf '%s\n' '  The page shows:' "    $f" '    - [ ] step one' "    $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-five)     tail="$(printf '%s\n' '  The page shows:' "     $f" '     - [ ] step one' "     $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-tab)      tail="$(printf '%s\n' '  The page shows:' "$(printf '\t')$f" "$(printf '\t')- [ ] step one" "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
+    item-unclosed) tail="$(printf '%s\n' "  $f" '  make test' '- [ ] AC3 — (UI) c.')" ;;
     context-open)  head="$(printf '%s\n' '---' 'id: X-1' '---' '' '## Context' '' "${f}sh" 'make test' '' '## Acceptance Criteria' '')"
                    tail="$(printf '%s\n' '- [ ] AC1 — (UI) a.' '- [ ] AC2 — (UI) b.')" ;;
   esac
   printf '%s\n%s\n' "$head" "$tail"
 }
 
-# _fence_shape_ids <name> — the ids the core reads from that shape. The expected set is the one the design module's
-# card reader reads (CommonMark's fence rule), written out here.
+# _fence_shape_ids <name> — the ids the core reads from that shape: the set CommonMark's fence rule gives, written
+# out here.
 _fence_shape_ids() {
   case "$1" in
     nested-tilde|longer-outer|in-item|tab-indented|inline-span|trailing-text) echo "AC1 AC2" ;;
     four-indented) echo "AC1 AC2 AC3" ;;
     unclosed) echo "AC1" ;;
+    item-four|item-five|item-tab) echo "AC1 AC2" ;;
+    item-unclosed) echo "AC1 AC3" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab"
 
 # =============================================================================
-# CASE — THE CORE'S FENCE RULE IS THE DESIGN MODULE'S: an opener indented by at most three spaces, a closer of the same
+# CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
+# list item, so an AC's own fence may sit deeper), a closer of the same
 # character at least as long with nothing after it, no backtick in a backtick fence's info string; an unclosed fence
 # runs to the end of the card. One rule for the id reader, the bullet readers, the section reader and the forks
-# derivation's heading reader. Rows: each shape's ids against the expected set (the module's comparison in the
-# design module's reader case reads the same shapes); (r) a heading after an unclosed fence is no heading for the
-# forks reader; (s) a '## Out of Scope' inside a longer outer fence is no heading.
+# derivation's heading reader. Rows: each shape's ids against the expected set (a module's reader case may read the
+# same shapes); (r) a heading after an unclosed fence is no heading for the forks reader; (s) a '## Out of Scope'
+# inside a longer outer fence is no heading; (t) a fence an AC's item holds, however deep it is indented (four
+# spaces, five, a tab), hides the checklist-looking line it holds from the stray check; (u) a fence never closed is
+# found, by the line that opened it, in a card where it sits in an item, in Context or at the top level, and in none
+# of the cards that close theirs.
 # RED FIRST: nested-tilde, four-indented, tab-indented, inline-span, trailing-text and longer-outer read other ids
 # under a plain any-indent toggle.
 # =============================================================================
-case_qa_gate_fence_rule_is_the_design_modules() {
+case_qa_gate_fence_rule_shapes() {
   cf_reset
   local shape want got
   for shape in $_fence_shapes; do
@@ -872,7 +882,24 @@ case_qa_gate_fence_rule_is_the_design_modules() {
   [ "$flags" = "1 1 1 " ] || cf "(r) a heading after an unclosed fence is inside it for the forks reader: flags '$flags', want '1 1 1 '"
   flags="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; printf "%s\n" "\`\`\`\`" "\`\`\`" "## Out of Scope" "\`\`\`" "\`\`\`\`" "## Activity" | _qav_fence_flags | tr "\n" " "' _ "$REAL_SCRIPTS" 2>&1)"
   [ "$flags" = "1 1 1 1 1 0 " ] || cf "(s) a heading inside a longer outer fence is no heading: flags '$flags', want '1 1 1 1 1 0 '"
-  finish "the core reads the ids the design module reads from nine fence shapes (a ~~~ block holding a backtick line, a longer outer fence, an unclosed fence, a four-space and a tab indent, an inline span, a closing line with trailing text, a fence inside a list item, an unclosed fence in Context), and the forks reader's heading test treats an unclosed fence and a longer outer fence by the same rule"
+  # (t) a fence inside an AC's item, deeper than three spaces, hides what it holds from the stray check
+  local st
+  for shape in item-four item-five item-tab; do
+    st="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_stray_bullets "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
+    [ -z "$st" ] || cf "(t, $shape) a checklist-looking line inside an AC item's fence is a stray: $st"
+  done
+  # (u) the line that opened a fence nothing closes
+  local ul wantl
+  for shape in $_fence_shapes item-unclosed; do
+    ul="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
+    case "$shape" in
+      unclosed|context-open|item-unclosed) wantl="$(_fence_shape "$shape" | /usr/bin/grep -n '^ *```' | head -1 | cut -d: -f1)" ;;
+      four-indented|tab-indented) continue ;;   # an item's fence the next item ends: found too, by the first opener
+      *) wantl="" ;;
+    esac
+    [ "$ul" = "$wantl" ] || cf "(u, $shape) the unclosed fence is reported at line '$ul': want '$wantl'"
+  done
+  finish "the fence rule reads these shapes the way CommonMark does (a ~~~ block holding a backtick line, a longer outer fence, an unclosed fence, a four-space and a tab indent, an inline span, a closing line with trailing text, a fence inside a list item, an unclosed fence in Context, and a fence four spaces, five spaces and a tab deep inside an AC item), the forks reader's heading test treats an unclosed fence and a longer outer fence by the same rule, a checklist-looking line inside an AC item's deep fence is no stray, and the line that opened a fence nothing closes is found"
 }
 
 # =============================================================================
@@ -911,6 +938,60 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair diff "a blank-separated indented paragraph added" "$line" "$(printf '%s\n\n%s' "$line" "  Another paragraph.")"
   _pair diff "an HTML comment added" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "  only when beta. <!-- x -->")"
   finish "an AC's bullet text is its list item: equal for a blank line inserted inside it, a re-wrap, a dedent into a lazy line, a CRLF file with a whitespace-only line, a paragraph after it and the next bullet; different for a changed word, a changed fenced body, an added lazy line, an added blank-separated paragraph and an added HTML comment"
+}
+
+# =============================================================================
+# CASE — A FENCE NEVER CLOSED ABOVE '## QA Verdict' IS REFUSED BY ITS LINE, AND A FENCE AN AC'S ITEM HOLDS LANDS.
+# (a) a card whose AC1 item opens a fence nothing closes, with a criterion below it that nobody grades, is refused
+# before the merge naming the line the fence opened on and saying to close it (refusal=forks-ac-unclosed-fence), and
+# not as a card with no criterion; (b) a fence indented four spaces, (c) five and (d) a tab, inside AC1's item and
+# holding a checklist-looking line, lands with its one-row table.
+# RED FIRST: (a) lands, with AC3 ungraded; (b), (c), (d) are refused forks-ac-ungraded for the line they hold.
+# =============================================================================
+case_finish_pr_qa_verdict_fence_in_an_ac_item() {
+  cf_reset
+  local out rc id f txt n
+
+  # (a) the unclosed fence
+  make_sandbox
+  id="$SB_PREFIX-860"
+  seed_issue dev_complete "$id" unclosed chore "An unclosed fence in an AC item" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-unclosed.md"
+  txt="$(printf '%s\n%s\n%s' '  \`\`\`' '  make test' '- [ ] AC3 — a criterion nobody grades.')"
+  NEWTXT="$txt" perl -i -pe 'BEGIN { $t = $ENV{NEWTXT} } s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n$t/' "$f"
+  grep -qF 'AC3 — a criterion nobody grades.' "$f" || _fixture_die "case_finish_pr_qa_verdict_fence_in_an_ac_item: (a) the unclosed fence was not planted"
+  n="$(grep -n '^  ```' "$f" | head -1 | cut -d: -f1)"
+  publish_sandbox
+  seed_branch "$id" work CHANGE860.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a fence nothing closes hid AC3 and the card landed — finish-pr.sh exited 0"
+  case "$out" in *"line $n"*) : ;; *) cf "(a) the refusal does not name line $n: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Next:"*"close"*) : ;; *) cf "(a) the Next: does not say to close the fence: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  grep -q 'refusal=forks-ac-unclosed-fence' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-ac-unclosed-fence: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "CHANGE860.txt" && cf "(a) the branch was merged before the refusal"
+  teardown
+
+  # (b), (c), (d) a deep fence inside the item
+  local lbl ind
+  for lbl in four five tab; do
+    case "$lbl" in four) ind="    ";; five) ind="     ";; tab) ind="$(printf '\t')";; esac
+    make_sandbox
+    case "$lbl" in four) id="$SB_PREFIX-861";; five) id="$SB_PREFIX-862";; tab) id="$SB_PREFIX-863";; esac
+    seed_issue dev_complete "$id" "fence$lbl" chore "A $lbl-column fence in an AC item" "feature/$id-work"
+    f="$SB_WORK/progress/dev_complete/$id-fence$lbl.md"
+    txt="$(printf '%s\n%s\n%s\n%s' '  The page shows:' "$ind\`\`\`" "$ind- [ ] step one" "$ind\`\`\`")"
+    NEWTXT="$txt" perl -i -pe 'BEGIN { $t = $ENV{NEWTXT} } s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n$t/' "$f"
+    grep -qF -- '- [ ] step one' "$f" || _fixture_die "case_finish_pr_qa_verdict_fence_in_an_ac_item: ($lbl) the fenced step was not planted"
+    publish_sandbox
+    seed_branch "$id" work "CHANGE-$lbl.txt"
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$lbl" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "($lbl) a checklist-looking line inside a fence in AC1's item was refused — finish-pr.sh exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    origin_has_path "progress/qa_complete/$id-fence$lbl.md" || cf "($lbl) the card did not advance to qa_complete/"
+    teardown
+  done
+
+  finish "a fence never closed above the QA Verdict is refused by the line it opened on, with a Next: to close it and a countable refusal=forks-ac-unclosed-fence, before the merge; a fence indented four spaces, five or a tab inside an AC's item, holding a checklist-looking line, lands"
 }
 
 # _fmt_token <card number> — the verdict-cell spelling planted in that card.
