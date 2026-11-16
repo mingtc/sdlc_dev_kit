@@ -232,7 +232,7 @@ KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 # reader that must skip a fenced line pastes this one function: fence_skip(line, maxind) -> 1 for a delimiter
 # or a line inside a fence, 0 for any other line.
 _QAV_FENCE_FN='
-function fence_skip(ln, maxind,    ind, s, c, n, rest) {
+function fence_skip(ln, maxind,    ind, s, c, n, rest, res) {
   sub(/\r$/, "", ln)
   ind = 0
   while (substr(ln, ind + 1, 1) == " ") ind++
@@ -241,12 +241,12 @@ function fence_skip(ln, maxind,    ind, s, c, n, rest) {
     while (substr(s, n + 1, 1) == c) n++
     rest = substr(s, n + 1)
   }
+  res = 1
   if (fch == "") {
-    if (n >= 3 && !(c == "`" && index(rest, "`"))) { fch = c; flen = n; return 1 }
-    return 0
-  }
-  if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
-  return 1
+    res = 0
+    if (n >= 3 && !(c == "`" && index(rest, "`"))) { fch = c; flen = n; res = 1 }
+  } else if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
+  return res
 }'
 
 # _qav_unfenced — stdin without the lines of a fenced code block, delimiters included: an example in a fence is

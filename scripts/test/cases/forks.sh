@@ -52,8 +52,8 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
   case "$out" in *"forks:"*) : ;; *) cf "(a) the refusal does not name 'forks:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE601A.txt" && cf "(a) the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$ida-absent.md" && cf "(a) the card advanced despite the refusal"
-  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
-    || cf "(a) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  grep -q 'refusal=forks-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) MALFORMED — neither 'none' nor a '[D-NN, ...]' list.
   local idb="$SB_PREFIX-602"
