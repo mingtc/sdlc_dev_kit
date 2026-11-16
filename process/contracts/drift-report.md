@@ -334,11 +334,12 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    key is absent, and so does a register or citation read whose grep exited 2 or more or whose sed or awk
    exited non-zero; the landing refuses `board-property-unreadable`, naming the reader's own last words and which
    side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
-   or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u] [v]: a reader that exited non-zero
+   or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an
    unknown is not a clean answer, reports-only arms included; their findings still never set it; of [c] the
    § Log slice reader is the one checked, the other two read a byte count and git), arm [g]'s blank reader of
-   `PROJECT.md` (its FILL line says `NOT COUNTED` and `COMPLETE` is withheld), and
+   `PROJECT.md` (its FILL line says `NOT COUNTED` and `COMPLETE` is withheld), arm [v]'s reads of
+   `process/KIT-MANIFEST` and `scripts/` (a failed read says DID NOT RUN, withholds its `✓` and sets `drift`), and
    `verify.sh --quick` (it refuses when no gate is one it runs). **The remaining arms**
    ([b] [e] [f] [h] [k] [o] [s], and [g]'s other reads) read byte-wise (`LC_ALL=C`), which removes the one
    trigger observed, a byte the locale cannot decode, but do not check a reader's exit status: that is a known
@@ -449,8 +450,8 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
   so a landing never refuses on it: the kit's own readers take the line verbatim, and the finding is
   for whatever else parses the frontmatter as YAML.
 - **An arm that compares `scripts/` with `process/KIT-MANIFEST` is `[v]`:** presence only, never a hash.
-  A listed file that is not on disk is a `⚠` line, unless the manifest marks it `DELETE-IF-UNUSED`, which a
-  project may delete and which is named as allowed. A file on disk that the manifest does not list is named
+  A listed file that is not on the trunk is a `⚠` line, unless the manifest marks it `DELETE-IF-UNUSED`, which a
+  project may delete and which is named as allowed. A file on the trunk that the manifest does not list is named
   as the project's own or an enabled module's, with no `⚠`. With no manifest it says it skipped and prints no
   `✓`. It reports only: its findings never set the verdict, and a reader that failed does, as item 7 says.
 - **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,

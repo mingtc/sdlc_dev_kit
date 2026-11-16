@@ -5894,7 +5894,7 @@ case_check_board_scripts_against_the_manifest() {
   _cb_seed_manifest "$(printf '%064d  %s  -  -' 0 scripts/gone.sh)" "$(printf '%064d  %s  -  DELETE-IF-UNUSED' 0 scripts/optional.sh)"
   _cb_republish
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
-  printf '%s\n' "$sec" | grep -F 'scripts/gone.sh' | grep -F '⚠' | grep -F 'not on disk' >/dev/null || cf "(gone) a listed file that is absent is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/gone.sh' | grep -F '⚠' | grep -F 'not on the trunk' >/dev/null || cf "(gone) a listed file that is absent is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$sec" | grep -F 'scripts/optional.sh' | grep -F 'deleted as unused: allowed' >/dev/null || cf "(optional) an absent DELETE-IF-UNUSED file is not named as allowed: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$sec" | grep -F 'scripts/optional.sh' | grep -F '⚠' >/dev/null && cf "(optional) an absent DELETE-IF-UNUSED file is a ⚠"
   printf '%s\n' "$sec" | grep -F '✓' >/dev/null && cf "(gone) a ✓ line under a missing file"

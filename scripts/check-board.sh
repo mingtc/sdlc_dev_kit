@@ -40,6 +40,8 @@
 #       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
 #   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, ending
 #       in `:`, or starting with a YAML indicator (advisory; never part of a landing's property check).
+#   (v) scripts/ against process/KIT-MANIFEST — a listed file missing from the trunk, and a script the
+#       manifest does not list (the project's own or a module's); presence only (advisory).
 # After the lettered arms, scripts/check-board.d/<NN>-<name>.sh run as `[+<name>]` arms (the contract
 # is process/contracts/drift-report.md § 5, implemented at the loop below); they carry no letter, so
 # the letter lists below stay exact.
@@ -2260,7 +2262,7 @@ else
       echo "      – $v_p — listed, absent, marked DELETE-IF-UNUSED (deleted as unused: allowed)"
       v_unused=$((v_unused + 1))
     else
-      echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on disk; restore it from the kit, or run kit-upgrade"
+      echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on the trunk; restore it from the kit's zip, or accept its removal"
       v_gone=$((v_gone + 1))
     fi
   done <<< "$(comm -23 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
@@ -2272,7 +2274,7 @@ else
   if cb_rd_dead; then
     cb_rd_say "      "
   elif [ "$v_gone" -eq 0 ]; then
-    echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on disk, $v_unused deleted as unused, $v_extra not in the manifest"
+    echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on the trunk, $v_unused deleted as unused, $v_extra not in the manifest"
   fi
 fi
 # END scripts-manifest arm
