@@ -1546,7 +1546,8 @@ case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
       role)
         printf 'A line the project added.\n' >> "$SB_WORK/.claude/roles/example.md" ;;
       untracked)
-        git -C "$SB_WORK" rm -q --cached .gitignore >/dev/null 2>&1 ;;
+        git -C "$SB_WORK" rm -q --cached .gitignore >/dev/null 2>&1
+        sbcommit -q -m "untrack the ignore file" >/dev/null 2>&1 ;;
     esac
     _mu_up "$SB_WORK"
     [ "$_mu_rc" -eq 0 ] || cf "($tag) the upgrade exited $_mu_rc: $(_mu_flat)"
