@@ -211,7 +211,9 @@ of a template without it. *Why a fragment and not a field in the template:* a co
 every PRD of every project. A mint is refused, and writes nothing, for a name that is no mode
 (`fragment-name-unknown`), a slot the template does not carry (`fragment-slot-missing`), a
 `frontmatter` fragment for a template with none (`fragment-frontmatter-missing`), a fragment that
-itself carries a slot line (`fragment-content-markers`), one holding a control byte, octal 035 to 037, which the mint uses to carry slot text (`fragment-control-byte`), and an unreadable one (`fragment-unreadable`).
+itself carries a slot line (`fragment-content-markers`), one holding a control byte, octal 035 to 037,
+which the mint uses to carry slot text (`fragment-control-byte`), and an unreadable one
+(`fragment-unreadable`).
 
 ## 4. WHAT GREEN MEANS
 
