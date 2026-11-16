@@ -20,7 +20,9 @@ const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(n) ? args[args.indexOf(n) + 1] : d);
 const valueOf = new Set(['--name', '--out'].map(n => args.indexOf(n) + 1).filter(i => i > 0));
 const seed = args.find((a, i) => !valueOf.has(i) && /^#?[0-9a-fA-F]{6}$/.test(a));
-if (!seed) { console.error('usage: m3-tokens.mjs <seed hex> [--name NS] [--out DIR] [--pin-primary]'); process.exit(64); }
+const usage = 'usage: m3-tokens.mjs <seed hex> [--name NS] [--out DIR] [--pin-primary]';
+if (args.includes('--help') || args.includes('-h')) { console.log(usage); process.exit(0); }
+if (!seed) { console.error(usage); process.exit(64); }
 const ns = opt('--name', 'm3');
 const out = opt('--out', 'requirements/design/tokens');
 const pin = args.includes('--pin-primary');

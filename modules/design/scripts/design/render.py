@@ -3,7 +3,7 @@
 """render.py -- render Claude Design boards (*.dc.html) to PNG, locally.
 
 usage: render.py PROJECT_DIR OUT_DIR --runtime PATH [--theme ID] [--scheme light|dark] [--scale N]
-                 [--only Main.dc.html ...] [--props JSON] [--suffix=TEXT] [--wait MS] [--timeout S] [--chrome PATH]
+                 [--only Main.dc.html ...] [--props JSON] [--suffix TEXT] [--wait MS] [--timeout S] [--chrome PATH]
 
   PROJECT_DIR  the canvas's project/ folder: the *.dc.html files and canvas.json (the board sizes; 390x844 when absent)
   OUT_DIR      gets <Name><suffix>.png for each board
@@ -110,7 +110,12 @@ def main(argv):
     ap.add_argument('--wait', type=int, default=8000)
     ap.add_argument('--timeout', type=int, default=90)
     ap.add_argument('--chrome')
-    a = ap.parse_args(argv[1:])
+    args = list(argv[1:])
+    for k in range(len(args) - 1):     # argparse reads `--suffix -x` as a missing value: join it, as `--suffix=-x`
+        if args[k] == '--suffix' and args[k + 1].startswith('-'):
+            args[k:k + 2] = ['--suffix=' + args[k + 1]]
+            break
+    a = ap.parse_args(args)
     rt = a.runtime or os.environ.get('DC_RUNTIME')
     if not rt or not os.path.isfile(rt):
         print('RUNTIME-ABSENT: no design runtime (dc-runtime.js) given or found' + (f' at {rt}' if rt else '') + '. This module does not ship it; '
