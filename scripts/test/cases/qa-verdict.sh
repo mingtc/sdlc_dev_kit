@@ -862,7 +862,7 @@ _fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inl
 # runs to the end of the card. One rule for the id reader, the bullet readers, the section reader and the forks
 # derivation's heading reader. Rows: each shape's ids against the expected set (a module's reader case may read the
 # same shapes); (r) a heading after an unclosed fence is no heading for the forks reader; (s) a '## Out of Scope'
-# inside a longer outer fence is no heading; (t) a fence an AC's item holds, however deep it is indented (four
+# inside a longer outer fence is no heading; (t) a fence an AC's item holds, up to six columns in (four
 # spaces, five, a tab), hides the checklist-looking line it holds from the stray check; (u) a fence never closed is
 # found, by the line that opened it, in a card where it sits in an item, in Context or at the top level, and in none
 # of the cards that close theirs.
@@ -898,7 +898,7 @@ case_qa_gate_fence_rule_shapes() {
       four-indented|tab-indented) continue ;;   # an item's fence the next item ends: found too, by the first opener
       *) wantl="" ;;
     esac
-    [ "$ul" = "$wantl" ] || cf "(u, $shape) the unclosed fence is reported at line '$ul': want '$wantl'"
+    [ "${ul%% *}" = "$wantl" ] || cf "(u, $shape) the unclosed fence is reported at line '$ul': want '$wantl'"
   done
   finish "the fence rule reads these shapes the way CommonMark does (a ~~~ block holding a backtick line, a longer outer fence, an unclosed fence, a four-space and a tab indent, an inline span, a closing line with trailing text, a fence inside a list item, an unclosed fence in Context, and a fence four spaces, five spaces and a tab deep inside an AC item), the forks reader's heading test treats an unclosed fence and a longer outer fence by the same rule, a checklist-looking line inside an AC item's deep fence is no stray, and the line that opened a fence nothing closes is found"
 }
@@ -946,7 +946,9 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
 # (a) a card whose AC1 item opens a fence nothing closes, with a criterion below it that nobody grades, is refused
 # before the merge naming the line the fence opened on and saying to close it (refusal=forks-ac-unclosed-fence), and
 # not as a card with no criterion, also when the fence sits in Context and hides every criterion (e); (b) a fence indented four spaces, (c) five and (d) a tab, inside AC1's item and
-# holding a checklist-looking line, lands with its one-row table.
+# holding a checklist-looking line, lands with its one-row table; (f) a fence the list item holding it ends before it
+# closes, as a traceback pasted at column 0 under a bullet does, is refused naming the line the item ended on, with a
+# Next to indent the fence's lines and not to add a closer; (g) the same paste indented to the item's text lands.
 # RED FIRST: (a) lands, with AC3 ungraded; (b), (c), (d) are refused forks-ac-ungraded for the line they hold.
 # =============================================================================
 case_finish_pr_qa_verdict_fence_in_an_ac_item() {
@@ -986,6 +988,35 @@ case_finish_pr_qa_verdict_fence_in_an_ac_item() {
   [ "$rc" -ne 0 ] || cf "(e) a fence in Context hid every criterion and the card landed — finish-pr.sh exited 0"
   grep -q 'refusal=forks-ac-unclosed-fence' "$SB_TMP/rec-e"/*.tsv 2>/dev/null \
     || cf "(e) the refusal is not forks-ac-unclosed-fence: $(cat "$SB_TMP/rec-e"/*.tsv 2>/dev/null | cut -c1-200)"
+  teardown
+
+  # (f), (g) the BUG template's shape: a traceback pasted under a bullet, its first line at column 0
+  local tb
+  make_sandbox
+  id="$SB_PREFIX-865"
+  seed_issue dev_complete "$id" tbflush chore "A traceback at column 0 in a fence under a bullet" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-tbflush.md"
+  perl -i -pe 's/^(## Acceptance Criteria)$/## Context\n\n- **Actual:** the import fails:\n  ```\nTraceback (most recent call last):\n  File "x.py", line 1\n  ```\n\n$1/' "$f"
+  grep -qF 'Traceback (most recent call last):' "$f" || _fixture_die "case_finish_pr_qa_verdict_fence_in_an_ac_item: (f) the traceback was not planted"
+  tb="$(grep -n '^Traceback' "$f" | head -1 | cut -d: -f1)"
+  publish_sandbox
+  seed_branch "$id" work CHANGE865.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-f" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) a fence its list item ends before closing landed — finish-pr.sh exited 0"
+  case "$out" in *"ends on line $tb"*) : ;; *) cf "(f) the refusal does not name line $tb, where the item ends: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Next:"*"indent"*) : ;; *) cf "(f) the Next: does not say to indent the fence's lines: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *"holding only its backticks"*) cf "(f) the Next: still asks for a closing line, which does not close a fence its item ended" ;; esac
+  teardown
+  make_sandbox
+  id="$SB_PREFIX-866"
+  seed_issue dev_complete "$id" tbindent chore "The same traceback indented to the item's text" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-tbindent.md"
+  perl -i -pe 's/^(## Acceptance Criteria)$/## Context\n\n- **Actual:** the import fails:\n  ```\n  Traceback (most recent call last):\n    File "x.py", line 1\n  ```\n\n$1/' "$f"
+  publish_sandbox
+  seed_branch "$id" work CHANGE866.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-g" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(g) the traceback indented to the item, as the Next says, was refused — finish-pr.sh exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-tbindent.md" || cf "(g) the card did not advance to qa_complete/"
   teardown
 
   # (b), (c), (d) a deep fence inside the item
