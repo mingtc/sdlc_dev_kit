@@ -588,7 +588,7 @@ kwt_sync() {
       "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync." \
       "$detail" \
       "Next: read each commit above first. The push below publishes ALL of them to $KWT_REMOTE/$DEFAULT_BRANCH for everyone, as they were made, with none of the checks the tool that makes such a commit runs." \
-      "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list (or in the exit text of an op that ended before its push). The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
+      "      Publish only if you saw an op of yours fail and name every one of these commits in its \"Commits that did NOT land\" list (or in the exit text of an op that ended after its commit while its push was still to run or in flight). The author column cannot tell you an op made a commit: a commit made by hand carries the same author, and can carry a move's subject. Then re-run:" \
       "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
       "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
       "      A commit that  git log $KWT_REMOTE/$DEFAULT_BRANCH..$DEFAULT_BRANCH  run in your main checkout also lists is local work of the main checkout, which this worktree was built from. It is not this tool's to publish: the person who made it publishes it from the main checkout when it is ready, never through this worktree. If you did not make it, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")." \

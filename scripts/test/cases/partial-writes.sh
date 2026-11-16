@@ -171,7 +171,7 @@ case_a_board_op_terminated_in_its_push_names_the_unpushed_commit_and_how_to_publ
   # The next op's refusal over that commit accepts the exit text as the word that it was not pushed.
   rc=0; ref="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" qa_complete --role Dev --note "meanwhile" 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "the next op ran over the unpushed commit"
-  printf '%s\n' "$ref" | grep -F 'exit text of an op that ended before its push' >/dev/null || cf "the sync's refusal does not accept the exit text as the word the commit is unpublished: $(printf '%s' "$ref" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$ref" | grep -F 'exit text of an op that ended after its commit while its push was still to run or in flight' >/dev/null || cf "the sync's refusal does not accept the exit text as the word the commit is unpublished: $(printf '%s' "$ref" | tr '\n' '|' | cut -c1-300)"
   cmds="$(printf '%s\n' "$out" | sed -n 's/^ *\(git -C .*\)$/\1/p')"
   if [ -z "$cmds" ]; then cf "the exit text prints no git command on a line of its own"; else
     bash -c "$cmds" >/dev/null 2>&1 || cf "a printed command failed: $cmds"
@@ -454,24 +454,30 @@ case_kit_init_killed_after_its_commits_names_every_commit_to_revert() {
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   publish_sandbox
-  local out rc cmds n sha round since="" earlier="" mine bl
+  local out rc cmds n sha round since="" earlier="" mine bl usr=""
   rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
   [ "$rc" -eq 0 ] || { cf "(prereq) kit-init did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"; finish "$L"; teardown; return; }
   for round in 1 2; do
     # Cut off before the scratch card was removed: that commit is undone, locally and on the remote.
     git -C "$SB_WORK" reset -q --hard HEAD~1 && git -C "$SB_WORK" push -q -f origin "HEAD:$SB_TRUNK"
+    # A user's own commit that merely names kit-init's self-check lies on top of the first cut-off run; it is not kit-init's.
+    if [ "$round" = 1 ]; then
+      ( cd "$SB_WORK" && MSG_OK=1 git commit -q --allow-empty -m "[Dev] kit-init self-check notes for the team" && git push -q origin "HEAD:$SB_TRUNK" ) >/dev/null 2>&1
+      usr="$(git -C "$SB_WORK" rev-parse --short HEAD)"
+    fi
     [ -n "$(ls "$SB_WORK/progress/dev_complete" 2>/dev/null | grep -v '^\.')" ] || cf "(round $round, prereq) no scratch card in dev_complete, so the window is not the one under test"
     rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
     [ "$rc" -ne 0 ] || cf "(round $round) the re-run did not refuse over a lived board"
     printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "(round $round) the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
     # The commits of THIS run: kit-init's own role-tagged subjects above the last undo.
-    mine="$(git -C "$SB_WORK" log --format='%h %s' ${since:+"$since..HEAD"} | grep -E '^[0-9a-f]+ \[[^]]*\] (kit-init: initialize the kit|kit-init self-check|.*: kit-init self-check → )' | cut -d' ' -f1)"
+    mine="$(git -C "$SB_WORK" log --format='%h %s' ${since:+"$since..HEAD"} | grep -E '^[0-9a-f]+ \[[^]]*\] (kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+|kit-init self-check: (mint scratch card [^ ]+|commit-msg hook accepts a role-tagged subject|remove the scratch card — the board is yours, empty)|[^ ]+ → [a-z_]+: kit-init self-check → [a-z_]+)$' | cut -d' ' -f1)"
     n="$(printf '%s\n' "$mine" | grep -c .)"
     cmds="$(printf '%s\n' "$out" | sed -n -E 's/^ *((MSG_OK=1 )?git .*)$/\1/p')"
     if [ -z "$cmds" ]; then cf "(round $round) the refusal prints no git command on a line of its own: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"; break; fi
     for sha in $mine; do
       printf '%s\n' "$cmds" | grep -F "$sha" >/dev/null || cf "(round $round) the printed commands omit kit-init's commit $sha ($n made)"
     done
+    printf '%s\n' "$cmds" | grep -F "$usr" >/dev/null && cf "(round $round) the printed commands revert $usr, a user's commit that only names kit-init's self-check"
     for sha in $earlier; do
       printf '%s\n' "$cmds" | grep -F "$sha" >/dev/null && cf "(round $round) the printed commands revert $sha, a commit of a run already undone"
     done

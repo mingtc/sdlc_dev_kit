@@ -619,13 +619,15 @@ fi
 if [ ${#LIVED[@]} -gt 0 ]; then
   _lv_list=""
   for l in "${LIVED[@]}"; do _lv_list="${_lv_list}    • $l"$'\n'; done
-  # Every commit the NEWEST kit-init run made (the initialization and the self-check's), newest first: a run cut off
-  # after them leaves them all, and reverting only the first is refused over the scratch card the others made. Matched
-  # on the subject's own start, so a user commit or a revert that quotes one is not taken, and an earlier run already
-  # undone is not reverted again.
+  # Every commit the NEWEST kit-init run made, newest first: a run cut off after them leaves them all, and reverting
+  # only the first is refused over the scratch card the others made. Each is matched on its WHOLE subject, as this
+  # script writes it below (the initialization; the scratch card's mint, its two moves, the hook proof and its
+  # removal), with the role tag any `[...]`: a user commit that merely mentions kit-init, a revert that quotes one,
+  # and an earlier run already undone are not taken.
   _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' 2>/dev/null | awk -F '\t' '
-    $2 ~ /^\[[^]]*\] kit-init: initialize the kit/ { print $1; exit }
-    $2 ~ /^\[[^]]*\] kit-init self-check/ || $2 ~ /^\[[^]]*\] .*: kit-init self-check → / { print $1 }' | tr '\n' ' ' || true)"
+    $2 ~ /^\[[^]]*\] kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+$/ { print $1; exit }
+    $2 ~ /^\[[^]]*\] kit-init self-check: (mint scratch card [^ ]+|commit-msg hook accepts a role-tagged subject|remove the scratch card — the board is yours, empty)$/ { print $1 }
+    $2 ~ /^\[[^]]*\] [^ ]+ → [a-z_]+: kit-init self-check → [a-z_]+$/ { print $1 }' | tr '\n' ' ' || true)"
   _lv_shas="${_lv_shas% }"
   if [ -n "$_lv_shas" ]; then
     kit_refuse 1 repository-already-lived \
