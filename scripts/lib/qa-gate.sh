@@ -455,7 +455,7 @@ _qav_ac_bullet_read() {
       {
         fence_parse(line)
         if (pblank) { fence_line(line); pend = 1; next }
-        if (fch == "" && !pend && para && (pd < qd || pind < icol[isp]) && ps !~ /^(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/) {
+        if (fch == "" && !pend && para && pd <= qd && (pd < qd || pind < icol[isp]) && ps !~ /^(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/) {
           t = t " " line; ln = ln " " NR; next }
         r = fence_line(line)
         if (isp < base || iser[base] != aid) exit
