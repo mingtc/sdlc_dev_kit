@@ -588,3 +588,105 @@ case_landing_refuses_a_card_read_that_failed_in_the_board_property_check() {
   finish "a card read that exited 2 inside the landing's board-property check refuses board-property-unreadable, as the report says DID NOT RUN"
   teardown
 }
+
+# =============================================================================
+# CASE — A REGISTER READ THAT FAILED IS NOT "NO REGISTER" AND NOT "NOTHING CITED".
+# The board-property arms read the decision register and the citations through grep, sed and awk
+# stages that each answered empty when they failed. One shim per read site exits 2 for that
+# stage's own call only (told a fragment of its arguments, and where several stages share
+# one pattern, a fragment of its stdin), on a tree that holds the register and a PRD citing it.
+# Each row names the arms that must then say DID NOT RUN, print none of their clean text and leave
+# the verdict not clean; the control, the same board with the real tools, reads clean. Two landing
+# rows show the same failure refuses board-property-unreadable.
+# =============================================================================
+# _nr_shim_cmd <dir> <command> <args-fragment> [<stdin-fragment>] — a <command> that exits 2 when its
+# arguments hold <args-fragment> (and, when given, its stdin holds <stdin-fragment>), else the real one.
+# With a stdin fragment it reads all its input first, so the stage upstream is not killed by SIGPIPE and
+# the row measures the stage under test, not its neighbour.
+_nr_shim_cmd() {
+  local real
+  real="$(command -v "$2")"
+  mkdir -p "$1"
+  if [ -n "${4:-}" ]; then
+    printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*) in="$(cat)"; case "$in" in *'"'"'%s'"'"'*) exit 2 ;; esac; printf "%%s\\n" "$in" | %s "$@"; exit $? ;; esac\nexec %s "$@"\n' "$3" "$4" "$real" "$real" > "$1/$2"
+  else
+    printf '#!/bin/sh\ncase "$*" in *'"'"'%s'"'"'*) exit 2 ;; esac\nexec %s "$@"\n' "$3" "$real" > "$1/$2"
+  fi
+  chmod +x "$1/$2"
+}
+case_a_register_read_that_failed_says_did_not_run() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  seed_issue todo "$SB_PREFIX-941" fine chore "A well-formed card" >/dev/null
+  publish_sandbox
+
+  local out why sec oldp="$PATH" row cmd frag sfrag arms a
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F 'board-drift: clean' >/dev/null || cf "(control) the fixture board does not read clean: $(printf '%s' "$out" | grep '⚠' | head -4 | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'DID NOT RUN' >/dev/null && cf "(control) an arm says DID NOT RUN on a healthy board"
+  for a in d l r; do
+    printf '%s\n' "$out" | _nr_arm_section "$a" | grep -F '✓' >/dev/null || cf "(control) arm [$a] prints no ✓ on a healthy board, so a row below that withholds it proves nothing"
+  done
+
+  # <row>@<command>@<fragment of its arguments>@<fragment of its stdin, or empty>@<arms that must not answer>
+  while IFS='@' read -r row cmd frag sfrag arms; do
+    [ -n "$row" ] || continue
+    _nr_shim_cmd "$SB_TMP/shim-$row" "$cmd" "$frag" "$sfrag"
+    PATH="$SB_TMP/shim-$row:$oldp"
+    why="$(cb_run)"
+    PATH="$oldp"
+    printf '%s\n' "$why" | grep -F 'board-drift: clean' >/dev/null && cf "($row) a register read exited 2 — the verdict reads clean"
+    for a in $arms; do
+      sec="$(printf '%s\n' "$why" | _nr_arm_section "$a")"
+      printf '%s\n' "$sec" | grep -F 'DID NOT RUN' >/dev/null || cf "($row) arm [$a] does not say DID NOT RUN although a register read exited 2: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+      printf '%s\n' "$sec" | grep -F '✓' >/dev/null && cf "($row) arm [$a] printed a ✓ although a register read exited 2"
+    done
+  done <<'NR_ROWS'
+boundary@grep@-E ^### D-[0-9]+ /@@d
+boundaryv@grep@-vE ^### D-[0-9]+(@D-@d
+live@grep@-E ^### D-[0-9]+([[:space:]]|$) /@@d l r
+liveids@grep@-oE ^### D-[0-9]+@D-@d l r
+filterlive@grep@-E ^(D-[0-9]+)$@D-01@l r
+filterretired@grep@-E ^(D-[0-9]+)$@D-00@l
+retiredsed@sed@-n /^## Retired ids/@@l
+retiredawk@awk@BEGIN{c=0}@@l
+retiredfirst@grep@-oE ^[[:space:]]*@@l
+retiredid@grep@-oE D-[0-9]+@D-@l
+cited@grep@-IaoE@@l r
+citedtoken@grep@-qE ^D-[0-9]+$@@l r
+citednorm@sed@-e s/@@l r
+NR_ROWS
+
+  # the landing: the same failure inside the check's scratch tree refuses, as the report says DID NOT RUN
+  local idc="$SB_PREFIX-942" idk="$SB_PREFIX-943" idr="$SB_PREFIX-944"
+  _bpf_begin "$idc" control; _bpf_end "$idc" control
+  _bpf_begin "$idk" cited;   _bpf_end "$idk" cited
+  _bpf_begin "$idr" liveids; _bpf_end "$idr" liveids
+  _bpf_expect_landed "(landing control) no shim" "$idc" control "d i l" "p r q"
+  mkdir -p "$SB_TMP/shim-lc" "$SB_TMP/shim-ll"
+  printf '#!/bin/sh\ncase "$*" in *-IaoE*board-props.*) exit 2 ;; esac\nexec %s "$@"\n' "$(command -v grep)" > "$SB_TMP/shim-lc/grep"
+  printf '#!/bin/sh\ncase "$*" in *"-E ^### D-"*board-props.*) exit 2 ;; esac\nexec %s "$@"\n' "$(command -v grep)" > "$SB_TMP/shim-ll/grep"
+  chmod +x "$SB_TMP/shim-lc/grep" "$SB_TMP/shim-ll/grep"
+  PATH="$SB_TMP/shim-lc:$oldp"
+  _bpf_expect_refused "(landing, cited) the citation reader exited 2 inside the check" "$idk" cited board-property-unreadable "board-property check could not read"
+  PATH="$oldp"
+  PATH="$SB_TMP/shim-ll:$oldp"
+  _bpf_expect_refused "(landing, live) the register's id reader exited 2 inside the check" "$idr" liveids board-property-unreadable "board-property check could not read"
+  PATH="$oldp"
+  # a register whose headings are lost but whose ids are still in the file: the look for the id shape is a read too
+  printf '# DECISIONS\n\nD-01 was ruled once; nothing here is an entry heading.\n' > "$SB_WORK/requirements/DECISIONS.md"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] a register with no entry headings" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _nr_arm_section d | grep -F 'DOES carry' >/dev/null || cf "(regshape, control) arm [d] does not name the drifted entry shape: $(printf '%s' "$out" | _nr_arm_section d | tr '\n' '|' | cut -c1-300)"
+  _nr_shim_cmd "$SB_TMP/shim-regshape" grep '-qE D-[0-9]+ /'
+  PATH="$SB_TMP/shim-regshape:$oldp"
+  why="$(cb_run)"
+  PATH="$oldp"
+  printf '%s\n' "$why" | _nr_arm_section d | grep -F 'DID NOT RUN' >/dev/null || cf "(regshape) arm [d] does not say DID NOT RUN although its look for the id shape exited 2: $(printf '%s' "$why" | _nr_arm_section d | tr '\n' '|' | cut -c1-300)"
+  finish "a register or citation read that exits non-zero makes arms [d] [l] [r] say DID NOT RUN and the verdict not clean, and makes the landing refuse board-property-unreadable; the control reads clean"
+  teardown
+}

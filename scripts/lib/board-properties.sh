@@ -157,7 +157,7 @@ kit_bp_registers_present() {
 kit_bp_ids() {
   local tree="$1" f d_out dk dt
   local reg_path reg_mark reg_shape reg_file reg_ids reg_total reg_distinct reg_max reg_dupes
-  local reg_read=0 reg_skipped=0 d_reg_note rk dupe e
+  local reg_read=0 reg_skipped=0 d_reg_note rk dupe e _kit_reg_what=""
   local -a rkeys
   _bp_reset
   kit_bp_card_files "$tree"
@@ -237,6 +237,7 @@ kit_bp_ids() {
   while IFS='|' read -r reg_path reg_mark reg_shape; do
     [ -n "$reg_path" ] || continue
     reg_file="$tree/$reg_path"
+    _kit_reg_what="$reg_file"
     if [ ! -f "$reg_file" ]; then
       echo "    $reg_path: not present  (skipped — this project keeps no register there)"
       reg_skipped=$((reg_skipped+1)); continue
@@ -247,11 +248,11 @@ kit_bp_ids() {
     while IFS= read -r e; do
       [ -n "$e" ] || continue
       _bp_hit "    ⚠ $reg_path: heading '${e:0:80}' — its id is followed by something other than a space or the end of the line, so no arm reads it as an entry; put a space after the id" "d:regboundary:$reg_path:$e"
-    done <<< "$(grep -E "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | grep -vE "^${reg_mark}${reg_shape}([[:space:]]|\$)" || true)"
+    done <<< "$(_kit_reg_run grep -E "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | _kit_reg_run grep -vE "^${reg_mark}${reg_shape}([[:space:]]|\$)" || true)"
     reg_ids="$(kit_decision_register_live "$reg_file" "$reg_mark" "$reg_shape")"
     if [ -z "$reg_ids" ]; then
       # "0 entry headings" must be falsifiable: look for the id shape anywhere and say which.
-      if grep -qE "$reg_shape" "$reg_file" 2>/dev/null; then
+      if _kit_reg_run grep -qE "$reg_shape" "$reg_file" 2>/dev/null; then
         _bp_hit "    ⚠ $reg_path: 0 '${reg_mark}${reg_shape}' entry headings, but the file DOES carry '${reg_shape}' elsewhere — the entry SHAPE has drifted off its declared form, so every reading below (duplicates, the highest id) covers nothing while reporting nothing wrong" "d:regshape:$reg_path"
       else
         # Stated limit: an id written without its declared separator (D01 for D-NN) matches
@@ -340,13 +341,14 @@ kit_bp_blocks() {
 kit_bp_citations() {
   local tree="$1" l_cites=0 l_files_read=0 l_live="" l_retired="" l_reg_named="" l_reg_read=0 l_shapes=""
   local lreg_path lreg_mark lreg_shape lreg_file l_live_n l_retired_n l_excl_named l_files lex lex_fixed
-  local l_bare=0 cfile l_cids lshp cid l_stripped only l_skip
+  local l_bare=0 cfile l_cids lshp cid l_stripped only l_skip _kit_reg_what=""
   _bp_reset
   while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
     [ -n "$lreg_path" ] || continue
     lreg_file="$tree/$lreg_path"
     [ -f "$lreg_file" ] || continue
     l_reg_read=$((l_reg_read+1))
+    _kit_reg_what="$lreg_file"
     l_reg_named="${l_reg_named:+$l_reg_named, }$lreg_path"
     # Every declared register's own id SHAPE, so a project with two registers of different id
     # shapes has citations of BOTH recognised below.
@@ -356,9 +358,9 @@ $lreg_shape"
     # row's FIRST backticked id): lib/decision-register.sh.
     # Each register's ids are kept only if they match THAT register's own declared shape.
     l_live="$l_live
-$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"
+$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape" | { _kit_reg_run grep -E "^(${lreg_shape})\$" || true; })"
     l_retired="$l_retired
-$(kit_decision_register_retired "$lreg_file" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"
+$(kit_decision_register_retired "$lreg_file" "$lreg_shape" | { _kit_reg_run grep -E "^(${lreg_shape})\$" || true; })"
   done <<< "$(printf '%s\n' "$REGISTERS")"
   l_live="$(printf '%s\n' "$l_live" | _bp_awk 'NF' | sort -u || true)"
   l_retired="$(printf '%s\n' "$l_retired" | _bp_awk 'NF' | sort -u || true)"
@@ -811,18 +813,19 @@ _bp_findings_numbering() {
 kit_bp_reverse_coverage() {
   local tree="$1" r_reg_read=0 r_live="" r_exempt="" r_shapes="" r_cited="" r_hits=0
   local rreg_path rreg_mark rreg_shape rreg_file r_spans rid rstart rend rbody r_reg_named=""
-  local r_live_n r_exempt_n r_prds r_prd_n rpf rshp rcid _g
+  local r_live_n r_exempt_n r_prds r_prd_n rpf rshp rcid _g _kit_reg_what=""
   _bp_reset
   while IFS='|' read -r rreg_path rreg_mark rreg_shape; do
     [ -n "$rreg_path" ] || continue
     rreg_file="$tree/$rreg_path"
     [ -f "$rreg_file" ] || continue
     r_reg_read=$((r_reg_read+1))
+    _kit_reg_what="$rreg_file"
     r_reg_named="${r_reg_named:+$r_reg_named, }$rreg_path"
     r_shapes="$r_shapes
 $rreg_shape"
     r_live="$r_live
-$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape" | { grep -E "^(${rreg_shape})\$" || true; })"
+$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape" | { _kit_reg_run grep -E "^(${rreg_shape})\$" || true; })"
     r_spans="$(_bp_entry_spans "$rreg_file" "$rreg_mark" "$rreg_shape")"
     while read -r rid rstart rend; do
       [ -n "$rid" ] || continue
@@ -902,7 +905,7 @@ kit_bp_ready() {
   for f in kit_bp_ids kit_bp_blocks kit_bp_citations kit_bp_corpus kit_bp_register_shape kit_bp_reverse_coverage \
            kit_bp_registers_present kit_bp_card_files kit_bp_load_declarations \
            kit_card_field kit_card_list kit_decision_register_live kit_decision_register_retired \
-           kit_decisions_cited kit_declared_value kit_prd_surface kit_ruling_state; do
+           kit_decisions_cited _kit_reg_run kit_declared_value kit_prd_surface kit_ruling_state; do
     command -v "$f" >/dev/null 2>&1 || KIT_BP_NOT_READY="${KIT_BP_NOT_READY}${KIT_BP_NOT_READY:+ }$f"
   done
   [ -z "$KIT_BP_NOT_READY" ]   # return-class: predicate

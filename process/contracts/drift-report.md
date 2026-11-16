@@ -331,7 +331,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    or `✓`. **Where that holds today, and no further:** the board-property arms ([d] [i] [l] [p] [q] [r]) and the
    landing's check of the same properties (a function the arms call that is not defined, or a reader that
    exited non-zero, marks the arm not run; so does a card read whose awk exited 2 or more, since 1 means the
-   key is absent; the landing refuses `board-property-unreadable`, naming the reader's own last words and which
+   key is absent, and so does a register or citation read whose grep exited 2 or more or whose sed or awk
+   exited non-zero; the landing refuses `board-property-unreadable`, naming the reader's own last words and which
    side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
    or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an

@@ -70,6 +70,21 @@ kit_prd_surface() {
   printf 'requirements/%s-*.md\n' "$p"
 }
 
+# _kit_reg_run <command> [args] — runs the command with its own stdin and status, and records a status
+# that means "could not read" (grep: 2 or more, since 1 is "no match"; any other command: non-zero) in
+# KIT_BP_FAIL_FILE, naming what the reader was reading ($_kit_reg_what of the caller). The readers below
+# still return 0, so an arm that wants to know a read failed asks that file and says DID NOT RUN.
+_kit_reg_run() {
+  local rc=0 ok=0
+  [ "$1" != grep ] || ok=1
+  "$@" || rc=$?
+  if [ "$rc" -gt "$ok" ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then
+    printf '%s exited %s reading %s\n' "$1" "$rc" "${_kit_reg_what:-its input}" >> "$KIT_BP_FAIL_FILE"
+  fi
+  [ "$rc" -le 1 ] || rc=1
+  return "$rc"   # return-class: internal
+}
+
 # kit_decision_register_live <file> <heading-mark> <id-shape>
 #   Echoes, one per line, every id matching <heading-mark><id-shape> at line start. <heading-mark>
 #   and <id-shape> are the register's own declared shape (REGISTERS in check-board.sh), never
@@ -79,9 +94,9 @@ kit_prd_surface() {
 # ALWAYS RETURNS 0: "no id found" is a legitimate answer (an empty or day-one-blank register),
 # never a failure a `pipefail` caller should abort on.
 kit_decision_register_live() {
-  local file="$1" mark="$2" shape="$3"
+  local file="$1" mark="$2" shape="$3" _kit_reg_what="$1"
   [ -f "$file" ] || return 0
-  LC_ALL=C grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | LC_ALL=C grep -oE "^${mark}${shape}" | sed "s|^${mark}||" || true
+  LC_ALL=C _kit_reg_run grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | LC_ALL=C _kit_reg_run grep -oE "^${mark}${shape}" | _kit_reg_run sed "s|^${mark}||" || true
 }
 
 # kit_decision_register_retired <file> <id-shape>
@@ -90,10 +105,10 @@ kit_decision_register_live() {
 #   backticked id (a retired row names its live successor in the same sentence).
 # ALWAYS RETURNS 0 — see kit_decision_register_live.
 kit_decision_register_retired() {
-  local file="$1" shape="$2"
+  local file="$1" shape="$2" _kit_reg_what="$1"
   [ -f "$file" ] || return 0
-  sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$file" 2>/dev/null \
-    | LC_ALL=C awk 'BEGIN{c=0} { line=$0
+  _kit_reg_run sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$file" 2>/dev/null \
+    | LC_ALL=C _kit_reg_run awk 'BEGIN{c=0} { line=$0
             while (1) {
               if (c) { i=index(line,"-->"); if (!i) { line=""; break }
                        line=substr(line,i+3); c=0; continue }
@@ -103,8 +118,8 @@ kit_decision_register_retired() {
               if (j) { line=line substr(rest,j+3); continue }
               c=1; break }
             print line }' \
-    | grep -oE "^[[:space:]]*\`${shape}\`" \
-    | grep -oE "$shape" || true
+    | _kit_reg_run grep -oE "^[[:space:]]*\`${shape}\`" \
+    | _kit_reg_run grep -oE "$shape" || true
 }
 
 # kit_decisions_touched_by_diff <repo> <old-rev> <new-rev> <path> <heading-mark>
@@ -180,7 +195,7 @@ kit_decisions_touched_by_diff() {
 #   a caller that wants that population counts it separately, against this function's count.
 # ALWAYS RETURNS 0 — see kit_decision_register_live.
 kit_decisions_cited() {
-  local file="$1" shape="$2"
+  local file="$1" shape="$2" _kit_reg_what="$1"
   [ -f "$file" ] || return 0
   # The id's literal head, for the range reader below: everything in <id-shape> before its first
   # regex metacharacter ('D-[0-9]+' -> 'D-'). A shape with no metacharacter at all (a bare
@@ -203,8 +218,8 @@ kit_decisions_cited() {
       case "$_dc_tok" in
         *..*)
           _dc_lo="${_dc_tok%%..*}"; _dc_hi="${_dc_tok##*..}"
-          printf '%s' "$_dc_lo" | grep -qE "^${shape}\$" || continue
-          printf '%s' "$_dc_hi" | grep -qE "^${shape}\$" || continue
+          printf '%s' "$_dc_lo" | _kit_reg_run grep -qE "^${shape}\$" || continue
+          printf '%s' "$_dc_hi" | _kit_reg_run grep -qE "^${shape}\$" || continue
           _dc_lo_n="${_dc_lo#"$prefix"}"; _dc_hi_n="${_dc_hi#"$prefix"}"
           _dc_w=${#_dc_lo_n}
           case "$_dc_lo_n$_dc_hi_n" in *[!0-9]*) continue ;; esac
@@ -214,12 +229,12 @@ kit_decisions_cited() {
           done
           ;;
         *)
-          printf '%s' "$_dc_tok" | grep -qE "^${shape}\$" && printf '%s\n' "$_dc_tok"
+          printf '%s' "$_dc_tok" | _kit_reg_run grep -qE "^${shape}\$" && printf '%s\n' "$_dc_tok"
           ;;
       esac
     done
   done < <(
-    grep -IaoE "$marker" "$file" 2>/dev/null | kit_normalize_hyphens
+    _kit_reg_run grep -IaoE "$marker" "$file" 2>/dev/null | _kit_reg_run kit_normalize_hyphens
   )
   return 0
 }
