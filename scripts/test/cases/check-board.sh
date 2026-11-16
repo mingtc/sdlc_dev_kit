@@ -5914,3 +5914,52 @@ case_check_board_scripts_against_the_manifest() {
   finish "arm [v] names a script the manifest does not list as the project's, a listed absent file as a ⚠ unless it is DELETE-IF-UNUSED, skips with no ✓ when there is no manifest, and never moves the verdict or the exit status"
   teardown
 }
+
+# =============================================================================
+# CASE — arm [v] AT ITS EDGES: A FAILED MANIFEST READ, A SYMLINK, AND WORKING-TREE MODE.
+# (unreadable) when the manifest read fails the arm says DID NOT RUN and prints no "not in the
+# manifest" line, which would attribute every script to the project from a list it never read.
+# (symlink) a listed file that is a symlink is present, and an unlisted one is named like any other.
+# (worktree) with no trunk ref the arm reads the working tree, where a gitignored file is not part of
+# the project's scripts and is not named; an untracked one still is.
+# =============================================================================
+case_check_board_arm_v_edges() {
+  cf_reset
+  make_sandbox
+  ln -s ask.sh "$SB_WORK/scripts/linked.sh"
+  ln -s ask.sh "$SB_WORK/scripts/other-link.sh"
+  _cb_seed_manifest "$(printf '%064d  %s  -  -' 0 scripts/linked.sh)"
+  publish_sandbox
+  local out sec oldp="$PATH" shimd="$SB_TMP/shim-av"
+  # (symlink)
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$sec" | grep -F 'scripts/linked.sh' | grep -F '⚠' >/dev/null && cf "(symlink) a listed file that is a symlink reads as absent: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/other-link.sh' | grep -F "not in the manifest" >/dev/null || cf "(symlink) an unlisted symlink is not named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F '✓ none missing' >/dev/null || cf "(symlink) a manifest whose rows are all present is not a ✓: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  # (unreadable)
+  _nr_shim_cmd "$shimd" awk 'pfx=scripts/'
+  PATH="$shimd:$oldp"
+  out="$(cb_run)"
+  PATH="$oldp"
+  sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$sec" | grep -F 'DID NOT RUN' >/dev/null || cf "(unreadable) no DID NOT RUN over a manifest read that failed: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'not in the manifest' >/dev/null && cf "(unreadable) the arm attributes scripts to the project from a manifest it could not read: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-200)"
+  teardown
+
+  # (worktree): no remote, so the report reads the working tree
+  make_sandbox
+  printf 'scripts/ignored.sh\n' >> "$SB_WORK/.gitignore"
+  _cb_seed_manifest
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] seed sandbox board" --quiet >/dev/null 2>&1
+  printf '#!/bin/sh\n' > "$SB_WORK/scripts/ignored.sh"
+  printf '#!/bin/sh\n' > "$SB_WORK/scripts/untracked.sh"
+  rm -f "$SB_WORK/scripts/archive.sh"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$out" | grep -F 'WORKING TREE' >/dev/null || cf "(worktree) the fixture did not read the working tree: $(printf '%s' "$out" | grep '^\[v\]' | cut -c1-200)"
+  printf '%s\n' "$sec" | grep -F 'scripts/ignored.sh' >/dev/null && cf "(worktree) a gitignored file is named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/untracked.sh' | grep -F 'not in the manifest' >/dev/null || cf "(worktree) an untracked script is not named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/archive.sh' | grep -F '⚠' >/dev/null || cf "(worktree) a tracked file deleted from the working tree is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  finish "arm [v] prints DID NOT RUN and no 'not in the manifest' line when the manifest read fails, counts a symlink as present, and in working-tree mode leaves a gitignored file out"
+  teardown
+}

@@ -372,7 +372,11 @@ cb_bp_run() {
   "$@" > "$CB_BP_RUNF"
   if [ -s "$CB_BP_FAIL" ]; then
     grep -v '✓' "$CB_BP_RUNF"
-    echo "      ⚠ this arm DID NOT RUN to its end — a reader failed on a file it could not read ($(head -1 "$CB_BP_FAIL")); what is printed above is not the whole answer, so the verdict below is not clean"
+    if grep -qF 'declared in REGISTERS' "$CB_BP_FAIL" 2>/dev/null; then
+      echo "      ⚠ this arm DID NOT RUN to its end — a reader was refused the id shape declared in REGISTERS ($(head -1 "$CB_BP_FAIL")); correct that declaration in scripts/check-board.sh; what is printed above is not the whole answer, so the verdict below is not clean"
+    else
+      echo "      ⚠ this arm DID NOT RUN to its end — a reader failed on a file it could not read ($(head -1 "$CB_BP_FAIL")); what is printed above is not the whole answer, so the verdict below is not clean"
+    fi
     drift=1
   else
     cat "$CB_BP_RUNF"
@@ -2250,31 +2254,42 @@ else
   v_listed="$(cb_awk -F'  ' -v pfx=scripts/ '!/^#/ && NF >= 2 && index($2, pfx) == 1 { print $2 "\t" (NF >= 4 ? $4 : "-") }' "$v_man" 2>/dev/null || true)"
   v_disk=""
   if [ -d "$CB_TREE/scripts" ]; then
-    v_disk="$(cd "$CB_TREE" && find scripts -type f 2>/dev/null)" || cb_rd_note "find exited non-zero reading scripts/"
-  fi
-  v_paths="$(printf '%s\n' "$v_listed" | cut -f1 | LC_ALL=C sort)"
-  v_disk="$(printf '%s\n' "$v_disk" | LC_ALL=C sort)"
-  v_gone=0; v_unused=0; v_extra=0
-  while IFS= read -r v_p; do
-    [ -n "$v_p" ] || continue
-    v_d="$(printf '%s\n' "$v_listed" | cb_awk -F'\t' -v p="$v_p" '$1 == p { print $2; exit }' 2>/dev/null || true)"
-    if [ "$v_d" = DELETE-IF-UNUSED ]; then
-      echo "      – $v_p — listed, absent, marked DELETE-IF-UNUSED (deleted as unused: allowed)"
-      v_unused=$((v_unused + 1))
+    if [ "$CB_SRC_KIND" = ref ]; then
+      # a checkout of the trunk: every file and symlink in it is the project's
+      v_disk="$(cd "$CB_TREE" && find scripts \( -type f -o -type l \) 2>/dev/null)" || cb_rd_note "find exited non-zero reading scripts/"
     else
-      echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on the trunk; restore it from the kit's zip, or accept its removal"
-      v_gone=$((v_gone + 1))
+      # the working tree: git's own list (tracked, and untracked but not ignored), so a build leftover is not "the project's own"
+      v_disk="$(git -C "$CB_TREE" ls-files --cached --others --exclude-standard -- scripts 2>/dev/null)" || cb_rd_note "git ls-files exited non-zero reading scripts/"
+      v_disk="$(while IFS= read -r v_p; do [ -n "$v_p" ] && { [ -e "$CB_TREE/$v_p" ] || [ -L "$CB_TREE/$v_p" ]; } && printf '%s\n' "$v_p"; done <<< "$v_disk")"
     fi
-  done <<< "$(comm -23 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
-  while IFS= read -r v_p; do
-    [ -n "$v_p" ] || continue
-    echo "      – $v_p — not in the manifest (the project's own, or placed by an enabled module)"
-    v_extra=$((v_extra + 1))
-  done <<< "$(comm -13 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
+  fi
   if cb_rd_dead; then
     cb_rd_say "      "
-  elif [ "$v_gone" -eq 0 ]; then
-    echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on the trunk, $v_unused deleted as unused, $v_extra not in the manifest"
+  else
+    v_paths="$(printf '%s\n' "$v_listed" | cut -f1 | LC_ALL=C sort)"
+    v_disk="$(printf '%s\n' "$v_disk" | LC_ALL=C sort)"
+    v_gone=0; v_unused=0; v_extra=0
+    while IFS= read -r v_p; do
+      [ -n "$v_p" ] || continue
+      v_d="$(printf '%s\n' "$v_listed" | cb_awk -F'\t' -v p="$v_p" '$1 == p { print $2; exit }' 2>/dev/null || true)"
+      if [ "$v_d" = DELETE-IF-UNUSED ]; then
+        echo "      – $v_p — listed, absent, marked DELETE-IF-UNUSED (deleted as unused: allowed)"
+        v_unused=$((v_unused + 1))
+      else
+        echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on the trunk; restore it from the kit's zip, or accept its removal"
+        v_gone=$((v_gone + 1))
+      fi
+    done <<< "$(comm -23 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
+    while IFS= read -r v_p; do
+      [ -n "$v_p" ] || continue
+      echo "      – $v_p — not in the manifest (the project's own, or placed by an enabled module)"
+      v_extra=$((v_extra + 1))
+    done <<< "$(comm -13 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
+    if cb_rd_dead; then
+      cb_rd_say "      "
+    elif [ "$v_gone" -eq 0 ]; then
+      echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on the trunk, $v_unused deleted as unused, $v_extra not in the manifest"
+    fi
   fi
 fi
 # END scripts-manifest arm

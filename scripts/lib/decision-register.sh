@@ -78,8 +78,16 @@ _kit_reg_run() {
   local rc=0 ok=0
   [ "$1" != grep ] || ok=1
   "$@" || rc=$?
-  if [ "$rc" -gt "$ok" ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then
-    printf '%s exited %s reading %s\n' "$1" "$rc" "${_kit_reg_what:-its input}" >> "$KIT_BP_FAIL_FILE"
+  # 141 is SIGPIPE: this stage was cut off by a consumer that stopped reading (`| head`, `| grep -q`), which
+  # is that consumer's choice and not a failed read, so it is not recorded. A stage that really failed
+  # records itself.
+  if [ "$rc" -gt "$ok" ] && [ "$rc" -ne 141 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then
+    if [ "$1" = grep ] && [ "$rc" -eq 2 ] && [ -r "${_kit_reg_what:-}" ]; then
+      # the file reads, so the pattern is what grep refused: the id shape every reader is handed
+      printf 'grep exited 2 on %s, which reads: the id shape declared in REGISTERS in scripts/check-board.sh is not a pattern grep accepts\n' "$_kit_reg_what" >> "$KIT_BP_FAIL_FILE"
+    else
+      printf '%s exited %s reading %s\n' "$1" "$rc" "${_kit_reg_what:-its input}" >> "$KIT_BP_FAIL_FILE"
+    fi
   fi
   [ "$rc" -le 1 ] || rc=1
   return "$rc"   # return-class: internal

@@ -692,3 +692,61 @@ NR_ROWS
   finish "a register or citation read that exits non-zero makes arms [d] [l] [r] say DID NOT RUN and the verdict not clean, and makes the landing refuse board-property-unreadable; the control reads clean"
   teardown
 }
+
+# =============================================================================
+# CASE — A READER THAT STOPPED EARLY IS NOT A READER THAT FAILED.
+# `_kit_reg_run` records a failed read in KIT_BP_FAIL_FILE. A stage whose consumer closed the pipe
+# early (`| head -1`) is killed by SIGPIPE, status 141; that is the consumer's choice, and recording
+# it would turn a later `| head` or `| grep -q` over a reader into a false DID NOT RUN.
+# (control) a read that fails (a file that is not there) is recorded; (early) a producer cut off by
+# its consumer is not.
+# =============================================================================
+case_a_reader_cut_off_by_its_consumer_is_not_recorded_as_failed() {
+  cf_reset
+  local f recorded
+  f="$(mktemp "${TMPDIR:-/tmp}/kit-reg-fail.XXXXXX")" || { cf "no temp file"; finish "(no temp file)"; return 0; }
+  : > "$f"
+  bash -c '. "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && _kit_reg_run grep -E x /nonexistent/kit-reg-file 2>/dev/null; true' _ "$REAL_SCRIPTS" "$f"
+  recorded="$(cat "$f")"
+  case "$recorded" in *"grep exited 2"*) : ;; *) cf "(control) a grep that could not read its file was not recorded: '$recorded'" ;; esac
+  : > "$f"
+  bash -c '. "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && { seq 1 300000 | _kit_reg_run cat | head -n 1 >/dev/null; }; true' _ "$REAL_SCRIPTS" "$f"
+  recorded="$(cat "$f")"
+  [ -z "$recorded" ] || cf "(early) a stage cut off by its consumer was recorded as a failed read: '$recorded'"
+  rm -f "$f"
+  finish "a register reader that fails is recorded, and one cut off by a consumer that stopped early is not"
+}
+
+# =============================================================================
+# CASE — A DECLARED ID SHAPE THAT IS NOT A VALID PATTERN IS NAMED AS THE FAULT, NOT THE FILE.
+# REGISTERS in check-board.sh declares each register's id shape, and every reader hands it to grep.
+# A shape grep rejects (exit 2) fails every read of a register that reads fine, so the message and
+# the landing's Next must send the reader to that declaration, not to "a file it could not read".
+# (control) the report on a good declaration reads clean. (report) the arms [d] [l] [r] say DID NOT
+# RUN and name REGISTERS. (landing) the refusal's Next names REGISTERS and not the file.
+# =============================================================================
+case_a_bad_declared_id_shape_names_registers_not_the_file() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  perl -i -pe 's/^(REGISTERS=.*)D-\[0-9\]\+/${1}D-[0-9/' "$SB_WORK/scripts/check-board.sh"
+  grep -F "REGISTERS='requirements/DECISIONS.md|### |D-[0-9" "$SB_WORK/scripts/check-board.sh" >/dev/null \
+    || _fixture_die "case_a_bad_declared_id_shape_names_registers_not_the_file: the bad shape was not planted"
+  publish_sandbox
+  local idl="$SB_PREFIX-861" out sec a
+  out="$(cb_run)"
+  for a in d l r; do
+    sec="$(printf '%s\n' "$out" | _nr_arm_section "$a")"
+    printf '%s\n' "$sec" | grep -F 'DID NOT RUN' >/dev/null || cf "(report) arm [$a] does not say DID NOT RUN over a shape grep rejects: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$sec" | grep -F 'REGISTERS' >/dev/null || cf "(report) arm [$a] does not name REGISTERS: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$sec" | grep -F 'a file it could not read' >/dev/null && cf "(report) arm [$a] blames a file it could not read although the file reads"
+  done
+  _bpf_begin "$idl" shape; _bpf_end "$idl" shape
+  _bpf_land "$idl"
+  [ "$_BPF_RC" -ne 0 ] || cf "(landing) finish-pr.sh exited 0 over a declared shape grep rejects"
+  grep -q 'refusal=board-property-unreadable' "$SB_TMP/rec-$idl"/*.tsv 2>/dev/null || cf "(landing) no progress record carries refusal=board-property-unreadable"
+  case "$_BPF_OUT" in *"Next:"*"REGISTERS"*) : ;; *) cf "(landing) the Next does not name REGISTERS: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_BPF_OUT" in *"repair the file it"*|*"a file the BRANCH adds"*) cf "(landing) the Next sends the reader to a file: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  finish "a declared id shape that grep rejects makes arms [d] [l] [r] and the landing name REGISTERS in check-board.sh as the fault, not a file"
+  teardown
+}

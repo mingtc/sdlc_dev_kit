@@ -2008,3 +2008,50 @@ case_forks_a_ruling_added_on_the_trunk_after_the_cut_is_live_a_changed_ac_citing
 
   finish "forks: reads the live register set from the branch's and the trunk's copy, so a ruling that landed on the trunk after the cut passes under forks: [D-NN] with no merge and still refuses under 'forks: none' with a Next that says no merge is the exit; a changed AC bullet citing a ruling stays a fork, both refusals name 'forks: [D-NN]' as the exit and following them lands (hand-off and landing); a ruling the trunk withdrew or the branch retires is not 'already made'"
 }
+
+# =============================================================================
+# CASE — A REGISTER OR CITATION READ THAT FAILED INSIDE THE `forks:` CHECKS REFUSES.
+# kit_forks_check and kit_ac_drift_check read the register and the card's citations through the same
+# readers as arms [d] [l] [r]. With no failure file named, a read that exited 2 read as "no ruling
+# cited", which passed or refused for the wrong reason. One shim per read site exits 2 for that stage
+# only, in the landing of a card whose AC was rewritten with its citation on the bullet (it lands
+# with the real tools: the control). Each row must refuse forks-register-unreadable, with a Next, and
+# merge nothing. (drift) the AC-drift check's own bullet read, on a rewrite with no citation: it must
+# refuse as unreadable, not as the uncited change it would have read.
+# =============================================================================
+case_a_forks_register_read_that_failed_refuses_as_unreadable() {
+  cf_reset
+  local id n=0 row cmd frag sfrag journey slug dir oldp="$PATH" rec
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/forks-shims.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  # <row>@<command>@<fragment of its arguments>@<fragment of its stdin>@<journey: cited | drift>
+  while IFS='@' read -r row cmd frag sfrag journey; do
+    [ -n "$row" ] || continue
+    n=$((n + 1)); id="$SB_PREFIX-$((870 + n))"; slug="r$n"
+    _nr_shim_cmd "$dir/$row" "$cmd" "$frag" "$sfrag"
+    PATH="$dir/$row:$oldp"
+    if [ "$journey" = drift ]; then
+      _forks_drift_land "work-$row" "$id" "$slug" 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too." "" "none"
+    else
+      _forks_drift_land "work-$row" "$id" "$slug" 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+    fi
+    PATH="$oldp"
+    [ "$_FDL_RC" -ne 0 ] || cf "($row) a register read exited 2 — finish-pr.sh exited 0"
+    rec="$(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
+    printf '%s\n' "$rec" | grep -F 'refusal=forks-register-unreadable' >/dev/null || cf "($row) no progress record carries refusal=forks-register-unreadable: $(printf '%s' "$rec" | cut -c1-200) / $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-240)"
+    case "$_FDL_OUT" in *"Next:"*) : ;; *) cf "($row) the refusal names no Next: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+    origin_has_path "progress/qa_complete/$id-$slug.md" && cf "($row) the card advanced despite the refusal"
+    teardown
+  done <<'FK_ROWS'
+cited@grep@-IaoE'*'forks-cited@@cited
+live@grep@-oE ^### D-[0-9]+@D-@cited
+retired@sed@-n /^## Retired ids@@cited
+drift@grep@-IaoE'*'forks-ac-bullet@@drift
+FK_ROWS
+  # the control: the same journey with the real tools lands
+  id="$SB_PREFIX-880"
+  _forks_drift_land work-control "$id" control 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+  [ "$_FDL_RC" -eq 0 ] || cf "(control) the same landing with no shim exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  teardown
+  rm -rf "$dir"
+  finish "a register or citation read that exits non-zero inside the forks: checks refuses the landing (refusal=forks-register-unreadable, with a Next) and merges nothing; the same landing with the real tools lands"
+}

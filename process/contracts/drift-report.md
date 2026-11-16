@@ -333,7 +333,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    exited non-zero, marks the arm not run; so does a card read whose awk exited 2 or more, since 1 means the
    key is absent, and so does a register or citation read whose grep exited 2 or more or whose sed or awk
    exited non-zero; the landing refuses `board-property-unreadable`, naming the reader's own last words and which
-   side it failed on), the arms that read a card, `progress.md`, `PROJECT.md`
+   side it failed on, or, where grep refused the id shape declared in `REGISTERS`, that declaration; the landing's `forks:`
+   checks read the same registers and citations and refuse `forks-register-unreadable` the same way), the arms that read a card, `progress.md`, `PROJECT.md`
    or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an
    unknown is not a clean answer, reports-only arms included; their findings still never set it; of [c] the
@@ -452,8 +453,9 @@ it reports on. An absent or empty directory runs nothing. A `<name>` is letters,
 - **An arm that compares `scripts/` with `process/KIT-MANIFEST` is `[v]`:** presence only, never a hash.
   A listed file that is not on the trunk is a `⚠` line, unless the manifest marks it `DELETE-IF-UNUSED`, which a
   project may delete and which is named as allowed. A file on the trunk that the manifest does not list is named
-  as the project's own or an enabled module's, with no `⚠`. With no manifest it says it skipped and prints no
-  `✓`. It reports only: its findings never set the verdict, and a reader that failed does, as item 7 says.
+  as the project's own or an enabled module's, with no `⚠`; a symlink counts as present, and read from a working tree
+  it lists what git lists, ignored files left out. With no manifest it says it skipped and prints no `✓`; with a
+  manifest it could not read it prints no file as the project's. It reports only: its findings never set the verdict, and a reader that failed does, as item 7 says.
 - **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,
   and the landing calls the same functions** (`scripts/lib/qa-gate.sh`'s `kit_board_property_check`,
   from `finish-pr.sh` and `subtask.sh`). The landing refuses a finding its branch introduces in a

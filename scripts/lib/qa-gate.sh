@@ -1080,6 +1080,39 @@ kit_card_leave_todo() {
   [ -z "$lc" ] || printf '%s\t%s\n' "$lc" "$lp"
 }
 
+# ── _forks_reads_begin / _forks_reads_end <what> ──────────────────────────────────────────────
+#   The register and citation readers record a failed read in KIT_BP_FAIL_FILE (lib/decision-register.sh);
+#   a check that reads them with no file named takes a read that failed for "no register" or "nothing
+#   cited". _begin names one and sets _forks_reads_own=1 in the caller (which declares it local) when it
+#   did; _end, called by that owner after the reads, refuses forks-register-unreadable if any read failed.
+_forks_reads_begin() {
+  _forks_reads_own=0
+  [ -z "${KIT_BP_FAIL_FILE:-}" ] || return 0
+  KIT_BP_FAIL_FILE="$(mktemp "${TMPDIR:-/tmp}/forks-reads.XXXXXX" 2>/dev/null || true)"
+  if [ -z "$KIT_BP_FAIL_FILE" ]; then
+    kit_refuse 1 forks-register-unreadable \
+      "Error: could not create a scratch file to watch the register and citation reads of the 'forks:' check — refusing rather than skipping it." \
+      "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
+      "       NOTHING WAS CHANGED."
+  fi
+  _forks_reads_own=1
+}
+_forks_reads_end() {  # <what> — <what> names the check in the message
+  local f="${KIT_BP_FAIL_FILE:-}" why nxt
+  [ "${_forks_reads_own:-0}" = 1 ] || return 0
+  KIT_BP_FAIL_FILE=""
+  if [ -n "$f" ] && [ -s "$f" ]; then
+    why="$(head -n 2 "$f" | tr '\n' ' ' | cut -c1-300)"
+    rm -f "$f"
+    nxt="Next: fix what the line above names (a file that does not read: restore it from version control or the release zip; or the id shape declared in REGISTERS in scripts/check-board.sh), then re-run the command that refused; if it still refuses, stop and hand off."
+    kit_refuse 1 forks-register-unreadable \
+      "Error: a read the ${1} check makes failed (${why}) — it will not take an empty answer for 'no register' or 'nothing cited'." \
+      "$nxt" \
+      "       NOTHING WAS CHANGED."
+  fi
+  rm -f "$f"
+}
+
 # ── kit_ac_drift_check <card-file> <card-id> <repo> <leave-commit> <leave-path> ────────────────
 #   The AC-drift half of the forks check, callable on its own: move-issue.sh calls it at qa_complete
 #   so a direct-to-trunk card is held to the rule the landing holds. <leave-commit> and <leave-path>
@@ -1092,7 +1125,7 @@ kit_card_leave_todo() {
 #   '## Acceptance Criteria' the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
-  local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+'
+  local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   # The population first, on every route: a checklist line the QA gate's reader would drop is never
@@ -1122,6 +1155,7 @@ kit_ac_drift_check() {
   # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
   # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
   # refuses, never passes).
+  _forks_reads_begin
   scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || scratch=""
   old_card="$(mktemp "${TMPDIR:-/tmp}/forks-ac-old.XXXXXX")" || old_card=""
   [ -z "$old_card" ] || git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null | _qav_cut_comments | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' > "$old_card" || true
@@ -1150,6 +1184,7 @@ kit_ac_drift_check() {
     _qav_ac_removal_cited "$src" "$new_body" "$ac" "$id_shape" "$scratch" "$old_card" || removed="${removed}${removed:+, }$ac"
   done <<< "$old_ids"
   rm -f "$scratch" "$old_card"
+  _forks_reads_end "AC-drift"
 
   if [ -n "$removed" ]; then
     kit_refuse 1 forks-ac-changed-uncited \
@@ -1258,7 +1293,7 @@ kit_forks_check() {
   local _forks_leave_commit="" _forks_leave_path="" _forks_excl
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
   local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
-  local _forks_unattr_first="" _forks_unattr_reg="" _forks_sub_excl=() _forks_win_skip="" _forks_win_mine_txt=""
+  local _forks_unattr_first="" _forks_unattr_reg="" _forks_sub_excl=() _forks_win_skip="" _forks_win_mine_txt="" _forks_reads_own
 
   _forks_line="$(kit_card_field "$src" forks)"
   if [ -z "$_forks_line" ]; then
@@ -1302,6 +1337,7 @@ kit_forks_check() {
       "Next: restore the REGISTERS= declaration in scripts/check-board.sh from version control or the release zip; do not hard-code a register path anywhere else. If the file was not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
+  _forks_reads_begin
   # Only registers declared with the D-NN shape are read here; arm [l] reads each declared register's own shape.
   _forks_regs="$(printf '%s\n' "$_forks_declared" | LC_ALL=C awk -F'|' '$3 == "D-[0-9]+" { print }')"
   # THE ONE READER: kit_decisions_cited (lib/decision-register.sh) — case-insensitive label,
@@ -1403,6 +1439,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       done <<< "$_forks_win_out"
     fi
   done <<< "$(printf '%s\n' "$_forks_regs")"
+  _forks_reads_end "forks:"
   _forks_live_all="$(printf '%s\n' "$_forks_live_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
   _forks_seen_all="$(printf '%s\n' "$_forks_seen_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
   _forks_win_mine="$(printf '%s\n' "$_forks_win_mine" | grep -E '^D-[0-9]+$' | sort -u || true)"
@@ -1597,7 +1634,9 @@ kit_board_property_check() {
   _bpc_refuse_dead() {  # <base|new>
     local side="$1" why="$_BPC_DEAD_WHY" dead="$_BPC_DEAD" nxt
     _bpc_cleanup
-    if [ "$side" = base ]; then
+    if grep -qF 'declared in REGISTERS' <<< "$why"; then
+      nxt="Next: a reader was refused the id shape declared in REGISTERS in ${old_rev}'s scripts/check-board.sh (the line above), so no file is at fault: correct that declaration, land it on the trunk, then re-run the command that refused. If it names nothing, stop and hand off."
+    elif [ "$side" = base ]; then
       nxt="Next: a reader failed on the TRUNK's own tree (${old_rev}), so nothing about the branch was judged: run ./scripts/check-board.sh, repair the file it (or the line above) names on the trunk, land that on the trunk, then re-run the command that refused. If it names nothing, stop and hand off."
     else
       nxt="Next: a reader failed on the tree this landing produces, so a file the BRANCH adds or changes is the likely cause and the line above names it: correct it in the branch's change, commit and push, then re-run the command that refused. If it names nothing, stop and hand off."
