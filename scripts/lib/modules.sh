@@ -72,16 +72,26 @@ _kit_mod_block_text() {
     inb { print l }' "$1"
 }
 _kit_mod_block_sha() { _kit_mod_block_text "$1" "$2" | _kit_mod_sha_stdin; }
-# kit_mod_block_changed <path> <module> <slot> — status 0 when the module's block lines in <path> are not the ones HEAD holds. A
-# path HEAD lacks reads as holding no block, so a block there counts as changed.
+# _kit_mod_block_view <file> <block id> — `none` (no block, or no file), `bad` (a lone, repeated or misordered marker), or
+# `one <sha>` of the block's lines.
+_kit_mod_block_view() {
+  local st=none
+  [ ! -f "$1" ] || st="$(_kit_mb_state "$1" "$2")"
+  if [ "$st" = one ]; then echo "one $(_kit_mod_block_sha "$1" "$2")"; else echo "$st"; fi
+}
+# kit_mod_block_changed <path> <module> <slot> — status 0 unless the module's block in <path> reads the same in the
+# working tree, the index and HEAD: no block in all three, or one well-formed block with the same lines in all three.
+# A path HEAD or the index lacks reads as holding no block.
 kit_mod_block_changed() {
-  local t="$KIT_MOD_TMP/head-block" a b bid
+  local t="$KIT_MOD_TMP/head-block" bid w h i
   bid="$(_kit_mod_bid "$2" "$3")"
-  a="$(_kit_mod_block_sha "$KIT_MOD_ROOT/$1" "$bid")"
+  w="$(_kit_mod_block_view "$KIT_MOD_ROOT/$1" "$bid")"
   if ! ( cd "$KIT_MOD_ROOT" && git show "HEAD:./$1" ) > "$t" 2>/dev/null; then : > "$t"; fi
-  b="$(_kit_mod_block_sha "$t" "$bid")"
+  h="$(_kit_mod_block_view "$t" "$bid")"
+  if ! ( cd "$KIT_MOD_ROOT" && git show ":./$1" ) > "$t" 2>/dev/null; then : > "$t"; fi
+  i="$(_kit_mod_block_view "$t" "$bid")"
   rm -f "$t"
-  [ "$a" != "$b" ]
+  [ "$w" = bad ] || [ "$w" != "$h" ] || [ "$i" != "$h" ]
 }
 # _kit_mod_text_sha <file> — the sha of a block content file as marker-block writes it (every line ended).
 _kit_mod_text_sha() { awk '1' "$1" | _kit_mod_sha_stdin; }
