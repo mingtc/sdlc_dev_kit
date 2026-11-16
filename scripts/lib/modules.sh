@@ -221,7 +221,7 @@ _kit_mod_state_put() {
     fi
   } > "$tmp" || { _kit_mod_state_fail; return 1; }   # return-class: internal
   if ! awk '$1 == "module" || $1 == "kept" || $1 == "pending" { f = 1 } END { exit !f }' "$tmp"; then
-    rm -f "$f"
+    rm -f "$f" && [ ! -e "$f" ] || { _kit_mod_state_fail; return 1; }   # return-class: internal
   else
     mkdir -p "$(dirname "$f")" && cp "$tmp" "$f.kit-mod-new" && mv "$f.kit-mod-new" "$f" \
       || { _kit_mod_state_fail; return 1; }   # return-class: internal
@@ -245,9 +245,10 @@ _kit_mod_state_ahead() {
 }
 # _kit_mod_state_fail — the record could not be written: a refusal, or, for a caller that sets KIT_MOD_FAIL_RETURNS because
 # it has already written other files and words the failure itself, nothing (the caller sees the status).
+# KIT_MOD_STATE_NOTE, when set, is a sentence the refusal adds: what the caller had already done.
 _kit_mod_state_fail() {
   [ -z "${KIT_MOD_FAIL_RETURNS:-}" ] || return 0
-  kit_refuse 1 module-write-failed "Error: could not write $KIT_MOD_STATE_REL." "Next: check the permissions of process/ and the temp directory, then re-run."
+  kit_refuse 1 module-write-failed "Error: could not write $KIT_MOD_STATE_REL.${KIT_MOD_STATE_NOTE:+ $KIT_MOD_STATE_NOTE}" "Next: check the permissions of process/ and the temp directory, then re-run."
 }
 
 # ── the manifest and the plan ─────────────────────────────────────────────────
@@ -963,6 +964,7 @@ kit_mod_enable() {
     if [ "$(kit_mod_enabled_version "$name")" != "$KIT_MOD_VERSION" ]; then
       echo "  This kit holds version $KIT_MOD_VERSION of it: placed files change through the kit upgrade, not through enable."
     fi
+    _kit_mod_missing_hint "$name"
     return 0
   fi
   kit_mod_have_sha || kit_refuse 1 module-no-sha-tool \
@@ -1218,6 +1220,7 @@ ROLE_TAGS_EOF
       fi
     fi
   done < "$rows"
+  KIT_MOD_STATE_NOTE="$removed file(s) and block(s) of $name were already removed; the record is unchanged, so running disable again finishes it."
   if [ -n "$failed" ]; then
     # Every row stays recorded in the state it was in (enabled, or an enable that had not finished), the removed
     # ones too: a row is dropped only when the whole disable has finished, so an upgrade in between reads a removed
@@ -1277,6 +1280,22 @@ _kit_mod_block_state() {  # <path> <block id> <sha>
   else echo edited; fi
 }
 
+# _kit_mod_missing_hint <name> — when a recorded thing of an enabled module is missing, a line naming the two ways on: a
+# disable that stopped part-way reads the same as files removed by hand.
+_kit_mod_missing_hint() {
+  local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows"
+  kit_mod_rows_merged "$name" > "$rf"
+  while read -r kind sha tgt slot; do
+    [ -n "$kind" ] || continue
+    m=$((m + 1))
+    if [ "$kind" = file ]; then st="$(_kit_mod_file_state "$tgt" "$sha")"; else st="$(_kit_mod_block_state "$tgt" "$(_kit_mod_bid "$name" "$slot")" "$sha")"; fi
+    [ "$st" != missing ] || n=$((n + 1))
+  done < "$rf"
+  rm -f "$rf"
+  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing. If a disable of $name stopped part-way, ./scripts/module.sh disable $name finishes it; to put them back, disable it and enable it again."
+  return 0
+}
+
 # _kit_mod_status_rows <name> <rows-file> — one line per recorded row, with its state.
 _kit_mod_status_rows() {
   local name="$1" kind sha tgt slot st
@@ -1325,6 +1344,7 @@ kit_mod_status() {
   fi
   kit_mod_rows_merged "$name" > "$KIT_MOD_TMP/status-rows"
   _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
+  _kit_mod_missing_hint "$name"
   if [ -f "$(_kit_mod_src)/modules/$name/module.manifest" ]; then
     # a subshell: a manifest that does not read refuses and exits, and a report goes on with the next module
     if ( kit_mod_plan "$name" "$KIT_MOD_TMP/status-plan-$name" ) >/dev/null 2>"$KIT_MOD_TMP/status-err-$name"; then
