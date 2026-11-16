@@ -958,7 +958,7 @@ case_finish_pr_qa_verdict_fence_in_an_ac_item() {
   id="$SB_PREFIX-860"
   seed_issue dev_complete "$id" unclosed chore "An unclosed fence in an AC item" "feature/$id-work"
   f="$SB_WORK/progress/dev_complete/$id-unclosed.md"
-  txt="$(printf '%s\n%s\n%s' '  \`\`\`' '  make test' '- [ ] AC3 — a criterion nobody grades.')"
+  txt="$(printf '%s\n%s\n%s' "  \`\`\`" '  make test' '- [ ] AC3 — a criterion nobody grades.')"
   NEWTXT="$txt" perl -i -pe 'BEGIN { $t = $ENV{NEWTXT} } s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n$t/' "$f"
   grep -qF 'AC3 — a criterion nobody grades.' "$f" || _fixture_die "case_finish_pr_qa_verdict_fence_in_an_ac_item: (a) the unclosed fence was not planted"
   n="$(grep -n '^  ```' "$f" | head -1 | cut -d: -f1)"
