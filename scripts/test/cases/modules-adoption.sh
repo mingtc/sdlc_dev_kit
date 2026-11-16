@@ -1623,3 +1623,33 @@ case_a_failed_module_disable_keeps_every_row_until_the_disable_finishes() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — module.sh enable OVER A MODULE WHOSE DISABLE FAILED PART-WAY IS "ALREADY ENABLED", AND PLACES NOTHING.
+#   Pins today's behaviour: the record still names the module, so enable says it is enabled and exits 0; the files the
+#   failed disable removed stay removed and the record keeps all its rows. A later change gives enable and status a
+#   Next naming the way on (run the disable again, or re-enable); this row then changes with it.
+# =============================================================================
+case_module_enable_after_a_failed_disable_says_already_enabled_and_places_nothing() {
+  cf_reset
+  local L="module.sh enable over a module whose disable failed part-way says it is already enabled, exits 0, places none of the files the disable removed and leaves every row in the record"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  chmod 555 "$SB_WORK/process/roles.d"
+  _md_mod disable example
+  [ "$_md_rc" -ne 0 ] || cf "(prereq) disable exited 0 although process/roles.d/example could not be removed"
+  chmod 755 "$SB_WORK/process/roles.d"
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || cf "enable over a half-disabled module exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_md_out" | grep -F 'already enabled' >/dev/null || cf "enable does not say the module is already enabled: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "enable placed the role doc the failed disable had removed"
+  grep -F 'The example module' "$SB_WORK/PROJECT.md" >/dev/null && cf "enable put the module's block back in PROJECT.md"
+  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "the record holds $(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES") rows after enable, not all $rows0"
+  finish "$L"
+  teardown
+}
