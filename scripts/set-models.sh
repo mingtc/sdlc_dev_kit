@@ -182,8 +182,8 @@ kit_write_failed() {
 # an `effort:` line. The one predicate kit_check_pin accepts by and kit_set_pin rewrites by, so a shape the check
 # accepts is a shape the rewrite writes.
 kit_pin_has_pair() {
-  awk 'NR == 1 { if ($0 !~ /^---[ \t]*$/) exit 1; fm = 1; next }
-       fm == 1 && /^---[ \t]*$/ { fm = 2 }
+  awk 'NR == 1 { if ($0 !~ /^---[ \t\r]*$/) exit 1; fm = 1; next }
+       fm == 1 && /^---[ \t\r]*$/ { fm = 2 }
        fm == 1 && /^model:/  { m = 1 }
        fm == 1 && /^effort:/ { e = 1 }
        END { exit !(m && e) }' "$1"
@@ -207,8 +207,8 @@ kit_check_pin() {
 kit_set_pin() {
   local f="$AGENTS_DIR/$1"
   awk -v m="$MODEL" -v e="$EFFORT" '
-    NR == 1 { if ($0 ~ /^---[ \t]*$/) fm = 1; print; next }
-    fm == 1 && /^---[ \t]*$/ { fm = 2 }
+    NR == 1 { if ($0 ~ /^---[ \t\r]*$/) fm = 1; print; next }
+    fm == 1 && /^---[ \t\r]*$/ { fm = 2 }
     fm == 1 && /^model:/  { print "model: " m;  next }
     fm == 1 && /^effort:/ { print "effort: " e; next }
     { print }

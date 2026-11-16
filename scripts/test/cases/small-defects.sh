@@ -45,6 +45,11 @@ SM_ROWS
   out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model 'claude-opus-4-1@20250805' --effort high 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(at) an id with @ was refused ($rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   grep -qxF 'model: claude-opus-4-1@20250805' "$ad/dev-worker.md" || cf "(at) the pin was not written as given: $(grep -E '^model:' "$ad/dev-worker.md" | tr '\n' '|')"
+  # (crlf) a pin file checked out with CRLF line endings is a frontmatter block too
+  printf -- '---\r\nname: dev-worker\r\nmodel: old\r\neffort: old\r\n---\r\n\r\nbody\r\n' > "$ad/dev-worker.md"
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model CRM1 --effort CRE1 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(crlf) a CRLF pin file was refused ($rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  grep -qxF 'model: CRM1' "$ad/dev-worker.md" || cf "(crlf) the CRLF pin file was not rewritten: $(grep -E '^model:' "$ad/dev-worker.md" | tr '\r\n' '..' )"
   # (nofm) a file with no frontmatter on its first line is refused, not half-written: no success line, no record
   printf '# a pin with no frontmatter\n\n---\n\nmodel: prose\neffort: prose\n' > "$ad/dev-worker.md"
   cp "$ad/dev-worker.md" "$SB_TMP/nofm.before"; : > "$SB_TMP/rec.before"; cp "$SB_WORK/.claude/model-pins.record" "$SB_TMP/rec.before" 2>/dev/null || true
