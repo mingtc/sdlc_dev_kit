@@ -2162,6 +2162,18 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   mkdir -p "$d"
   node "$m/m3-tokens.mjs" '#2F6FEB' --name app --out "$d/a/requirements/design/tokens" >/dev/null 2>&1 || cf "(a) m3-tokens.mjs did not run on a seed"
   node "$m/m3-tokens.mjs" '#2F6FEB' --name app --out "$d/b" >/dev/null 2>&1
+  # (a2) a usage request succeeds and prints the usage; a call with no seed still refuses with 64
+  out="$(node "$m/m3-tokens.mjs" --help 2>&1)"; i=$?
+  { [ "$i" -eq 0 ] && printf '%s' "$out" | grep -q 'usage: m3-tokens.mjs'; } || cf "(a2) m3-tokens.mjs --help does not exit 0 with its usage (exit $i): $out"
+  node "$m/m3-tokens.mjs" >/dev/null 2>&1; i=$?
+  [ "$i" -eq 64 ] || cf "(a2) m3-tokens.mjs with no seed does not exit 64 (exit $i)"
+  # (a3) render.py takes --suffix with a value that opens with a hyphen, spaced as well as with an =
+  mkdir -p "$d/rp"
+  for i in "--suffix -x" "--suffix=-x"; do
+    # shellcheck disable=SC2086
+    _dm_py "$m/render.py" "$d/rp" "$d/ro" --runtime "$d/no-such-runtime.js" $i
+    { [ "$_dm_rc" -eq 3 ] && _dm_has "$_dm_out" "RUNTIME-ABSENT"; } || cf "(a3) render.py $i is refused as an argument error, not read as a suffix (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  done
   for i in app.tokens.json app.dark.tokens.json app.wire.tokens.json; do
     cmp -s "$d/a/requirements/design/tokens/$i" "$d/b/$i" || cf "(a) the same seed does not give the same bytes in $i"
   done
@@ -2334,6 +2346,13 @@ EOF
     esac
     _dm_py "$m/contrast-audit.py" "$d/e" --strict
     { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.dark.tokens.json" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l) a dark token file with $i passes --strict as if it were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  done
+  # (l2) a theme file of valid JSON that holds no colour token leaves its theme unmeasured: said, and fails --strict
+  for i in '{}' '{"space-4":{"$value":"4px"}}'; do
+    rm -rf "$d/h"; cp -R "$d/a" "$d/h"
+    printf '%s\n' "$i" > "$d/h/requirements/design/tokens/app.dark.tokens.json"
+    _dm_py "$m/contrast-audit.py" "$d/h" --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.dark.tokens.json" && _dm_has "$_dm_out" "holds no colour token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l2) a dark token file holding $i passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   done
   # (m) a colour token under another head than color: the converter takes it by its type, the audit says no pair measures it, and a primitive reached by alias stays healthy
   rm -rf "$d/f"; mkdir -p "$d/f/requirements/design/tokens" "$d/f/out"
