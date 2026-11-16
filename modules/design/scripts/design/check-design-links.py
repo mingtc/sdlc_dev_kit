@@ -1086,23 +1086,85 @@ def parse_registry(text, label, canvas):
     return rows, problems
 
 
-FENCE_OPEN = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
+LIST_ITEM = re.compile(r'[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)')
+
+
+def fence_parse(ln):
+    """-> (quote depth, text past the '>' markers, its indent in columns), a tab counting to the next multiple of four."""
+    s, d = ln.rstrip('\r'), 0
+    while True:
+        k = 0
+        while k < 3 and s[k:k + 1] == ' ':
+            k += 1
+        if s[k:k + 1] != '>':
+            break
+        d += 1
+        s = s[k + 1:]
+        if s[:1] == ' ':
+            s = s[1:]
+    ind = 0
+    for ch in s:
+        if ch == ' ':
+            ind += 1
+        elif ch == '\t':
+            ind += 4 - ind % 4
+        else:
+            break
+    return d, s, ind
 
 
 def fence_scan(text):
-    """-> ([(line_no, text)] outside code fences, the line of a fence never closed or None). A fence closes on a line of the same
-    character, at least as long as the opening one and nothing else, so a ``` line inside a ~~~ block is text."""
-    out, marker, opened = [], None, None
-    for n, ln in enumerate(text.splitlines(), 1):
-        m = FENCE_OPEN.match(ln)
-        if marker is None:
-            if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
-                marker, opened = m.group(1), n
+    """-> ([(line_no, text)] outside code fences, the line of a fence never closed or None). The rule is the core's (qa-gate.sh
+    `_QAV_FENCE_FN`): a fence opens on three or more backticks or tildes (a backtick fence's info string holds no backtick) at most three
+    columns past its container, and closes on a line of the same character, at least as long, with nothing else; a block quote
+    (`>` markers) and the list items, kept as the column their text starts at, are the containers: a line indented less than an
+    item's text ends the item, one with fewer markers ends the quote, and a fence its container ends first is never closed. YAML frontmatter
+    is no fence: its lines are returned as they are."""
+    out, icol, fch, flen, fdepth, fq, qd, fopened, unclosed, infm = [], [], None, 0, 0, 0, 0, None, None, False
+    for n, raw in enumerate(text.splitlines(), 1):
+        if n == 1 and re.match(r'---[ \t\r]*$', raw):
+            infm = True
+            out.append((n, raw))
+            continue
+        if infm:
+            infm = not re.match(r'---[ \t\r]*$', raw)
+            out.append((n, raw))
+            continue
+        d, s, ind = fence_parse(raw)
+        if s.strip(' \t'):
+            if d != qd:
+                if fch and fq > d:
+                    unclosed, fch = unclosed or fopened, None
+                if not fch:
+                    icol = []
+                qd = d
+            while icol and ind < icol[-1]:
+                icol.pop()
+            if fch and len(icol) < fdepth:
+                unclosed, fch = unclosed or fopened, None
+            if not fch and ind < (icol[-1] if icol else 0) + 4:
+                m = LIST_ITEM.match(s)
+                if m:
+                    after = s[m.end(1):]
+                    sp = len(after) - len(after.lstrip(' \t'))
+                    icol.append(ind + len(m.group(1)) + (1 if not after.strip(' \t') or sp > 4 else sp))
+        lim = ((icol[-1] if icol else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
+        t = s.lstrip(' \t')
+        c, run = t[:1], 0
+        if ind <= lim and c in ('`', '~'):
+            while t[run:run + 1] == c:
+                run += 1
+        rest = t[run:]
+        if not fch:
+            if run >= 3 and not (c == '`' and '`' in rest):
+                fch, flen, fopened, fdepth, fq = c, run, n, len(icol), d
             else:
-                out.append((n, ln))
-        elif m and m.group(1)[0] == marker[0] and len(m.group(1)) >= len(marker) and not m.group(2).strip():
-            marker, opened = None, None
-    return out, opened
+                out.append((n, raw))
+        elif run >= 3 and c == fch and run >= flen and not rest.strip(' \t'):
+            fch = None
+    if fch:
+        unclosed = unclosed or fopened
+    return out, unclosed
 
 
 def prd_lines(path):
