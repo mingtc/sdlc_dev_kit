@@ -894,7 +894,7 @@ case_qa_gate_fence_rule_shapes() {
   for shape in $_fence_shapes item-unclosed; do
     ul="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
     case "$shape" in
-      unclosed|context-open|item-unclosed) wantl="$(_fence_shape "$shape" | /usr/bin/grep -n '^ *```' | head -1 | cut -d: -f1)" ;;
+      unclosed|context-open|item-unclosed) wantl="$(_fence_shape "$shape" | grep -n '^ *```' | head -1 | cut -d: -f1)" ;;
       four-indented|tab-indented) continue ;;   # an item's fence the next item ends: found too, by the first opener
       *) wantl="" ;;
     esac
