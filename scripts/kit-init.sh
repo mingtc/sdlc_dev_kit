@@ -619,6 +619,26 @@ fi
 if [ ${#LIVED[@]} -gt 0 ]; then
   _lv_list=""
   for l in "${LIVED[@]}"; do _lv_list="${_lv_list}    • $l"$'\n'; done
+  # Every commit a kit-init run makes (the initialization and the self-check's): a run cut off after them leaves
+  # them all, and reverting only the first is refused over the scratch card the others made.
+  _lv_shas="$(git -C "$ROOT" log --format=%h -E --grep='kit-init: initialize the kit|kit-init self-check' 2>/dev/null | tr '\n' ' ' || true)"
+  _lv_shas="${_lv_shas% }"
+  if [ -n "$_lv_shas" ]; then
+    kit_refuse 1 repository-already-lived \
+      "✗ kit-init REFUSES: this repository has already lived." \
+      "" \
+      "${_lv_list%$'\n'}" \
+      "" \
+      "  NOTHING WAS WRITTEN. An initializer that can overwrite a working board is" \
+      "  worse than no initializer — and a half-stamped repository is worse still, so" \
+      "  there is no resume path." \
+      "Next: do not initialize this repository. If this is a re-run you meant to make, or an earlier run was cut off" \
+      "  after its commits, undo every commit kit-init made, then run it again:" \
+      "        git revert --no-commit ${_lv_shas}" \
+      "        MSG_OK=1 git commit -m 'undo kit-init'" \
+      "        git push" \
+      "  On a repository that has lived, make the changes by hand."
+  fi
   kit_refuse 1 repository-already-lived \
     "✗ kit-init REFUSES: this repository has already lived." \
     "" \

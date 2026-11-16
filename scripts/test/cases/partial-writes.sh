@@ -114,6 +114,70 @@ case_a_refused_board_commit_undoes_the_move_and_says_so() {
 }
 
 # =============================================================================
+# CASE — archive.sh: A COMMIT THE HOOK REFUSES LEAVES NO SWEEP STAGED. A pre-commit hook refuses the
+# sweep's commit: the kanban worktree is clean, a Next is printed, no "Commit:" or "Published:" line is,
+# and the sweep lands once the hook allows it.
+# =============================================================================
+case_a_refused_archive_commit_leaves_the_kanban_worktree_clean_and_says_so() {
+  cf_reset
+  local L="archive.sh --apply, when the commit hook refuses the sweep, prints a Next and no Commit: or Published: line, leaves the kanban worktree clean, and the next sweep lands"
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-873" arch chore "A card the hook refuses to archive"
+  publish_sandbox
+  local hooks="$SB_TMP/refusing-hooks" out rc
+  mkdir -p "$hooks"; printf '#!/bin/sh\necho "hook: no commits today" >&2\nexit 1\n' > "$hooks/pre-commit"; chmod +x "$hooks/pre-commit"
+  git -C "$SB_WORK" config core.hooksPath "$hooks"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "exited 0 on a refused commit"
+  printf '%s\n' "$out" | grep -E '^(Commit|Published):' >/dev/null && cf "printed a Commit:/Published: line for a sweep that did not commit"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  _pw_kwt_clean || cf "the kanban worktree holds the staged sweep: $(git -C "$SB_WORK/.kanban-wt" status --short | tr '\n' '|')"
+  git -C "$SB_WORK" config core.hooksPath "$SB_WORK/scripts/githooks"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the next sweep was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  [ -f "$SB_WORK/progress/done/$SB_PREFIX-873-arch.md" ] || cf "(control) the card was not swept once the hook allowed it"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — a board op TERMINATED BETWEEN ITS LOCAL COMMIT AND ITS PUSH. A pre-receive hook holds the
+# push; the op's process group gets TERM. The exit prints the unpushed commit and a Next that, run as
+# printed, publishes it; the next op then lands.
+# =============================================================================
+case_a_board_op_terminated_in_its_push_names_the_unpushed_commit_and_how_to_publish_it() {
+  cf_reset
+  local L="a board op terminated between its commit and its push prints the unpushed commit and a Next that publishes it, and the next op lands"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-874" out rc=0 pid i hold="$SB_TMP/in-hook" cmds sha
+  seed_issue todo "$id" termmv chore "A card whose move is terminated in its push"
+  publish_sandbox
+  printf '#!/bin/sh\ntouch "%s"\nsleep 30\nexit 1\n' "$hold" > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "terminated" ) > "$SB_TMP/term.out" 2>&1 &
+  pid=$!
+  for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
+  [ -e "$hold" ] || cf "(prereq) the push never reached the hook, so the premise is gone: $(tr '\n' '|' < "$SB_TMP/term.out" | cut -c1-200)"
+  kill -TERM -- "-$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  out="$(cat "$SB_TMP/term.out")"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "the terminated op printed no Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$SB_WORK/.kanban-wt" rev-list --count "origin/$SB_TRUNK..HEAD" 2>/dev/null)" = 1 ] || cf "(prereq) no unpushed commit in the kanban worktree"
+  sha="$(git -C "$SB_WORK/.kanban-wt" rev-parse --short HEAD 2>/dev/null)"
+  printf '%s\n' "$out" | grep -F "$sha" >/dev/null || cf "the exit text does not name the unpushed commit $sha: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  rm -f "$SB_ORIGIN/hooks/pre-receive"
+  cmds="$(printf '%s\n' "$out" | sed -n 's/^ *\(git -C .*\)$/\1/p')"
+  if [ -z "$cmds" ]; then cf "the exit text prints no git command on a line of its own"; else
+    bash -c "$cmds" >/dev/null 2>&1 || cf "a printed command failed: $cmds"
+  fi
+  git -C "$SB_ORIGIN" log --format=%s -3 "$SB_TRUNK" 2>/dev/null | grep -F 'terminated' >/dev/null || cf "the printed commands did not publish the commit"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" dev_complete --role Dev --note "after" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "the next op after the printed Next was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — set-models.sh: A WRITE IT CANNOT MAKE IS REFUSED BEFORE THE FIRST WRITE; NO SUCCESS LINE, NO RECORD.
 # A directory where a rewrite's scratch file goes, for the pin and for the ladder; and a pin directory
 # the user cannot write to. Nothing changes, a Next is printed, and the control still sets.
@@ -334,6 +398,41 @@ case_kit_init_names_the_recovery_from_a_run_cut_off_before_its_commit() {
     teardown
   done
   finish "$L"
+}
+
+# =============================================================================
+# CASE — kit-init.sh CUT OFF AFTER ITS COMMITS (the third window): the commits are pushed and the scratch
+# card sits in dev_complete. The re-run refuses as lived and its Next must name every commit kit-init made;
+# the commands, run as printed, reach a state the re-run accepts.
+# =============================================================================
+case_kit_init_killed_after_its_commits_names_every_commit_to_revert() {
+  cf_reset
+  local L="kit-init.sh, over a run cut off after its commits, prints a Next that names every commit it made and, run as printed, lets the re-run complete"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local out rc cmds n sha
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || { cf "(prereq) kit-init did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"; finish "$L"; teardown; return; }
+  # Cut off before the scratch card was removed: that commit is undone, locally and on the remote.
+  git -C "$SB_WORK" reset -q --hard HEAD~1 && git -C "$SB_WORK" push -q -f origin "HEAD:$SB_TRUNK"
+  [ -n "$(ls "$SB_WORK/progress/dev_complete" 2>/dev/null | grep -v '^\.')" ] || cf "(prereq) no scratch card in dev_complete, so the window is not the one under test"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "the re-run did not refuse over a lived board"
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  n="$(git -C "$SB_WORK" log --format=%h -E --grep='kit-init: initialize the kit|kit-init self-check' | wc -l | tr -d ' ')"
+  cmds="$(printf '%s\n' "$out" | sed -n -E 's/^ *((MSG_OK=1 )?git .*)$/\1/p')"
+  if [ -z "$cmds" ]; then cf "the refusal prints no git command on a line of its own: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"; else
+    for sha in $(git -C "$SB_WORK" log --format=%h -E --grep='kit-init: initialize the kit|kit-init self-check'); do
+      printf '%s\n' "$cmds" | grep -F "$sha" >/dev/null || cf "the printed commands omit kit-init's commit $sha ($n made)"
+    done
+    ( cd "$SB_WORK" && bash -c "$cmds" ) >/dev/null 2>&1 || cf "a printed command failed: $cmds"
+    rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+    [ "$rc" -eq 0 ] || cf "after the printed commands the re-run did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  fi
+  finish "$L"
+  teardown
 }
 
 # =============================================================================

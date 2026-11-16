@@ -221,6 +221,17 @@ KWT_DISCARD_DIRTY=false
 # on LOCAL state. A report, not a knob; declared so a `set -u` caller may read it.
 KWT_SYNCED=false
 
+# Set by kwt_commit to the commit it made; cleared by kwt_finalize once that commit is pushed (or reported).
+# Still set when kwt_unlock runs means the op ended between the two. A report, not a knob.
+KWT_UNPUSHED=""
+
+# The commands that publish a commit left in $KWT; kwt_finalize's push failure and kwt_unlock each print them
+# under their own `Next:` line.
+kwt__publish_next() {
+  echo "         git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH"
+  echo "         git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
+}
+
 # Set by kwt_finalize to the commit that ACTUALLY LANDED, read after the push. Callers print
 # this, never a sha captured earlier: a retried push rebases, which makes a new commit. A
 # report, not a knob.
@@ -334,6 +345,17 @@ kwt_lock() {
 }
 
 kwt_unlock() {
+  # The op ended with its commit made and no push landed: killed between the two. kwt_finalize
+  # reports its own failures and clears this first, so what reaches here was cut off.
+  if [ -n "$KWT_UNPUSHED" ]; then
+    {
+      echo "Error: this op ended after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree and before its push; it is NOT on $KWT_REMOTE."
+      echo "       The next kanban op's sync REFUSES over it, and nothing else will publish it."
+      echo "Next: publish it once $KWT_REMOTE answers (a rebase that conflicts: resolve, git rebase --continue), then push:"
+      kwt__publish_next
+    } >&2
+    KWT_UNPUSHED=""
+  fi
   if [ "$KWT_LOCK_HELD" = "true" ]; then
     rm -rf "$KWT_LOCK" 2>/dev/null || true
     KWT_LOCK_HELD=false
@@ -584,7 +606,10 @@ kwt_sync() {
 # the op is lost. <what> is the noun the Error line names ("the move"); <next> (text only, no "Next:") replaces the default.
 kwt_commit() {
   local msg="$1" what="${2:-this change}" nxt="${3:-}"
-  if git -C "$KWT" commit -m "$msg" --quiet; then return 0; fi
+  if git -C "$KWT" commit -m "$msg" --quiet; then
+    KWT_UNPUSHED="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
+    return 0
+  fi
   if git -C "$KWT" reset -q --hard HEAD >/dev/null 2>&1; then
     kit_refuse 1 kanban-commit-refused \
       "Error: the commit in the kanban worktree was refused (the reason is printed above), so ${what} was not made." \
@@ -616,13 +641,13 @@ kwt_finalize() {
 
   # Through the shared retry wrapper, never a bare push.
   if ! git_push_with_retry "$KWT" "$KWT_REMOTE" "$DEFAULT_BRANCH"; then
+    KWT_UNPUSHED=""   # this text is the report; the exit must not repeat it
     echo "Error: push of HEAD → $KWT_REMOTE/$DEFAULT_BRANCH failed (remote likely advanced concurrently, or offline)." >&2
     echo "       The commit was made LOCALLY in the kanban worktree but is NOT on $KWT_REMOTE." >&2
     echo "       The next kanban op's sync now REFUSES rather than resetting over it (see kwt_sync)," >&2
     echo "       so it is not about to be destroyed — but nothing else will publish it either." >&2
     echo "Next: publish it once $KWT_REMOTE answers (a rebase that conflicts: resolve, git rebase --continue), then push:" >&2
-    echo "         git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" >&2
-    echo "         git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" >&2
+    kwt__publish_next >&2
     return 1   # return-class: refusal
   fi
 
@@ -634,6 +659,7 @@ kwt_finalize() {
   #    commit and orphans $pre_head on the success path.
   local post_head
   post_head="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
+  KWT_UNPUSHED=""   # pushed: what follows is judged by the ancestry check, which prints its own text
   if [ -n "$post_head" ]; then
     git -C "$KWT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
     if ! git -C "$KWT" merge-base --is-ancestor "$post_head" "$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null; then
