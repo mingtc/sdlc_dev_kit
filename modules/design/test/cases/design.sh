@@ -5183,7 +5183,7 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="Q" hint-size="390px,844px"></dc-import><dc-import name="R" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">C</h1>'
   _dm_commit "the cycle declares nothing"
   _dm_py scripts/design/check-design-links.py --strict
-  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | /usr/bin/grep -c '^TOKEN-UNDECLARED')" = 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html"; } || cf "(C5) one undeclared read reached through a cycle and a row is not one finding, on the checked row (exit $_dm_rc): $(_dm_brief 500)"
+  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^TOKEN-UNDECLARED')" = 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html"; } || cf "(C5) one undeclared read reached through a cycle and a row is not one finding, on the checked row (exit $_dm_rc): $(_dm_brief 500)"
   finish "$L"
   teardown
 }
