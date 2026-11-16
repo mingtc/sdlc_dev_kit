@@ -1201,7 +1201,7 @@ _forks_reads_begin() {
   fi
   _forks_reads_own=1
 }
-_forks_reads_drop() {  # a refusal inside the window removes the file first: kit_refuse exits
+_forks_reads_drop() {  # a refusal inside the window exits, so the file is removed first
   [ "${_forks_reads_own:-0}" = 1 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ] && rm -f "$KIT_BP_FAIL_FILE"
   return 0
 }
