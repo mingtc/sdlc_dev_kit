@@ -72,8 +72,17 @@ kit_prd_surface() {
 
 # _kit_reg_run <command> [args] — runs the command with its own stdin and status, and records a status
 # that means "could not read" (grep: 2 or more, since 1 is "no match"; any other command: non-zero) in
-# KIT_BP_FAIL_FILE, naming what the reader was reading ($_kit_reg_what of the caller). The readers below
+# KIT_BP_FAIL_FILE, naming what the reader was reading ($_kit_reg_what of the caller; a caller reading a scratch
+# copy sets _kit_reg_label to the revision and path the copy came from). The readers below
 # still return 0, so an arm that wants to know a read failed asks that file and says DID NOT RUN.
+# _kit_reg_shape_rejected <shape> — success when grep rejects <shape> as a pattern: grep exits 2 on it over empty
+# input, which no read error can cause. A grep that failed with a shape it accepts failed on what it read.
+_kit_reg_shape_rejected() {
+  local rc=0
+  [ -n "${1:-}" ] || return 1   # return-class: predicate
+  printf '' | grep -E -- "$1" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ]   # return-class: predicate
+}
 _kit_reg_run() {
   local rc=0 ok=0
   [ "$1" != grep ] || ok=1
@@ -82,9 +91,9 @@ _kit_reg_run() {
   # is that consumer's choice and not a failed read, so it is not recorded. A stage that really failed
   # records itself.
   if [ "$rc" -gt "$ok" ] && [ "$rc" -ne 141 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ]; then
-    if [ "$1" = grep ] && [ "$rc" -eq 2 ] && [ -r "${_kit_reg_what:-}" ]; then
-      # the file reads, so the pattern is what grep refused: the id shape every reader is handed
-      printf 'grep exited 2 on %s, which reads: the id shape declared in REGISTERS in scripts/check-board.sh is not a pattern grep accepts\n' "$_kit_reg_what" >> "$KIT_BP_FAIL_FILE"
+    if [ "$1" = grep ] && [ "$rc" -eq 2 ] && _kit_reg_shape_rejected "${_kit_reg_shape:-}"; then
+      # grep refuses the id shape every reader is handed, so no file is at fault
+      printf 'grep exited 2 on %s: the id shape declared in REGISTERS in scripts/check-board.sh is not a pattern grep accepts\n' "${_kit_reg_what:-its input}" >> "$KIT_BP_FAIL_FILE"
     else
       printf '%s exited %s reading %s\n' "$1" "$rc" "${_kit_reg_what:-its input}" >> "$KIT_BP_FAIL_FILE"
     fi
@@ -102,7 +111,7 @@ _kit_reg_run() {
 # ALWAYS RETURNS 0: "no id found" is a legitimate answer (an empty or day-one-blank register),
 # never a failure a `pipefail` caller should abort on.
 kit_decision_register_live() {
-  local file="$1" mark="$2" shape="$3" _kit_reg_what="$1"
+  local file="$1" mark="$2" shape="$3" _kit_reg_what="${_kit_reg_label:-$1}" _kit_reg_shape="$3"
   [ -f "$file" ] || return 0
   LC_ALL=C _kit_reg_run grep -E "^${mark}${shape}([[:space:]]|\$)" "$file" 2>/dev/null | LC_ALL=C _kit_reg_run grep -oE "^${mark}${shape}" | _kit_reg_run sed "s|^${mark}||" || true
 }
@@ -113,7 +122,7 @@ kit_decision_register_live() {
 #   backticked id (a retired row names its live successor in the same sentence).
 # ALWAYS RETURNS 0 — see kit_decision_register_live.
 kit_decision_register_retired() {
-  local file="$1" shape="$2" _kit_reg_what="$1"
+  local file="$1" shape="$2" _kit_reg_what="${_kit_reg_label:-$1}" _kit_reg_shape="$2"
   [ -f "$file" ] || return 0
   _kit_reg_run sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$file" 2>/dev/null \
     | LC_ALL=C _kit_reg_run awk 'BEGIN{c=0} { line=$0
@@ -203,7 +212,7 @@ kit_decisions_touched_by_diff() {
 #   a caller that wants that population counts it separately, against this function's count.
 # ALWAYS RETURNS 0 — see kit_decision_register_live.
 kit_decisions_cited() {
-  local file="$1" shape="$2" _kit_reg_what="$1"
+  local file="$1" shape="$2" _kit_reg_what="${_kit_reg_label:-$1}" _kit_reg_shape="$2"
   [ -f "$file" ] || return 0
   # The id's literal head, for the range reader below: everything in <id-shape> before its first
   # regex metacharacter ('D-[0-9]+' -> 'D-'). A shape with no metacharacter at all (a bare

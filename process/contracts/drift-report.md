@@ -333,8 +333,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
    exited non-zero, marks the arm not run; so does a card read whose awk exited 2 or more, since 1 means the
    key is absent, and so does a register or citation read whose grep exited 2 or more or whose sed or awk
    exited non-zero; the landing refuses `board-property-unreadable`, naming the reader's own last words and which
-   side it failed on, or, where grep refused the id shape declared in `REGISTERS`, that declaration; the landing's `forks:`
-   checks read the same registers and citations and refuse `forks-register-unreadable` the same way), the arms that read a card, `progress.md`, `PROJECT.md`
+   side it failed on, or, where grep refused the id shape declared in `REGISTERS`, that declaration; the `forks:`
+   checks (the landing's and the move to dev_complete's) read the same registers and citations and refuse `forks-register-unreadable` the same way), the arms that read a card, `progress.md`, `PROJECT.md`
    or the downtime queue with an awk of their own ([a] [c] [j] [m] [n] [t] [u]: a reader that exited non-zero
    withholds the arm's `✓` and "nothing found" lines, prints `⚠ … DID NOT RUN` and sets `drift`, because an
    unknown is not a clean answer, reports-only arms included; their findings still never set it; of [c] the

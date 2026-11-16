@@ -1201,6 +1201,10 @@ _forks_reads_begin() {
   fi
   _forks_reads_own=1
 }
+_forks_reads_drop() {  # a refusal inside the window removes the file first: kit_refuse exits
+  [ "${_forks_reads_own:-0}" = 1 ] && [ -n "${KIT_BP_FAIL_FILE:-}" ] && rm -f "$KIT_BP_FAIL_FILE"
+  return 0
+}
 _forks_reads_end() {  # <what> — <what> names the check in the message
   local f="${KIT_BP_FAIL_FILE:-}" why nxt
   [ "${_forks_reads_own:-0}" = 1 ] || return 0
@@ -1230,6 +1234,7 @@ _forks_reads_end() {  # <what> — <what> names the check in the message
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
   local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own unclosed
+  local _kit_reg_label="$src (a scratch copy of its AC text)"
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   # A fence that does not close leaves what follows it read as code, or outside its list item: refused first, by its line.
@@ -1334,6 +1339,7 @@ kit_ac_drift_check() {
 #   the two sections, and the two sections alone. The headings match exactly and a fenced line is no heading.
 _forks_cited_ids() {
   local src="$1" repo="$2" leave_commit="$3" leave_path="$4" id_shape="$5" live="${6:-}"
+  local _kit_reg_label="$src (a scratch copy of its text)"
   local new_body old_body ac ac_old ac_new unchanged="" scratch line ids seen="" in_body=1
   local sec_scratch="" in_sec=0 in_fence=0 rec hd sec_id core_ids sec_ids kept=""
   if [ -n "$leave_commit" ]; then
@@ -1407,7 +1413,7 @@ kit_forks_check() {
   local _forks_declared _forks_regs _forks_cited _forks_id_shape
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg _fr_retired _fr_trunk
-  local _forks_bad="" _fid _forks_derived _forks_missing_ids="" _forks_live_before="" _fl_ids _fl_changed _fl_end _fl_bret _fl_bfile
+  local _forks_bad="" _fid _forks_derived _forks_missing_ids="" _forks_live_before="" _fl_ids _fl_changed _fl_end _fl_bret _fl_bfile _kit_reg_label=""
   local _forks_leave_commit="" _forks_leave_path="" _forks_excl
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
   local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
@@ -1509,7 +1515,9 @@ kit_forks_check() {
       _fl_bfile="$(mktemp "${TMPDIR:-/tmp}/forks-live-branch.XXXXXX" 2>/dev/null || true)"
       if [ -n "$_fl_bfile" ]; then
         git -C "$repo" show "${new_rev}:${_freg_path}" > "$_fl_bfile" 2>/dev/null || : > "$_fl_bfile"
+        _kit_reg_label="${new_rev}:${_freg_path}"
         _fl_bret="$(kit_decision_register_retired "$_fl_bfile" "$_freg_shape" | sort -u || true)"
+        _kit_reg_label=""
         rm -f "$_fl_bfile"
         _fl_ids="$(comm -12 <(printf '%s\n' "$_fl_ids" | sort -u) <(printf '%s\n' "$_fl_end"))"
         _fl_ids="$(comm -23 <(printf '%s\n' "$_fl_ids" | sort -u) <(printf '%s\n' "$_fl_bret"))"
@@ -1526,6 +1534,7 @@ kit_forks_check() {
 
     _forks_branch_reg="$(mktemp "${TMPDIR:-/tmp}/finish-pr-forks-reg.XXXXXX" 2>/dev/null || true)"
     if [ -z "$_forks_branch_reg" ]; then
+      _forks_reads_drop
       kit_refuse 1 forks-register-unreadable \
         "Error: could not create a scratch file to read ${new_rev}'s copy of ${_freg_path} — refusing rather than skipping the 'forks:' check." \
         "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
@@ -1533,13 +1542,16 @@ kit_forks_check() {
     fi
     git -C "$repo" show "${new_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
 
+    _kit_reg_label="${new_rev}:${_freg_path}"
     _forks_live_all="$_forks_live_all
 $(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
     # The trunk's copy is read too: a ruling can land there after the branch was cut. An id the
     # branch itself retired stays not live.
     _fr_retired="$(kit_decision_register_retired "$_forks_branch_reg" "$_freg_shape")"
     git -C "$repo" show "${old_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+    _kit_reg_label="${old_rev}:${_freg_path}"
     _fr_trunk="$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+' | sort -u)"
+    _kit_reg_label=""
     _forks_live_all="$_forks_live_all
 $(comm -23 <(printf '%s\n' "$_fr_trunk") <(printf '%s\n' "$_fr_retired" | sort -u))"
     _forks_seen_all="$_forks_seen_all

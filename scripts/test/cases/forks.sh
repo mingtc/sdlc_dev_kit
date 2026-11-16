@@ -2188,3 +2188,37 @@ FK_ROWS
   rm -rf "$dir"
   finish "a register or citation read that exits non-zero inside the forks: checks refuses the landing (refusal=forks-register-unreadable, with a Next) and merges nothing; the same landing with the real tools lands"
 }
+
+# =============================================================================
+# CASE — THE forks: CHECK'S SCRATCH FILE DOES NOT OUTLIVE A REFUSAL, AND ITS NEXT NAMES A REVISION PATH.
+# (leak) a refusal between _forks_reads_begin and _end (the scratch copy of the register cannot be made)
+# leaves no forks-reads file in $TMPDIR. (name) a register read that failed names `<rev>:<register path>`,
+# not the deleted scratch copy it was run on.
+# =============================================================================
+case_a_forks_refusal_leaves_no_scratch_file_and_names_the_revision_path() {
+  cf_reset
+  local id out dir tmpd left oldp="$PATH" oldt="${TMPDIR:-}"
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/forks-r3.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  tmpd="$dir/tmp"; mkdir -p "$tmpd"
+  # (leak): the scratch copy of the register cannot be made, which the check refuses inside its window
+  id="$SB_PREFIX-881"
+  _nr_shim_cmd "$dir/mk" mktemp 'finish-pr-forks-reg'
+  PATH="$dir/mk:$oldp"; TMPDIR="$tmpd"; export TMPDIR
+  _forks_drift_land work-leak "$id" leak 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+  PATH="$oldp"; TMPDIR="$oldt"; export TMPDIR; [ -n "$oldt" ] || unset TMPDIR
+  [ "$_FDL_RC" -ne 0 ] || cf "(leak) a scratch copy that could not be made did not refuse"
+  left="$(ls "$tmpd" 2>/dev/null | grep '^forks-reads\.' || true)"
+  [ -z "$left" ] || cf "(leak) the refusal left the scratch file behind: $left"
+  teardown
+  # (name): a register read fails; the message names the revision and path
+  id="$SB_PREFIX-882"
+  _nr_shim_cmd "$dir/lv" grep '-oE ^### D-[0-9]+' 'D-'
+  PATH="$dir/lv:$oldp"
+  _forks_drift_land work-name "$id" name 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+  PATH="$oldp"
+  case "$_FDL_OUT" in *"reading "*":requirements/DECISIONS.md"*) : ;; *) cf "(name) the failed register read does not name '<rev>:requirements/DECISIONS.md': $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_FDL_OUT" in *finish-pr-forks-reg*) cf "(name) the message names the deleted scratch copy" ;; esac
+  teardown
+  rm -rf "$dir"
+  finish "a refusal inside the forks: check's read window leaves no scratch file, and a failed register read names <rev>:<path>"
+}

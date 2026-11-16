@@ -5959,12 +5959,16 @@ case_check_board_arm_v_edges() {
   sbcommit -m "[PM] seed sandbox board" --quiet >/dev/null 2>&1
   printf '#!/bin/sh\n' > "$SB_WORK/scripts/ignored.sh"
   printf '#!/bin/sh\n' > "$SB_WORK/scripts/untracked.sh"
+  printf '#!/bin/sh\n' > "$SB_WORK/scripts/$(printf 'caf\303\251').sh"
   rm -f "$SB_WORK/scripts/archive.sh"
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
   printf '%s\n' "$out" | grep -F 'WORKING TREE' >/dev/null || cf "(worktree) the fixture did not read the working tree: $(printf '%s' "$out" | grep '^\[v\]' | cut -c1-200)"
   printf '%s\n' "$sec" | grep -F 'scripts/ignored.sh' >/dev/null && cf "(worktree) a gitignored file is named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$sec" | grep -F 'scripts/untracked.sh' | grep -F 'not in the manifest' >/dev/null || cf "(worktree) an untracked script is not named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$sec" | grep -F 'scripts/archive.sh' | grep -F '⚠' >/dev/null || cf "(worktree) a tracked file deleted from the working tree is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/archive.sh' | grep -F 'not in the working tree' >/dev/null || cf "(worktree) the ⚠ for a file missing from the working tree does not say so: $(printf '%s' "$sec" | grep -F 'archive.sh' | cut -c1-200)"
+  printf '%s\n' "$sec" | grep -F 'not on the trunk' >/dev/null && cf "(worktree) a working-tree read says 'not on the trunk': $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'caf' | grep -F 'not in the manifest' >/dev/null || cf "(worktree) a script whose name git quotes (non-ASCII) is not named: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   finish "arm [v] prints DID NOT RUN and no 'not in the manifest' line when the manifest read fails, counts a symlink as present, and in working-tree mode leaves a gitignored file out"
   teardown
 }

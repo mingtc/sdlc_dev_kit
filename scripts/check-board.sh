@@ -2256,14 +2256,15 @@ if [ ! -f "$v_man" ]; then
 else
   cb_rd_begin
   v_listed="$(cb_awk -F'  ' -v pfx=scripts/ '!/^#/ && NF >= 2 && index($2, pfx) == 1 { print $2 "\t" (NF >= 4 ? $4 : "-") }' "$v_man" 2>/dev/null || true)"
-  v_disk=""
+  v_disk=""; v_on="in the working tree"; [ "$CB_SRC_KIND" != ref ] || v_on="on the trunk"
   if [ -d "$CB_TREE/scripts" ]; then
     if [ "$CB_SRC_KIND" = ref ]; then
       # a checkout of the trunk: every file and symlink in it is the project's
       v_disk="$(cd "$CB_TREE" && find scripts \( -type f -o -type l \) 2>/dev/null)" || cb_rd_note "find exited non-zero reading scripts/"
     else
       # the working tree: git's own list (tracked, and untracked but not ignored), so a build leftover is not "the project's own"
-      v_disk="$(git -C "$CB_TREE" ls-files --cached --others --exclude-standard -- scripts 2>/dev/null)" || cb_rd_note "git ls-files exited non-zero reading scripts/"
+      # -z: git quotes a name with a non-ASCII byte in the line form, and the quoted name is no path on disk
+      v_disk="$(git -C "$CB_TREE" ls-files -z --cached --others --exclude-standard -- scripts 2>/dev/null | tr '\0' '\n')" || cb_rd_note "git ls-files exited non-zero reading scripts/"
       v_disk="$(while IFS= read -r v_p; do [ -n "$v_p" ] && { [ -e "$CB_TREE/$v_p" ] || [ -L "$CB_TREE/$v_p" ]; } && printf '%s\n' "$v_p"; done <<< "$v_disk")"
     fi
   fi
@@ -2280,7 +2281,7 @@ else
         echo "      – $v_p — listed, absent, marked DELETE-IF-UNUSED (deleted as unused: allowed)"
         v_unused=$((v_unused + 1))
       else
-        echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on the trunk; restore it from the kit's zip, or accept its removal"
+        echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not $v_on; restore it from the kit's zip, or accept its removal"
         v_gone=$((v_gone + 1))
       fi
     done <<< "$(comm -23 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
@@ -2292,7 +2293,7 @@ else
     if cb_rd_dead; then
       cb_rd_say "      "
     elif [ "$v_gone" -eq 0 ]; then
-      echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on the trunk, $v_unused deleted as unused, $v_extra not in the manifest"
+      echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) $v_on, $v_unused deleted as unused, $v_extra not in the manifest"
     fi
   fi
 fi

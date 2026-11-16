@@ -750,3 +750,30 @@ case_a_bad_declared_id_shape_names_registers_not_the_file() {
   finish "a declared id shape that grep rejects makes arms [d] [l] [r] and the landing name REGISTERS in check-board.sh as the fault, not a file"
   teardown
 }
+
+# =============================================================================
+# CASE — A GREP THAT FAILED ON A FILE THAT READS IS BLAMED ON THE ID SHAPE ONLY WHEN THE SHAPE IS BAD.
+# `_kit_reg_run` names the declared id shape (REGISTERS) as the fault when a grep exits 2. A grep can
+# also exit 2 on a read error with a perfectly good shape, so the shape is probed once on empty input:
+# (shim) a grep that exits 2 with a valid shape is a failed read of the file, naming no REGISTERS;
+# (control) a shape grep itself rejects is still named.
+# =============================================================================
+case_a_grep_failure_is_blamed_on_the_shape_only_when_the_shape_is_bad() {
+  cf_reset
+  local d card f out
+  d="$(mktemp -d "${TMPDIR:-/tmp}/kit-reg-shape.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  card="$d/card.md"; f="$d/fail"
+  printf 'cites [decision: D-01]\n' > "$card"
+  _nr_shim_cmd "$d/shim" grep '-IaoE'
+  : > "$f"
+  bash -c 'PATH="$4:$PATH"; . "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && kit_decisions_cited "$3" "D-[0-9]+" >/dev/null; true' _ "$REAL_SCRIPTS" "$f" "$card" "$d/shim"
+  out="$(cat "$f")"
+  case "$out" in *"grep exited 2"*) : ;; *) cf "(shim) a grep that exited 2 was not recorded: '$out'" ;; esac
+  case "$out" in *REGISTERS*) cf "(shim) a failed read with a valid shape was blamed on REGISTERS: '$out'" ;; esac
+  : > "$f"
+  bash -c '. "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && kit_decisions_cited "$3" "D-[0-9" >/dev/null; true' _ "$REAL_SCRIPTS" "$f" "$card"
+  out="$(cat "$f")"
+  case "$out" in *REGISTERS*) : ;; *) cf "(control) a shape grep rejects was not named as the REGISTERS fault: '$out'" ;; esac
+  rm -rf "$d"
+  finish "a grep exit 2 is blamed on the declared id shape only when grep rejects that shape on empty input"
+}
