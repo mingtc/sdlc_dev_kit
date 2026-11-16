@@ -457,6 +457,7 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
   printf '| Item | Origin | Size | Why deferred | Wake condition | Status |\n|---|---|---|---|---|---|\n| **Live** | audit | S | — | now | open (claimed by %s) |\n' "$id" > "$SB_WORK/dev/downtime-queue.md"
   printf '# a question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** Yes.\n' "$id" > "$SB_WORK/dev/questions/2026-01-01-q-ask.md"
   printf '# another question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** No.\n' "$SB_PREFIX-952" > "$SB_WORK/dev/questions/2026-01-02-r-ask.md"
+  _cb_seed_manifest
   publish_sandbox
 
   local out sec oldp="$PATH" row letter frag clean ctl why
@@ -494,6 +495,7 @@ nlog|n|have = 1|newest entry|1
 tchannel|t|marker|does not cite it since the answer|1
 tcard|t|Parks card|no card named|0
 u|u|index($0, "title:") == 1|✓ none:|1
+v|v|pfx=scripts/|✓ none missing|1
 NR_ROWS
 
   # (cleanup) a run leaves none of its own temp files behind, in either presentation. An mktemp shim records
@@ -535,7 +537,7 @@ NR_ROWS
   printf '%s\n' "$sec" | grep -F '2026-01-02-r-ask.md' | grep -F "card: $SB_PREFIX-952" >/dev/null || cf "(tlabel) the other question lost its own card: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-400)"
   printf '%s\n' "$sec" | grep -F 'dispatches the PM-hat leg' >/dev/null && cf "(tlabel) a dispatch line follows a list a dead reader made unreliable"
 
-  finish "check-board.sh arms [a] [c] [j] [m] [n] [t] [u] each say DID NOT RUN, print none of their clean-reading text and leave the verdict not clean when their own reader exits non-zero, while the control reads clean with the real awk"
+  finish "check-board.sh arms [a] [c] [j] [m] [n] [t] [u] [v] each say DID NOT RUN, print none of their clean-reading text and leave the verdict not clean when their own reader exits non-zero, while the control reads clean with the real awk"
   teardown
 }
 

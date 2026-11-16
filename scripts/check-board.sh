@@ -2235,6 +2235,48 @@ elif [ "$u_found" -eq 0 ]; then
 fi
 # END unquoted-title arm
 
+# ── [v] scripts/ against process/KIT-MANIFEST: presence only, never a hash. A project's own scripts are
+#    expected in the difference, so an unlisted file is named, not a ⚠; a listed file that is gone is the
+#    finding, unless the manifest marks it DELETE-IF-UNUSED, which a project may delete.
+echo "[v] scripts/ against process/KIT-MANIFEST (reports only; its findings never change the verdict below unless it could not run) — $(cb_src):"
+# BEGIN scripts-manifest arm
+v_man="$CB_TREE/process/KIT-MANIFEST"
+if [ ! -f "$v_man" ]; then
+  echo "      – no process/KIT-MANIFEST in this source, so scripts/ was not compared with it  (skipped)"
+else
+  cb_rd_begin
+  v_listed="$(cb_awk -F'  ' -v pfx=scripts/ '!/^#/ && NF >= 2 && index($2, pfx) == 1 { print $2 "\t" (NF >= 4 ? $4 : "-") }' "$v_man" 2>/dev/null || true)"
+  v_disk=""
+  if [ -d "$CB_TREE/scripts" ]; then
+    v_disk="$(cd "$CB_TREE" && find scripts -type f 2>/dev/null)" || cb_rd_note "find exited non-zero reading scripts/"
+  fi
+  v_paths="$(printf '%s\n' "$v_listed" | cut -f1 | LC_ALL=C sort)"
+  v_disk="$(printf '%s\n' "$v_disk" | LC_ALL=C sort)"
+  v_gone=0; v_unused=0; v_extra=0
+  while IFS= read -r v_p; do
+    [ -n "$v_p" ] || continue
+    v_d="$(printf '%s\n' "$v_listed" | cb_awk -F'\t' -v p="$v_p" '$1 == p { print $2; exit }' 2>/dev/null || true)"
+    if [ "$v_d" = DELETE-IF-UNUSED ]; then
+      echo "      – $v_p — listed, absent, marked DELETE-IF-UNUSED (deleted as unused: allowed)"
+      v_unused=$((v_unused + 1))
+    else
+      echo "      ⚠ $v_p — listed in process/KIT-MANIFEST but not on disk; restore it from the kit, or run kit-upgrade"
+      v_gone=$((v_gone + 1))
+    fi
+  done <<< "$(comm -23 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
+  while IFS= read -r v_p; do
+    [ -n "$v_p" ] || continue
+    echo "      – $v_p — not in the manifest (the project's own, or placed by an enabled module)"
+    v_extra=$((v_extra + 1))
+  done <<< "$(comm -13 <(printf '%s\n' "$v_paths") <(printf '%s\n' "$v_disk"))"
+  if cb_rd_dead; then
+    cb_rd_say "      "
+  elif [ "$v_gone" -eq 0 ]; then
+    echo "      ✓ none missing: $(printf '%s\n' "$v_paths" | grep -c . || true) listed, $(printf '%s\n' "$v_disk" | grep -c . || true) on disk, $v_unused deleted as unused, $v_extra not in the manifest"
+  fi
+fi
+# END scripts-manifest arm
+
 # ---------------------------------------------------------------------------
 # [+<name>] ARMS — scripts/check-board.d/<NN>-<name>.sh, run in file-name order after the lettered
 #     arms. THE CONTRACT IS process/contracts/drift-report.md § 5, stated once; this loop implements

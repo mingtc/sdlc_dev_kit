@@ -5845,3 +5845,72 @@ case_check_board_fold_keeps_the_graduation_verdict_and_the_hooks_line() {
   finish "check-board: a graduated project's default report keeps [g]'s heading, its '→ graduation COMPLETE' line and its 'hooks: off' line and folds the rest of [g]; a [g] with a finding prints whole"
   teardown
 }
+
+# =============================================================================
+# CASE — check-board's [v] compares scripts/ with process/KIT-MANIFEST, presence only, and only reports.
+# The fixture manifest is written from the sandbox's own scripts/, so the control is clean on any tree.
+# (control) every manifest row is on disk: ✓. (unlisted) a script the manifest does not list is named as the
+# project's, not as a ⚠. (gone) a listed file that is absent is a ⚠. (optional) the same marked
+# DELETE-IF-UNUSED is named as allowed, not a ⚠. (nomanifest) no manifest: a skipped line and no ✓. In each
+# the verdict and the exit status are the control's.
+# =============================================================================
+_cb_seed_manifest() {  # [<extra manifest row>…]
+  ( cd "$SB_WORK" && mkdir -p process \
+    && { printf '# KIT-CLASS: KIT — the fixture manifest\n'; find scripts -type f | LC_ALL=C sort | while IFS= read -r p; do printf '%064d  %s  -  -\n' 0 "$p"; done; } > process/KIT-MANIFEST )
+  local row
+  for row in "$@"; do printf '%s\n' "$row" >> "$SB_WORK/process/KIT-MANIFEST"; done
+}
+_cb_republish() {
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] fixture change" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+}
+case_check_board_scripts_against_the_manifest() {
+  cf_reset
+  make_sandbox
+  _cb_seed_manifest
+  publish_sandbox
+  local out sec base rc head
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  [ -n "$sec" ] || cf "no [v] section in the report — the arm is absent"
+  head="$(printf '%s\n' "$out" | grep '^\[v\]' | head -1)"
+  printf '%s\n' "$head" | grep -F 'reports only' >/dev/null || cf "[v]'s header does not carry the 'reports only' token: $head"
+  printf '%s\n' "$head" | grep -F 'unless it could not run' >/dev/null || cf "[v]'s header does not say it can change the verdict when it could not run: $head"
+  printf '%s\n' "$sec" | grep -F '✓ none missing' >/dev/null || cf "(control) a manifest that matches scripts/ is not a ✓: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F '⚠' >/dev/null && cf "(control) a matching manifest holds a ⚠"
+  base="$(printf '%s\n' "$out" | grep '^── board-drift')"
+  printf '%s\n' "$base" | grep -F 'clean' >/dev/null || cf "(control) the fixture board does not read clean: $base"
+
+  # (unlisted)
+  printf '#!/bin/sh\necho mine\n' > "$SB_WORK/scripts/my-own.sh"
+  _cb_republish
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$sec" | grep -F 'scripts/my-own.sh' | grep -F "not in the manifest (the project's own, or placed by an enabled module)" >/dev/null || cf "(unlisted) a script the manifest lacks is not named as the project's: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'my-own.sh' | grep -F '⚠' >/dev/null && cf "(unlisted) a project's own script is a ⚠"
+  [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$base" ] || cf "(unlisted) the verdict moved: $(printf '%s\n' "$out" | grep '^── board-drift')"
+  rm -f "$SB_WORK/scripts/my-own.sh"
+
+  # (gone) and (optional): two listed files that are not on disk
+  _cb_seed_manifest "$(printf '%064d  %s  -  -' 0 scripts/gone.sh)" "$(printf '%064d  %s  -  DELETE-IF-UNUSED' 0 scripts/optional.sh)"
+  _cb_republish
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$sec" | grep -F 'scripts/gone.sh' | grep -F '⚠' | grep -F 'not on disk' >/dev/null || cf "(gone) a listed file that is absent is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/optional.sh' | grep -F 'deleted as unused: allowed' >/dev/null || cf "(optional) an absent DELETE-IF-UNUSED file is not named as allowed: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'scripts/optional.sh' | grep -F '⚠' >/dev/null && cf "(optional) an absent DELETE-IF-UNUSED file is a ⚠"
+  printf '%s\n' "$sec" | grep -F '✓' >/dev/null && cf "(gone) a ✓ line under a missing file"
+  [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$base" ] || cf "(gone) the verdict moved: $(printf '%s\n' "$out" | grep '^── board-drift')"
+  ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 0 ] || cf "(gone) check-board.sh exited $rc over a finding in a reports-only arm"
+  ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 0 ] || cf "(gone, default report) check-board.sh exited $rc over a finding in a reports-only arm"
+
+  # (nomanifest)
+  rm -f "$SB_WORK/process/KIT-MANIFEST"
+  _cb_republish
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
+  printf '%s\n' "$sec" | grep -F 'skipped' >/dev/null || cf "(nomanifest) no skipped line: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F '✓' >/dev/null && cf "(nomanifest) a ✓ although nothing was compared"
+  [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$base" ] || cf "(nomanifest) the verdict moved: $(printf '%s\n' "$out" | grep '^── board-drift')"
+  finish "arm [v] names a script the manifest does not list as the project's, a listed absent file as a ⚠ unless it is DELETE-IF-UNUSED, skips with no ✓ when there is no manifest, and never moves the verdict or the exit status"
+  teardown
+}
