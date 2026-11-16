@@ -43,7 +43,7 @@ _md_sandbox() {
 # _md_have_example / _md_gone_reason — the shipped template module is a DELETE-IF-UNUSED member; a case
 # whose subject it is has none on a tree that deleted it (the reason names the file, as skp_lived requires).
 _md_have_example() { [ -f "$REAL_REPO_ROOT/modules/example/module.manifest" ]; }
-_md_gone_reason() { printf '%s' "modules/example/RELEASE-NOTES.md is absent from this tree"; }
+_md_gone_reason() { printf '%s' "modules/example/module.manifest is absent from this tree"; }
 # _md_missing_program — the file a lifecycle case needs and this tree lacks, or nothing. The program is
 # shipped with the kit, so its absence is a failure of the case, never an N/A.
 _md_missing_program() {

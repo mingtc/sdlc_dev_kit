@@ -113,7 +113,7 @@ kit_fill_card() {
 # <name> and <slot> are lowercase letters, digits and `-`, opening with a letter; a README.md is not a
 # fragment. EVERY slot line is removed, fragment or none, so a project that enables nothing has no
 # trace of it. A fragment the template cannot take, a name that is no mode, or a fragment that carries
-# a slot line of its own, refuses through kit_refuse and the caller's EXIT trap removes the work file.
+# a slot line of its own or a control byte (octal 035 to 037), refuses through kit_refuse and the caller's EXIT trap removes the work file.
 # The work file is rewritten through <card-file>.fill, which that trap names.
 kit_card_fragments() {
   local card="$1" tpl="$2" dir="$3/$2" f base name mode slot text nl=$'\n'
@@ -148,6 +148,12 @@ kit_card_fragments() {
           "Next: take that line out of the fragment (the template owns the slots); the mint made nothing."
       fi
       text="$(sed 's/\r$//' "$f")"
+      case "$text" in
+        *"$gs"*|*"$rs"*|*"$us"*)
+          kit_refuse 1 fragment-control-byte \
+            "Error: process/fragments.d/${f#"$3"/} holds a control byte (octal 035, 036 or 037), which the ${tpl} mint uses to carry slot text: one would turn into a newline or drop the text after it." \
+            "Next: take that byte out of the fragment; the mint made nothing." ;;
+      esac
       case "$mode" in
         frontmatter) fm="${fm}${fm:+$nl}${text}" ;;
         body-end)    be="${be}${be:+$nl}${text}" ;;

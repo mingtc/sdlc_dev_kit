@@ -85,7 +85,7 @@ skp()  { SKIP=$((SKIP+1)); RESULTS+=("SKIP  $1${2:+ — $2}"); printf '  \033[33
 # FAIL. It is a SHAPE test (a token with a known extension); it does not check the file
 # exists, because a DELETE-IF-UNUSED member removed on day one is exactly this case.
 _lived_names_a_file() {  # <reason>
-  printf '%s' "${1:-}" | grep -E '[A-Za-z0-9_-]\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template)([^A-Za-z0-9]|$)' >/dev/null
+  printf '%s' "${1:-}" | grep -E '[A-Za-z0-9_-]\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template|manifest)([^A-Za-z0-9]|$)' >/dev/null
 }
 skp_lived() {  # <case finish line> <why the subject is absent on a tree that has lived>
   if ! _lived_names_a_file "${2:-}"; then

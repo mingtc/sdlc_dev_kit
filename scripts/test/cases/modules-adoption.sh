@@ -159,7 +159,7 @@ MU_SHIPPED_EOF
 # of the module by a name skp_lived's shape test reads.
 _mu_example_reason() {
   if [ ! -f "$REAL_REPO_ROOT/modules/example/module.manifest" ]; then
-    printf 'modules/example/RELEASE-NOTES.md is absent from this tree'
+    printf 'modules/example/module.manifest is absent from this tree'
   elif ! _mu_example_as_shipped; then
     printf 'modules/example/RELEASE-NOTES.md or another file of modules/example is not the copy process/KIT-MANIFEST records (this project changed or upgraded the module), so the fixture that moves it on has no shipped operand'
   fi
