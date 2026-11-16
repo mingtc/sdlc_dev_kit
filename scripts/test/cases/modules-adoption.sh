@@ -1061,6 +1061,48 @@ case_a_killed_kit_upgrade_over_modules_sharing_a_block_host_is_finished_by_runni
 }
 
 # =============================================================================
+# CASE — A KILLED kit-upgrade IN A CHECKOUT THAT GIT CONVERTS (core.autocrlf=true, CRLF files) IS FINISHED BY RUNNING IT AGAIN.
+#   The same two modules and block hosts as the case above, with PROJECT.md and .gitignore checked out CRLF over LF blobs.
+#   The killed run's blocks are compared with the committed file after git's own conversion, so the rerun is not refused as
+#   the project's uncommitted change. The first three kill points that leave PROJECT.md changed, the first order only.
+# =============================================================================
+case_a_killed_kit_upgrade_in_a_crlf_checkout_is_finished_by_running_it_again() {
+  cf_reset
+  local L="a kit-upgrade killed over two modules that share block hosts, in a checkout with core.autocrlf=true and CRLF files, is finished by running it again, not refused as the project's uncommitted change"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local run="$SB_TMP/run" rootp pts n tried=0
+  MU_ENABLE="example second" _mu_pair _mu_shared_hosts_pre
+  _mu_new_version
+  _mu_second_module "$MU_NEW" 0.6.0 blocks; _mu_manifest "$MU_NEW"
+  _md_make_count_shim
+  git -C "$SB_WORK" config core.autocrlf true
+  sed -i.bak 's/$/\r/' "$SB_WORK/PROJECT.md" "$SB_WORK/.gitignore"; rm -f "$SB_WORK/PROJECT.md.bak" "$SB_WORK/.gitignore.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || _control_did_not_run "check PROJECT.md and .gitignore out CRLF with the tree clean"
+  rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"; rm -f "$SB_TMP/trace"
+  _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH=999999999 KILL_COUNT="$SB_TMP/count" KILL_TRACE="$SB_TMP/trace"
+  [ "$_mu_rc" -eq 0 ] || { cf "(control) the counted upgrade exited $_mu_rc: $(_mu_flat)"; finish "$L"; teardown; return; }
+  pts="$(_md_kill_points "$SB_TMP/trace" "$rootp" 'PROJECT\.md|\.gitignore')"
+  for n in $pts; do
+    [ "$tried" -lt 3 ] || break
+    rm -rf "$run"; cp -R "$SB_WORK" "$run"
+    rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
+    _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
+    [ "$_mu_rc" -eq 137 ] || { cf "(write $n) exit $_mu_rc, want the kill's 137: $(_mu_flat)"; continue; }
+    git -C "$run" status --porcelain | grep -F ' M PROJECT.md' >/dev/null || continue
+    tried=$((tried + 1))
+    _mu_up "$run"
+    [ "$_mu_rc" -eq 0 ] || { cf "(write $n) running the killed upgrade again exited $_mu_rc: $(_mu_flat)"; continue; }
+    grep -E '^pending ' "$run/process/MODULES" >/dev/null && cf "(write $n) a pending section is left in the record"
+  done
+  [ "$tried" -ge 1 ] || cf "(control) no kill point left PROJECT.md changed, so the rerun's refusal was not exercised"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — kit-upgrade REFUSES BEFORE IT WRITES WHEN AN ENABLED MODULE CANNOT BE JUDGED, AND SAYS WHAT TO DO.
 #   Each row: exit 1, a Next: line, a refusal record naming the rule, and a tree byte-equal to the one before
 #   (no staging, no checklist, no file of the core replaced either).
