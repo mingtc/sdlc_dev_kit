@@ -902,6 +902,8 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair same "a quote after the item changed" "$(printf '%s\n%s' "$line" "> note one")" "$(printf '%s\n%s' "$line" "> note two")"
   _pair same "a paragraph after the item changed" "$(printf '%s\n\n%s' "$line" "Notes one.")" "$(printf '%s\n\n%s' "$line" "Notes two.")"
   _pair same "the next bullet changed" "$(printf '%s\n%s' "$line" "- [ ] AC2 — one.")" "$(printf '%s\n%s' "$line" "- [ ] AC2 — two.")"
+  _pair same "a comment block after the item changed" "$(printf '%s\n%s' "$line" "<!-- note one -->")" "$(printf '%s\n%s' "$line" "<!-- note two -->")"
+  _pair diff "a checklist-looking line in a fenced body changed" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  - [ ] step one" "  $f")" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  - [ ] step two" "  $f")"
   _pair diff "a word changed" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "  only when NOT beta.")"
   _pair diff "a fenced body changed" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  200 OK" "  $f")" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  500 Error" "  $f")"
   _pair diff "a fenced body with a blank line and an unindented-looking heading changed" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' "$line" "  $f" "  a" "" "  # b" "  $f")" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' "$line" "  $f" "  a" "" "  # c" "  $f")"

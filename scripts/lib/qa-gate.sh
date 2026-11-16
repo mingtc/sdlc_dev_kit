@@ -361,7 +361,7 @@ _qav_ac_bullet_text() {
 # compares: its checklist line, then every line that belongs to the item the way a Markdown list item holds
 # them: an indented line; a blank line followed by more indented content; an indented fenced block (its lines
 # whatever they hold, up to the closing fence or the first unindented line); a lazy line, an unindented line
-# straight after a paragraph line that opens no list item, heading, quote or fence. The next checklist line
+# straight after a paragraph line that opens no list item, heading, quote, comment block or fence. The next checklist line
 # ends it, as does a blank line followed by an unindented one. A carriage return is whitespace and an HTML
 # comment is text, so adding one is a change. Empty if <id> has no bullet.
 _qav_ac_bullet_block() {
@@ -384,7 +384,7 @@ _qav_ac_bullet_block() {
         if (fence_skip(line, 6)) { t = t " " line; para = 0; next }
         t = t " " line; para = 1; next }
       { if (blank || !para) exit                    # an unindented line: lazy only straight after paragraph text
-        if (line ~ /^(#|>|[-*+][ \t]|[0-9]+[.)][ \t]|```|~~~)/) exit
+        if (line ~ /^(#|>|<!--|[-*+][ \t]|[0-9]+[.)][ \t]|```|~~~)/) exit
         t = t " " line; next }
       END { if (on) print t }' \
     | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
