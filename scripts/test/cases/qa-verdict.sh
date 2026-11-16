@@ -876,6 +876,7 @@ _fence_shape() {
     quote-fence)   tail="$(printf '%s\n' '' "> $f" '> - [ ] AC9 — (UI) ex.' "> $f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-open)    tail="$(printf '%s\n' '' "> $f" '> make test' '' '- [ ] AC2 — (UI) b.')" ;;
     deep-nested)   tail="$(printf '%s\n' '  - one' '    - two' '      - three' "        $f" '        - [ ] AC9 — (UI) deep' "        $f" '- [ ] AC2 — (UI) b.')" ;;
+    deep-unclosed) tail="$(printf '%s\n' '  - one' '    - two' '      - three' "        $f" '        make test' '- [ ] AC2 — (UI) b.')" ;;
     ten-item)      tail="$(printf '%s\n' '' '10. [ ] AC3 — (UI) c.' "       $f" '       - [ ] AC9 — (UI) deep' "       $f" '- [ ] AC4 — (UI) d.')" ;;
     frontmatter)   head="$(printf '%s\n' '---' 'id: X-1' 'note: |' "  $f" '---' '' '## Acceptance Criteria' '' '- [ ] AC1 — (UI) a.' '')"
                    tail="$(printf '%s\n' '- [ ] AC2 — (UI) b.')" ;;
@@ -894,12 +895,12 @@ _fence_shape_ids() {
     unclosed) echo "AC1" ;;
     item-four|item-five|item-tab|top-tab) echo "AC1 AC2" ;;
     item-unclosed) echo "AC1 AC3" ;;
-    quote-fence|quote-open|deep-nested|frontmatter) echo "AC1 AC2" ;;
+    quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter) echo "AC1 AC2" ;;
     ten-item) echo "AC1 AC3 AC4" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested ten-item frontmatter"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter"
 
 # =============================================================================
 # CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
@@ -940,7 +941,7 @@ case_qa_gate_fence_rule_shapes() {
   for shape in $_fence_shapes item-unclosed; do
     ul="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
     case "$shape" in
-      unclosed|context-open|item-unclosed|quote-open) wantl="$(_fence_shape "$shape" | grep -n '^[ >]*```' | head -1 | cut -d: -f1)" ;;
+      unclosed|context-open|item-unclosed|quote-open|deep-unclosed) wantl="$(_fence_shape "$shape" | grep -n '^[ >]*```' | head -1 | cut -d: -f1)" ;;
       four-indented|tab-indented) continue ;;   # an item's fence the next item ends: found too, by the first opener
       *) wantl="" ;;
     esac

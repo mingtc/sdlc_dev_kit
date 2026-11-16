@@ -4960,13 +4960,18 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
   [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI), one that cites a screen and fenced example bullets: want 'AC1 AC2 AC3 B1'"
   [ "$mine" = "$core" ] || cf "(c) the module's AC reader ('$mine') and the core's ('$core') read different bullets"
   # (c2) the fence shapes of the core's fence-rule case: the module and the core read the same ids from each
-  local shp m_ids c_ids
+  local shp m_ids c_ids m_open c_open
   for shp in $_fence_shapes; do
     _fence_shape "$shp" > "$cf2"
     _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(' '.join(sorted(a for a, _ in m.card_facts(open('$cf2').read())[0])))"
     m_ids="$_dm_out"
     c_ids="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_ac_ids "$(cat "$1")"' _ "$cf2" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
     [ "$m_ids" = "$c_ids" ] || cf "(c2) fence shape '$shp': the module reads '$m_ids' and the core '$c_ids'"
+    # the line a fence opened on that nothing closes: the module's scan of the file (frontmatter included) and the core's of the body
+    _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.fence_scan(open('$cf2').read())[1] or '')"
+    m_open="$_dm_out"
+    c_open="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_unclosed_fence "$(cat "$1")"' _ "$cf2" 2>&1 | cut -d' ' -f1)"
+    [ "$m_open" = "$c_open" ] || cf "(c2) fence shape '$shp': the module finds the unclosed fence at '$m_open' and the core at '$c_open'"
   done
   finish "$L"
   teardown
