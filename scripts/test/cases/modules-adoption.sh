@@ -1668,31 +1668,143 @@ case_a_failed_module_disable_keeps_every_row_until_the_disable_finishes() {
 }
 
 # =============================================================================
-# CASE — module.sh enable OVER A MODULE WHOSE DISABLE FAILED PART-WAY IS "ALREADY ENABLED", AND PLACES NOTHING.
-#   Pins today's behaviour: the record still names the module, so enable says it is enabled and exits 0; the files the
-#   failed disable removed stay removed and the record keeps all its rows. A later change gives enable and status a
-#   Next naming the way on (run the disable again, or re-enable); this row then changes with it.
+# CASE — module.sh enable AND status OVER A MODULE WHOSE DISABLE FAILED PART-WAY SAY SO AND NAME THE WAY ON.
+#   The record still names the module, so enable says it is already enabled, exits 0 and places nothing; the files the
+#   failed disable removed stay removed and the record keeps all its rows. Both commands add that recorded things
+#   are missing and that the disable run again finishes it, or a disable and an enable put them back. A module
+#   with every recorded thing present gets no such line.
 # =============================================================================
-case_module_enable_after_a_failed_disable_says_already_enabled_and_places_nothing() {
+case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   cf_reset
-  local L="module.sh enable over a module whose disable failed part-way says it is already enabled, exits 0, places none of the files the disable removed and leaves every row in the record"
+  local L="module.sh enable and status over a module whose disable failed part-way say it is already enabled (exit 0, nothing placed, every row kept) and name the way on: the disable run again, or a disable and an enable; a module with nothing missing gets no such line"
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
   if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
   _mu_subject_ok || { finish "$L"; return; }
   local rows0
   _mu_pair
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(control) enable over an intact module names missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(control) status over an intact module names missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
   chmod 555 "$SB_WORK/process/roles.d"
   _md_mod disable example
   [ "$_md_rc" -ne 0 ] || cf "(prereq) disable exited 0 although process/roles.d/example could not be removed"
   chmod 755 "$SB_WORK/process/roles.d"
   _md_mod enable example
-  [ "$_md_rc" -eq 0 ] || cf "enable over a half-disabled module exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
-  printf '%s\n' "$_md_out" | grep -F 'already enabled' >/dev/null || cf "enable does not say the module is already enabled: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
-  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "enable placed the role doc the failed disable had removed"
-  grep -F 'The example module' "$SB_WORK/PROJECT.md" >/dev/null && cf "enable put the module's block back in PROJECT.md"
-  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "the record holds $(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES") rows after enable, not all $rows0"
+  [ "$_md_rc" -eq 0 ] || cf "(enable) over a half-disabled module exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_md_out" | grep -F 'already enabled' >/dev/null || cf "(enable) does not say the module is already enabled: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$_md_out" | grep -F "$((rows0 - 1)) of $rows0 recorded things are missing" >/dev/null || cf "(enable) does not count the missing things ($((rows0 - 1)) of $rows0): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F './scripts/module.sh disable example' >/dev/null || cf "(enable) does not name the disable run again: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(enable) placed the role doc the failed disable had removed"
+  grep -F 'The example module' "$SB_WORK/PROJECT.md" >/dev/null && cf "(enable) put the module's block back in PROJECT.md"
+  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "(enable) the record holds $(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES") rows, not all $rows0"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "$((rows0 - 1)) of $rows0 recorded things are missing" >/dev/null || cf "(status) does not count the missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F './scripts/module.sh disable example' >/dev/null || cf "(status) does not name the disable run again: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — module.sh disable WHOSE RECORD CANNOT BE WRITTEN OR DROPPED EXITS 1, SAYS HOW MUCH WAS ALREADY REMOVED, AND THE RE-RUN FINISHES.
+#   (a) The record cannot be dropped after every removal succeeded: the old exit 0 and "record dropped" over a record that
+#   stayed is gone. (b) A removal fails and the record write fails too: the refusal names how many were removed. In
+#   both the record keeps every row, and once process/ is writable the disable run again finishes.
+# =============================================================================
+case_module_disable_says_so_when_the_record_cannot_be_written() {
+  cf_reset
+  local L="module.sh disable exits 1 and does not say the record was dropped when process/MODULES cannot be dropped or written, names how many files and blocks were already removed, leaves every row, and the disable run again finishes"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 shape
+  for shape in drop write; do
+    _mu_pair
+    rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+    chmod 555 "$SB_WORK/process"
+    [ "$shape" = write ] && chmod 555 "$SB_WORK/process/roles.d"
+    _md_mod disable example
+    chmod 755 "$SB_WORK/process"; [ "$shape" = write ] && chmod 755 "$SB_WORK/process/roles.d"
+    [ "$_md_rc" -eq 1 ] || cf "($shape) disable exited $_md_rc, not 1: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$_md_out" | grep -F 'record dropped' >/dev/null && cf "($shape) said the record was dropped over a record that stayed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$_md_out" | grep -E 'already removed' >/dev/null || cf "($shape) does not say how many were already removed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "($shape) the record does not hold all $rows0 rows"
+    _md_mod disable example
+    [ "$_md_rc" -eq 0 ] || cf "($shape) the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    grep -E '^(module|file|block|kept|pending) ' "$SB_WORK/process/MODULES" >/dev/null 2>&1 && cf "($shape) the record still has rows after the disable finished"
+    teardown
+  done
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — AN UPGRADE OVER A HALF-DISABLED MODULE READS WHAT THE DISABLE REMOVED AS REMOVED, IN EVERY SHAPE.
+#   (a) A block that could not be removed: the same-version upgrade changes nothing and the disable run again takes the
+#   block. (b) A module version that changes a removed file raises the merge item, never placing the file. (c) A run whose
+#   only work is the record moves it, keeps every row, and places nothing.
+# =============================================================================
+case_an_upgrade_over_a_half_disabled_module_reads_removed_files_as_removed() {
+  cf_reset
+  local L="kit-upgrade.sh over a module whose disable failed part-way places no file the disable removed: a failed block removal stays as it was and the disable run again takes it, a module version that changes a removed file raises a merge item and does not place it, and a record-only run keeps every row"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 m newv
+
+  # (a) the block cannot be removed.
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  chmod 444 "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  chmod 644 "$SB_WORK/PROJECT.md"
+  [ "$_md_rc" -ne 0 ] || cf "(a) disable exited 0 although PROJECT.md could not be rewritten"
+  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "(a) the record does not hold all $rows0 rows after the failed block removal"
+  _mu_land "after the failed block removal"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(a) the upgrade exited $_mu_rc: $(_mu_flat)"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(a) the upgrade placed the role doc the disable had removed"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(a) the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  grep -F 'KIT-MODULE:example' "$SB_WORK/PROJECT.md" >/dev/null && cf "(a) the block is still in PROJECT.md after the disable run again"
+  teardown
+
+  # (b) a later module version changes a removed file.
+  _mu_pair
+  chmod 555 "$SB_WORK/process/roles.d"
+  _md_mod disable example
+  chmod 755 "$SB_WORK/process/roles.d"
+  _mu_land "after the failed disable"
+  _mu_new_version
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(b) the upgrade exited $_mu_rc: $(_mu_flat)"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(b) the upgrade placed the role doc the disable had removed, which the new version changed"
+  grep -F 'merge .claude/roles/example.md — module example' "$SB_WORK/process/UPGRADE-CHECKLIST.md" >/dev/null 2>&1 \
+    || cf "(b) no merge item for the removed role doc: $(grep -F example "$SB_WORK/process/UPGRADE-CHECKLIST.md" 2>/dev/null | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # (c) a run whose only work is the record.
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  m="$MU_NEW/modules/example"
+  newv="$(_mu_next_version "$m/module.manifest")"
+  sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+  _mu_manifest "$MU_NEW"
+  cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+  chmod 555 "$SB_WORK/process/roles.d"
+  _md_mod disable example
+  chmod 755 "$SB_WORK/process/roles.d"
+  _mu_land "after the failed disable"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(c) the upgrade exited $_mu_rc: $(_mu_flat)"
+  printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "(c) the run does not say it moved the record: $(_mu_flat)"
+  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "(c) the record does not keep all $rows0 rows"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(c) the record-only run placed the role doc the disable had removed"
+  grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(c) the record does not name $newv"
+
   finish "$L"
   teardown
 }
