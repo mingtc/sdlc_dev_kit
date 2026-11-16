@@ -913,13 +913,13 @@ def token_value_problems(markup, loaded, files, unreadable=()):
 
 VAR_OPEN = re.compile(r'(?i:var)\(')
 VAR_BARE = re.compile(r'\s*--([\w-]+)\s*(?:,\s*)?\)')
-CSS_NOISE = re.compile(r'/\*.*?(?:\*/|\Z)|"(?:[^"\\]|\\.)*(?:"|\Z)|\'(?:[^\'\\]|\\.)*(?:\'|\Z)|url\(\s*(?![\s"\'])[^)]*\)', re.S | re.I)
+CSS_NOISE = re.compile(r'/\*.*?(?:\*/|\Z)|"(?:[^"\\\n]|\\.)*(?:"|\n|\Z)|\'(?:[^\'\\\n]|\\.)*(?:\'|\n|\Z)|url\(\s*(?![\s"\'])[^)]*\)', re.S | re.I)
 
 
 def style_texts(text, css=False):
     """The CSS a var() is read in: a sheet (css), or the style blocks and style attributes of an artboard (a script, an HTML comment and
     text content are not CSS), each with comments, strings and url() left out. One function for the screen and for what it loads."""
-    def clean(c):    # one left-to-right pass: a comment, a string or an unquoted url() ends where CSS ends it; an unterminated one runs to the end
+    def clean(c):    # one left-to-right pass: a comment, a string or an unquoted url() ends where CSS ends it; an unterminated comment runs to the end, an unterminated string to the end of its line (a CSS bad-string)
         return CSS_NOISE.sub(lambda m: '""' if m.group(0)[0] in '"\'' else ' ', c)
     if css:
         return [clean(text)]
@@ -1342,7 +1342,8 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         left = sorted(k for k in reach if k not in checked and k not in seen)
         if not left:
             break
-        checked.add(left[0])
+        # take a row of a source component of what is left (nothing left reaches it without it reaching back), so the choice does not follow file names
+        checked.add(next(k for k in left if all(j in reach[k] for j in left if k in reach[j])))
     cited, ncites = set(), 0
 
     def check_ref(where, ref):

@@ -5135,7 +5135,7 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "C.dc.html"; } || cf "(l) a screen that imports itself escapes the check (exit $_dm_rc): $(_dm_brief 400)"
   # (m)-(s) where a var() is a read: style blocks, style attributes and sheets only, whole-name, never a fallback's own var()
-  _u841() {  # <label> <want: 1 a finding, 0 none> <screen body>
+  _dm_undeclared_row() {  # <label> <want: 1 a finding, 0 none> <screen body>
     _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' "$3"
     _dm_commit "$1"
     _dm_py scripts/design/check-design-links.py --strict
@@ -5146,22 +5146,24 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
     fi
   }
   _dm_art "$D/N.dc.html" 005 '--color-primary: #485d92;' '<script>var a = "<style>.a { box-shadow: var(--elevation-1) }</style>";</script><!-- <style>.b { color: var(--color-surface) }</style> --><p id="ux-005-t">Plain</p>'
-  _u841 "m: a style block inside a script string and inside an HTML comment of an imported screen" 0 '<dc-import name="N" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
-  _u841 "n: a var() in a CSS comment of the screen's own style block" 0 '<style>/* .a { box-shadow: var(--elevation-1) } */</style><h1 id="ux-003-t">Plain</h1>'
-  _u841 "o: var(--elevation-1 /* c */) in a style block" 1 '<style>.a { box-shadow: var(--elevation-1 /* c */) }</style><h1 id="ux-003-t" class="a">Raised</h1>'
-  _u841 "p: a var() in text content" 0 '<p id="ux-003-t">use var(--elevation-1) for a shadow</p>'
-  _u841 "q: a var() inside a CSS string" 0 '<style>.a::before { content: "var(--elevation-1)" }</style><h1 id="ux-003-t" class="a">Plain</h1>'
-  _u841 "r: a var() in the fallback of a declared one" 0 '<h1 id="ux-003-t" style="box-shadow: var(--color-primary, var(--elevation-1))">Plain</h1>'
-  _u841 "s: VAR(--elevation-1) in upper case" 1 '<h1 id="ux-003-t" style="box-shadow: VAR(--elevation-1)">Raised</h1>'
-  _u841 "y: an empty fallback, var(--elevation-1,), is a bare read" 1 '<h1 id="ux-003-t" style="box-shadow: var(--elevation-1,)">Raised</h1>'
-  _u841 "x: an unterminated comment ends the CSS, as it does in a browser" 0 '<style>.a { margin: 0 } /* never closed .b { box-shadow: var(--elevation-1) }</style><h1 id="ux-003-t">Plain</h1>'
+  _dm_undeclared_row "m: a style block inside a script string and inside an HTML comment of an imported screen" 0 '<dc-import name="N" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">Importer</h1>'
+  _dm_undeclared_row "n: a var() in a CSS comment of the screen's own style block" 0 '<style>/* .a { box-shadow: var(--elevation-1) } */</style><h1 id="ux-003-t">Plain</h1>'
+  _dm_undeclared_row "o: var(--elevation-1 /* c */) in a style block" 1 '<style>.a { box-shadow: var(--elevation-1 /* c */) }</style><h1 id="ux-003-t" class="a">Raised</h1>'
+  _dm_undeclared_row "p: a var() in text content" 0 '<p id="ux-003-t">use var(--elevation-1) for a shadow</p>'
+  _dm_undeclared_row "q: a var() inside a CSS string" 0 '<style>.a::before { content: "var(--elevation-1)" }</style><h1 id="ux-003-t" class="a">Plain</h1>'
+  _dm_undeclared_row "r: a var() in the fallback of a declared one" 0 '<h1 id="ux-003-t" style="box-shadow: var(--color-primary, var(--elevation-1))">Plain</h1>'
+  _dm_undeclared_row "s: VAR(--elevation-1) in upper case" 1 '<h1 id="ux-003-t" style="box-shadow: VAR(--elevation-1)">Raised</h1>'
+  _dm_undeclared_row "y: an empty fallback, var(--elevation-1,), is a bare read" 1 '<h1 id="ux-003-t" style="box-shadow: var(--elevation-1,)">Raised</h1>'
+  _dm_undeclared_row "z: a string left open ends at its line, as a CSS bad-string does, so the read after it is found" 1 $'<style>.a::after{content:"abc\n}\n.c{box-shadow:var(--elevation-1)}</style><h1 id="ux-003-t" class="c">Raised</h1>'
+  _dm_undeclared_row "z2: an apostrophe on a line of its own does not hide the rule after it" 1 $'<style>// don\'t touch\n.x{}\n.c{box-shadow:var(--elevation-1)}</style><h1 id="ux-003-t" class="c">Raised</h1>'
+  _dm_undeclared_row "x: an unterminated comment ends the CSS, as it does in a browser" 0 '<style>.a { margin: 0 } /* never closed .b { box-shadow: var(--elevation-1) }</style><h1 id="ux-003-t">Plain</h1>'
   # (u)-(w) a sheet whose stripping must not swallow the read that follows: a data URI with parentheses, a quoted url with one, a string holding a comment opener
   printf '.i{background:url("data:image/svg+xml,%%3Csvg transform=%%27rotate(45)%%27%%3E%%3C/svg%%3E")}.c{box-shadow:var(--elevation-1)}.t{font-family:"Inter"}\n' > "$D/app.css"
-  _u841 "u: a minified sheet with an SVG data URI holding rotate(45), then a read, then a quoted font" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  _dm_undeclared_row "u: a minified sheet with an SVG data URI holding rotate(45), then a read, then a quoted font" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
   printf '.i{background:url("a)b.png")}.c{box-shadow:var(--elevation-1)}.t{font-family:"Inter"}\n' > "$D/app.css"
-  _u841 "v: url(\"a)b.png\") then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  _dm_undeclared_row "v: url(\"a)b.png\") then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
   printf '.i::before{content:"/*"}.c{box-shadow:var(--elevation-1)}.k::after{content:"*/"}\n' > "$D/app.css"
-  _u841 "w: a string holding a comment opener, then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
+  _dm_undeclared_row "w: a string holding a comment opener, then a read" 1 '<link rel="stylesheet" href="app.css"><h1 id="ux-003-t" class="c">Raised</h1>'
   rm -f "$D/app.css"
   # (t) a superseded importer does not exempt the screen it imports
   _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t" style="box-shadow: var(--elevation-1)">Import</h2>'
@@ -5184,6 +5186,18 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   _dm_commit "the cycle declares nothing"
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^TOKEN-UNDECLARED')" = 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html"; } || cf "(C5) one undeclared read reached through a cycle and a row is not one finding, on the checked row (exit $_dm_rc): $(_dm_brief 500)"
+  # (F1) (F2) the same shape with the reading leaf named to sort before the cycle: which row is taken in does not follow the names
+  _dm_art "$D/R.dc.html" 007 '' '<h2 id="ux-007-t">R</h2>'
+  printf '| UX-008 | Aleaf.dc.html | t | phone |  | default | PRD-001-F1-S1 | open | open |\n' >> "$C"
+  _dm_art "$D/Aleaf.dc.html" 008 '' '<h2 id="ux-008-t" style="box-shadow: var(--elevation-1)">Leaf</h2>'
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92; --elevation-1: 0 1px 2px rgba(0,0,0,0.2);' '<dc-import name="Q" hint-size="390px,844px"></dc-import><dc-import name="Aleaf" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">C</h1>'
+  _dm_commit "a cycle that declares, and a leaf that sorts first and reads"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "TOKEN-UNDECLARED" && _dm_line_has "$_dm_out" "TOKEN-VIA-IMPORTER" "requirements/design/app/project/Aleaf.dc.html"; } || cf "(F1) a reading leaf that sorts before the cycle importing it is judged on its own row (exit $_dm_rc): $(_dm_brief 400)"
+  _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<dc-import name="Q" hint-size="390px,844px"></dc-import><dc-import name="Aleaf" hint-size="390px,844px"></dc-import><h1 id="ux-003-t">C</h1>'
+  _dm_commit "the cycle declares nothing, the leaf sorts first"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 1 ] && [ "$(printf '%s\n' "$_dm_out" | grep -c '^TOKEN-UNDECLARED')" = 1 ] && _dm_line_has "$_dm_out" "TOKEN-UNDECLARED" "requirements/design/app/project/C.dc.html"; } || cf "(F2) one read through a cycle and a leaf that sorts first is not one finding, on the cycle (exit $_dm_rc): $(_dm_brief 500)"
   finish "$L"
   teardown
 }
