@@ -1518,17 +1518,19 @@ case_module_status_without_a_sha256_tool_says_it_cannot_judge() {
 #   The module's version moved and nothing it places did. (a) An uncommitted edit outside the module's blocks in
 #   PROJECT.md and .gitignore: the record is moved, nothing staged, and the edits are left as they were. (b) An edit
 #   inside the block: the full path. (c) An edit to a file the module places: the full path. (d) A block host that
-#   is untracked, with the block in it: the full path.
+#   is untracked, with the block in it: the full path. (e) A block copied, copied and edited, or opened by a lone
+#   BEGIN: the full path. (f) A change staged inside the block with the file put back: the full path. (g) A deleted
+#   host: the full path, with no reader error.
 # =============================================================================
 case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
   cf_reset
-  local L="kit-upgrade.sh over a project whose only work is an enabled module's record moves the record and stages nothing when the uncommitted edit is elsewhere in a file the module only adds a block to, and takes the full path when the edit is inside the block, in a file the module places, or in a host with the block that git does not track"
+  local L="kit-upgrade.sh over a project whose only work is an enabled module's record moves the record and stages nothing when the uncommitted edit is elsewhere in a file the module only adds a block to, and takes the full path when the edit is inside the block, in a file the module places, or in a host with the block that git does not track, a duplicated or lone-marker block, a change staged inside the block, or a deleted host"
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _mu_subject_ok || { finish "$L"; return; }
   local m newv tag
 
-  for tag in outside inside role untracked; do
+  for tag in outside inside role untracked dup dupedit lonebegin staged deleted; do
     _mu_pair
     m="$MU_NEW/modules/example"
     newv="$(_mu_next_version "$m/module.manifest")"
@@ -1548,6 +1550,20 @@ case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
       untracked)
         git -C "$SB_WORK" rm -q --cached .gitignore >/dev/null 2>&1
         sbcommit -q -m "untrack the ignore file" >/dev/null 2>&1 ;;
+      dup)
+        awk '/KIT-MODULE:example:gates BEGIN/ { f = 1 } f { print } /KIT-MODULE:example:gates END/ { f = 0 }' "$SB_WORK/PROJECT.md" >> "$SB_WORK/PROJECT.md" ;;
+      dupedit)
+        awk '/KIT-MODULE:example:gates BEGIN/ { f = 1 } f { print } /KIT-MODULE:example:gates END/ { f = 0 }' "$SB_WORK/PROJECT.md" | sed -e '/KIT-MODULE/!s/$/ edited/' >> "$SB_WORK/PROJECT.md" ;;
+      lonebegin)
+        printf '<!-- KIT-MODULE:example:gates BEGIN -->\n' >> "$SB_WORK/PROJECT.md" ;;
+      staged)
+        cp "$SB_WORK/PROJECT.md" "$SB_TMP/p-head.md"
+        sed -e '/KIT-MODULE:example:gates BEGIN/a\
+| mine | `y` | staged inside the block |' "$SB_TMP/p-head.md" > "$SB_WORK/PROJECT.md"
+        git -C "$SB_WORK" add PROJECT.md >/dev/null 2>&1
+        cp "$SB_TMP/p-head.md" "$SB_WORK/PROJECT.md" ;;
+      deleted)
+        rm -f "$SB_WORK/PROJECT.md" ;;
     esac
     _mu_up "$SB_WORK"
     [ "$_mu_rc" -eq 0 ] || cf "($tag) the upgrade exited $_mu_rc: $(_mu_flat)"
@@ -1559,6 +1575,7 @@ case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
     else
       printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null && cf "($tag) the run was taken as record-only over an uncommitted change in what the module places: $(_mu_flat)"
       printf '%s\n' "$_mu_out" | grep -F 'Review:' >/dev/null || cf "($tag) the run does not say to review the whole diff: $(_mu_flat)"
+      printf '%s\n' "$_mu_out" | grep -F "can't open" >/dev/null && cf "($tag) the run printed a reader error: $(_mu_flat)"
     fi
     teardown
   done

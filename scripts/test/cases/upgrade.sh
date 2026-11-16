@@ -1809,7 +1809,7 @@ KU_ROWS_EOF
 # gains is one the fixture must carry. With an open card in the tree, the run must read its id from the
 # card (a missing card-field.sh falls back to the file's name) and print no shell error.
 # =============================================================================
-case_the_upgrade_fixture_carries_every_library_the_script_sources() {
+case_the_upgrade_fixture_carries_the_libraries_the_script_sources_unconditionally_at_start() {
   cf_reset
   make_sandbox
   local L="the fabricated new kit carries every library kit-upgrade.sh sources unconditionally, and a run over an open card reads its id from the card and prints no shell error"
