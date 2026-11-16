@@ -1565,3 +1565,44 @@ case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
 
   finish "$L"
 }
+
+# =============================================================================
+# CASE — A FAILED module.sh disable KEEPS EVERY ROW OF THE MODULE, SO AN UPGRADE READS THE FILES IT REMOVED AS REMOVED.
+#   A disable that cannot remove one placed file removes the others and refuses. The record then still holds all the
+#   module's rows. An upgrade at the same kit version places nothing the disable removed, status reads the module as
+#   enabled with those files missing, and the disable run again, once the file can be removed, finishes: the record
+#   is dropped and nothing of the module is left.
+# =============================================================================
+case_a_failed_module_disable_keeps_every_row_until_the_disable_finishes() {
+  cf_reset
+  local L="a failed module.sh disable keeps every row of the module in the record, a kit-upgrade.sh run before the disable finishes does not place again the files the disable removed, and the disable run again finishes: the record is dropped and no file or block of the module is left"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 f
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  chmod 555 "$SB_WORK/process/roles.d"
+  _md_mod disable example
+  [ "$_md_rc" -ne 0 ] || cf "(prereq) disable exited 0 although process/roles.d/example could not be removed"
+  chmod 755 "$SB_WORK/process/roles.d"
+  [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(prereq) the failed disable did not remove the module's other files"
+  [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] \
+    || cf "(a) the record holds $(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES") rows after the failed disable, not all $rows0: $(grep -E '^(file|block) ' "$SB_WORK/process/MODULES" | awk '{print $3}' | tr '\n' ' ')"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'not enabled' >/dev/null && cf "(a) status calls the module not enabled while its role layer acts: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-200)"
+  _mu_land "after the failed disable"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(b) the upgrade exited $_mu_rc: $(_mu_flat)"
+  for f in .claude/roles/example.md .claude/skills/example-skill/SKILL.md; do
+    [ ! -e "$SB_WORK/$f" ] || cf "(b) the upgrade placed $f again, which the disable had removed: $(_mu_flat)"
+  done
+  grep -F 'The example module' "$SB_WORK/PROJECT.md" >/dev/null && cf "(b) the upgrade put the module's block back in PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(c) the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  grep -E '^(module|file|block|kept|pending) ' "$SB_WORK/process/MODULES" >/dev/null 2>&1 && cf "(c) the record still has rows after the disable finished: $(grep -E '^(module|file|block|kept|pending) ' "$SB_WORK/process/MODULES" | tr '\n' '|' | cut -c1-200)"
+  [ ! -e "$SB_WORK/process/roles.d/example" ] || cf "(c) process/roles.d/example is still there"
+  finish "$L"
+  teardown
+}
