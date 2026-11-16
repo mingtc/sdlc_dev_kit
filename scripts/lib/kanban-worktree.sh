@@ -207,10 +207,11 @@ KWT_REAP_STALE=10     # seconds after which a `.reap` claim dir is considered or
                       # (a reap completes in ms — a survivor means the reaper crashed;
                       #  cleared by the next contender so a leak can't wedge us).
 
-# Portable file-mtime (epoch seconds). BSD stat (`-f %m`, macOS) OR GNU stat
-# (`-c %Y`, Linux); 0 if neither works (treated as "very old" → cleanable).
+# Portable file-mtime (epoch seconds). GNU stat (`-c %Y`, Linux) OR BSD stat (`-f %m`,
+# macOS); 0 if neither works (treated as "very old" → cleanable). GNU first: its `stat -f`
+# is a different option (filesystem status) that prints a block to stdout and exits 1.
 kwt__mtime() {
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
 # Set true by a consumer's --discard-dirty: kwt_sync then resets over uncommitted tracked

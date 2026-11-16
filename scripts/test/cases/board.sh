@@ -2418,7 +2418,8 @@ case_commit_msg_warns_on_a_role_tag_that_differs_from_the_hat() {
   chmod 000 "$SB_WORK/$rel"
   _run "$SB_WORK" "[PM] a ruling"
   chmod 644 "$SB_WORK/$rel"
-  [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(h) an unreadable hat file printed something or refused (exit $rc): $(cat "$err")"
+  if [ "$(id -u)" = 0 ]; then _control_did_not_run "make a hat file unreadable (running as root, which reads it anyway)"
+  else [ "$rc" -eq 0 ] && [ ! -s "$err" ] || cf "(h) an unreadable hat file printed something or refused (exit $rc): $(cat "$err")"; fi
 
   finish "commit-msg: a role tag that differs from the hat file's first word prints one Warning (both roles, the file, a Next: line) and never changes the exit status; a match in any case, the operator waiver, no hat file, a script's per-commit declaration, MSG_OK=1, an auto-exempt subject and the kanban worktree are silent; the main checkout's hat is read for a linked worktree; an untagged subject is still refused with no warning added"
   teardown
@@ -3482,6 +3483,21 @@ case_move_issue_declined_requires_a_reason() {
   teardown
 }
 
+case_kwt_file_mtime_is_one_epoch_number() {
+  cf_reset
+  make_sandbox
+  # The stale-claim age is `date +%s` minus this. On a platform where the first stat form is another option (GNU's
+  # `stat -f` is filesystem status), a wrong order prints a block of text and the subtraction is a syntax error.
+  local f="$SB_TMP/mtime-probe" got
+  : > "$f"; TZ=UTC touch -t 202001010000.00 "$f"
+  got="$( . "$SB_WORK/scripts/lib/kanban-worktree.sh" >/dev/null 2>&1; kwt__mtime "$f" )"
+  [ "$got" = 1577836800 ] || cf "kwt__mtime of a file stamped 2020-01-01T00:00:00Z printed [$(printf '%s' "$got" | tr '\n' '|')], not 1577836800"
+  got="$( . "$SB_WORK/scripts/lib/kanban-worktree.sh" >/dev/null 2>&1; kwt__mtime "$SB_TMP/no-such-file" )"
+  [ "$got" = 0 ] || cf "kwt__mtime of a file that is not there printed [$(printf '%s' "$got" | tr '\n' '|')], not 0"
+  finish "kanban-worktree.sh's file-mtime helper prints one epoch number for a file and 0 for none, so a stale claim's age is arithmetic on every platform"
+  teardown
+}
+
 # =============================================================================
 # CASE — THE AUXILIARY WORKTREE'S DIRTY GUARD: REPORTS WIDELY, REFUSES NARROWLY.
 #
@@ -3571,7 +3587,7 @@ case_move_issue_leaves_a_dirty_checkout_alone() {
   [ -f "$card" ] \
     || _fixture_die "case_move_issue_leaves_a_dirty_checkout_alone: the seeded card is not in the checkout — there is nothing to leave alone."
   printf '\nan uncommitted edit the operator has not saved anywhere else\n' >> "$card"
-  before_hash="$(shasum "$card" | awk '{print $1}')"
+  before_hash="$( { shasum "$card" 2>/dev/null || sha256sum "$card"; } | awk '{print $1}')"
   before_head="$(git -C "$SB_WORK" rev-parse HEAD)"
   [ -n "$before_hash" ] && [ -n "$before_head" ] \
     || _fixture_die "case_move_issue_leaves_a_dirty_checkout_alone: could not record the pre-state."
@@ -3590,7 +3606,7 @@ case_move_issue_leaves_a_dirty_checkout_alone() {
   # …AND THE OPERATOR'S FILE IS UNTOUCHED, byte for byte.
   [ -f "$card" ] \
     || cf "the operator's uncommitted file was REMOVED from their checkout — the mover's contract is that it never touches it"
-  [ "$(shasum "$card" 2>/dev/null | awk '{print $1}')" = "$before_hash" ] \
+  [ "$( { shasum "$card" 2>/dev/null || sha256sum "$card" 2>/dev/null; } | awk '{print $1}')" = "$before_hash" ] \
     || cf "the operator's uncommitted edit was MODIFIED — the mover's contract is that it never touches it"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before_head" ] \
     || cf "the main checkout's HEAD moved — the mover fast-forwarded a checkout it promises never to switch"

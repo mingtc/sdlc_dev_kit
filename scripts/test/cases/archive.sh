@@ -581,7 +581,7 @@ case_archive_progress_dry_run_writes_nothing() {
   ap_seed "$R" 20 2026-08-20 \
     || { finish "archive-progress.sh: a dry run writes NOTHING"; teardown; return; }
 
-  _tree_sum() { find "$R" -type f -print0 | sort -z | xargs -0 shasum | shasum; }
+  _tree_sum() { local h=shasum; command -v shasum >/dev/null 2>&1 || h=sha256sum; find "$R" -type f -print0 | sort -z | xargs -0 "$h" | "$h"; }
   before="$(_tree_sum)"
 
   # No --apply. Entries ARE older than the cut, so this is the live path, not a no-op.

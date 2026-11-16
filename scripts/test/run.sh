@@ -747,6 +747,7 @@ CASES=(
   case_check_board_arm_h_reads_the_hook_family
   case_check_board_dependency_symmetry
   case_kwt_dirty_guard_reports_widely_refuses_narrowly
+  case_kwt_file_mtime_is_one_epoch_number
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation
