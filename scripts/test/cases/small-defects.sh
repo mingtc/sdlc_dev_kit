@@ -21,19 +21,19 @@ case_set_models_writes_an_id_as_given_or_refuses_it_and_pins_only_the_frontmatte
   [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable"; finish "set-models.sh id shape"; teardown; return; }
   cp -R "$SB_WORK/.claude" "$snap"
   # <row>@<scope>@<model>@<effort>
-  while IFS='@' read -r row cls model effort; do
+  while IFS=';' read -r row cls model effort; do
     [ -n "$row" ] || continue
     out="$( cd "$SB_WORK" && ./scripts/set-models.sh $cls --model "$model" --effort "$effort" 2>&1 )"; rc=$?
     [ "$rc" -eq 2 ] || cf "($row) an id it cannot write as given exited $rc, not 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
     printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "($row) the refusal names no Next:"
     diff -r -x model-pins.record "$snap" "$SB_WORK/.claude" >/dev/null 2>&1 || cf "($row) the refused call changed .claude/: $(diff -r -x model-pins.record "$snap" "$SB_WORK/.claude" 2>&1 | head -3 | tr '\n' '|' | cut -c1-200)"
   done <<'SM_ROWS'
-apostrophe@--runners@it's@high
-backslash@--runners@m@a\b
-pipe@--class dev@a&b|c\d@high
-space-effort@--class dev@claude-x@hi gh
-space-model@--class dev@claude x@high
-leading-dash@--class dev@-x@high
+apostrophe;--runners;it's;high
+backslash;--runners;m;a\b
+pipe;--class dev;a&b|c\d;high
+space-effort;--class dev;claude-x;hi gh
+space-model;--class dev;claude x;high
+leading-dash;--class dev;-x;high
 SM_ROWS
   # (control) an ordinary id is written exactly, and a body line starting `model:` is left alone
   printf 'model: example of a config value in prose\n' >> "$ad/dev-worker.md"
@@ -41,7 +41,23 @@ SM_ROWS
   [ "$rc" -eq 0 ] || cf "(control) an ordinary id was refused ($rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   grep -qxF 'model: claude-x.1[1m]' "$ad/dev-worker.md" || cf "(control) the pin was not written as given: $(grep -E '^model:' "$ad/dev-worker.md" | tr '\n' '|')"
   grep -qxF 'model: example of a config value in prose' "$ad/dev-worker.md" || cf "(body) a body line that starts 'model:' was rewritten: $(grep -E '^model:' "$ad/dev-worker.md" | tr '\n' '|')"
-  finish "set-models.sh refuses (exit 2, a Next, nothing written) an id with a quote, backslash, pipe, space or leading dash, writes an ordinary id exactly, and rewrites only the frontmatter pair"
+  # (at) a Vertex-style id with @ is written as given
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model 'claude-opus-4-1@20250805' --effort high 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(at) an id with @ was refused ($rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  grep -qxF 'model: claude-opus-4-1@20250805' "$ad/dev-worker.md" || cf "(at) the pin was not written as given: $(grep -E '^model:' "$ad/dev-worker.md" | tr '\n' '|')"
+  # (nofm) a file with no frontmatter on its first line is refused, not half-written: no success line, no record
+  printf '# a pin with no frontmatter\n\n---\n\nmodel: prose\neffort: prose\n' > "$ad/dev-worker.md"
+  cp "$ad/dev-worker.md" "$SB_TMP/nofm.before"; : > "$SB_TMP/rec.before"; cp "$SB_WORK/.claude/model-pins.record" "$SB_TMP/rec.before" 2>/dev/null || true
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model NEWM2 --effort NEWE2 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(nofm) a pin file with no frontmatter exited $rc, not the shape refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  cmp -s "$ad/dev-worker.md" "$SB_TMP/nofm.before" || cf "(nofm) a file with no frontmatter was changed"
+  grep -F 'NEWM2' "$SB_WORK/.claude/model-pins.record" >/dev/null 2>&1 && cf "(nofm) the record names a pin that was never written"
+  printf '# no dashes at all\n\nmodel: prose\neffort: prose\n' > "$ad/dev-worker.md"
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model NEWM3 --effort NEWE3 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(nodash) a pin file with no --- at all exited $rc, not 1"
+  printf '%s\n' "$out" | grep -F 'set-models: dev ->' >/dev/null && cf "(nodash) a success line was printed over a file that was not written"
+  grep -F 'NEWM3' "$SB_WORK/.claude/model-pins.record" >/dev/null 2>&1 && cf "(nodash) the record names a pin that was never written"
+  finish "set-models.sh refuses (exit 2, a Next, nothing written) an id with a quote, backslash, pipe, space or leading dash, writes an ordinary id and one with @ exactly, rewrites only a frontmatter pair that opens on line 1, and records only what it wrote"
   teardown
 }
 
@@ -85,12 +101,15 @@ case_notify_refuses_the_watchdog_as_a_backend() {
   local out rc
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=stall ./scripts/notify.sh test 2>&1 )" || rc=$?
   [ "$rc" -eq 1 ] || cf "(test) NOTIFY_BACKEND=stall exited $rc, not the no-adapter refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s\n' "$out" | grep -F 'no adapter for NOTIFY_BACKEND' >/dev/null || cf "(test) the refusal does not say there is no adapter: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -F 'not an adapter' >/dev/null || cf "(test) the refusal does not say the watchdog is not an adapter: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null && cf "(test) the watchdog was run as an adapter and dumped its usage"
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=stall ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null && cf "(send) the watchdog was run as an adapter and dumped its usage"
   printf '%s\n' "$out" | grep -F 'delivery FAILED' >/dev/null && cf "(send) a send through the watchdog reported a delivery failure instead of no adapter"
-  finish "notify.sh treats a script with no send) arm as no adapter, in test and in send, and never runs it"
+  printf '#!/usr/bin/env bash\ncase "$1" in send|test) echo "DELIVERED $NOTIFY_TEXT" ;; esac\n' > "$SB_WORK/scripts/notify/mine.sh"
+  rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=mine NOTIFY_WITH_MSG_AND_ALERT=done ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -F 'DELIVERED' >/dev/null || cf "(adapter) an adapter whose case arm is send|test) was not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "notify.sh treats the stall watchdog as no adapter, in test and in send, and never runs it; an adapter with a send|test) arm still delivers"
   teardown
 }
 
@@ -170,13 +189,21 @@ case_new_prd_ignores_a_file_that_carries_no_number() {
   [ "$rc" -eq 0 ] || cf "new-prd.sh exited $rc beside an unnumbered ${pfx}-overview.md: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   [ -f "$SB_WORK/requirements/${pfx}-001-first-slug.md" ] || cf "no ${pfx}-001 was minted: $(ls "$SB_WORK/requirements" | tr '\n' ' ')"
   printf '%s\n' "$out" | grep -F 'unbound variable' >/dev/null && cf "new-prd.sh died on an unbound variable"
+  # a numbered file counts with or without a slug
+  rm -f "$SB_WORK/requirements/${pfx}-"*.md; printf '# x\n' > "$SB_WORK/requirements/${pfx}-003.md"
+  ( cd "$SB_WORK" && ./scripts/new-prd.sh second-slug >/dev/null 2>&1 )
+  [ -f "$SB_WORK/requirements/${pfx}-004-second-slug.md" ] || cf "(lone 003) beside ${pfx}-003.md no ${pfx}-004 was minted: $(ls "$SB_WORK/requirements" | tr '\n' ' ')"
+  rm -f "$SB_WORK/requirements/${pfx}-"*.md; printf '# x\n' > "$SB_WORK/requirements/${pfx}-001.md"
+  ( cd "$SB_WORK" && ./scripts/new-prd.sh third-slug >/dev/null 2>&1 )
+  [ -f "$SB_WORK/requirements/${pfx}-002-third-slug.md" ] || cf "(lone 001) beside ${pfx}-001.md no ${pfx}-002 was minted (a duplicate id?): $(ls "$SB_WORK/requirements" | tr '\n' ' ')"
   finish "new-prd.sh skips a file that carries no number and mints PRD-001"
   teardown
 }
 
 # =============================================================================
-# CASE — THE BRAINSTORMING COMPANION'S stop-server.sh DELETES ONLY A DIRECTORY REALLY UNDER /tmp.
-# A prefix test on the text let `/tmp/../<elsewhere>` through, and that directory was deleted whole.
+# CASE — THE BRAINSTORMING COMPANION'S stop-server.sh DELETES NO SESSION DIRECTORY REACHED THROUGH `..`.
+# A prefix test on the text let `/tmp/../<elsewhere>` through, and that directory was deleted whole. (A symlink
+# under /tmp that points elsewhere is not covered.)
 # =============================================================================
 case_brainstorm_stop_server_does_not_delete_through_a_dotdot_path() {
   cf_reset
@@ -210,8 +237,10 @@ case_check_board_reads_a_lower_case_id_and_a_quoted_path() {
 | Item | Origin | Size | Why deferred | Wake condition | Status |
 |---|---|---|---|---|---|
 | **Landed already** | audit | S | — | now | open (claimed by zzq-101) |
+| **Prose first** | audit | S | — | now | open — queued after step-4, claimed by ZZQ-103 |
 DQEOF
   : > "$SB_WORK/progress/done/zzq-101-a.md"
+  : > "$SB_WORK/progress/done/ZZQ-103-b.md"
   publish_sandbox
   printf 'x\n' > "$SB_WORK/requirements/a b.md"
   printf 'x\n' > "$SB_WORK/requirements/ab.md"
@@ -219,6 +248,7 @@ DQEOF
   out="$(cb_run)"
   sec="$(printf '%s\n' "$out" | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f')"
   printf '%s\n' "$sec" | grep -F 'zzq-101' >/dev/null || cf "(j) an open row claiming a landed LOWER-CASE id was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$sec" | grep -F 'ZZQ-103' >/dev/null || cf "(j) a claim after other word-N prose ('queued after step-4, claimed by ZZQ-103') was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
   sec="$(printf '%s\n' "$out" | grep -F '[f0]')"
   printf '%s\n' "$sec" | grep -F 'requirements/ab.md' | grep -F '⚠' >/dev/null || cf "(f0, control) an untracked path without a space is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
   printf '%s\n' "$sec" | grep -F 'requirements/a b.md' | grep -F '⚠' >/dev/null || cf "(f0) an untracked path WITH a space is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"

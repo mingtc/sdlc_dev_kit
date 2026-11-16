@@ -135,13 +135,14 @@ if [ "$NOTIFY_BACKEND" = "none" ]; then
   exit 0   # silent no-op for sends
 fi
 
-# An adapter is a script with a `send)` verb arm; stall.sh, the watchdog beside them, has none.
-if [ ! -f "$ADAPTER" ] || ! grep -qE '^[[:space:]]*send\)' "$ADAPTER"; then
-  avail="$( { grep -lE '^[[:space:]]*send\)' "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | paste -sd, -)"
+# stall.sh, the watchdog beside the adapters, is not one: run as a backend it would dump its usage.
+if [ ! -f "$ADAPTER" ] || [ "$NOTIFY_BACKEND" = stall ]; then
+  avail="$( { ls "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | grep -vx stall | paste -sd, -)"
   _na_what="no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
+  [ "$NOTIFY_BACKEND" != stall ] || _na_what="NOTIFY_BACKEND='stall' names the stall watchdog (scripts/notify/stall.sh), which is not an adapter. Available: ${avail:-none}"
   [ "$MODE" != "test" ] || kit_refuse 1 notify-no-adapter \
     "notify: $_na_what" \
-    "Next: set NOTIFY_BACKEND in your environment file to an available backend (or none), or add scripts/notify/${NOTIFY_BACKEND}.sh."
+    "Next: set NOTIFY_BACKEND in your environment file to an available backend (or none)$([ "$NOTIFY_BACKEND" = stall ] || printf ', or add scripts/notify/%s.sh' "$NOTIFY_BACKEND")."
   warn "$_na_what"
   exit 0
 fi

@@ -1759,7 +1759,10 @@ else
         # A trailing "Status:" declaration wins over the cell opening words.
         if (match(cell, /Status:[[:space:]]*/)) cell = substr(cell, RSTART + RLENGTH)
         if (cell !~ /^open/) next                 # struck or ruled dead: not our business
-        if (match(cell, /[A-Za-z][A-Za-z0-9]*-[0-9]+/)) {
+        # the id after "claimed by" (the cell prose may hold other word-N text first); with no such words, an upper-case id
+        if (match(cell, /claimed by[[:space:]]+[A-Za-z][A-Za-z0-9]*-[0-9]+/)) {
+          t = substr(cell, RSTART, RLENGTH); sub(/^claimed by[[:space:]]+/, "", t); print t
+        } else if (match(cell, /[A-Z][A-Z0-9]*-[0-9]+/)) {
           print substr(cell, RSTART, RLENGTH)
         }
       }' "$CB_TREE/$DQ_FILE" | sort -u | while IFS= read -r id; do
