@@ -267,7 +267,7 @@ function fence_line(ln,    blank, ind, k, ch, lim, was, res) {
     else break
   }
   if (!blank && ind < 2) {
-    if (fch != "" && fitem) { if (!uncl) uncl = fopened; fch = ""; flen = 0; fitem = 0 }
+    if (fch != "" && fitem) { if (!uncl) { uncl = fopened; uend = NR }; fch = ""; flen = 0; fitem = 0 }
     if (fch == "") initem = (ln ~ /^(>[ \t]*)?([-*+]|[0-9]+[.)])[ \t]/)
   }
   lim = 3
@@ -277,7 +277,8 @@ function fence_line(ln,    blank, ind, k, ch, lim, was, res) {
   if (!was && fch != "") { fopened = NR; fitem = initem }
   return res
 }
-function fence_unclosed() { return uncl ? uncl : (fch != "" ? fopened : 0) }'
+function fence_unclosed() { return uncl ? uncl : (fch != "" ? fopened : 0) }
+function fence_unclosed_end() { return uncl ? uend : 0 }'
 
 # _qav_unfenced — stdin without the lines of a fenced code block, delimiters included: an example in a fence is
 # text, never a heading or a checklist bullet.
@@ -291,10 +292,10 @@ _qav_fence_flags() {
   LC_ALL=C awk "$_QAV_FENCE_FN"' { print (fence_line($0) ? 1 : 0) }'
 }
 
-# _qav_unclosed_fence <body> — the line (1-based, in <body>) a fence opened on that nothing closes: its text
-# ends first, or its list item does. Nothing when every fence closes.
+# _qav_unclosed_fence <body> — '<open>' or '<open> <end>': the line (1-based, in <body>) a fence opened on that
+# nothing closes, and, when its list item ended it, the line the item ended on. Nothing when every fence closes.
 _qav_unclosed_fence() {
-  printf '%s\n' "$1" | LC_ALL=C awk "$_QAV_FENCE_FN"' { fence_line($0) } END { u = fence_unclosed(); if (u) print u }'
+  printf '%s\n' "$1" | LC_ALL=C awk "$_QAV_FENCE_FN"' { fence_line($0) } END { u = fence_unclosed(); e = fence_unclosed_end(); if (u) print (e ? u " " e : u) }'
 }
 
 # _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
@@ -1231,12 +1232,19 @@ kit_ac_drift_check() {
   local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own unclosed
 
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
-  # A fence nothing closes turns the rest of the card into code, criteria included: refused first, by its line.
+  # A fence that does not close leaves what follows it read as code, or outside its list item: refused first, by its line.
   unclosed="$(_qav_unclosed_fence "$new_body")"
   if [ -n "$unclosed" ]; then
+    local uc_open uc_end
+    read -r uc_open uc_end <<< "$unclosed"
+    if [ -n "$uc_end" ]; then
+      kit_refuse 1 forks-ac-unclosed-fence \
+        "Error: ${issue_id} has a code fence that opens on line ${uc_open} inside a list item that ends on line ${uc_end}, before the fence closes: an unindented line ends the item and its fence, so the fence's remaining lines are outside it." \
+        "Next: indent every line of the fence, its content and its closing line, to the item's text (as far in as the opening line's text), so the whole fence sits inside the item; or close the fence on a line before line ${uc_end}. Then commit the card to the trunk with ./scripts/register-commit.sh and re-run the command that refused. NOTHING WAS CHANGED."
+    fi
     kit_refuse 1 forks-ac-unclosed-fence \
-      "Error: ${issue_id} has a code fence that opens on line ${unclosed} and is never closed above its '## QA Verdict', so what follows it reads as code — acceptance criteria included, which then go ungraded." \
-      "Next: close the fence on line ${unclosed}: add a line holding only its backticks or tildes (as many as it opened with) after its last line, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
+      "Error: ${issue_id} has a code fence that opens on line ${uc_open} and is never closed above its '## QA Verdict', so everything after it reads as code." \
+      "Next: close the fence on line ${uc_open}: add a line holding only its backticks or tildes (as many as it opened with) after its last line, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
   fi
   # The population next, on every route: a checklist line the QA gate's reader would drop is never
   # graded, and a card with no AC has nothing to grade — whether or not the card ever sat in todo/.
