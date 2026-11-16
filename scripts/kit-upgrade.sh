@@ -42,7 +42,7 @@
 # while the marked checklist is uncommitted or lacks an item the first run wrote, or while a staged
 # copy of the new kit's notes is missing or edited, or while an Action required item that carries a Verify:
 # command fails it (below); then it writes the new process/KIT-VERSION and
-# process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (the
+# process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (with -2, -3, ... when the versions are equal and the name is taken; the
 # record of what was done, which survives any merge strategy), and removes .kit-upgrade/.
 #
 # THE ENABLED MODULES (process/MODULES): the files a module placed are judged by the sha256 enable recorded, which the

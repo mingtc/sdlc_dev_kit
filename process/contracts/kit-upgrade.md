@@ -43,7 +43,7 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   A module whose placed files or hosts have uncommitted changes (for example, a killed run's writes) is not that run: it takes the
   full path, whose output says to review the whole diff.
   *Why:* a checklist with no items, a second commit and an archive of nothing cost the adopter three steps for one
-  write, and a second such run under the same version would be refused for the archive's name.
+  write, and a second such run under the same version was once refused for the archive's name.
 - **What the upgrade adds or replaces is written down before the first file is.** A file a killed run had already
   placed reads as current on the run that finishes it, so the "stamp what arrived" item is counted from the record in
   `.kit-upgrade/arrived`, not from the files' state; the record is used only when its first row names the kit being
@@ -164,7 +164,7 @@ there becomes a merge item, and the run says why. Never a guess.
    unchanged; nothing is committed.
 2. Re-running against the same new kit changes nothing; against another version it refuses.
 3. After finishing: the version and the manifest are the new kit's, the staging is gone, and the
-   marked checklist is at `process/upgrades/<from>-to-<to>.md`, ending in a section that lists each
+   marked checklist is at `process/upgrades/<from>-to-<to>.md` (`-2`, `-3`, … added when the versions are equal and the name is taken), ending in a section that lists each
    Action required item as verified or as declared and unverified.
 4. Against a tree made from the same kit: nothing is written at all.
 5. With a module enabled: the files it placed are the new version's where the project had not edited them,
