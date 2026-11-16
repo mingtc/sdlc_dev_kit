@@ -831,7 +831,8 @@ _fence_shape() {
     trailing-text) tail="$(printf '%s\n' "$f" 'code' "$f trailing" '- [ ] AC9 — (UI) ex.' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
     in-item)       tail="$(printf '%s\n' "  $f" '  - [ ] AC9 — (UI) in item.' "  $f" '- [ ] AC2 — (UI) b.')" ;;
     item-four)     tail="$(printf '%s\n' '  The page shows:' "    $f" '    - [ ] step one' "    $f" '- [ ] AC2 — (UI) b.')" ;;
-    item-five)     tail="$(printf '%s\n' '  The page shows:' "     $f" '     - [ ] step one' "     $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-five)     tail="$(printf '%s\n' '  The page shows:' '' "     $f" '     - [ ] step one' "     $f" '- [ ] AC2 — (UI) b.')" ;;
+    top-tab)       tail="$(printf '%s\n' 'Some prose.' "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
     item-tab)      tail="$(printf '%s\n' '  The page shows:' "$(printf '\t')$f" "$(printf '\t')- [ ] step one" "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
     item-unclosed) tail="$(printf '%s\n' "  $f" '  make test' '- [ ] AC3 — (UI) c.')" ;;
     context-open)  head="$(printf '%s\n' '---' 'id: X-1' '---' '' '## Context' '' "${f}sh" 'make test' '' '## Acceptance Criteria' '')"
@@ -847,12 +848,12 @@ _fence_shape_ids() {
     nested-tilde|longer-outer|in-item|tab-indented|inline-span|trailing-text) echo "AC1 AC2" ;;
     four-indented) echo "AC1 AC2 AC3" ;;
     unclosed) echo "AC1" ;;
-    item-four|item-five|item-tab) echo "AC1 AC2" ;;
+    item-four|item-five|item-tab|top-tab) echo "AC1 AC2" ;;
     item-unclosed) echo "AC1 AC3" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab"
 
 # =============================================================================
 # CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
@@ -944,7 +945,7 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
 # CASE — A FENCE NEVER CLOSED ABOVE '## QA Verdict' IS REFUSED BY ITS LINE, AND A FENCE AN AC'S ITEM HOLDS LANDS.
 # (a) a card whose AC1 item opens a fence nothing closes, with a criterion below it that nobody grades, is refused
 # before the merge naming the line the fence opened on and saying to close it (refusal=forks-ac-unclosed-fence), and
-# not as a card with no criterion; (b) a fence indented four spaces, (c) five and (d) a tab, inside AC1's item and
+# not as a card with no criterion, also when the fence sits in Context and hides every criterion (e); (b) a fence indented four spaces, (c) five and (d) a tab, inside AC1's item and
 # holding a checklist-looking line, lands with its one-row table.
 # RED FIRST: (a) lands, with AC3 ungraded; (b), (c), (d) are refused forks-ac-ungraded for the line they hold.
 # =============================================================================
@@ -970,6 +971,21 @@ case_finish_pr_qa_verdict_fence_in_an_ac_item() {
   grep -q 'refusal=forks-ac-unclosed-fence' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=forks-ac-unclosed-fence: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
   origin_has_path "CHANGE860.txt" && cf "(a) the branch was merged before the refusal"
+  teardown
+
+  # (e) the fence in Context hides every criterion: the unclosed fence is the refusal, not a card with no criterion
+  make_sandbox
+  id="$SB_PREFIX-864"
+  seed_issue dev_complete "$id" ctxopen chore "An unclosed fence in Context" "feature/$id-work"
+  f="$SB_WORK/progress/dev_complete/$id-ctxopen.md"
+  perl -i -pe 's/^(## Acceptance Criteria)$/## Context\n\n```sh\nmake test\n\n$1/' "$f"
+  grep -qF 'make test' "$f" || _fixture_die "case_finish_pr_qa_verdict_fence_in_an_ac_item: (e) the Context fence was not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE864.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-e" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a fence in Context hid every criterion and the card landed — finish-pr.sh exited 0"
+  grep -q 'refusal=forks-ac-unclosed-fence' "$SB_TMP/rec-e"/*.tsv 2>/dev/null \
+    || cf "(e) the refusal is not forks-ac-unclosed-fence: $(cat "$SB_TMP/rec-e"/*.tsv 2>/dev/null | cut -c1-200)"
   teardown
 
   # (b), (c), (d) a deep fence inside the item
