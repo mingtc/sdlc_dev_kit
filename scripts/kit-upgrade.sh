@@ -931,7 +931,7 @@ fail_write() {
 }
 # A run whose only work is an enabled module's record (another version than the kit holds, or a `pending` section) has
 # no file to merge and nothing to check: it writes the record and stops, with no checklist, no staging and no --finish.
-# A module with uncommitted changes under a placed path (a file, or a file it adds a block to) takes the full path, whose
+# A module with uncommitted changes under a placed path (a file, or the block it adds to one) takes the full path, whose
 # Next names the whole diff. The record moves in one write per module, so a kill leaves each module's old record or its
 # new one, and the run again finishes the rest.
 REC_UNCOMMITTED=""
@@ -940,11 +940,18 @@ if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && 
   while IFS= read -r mn; do
     [ -n "$mn" ] || continue
     rec_paths=()
-    while IFS="$(printf '\t')" read -r _ rp _; do
-      [ -z "$rp" ] || rec_paths+=(":(literal)$rp")
+    while IFS="$(printf '\t')" read -r rk rp _ rs; do
+      [ -n "$rp" ] || continue
+      if [ "$rk" = block ]; then
+        # a file the module only adds a block to: only a change to the block's own lines is the module's
+        [ -z "$(cd "$TGT" && git status --porcelain --untracked-files=all -- ":(literal)$rp" 2>/dev/null)" ] \
+          || ! kit_mod_block_changed "$rp" "$mn" "$rs" || REC_UNCOMMITTED=1
+      else
+        rec_paths+=(":(literal)$rp")
+      fi
     done < "$MODTMP/up-$mn/plan"
     [ "${#rec_paths[@]}" -gt 0 ] || continue
-    [ -z "$(cd "$TGT" && git status --porcelain --untracked-files=all -- "${rec_paths[@]}" 2>/dev/null)" ] || REC_UNCOMMITTED=1
+    [ -n "$REC_UNCOMMITTED" ] || [ -z "$(cd "$TGT" && git status --porcelain --untracked-files=all -- "${rec_paths[@]}" 2>/dev/null)" ] || REC_UNCOMMITTED=1
   done <<MODNAMES_EOF
 $MOD_REC_NAMES
 MODNAMES_EOF

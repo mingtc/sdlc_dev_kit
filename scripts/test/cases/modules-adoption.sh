@@ -1512,3 +1512,55 @@ case_module_status_without_a_sha256_tool_says_it_cannot_judge() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A RECORD-ONLY RUN IS SENT TO THE FULL PATH BY AN UNCOMMITTED CHANGE IN WHAT THE MODULE PLACES, NOT BY ONE ELSEWHERE IN A FILE IT ONLY ADDS A BLOCK TO.
+#   The module's version moved and nothing it places did. (a) An uncommitted edit outside the module's blocks in
+#   PROJECT.md and .gitignore: the record is moved, nothing staged, and the edits are left as they were. (b) An edit
+#   inside the block: the full path. (c) An edit to a file the module places: the full path. (d) A block host that
+#   is untracked, with the block in it: the full path.
+# =============================================================================
+case_a_record_only_kit_upgrade_looks_at_a_blocks_own_lines_in_its_host() {
+  cf_reset
+  local L="kit-upgrade.sh over a project whose only work is an enabled module's record moves the record and stages nothing when the uncommitted edit is elsewhere in a file the module only adds a block to, and takes the full path when the edit is inside the block, in a file the module places, or in a host with the block that git does not track"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local m newv tag
+
+  for tag in outside inside role untracked; do
+    _mu_pair
+    m="$MU_NEW/modules/example"
+    newv="$(_mu_next_version "$m/module.manifest")"
+    sed -e "s/^version: .*/version: $newv/" "$m/module.manifest" > "$m/module.manifest.new" && mv "$m/module.manifest.new" "$m/module.manifest"
+    _mu_manifest "$MU_NEW"
+    cp "$m/module.manifest" "$SB_WORK/modules/example/module.manifest"; cp "$MU_NEW/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+    _mu_land "the core files are current"
+    case "$tag" in
+      outside)
+        printf 'An unrelated line.\n' >> "$SB_WORK/PROJECT.md"
+        printf 'unrelated-ignore\n' >> "$SB_WORK/.gitignore" ;;
+      inside)
+        sed -e '/KIT-MODULE:example:gates BEGIN/a\
+| mine | `y` | edited inside the block |' "$SB_WORK/PROJECT.md" > "$SB_TMP/p.md" && cp "$SB_TMP/p.md" "$SB_WORK/PROJECT.md" ;;
+      role)
+        printf 'A line the project added.\n' >> "$SB_WORK/.claude/roles/example.md" ;;
+      untracked)
+        git -C "$SB_WORK" rm -q --cached .gitignore >/dev/null 2>&1 ;;
+    esac
+    _mu_up "$SB_WORK"
+    [ "$_mu_rc" -eq 0 ] || cf "($tag) the upgrade exited $_mu_rc: $(_mu_flat)"
+    if [ "$tag" = outside ]; then
+      printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null || cf "($tag) the run does not say it moved the record: $(_mu_flat)"
+      { [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] && [ ! -e "$SB_WORK/.kit-upgrade" ]; } || cf "($tag) a checklist or staging was written for a record-only run"
+      grep -F 'An unrelated line.' "$SB_WORK/PROJECT.md" >/dev/null && grep -F 'unrelated-ignore' "$SB_WORK/.gitignore" >/dev/null || cf "($tag) the project's own edits were not left as they were"
+      grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "($tag) the record does not name $newv"
+    else
+      printf '%s\n' "$_mu_out" | grep -F 'moved the record' >/dev/null && cf "($tag) the run was taken as record-only over an uncommitted change in what the module places: $(_mu_flat)"
+      printf '%s\n' "$_mu_out" | grep -F 'Review:' >/dev/null || cf "($tag) the run does not say to review the whole diff: $(_mu_flat)"
+    fi
+    teardown
+  done
+
+  finish "$L"
+}
