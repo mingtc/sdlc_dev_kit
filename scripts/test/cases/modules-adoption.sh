@@ -1703,6 +1703,25 @@ case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   _md_mod status example
   printf '%s\n' "$_md_out" | grep -F "$((rows0 - 1)) of $rows0 recorded things are missing" >/dev/null || cf "(status) does not count the missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_md_out" | grep -F './scripts/module.sh disable example' >/dev/null || cf "(status) does not name the disable run again: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way' >/dev/null || cf "(status) does not name both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # a file the project deleted by hand: the same line, with both readings
+  _mu_pair
+  rm -f "$SB_WORK/.claude/skills/example-skill/SKILL.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
+    || cf "(hand) status over a deleted file does not give the line with both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # a recorded file the module's manifest no longer places, deleted as the upgrade's item says: no line, in either command
+  _mu_pair
+  sed -e '/^file: _claude\/skills\/example-skill\/SKILL.md/d' "$SB_WORK/modules/example/module.manifest" > "$SB_TMP/manifest.new" && cp "$SB_TMP/manifest.new" "$SB_WORK/modules/example/module.manifest"
+  rm -f "$SB_WORK/.claude/skills/example-skill/SKILL.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) status names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) enable names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }
@@ -1731,6 +1750,10 @@ case_module_disable_says_so_when_the_record_cannot_be_written() {
     [ "$_md_rc" -eq 1 ] || cf "($shape) disable exited $_md_rc, not 1: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
     printf '%s\n' "$_md_out" | grep -F 'record dropped' >/dev/null && cf "($shape) said the record was dropped over a record that stayed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
     printf '%s\n' "$_md_out" | grep -E 'already removed' >/dev/null || cf "($shape) does not say how many were already removed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    if [ "$shape" = write ]; then
+      printf '%s\n' "$_md_out" | grep -F 'process/roles.d/example' >/dev/null || cf "($shape) does not name the path that could not be removed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+      printf '%s\n' "$_md_out" | grep -F 'retries' >/dev/null || cf "($shape) does not say that running disable again retries it: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+    fi
     [ "$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")" = "$rows0" ] || cf "($shape) the record does not hold all $rows0 rows"
     _md_mod disable example
     [ "$_md_rc" -eq 0 ] || cf "($shape) the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
@@ -1805,6 +1828,65 @@ case_an_upgrade_over_a_half_disabled_module_reads_removed_files_as_removed() {
   [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(c) the record-only run placed the role doc the disable had removed"
   grep -F -x "module example $newv" "$SB_WORK/process/MODULES" >/dev/null || cf "(c) the record does not name $newv"
 
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — module.sh enable KEEPS THE REASON A PLACEMENT FAILED WHEN THE RECORD CANNOT BE DROPPED, AND A VALUE IN THE ENVIRONMENT IS NEVER IN A REFUSAL.
+#   A placed file cannot be written and the empty record cannot be removed: the refusal says why the placement failed, not
+#   only that the record could not be written. A KIT_MOD_STATE_NOTE the user exported does not reach any refusal.
+# =============================================================================
+case_module_enable_keeps_the_reason_a_placement_failed_and_ignores_an_exported_note() {
+  cf_reset
+  local L="module.sh enable whose placement fails and whose empty record cannot be removed says which path could not be written, and an exported KIT_MOD_STATE_NOTE is in no refusal"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _md_have_example || { skp_lived "$L" "$(_md_gone_reason)"; return; }
+  _md_sandbox
+  local shim="$SB_TMP/shim"
+  mkdir -p "$shim" "$SB_WORK/.claude/roles"
+  printf '#!/bin/sh\nfor a in "$@"; do case "$a" in */process/MODULES) exit 1 ;; esac; done\nexec /bin/rm "$@"\n' > "$shim/rm"
+  chmod +x "$shim/rm"
+  chmod 555 "$SB_WORK/.claude/roles"
+  _md_rc=0; _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PATH="$shim:$PATH" KIT_MOD_STATE_NOTE="leaked from the environment" KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/module.sh enable example 2>&1 </dev/null )" || _md_rc=$?
+  chmod 755 "$SB_WORK/.claude/roles"
+  [ "$_md_rc" -ne 0 ] || cf "enable exited 0 although a placed file could not be written"
+  printf '%s\n' "$_md_out" | grep -F '.claude/roles/example.md' >/dev/null || cf "the refusal does not keep the path that could not be written: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'leaked from the environment' >/dev/null && cf "an exported KIT_MOD_STATE_NOTE is in the refusal: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE COMMIT HINT OF A DISABLE RUN AGAIN STAGES WHAT THE FIRST RUN REMOVED, TOO.
+#   The first run removes every file and cannot drop the record; the run again finds them already gone. Following the
+#   Next line it prints (git add -A over the paths it names) leaves nothing uncommitted: no deletion is left behind.
+# =============================================================================
+case_the_commit_hint_of_a_disable_run_again_stages_what_the_first_run_removed() {
+  cf_reset
+  local L="following the commit hint a module.sh disable run again prints, after a first run that removed the files but could not drop the record, leaves git status clean"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
+  _mu_subject_ok || { finish "$L"; return; }
+  local hint left
+  _mu_pair
+  chmod 555 "$SB_WORK/process"
+  _md_mod disable example
+  chmod 755 "$SB_WORK/process"
+  [ "$_md_rc" -ne 0 ] || cf "(prereq) the first disable exited 0 although the record could not be dropped"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
+  [ -n "$hint" ] || cf "the run again prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  if [ -n "$hint" ]; then
+    ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "the printed hint failed when run: $hint"
+    left="$(git -C "$SB_WORK" status --porcelain --untracked-files=all 2>/dev/null | grep -v '^D  ' | tr '\n' '|' | cut -c1-300)"
+    [ -z "$left" ] || cf "following the hint left changes behind: $left"
+    [ -z "$(git -C "$SB_WORK" ls-files -- .claude/roles/example.md)" ] || cf "the first run's deletion of .claude/roles/example.md is not staged"
+  fi
   finish "$L"
   teardown
 }
