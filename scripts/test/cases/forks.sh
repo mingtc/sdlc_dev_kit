@@ -2226,57 +2226,180 @@ case_a_forks_refusal_leaves_no_scratch_file_and_names_the_revision_path() {
 # =============================================================================
 # CASE — A REGISTER GIT CANNOT FETCH IS A FAILED READ, NOT AN EMPTY REGISTER.
 # `git show` exits 128 for a missing path and for an unreadable object alike, and the forks: checks turned both
-# into an empty register. `rev-parse --verify` tells them apart: (absent) a path that is not there is no register
-# and reads as empty; (unreadable) a path that is there and cannot be read is recorded, and the check refuses.
-# Rows: the fetch helper, the id reader, the diff reader, and the whole check in a landing.
+# into an empty register. `ls-tree` tells them apart: (absent) a path that is not there is no register and reads as
+# empty; (unreadable) a path that is there, or a tree that cannot be read, is recorded, and the check refuses.
+# Rows: the fetch helper, the id reader, the diff reader and the window's tip copy against an unreadable blob and
+# against an unreadable tree, a failed register diff, and the whole check in a landing.
 # =============================================================================
 case_a_register_git_cannot_fetch_is_a_failed_read_not_an_empty_register() {
   cf_reset
-  local d repo shim real f out rc id oldp="$PATH"
-  d="$(mktemp -d "${TMPDIR:-/tmp}/forks-fetch.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
-  repo="$d/repo"; shim="$d/shim"; f="$d/fail"; real="$(command -v git)"
+  local fd repo shim real f out rc id oldp="$PATH" tree main
+  fd="$(mktemp -d "${TMPDIR:-/tmp}/forks-fetch.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  repo="$fd/repo"; shim="$fd/shim"; f="$fd/fail"; real="$(command -v git)"
   git init -q "$repo" && mkdir -p "$repo/r" && printf '## A\n\n### D-01\n\nbody\n' > "$repo/r/D.md" \
     && git -C "$repo" add r/D.md && git -C "$repo" -c user.email=a@b -c user.name=n -c commit.gpgsign=false commit -q -m one \
-    || { cf "no fixture repository"; rm -rf "$d"; finish "(no fixture)"; return 0; }
+    || { cf "no fixture repository"; rm -rf "$fd"; finish "(no fixture)"; return 0; }
   printf '### D-02\n' >> "$repo/r/D.md"
   git -C "$repo" -c user.email=a@b -c user.name=n -c commit.gpgsign=false commit -q -am two
   # a git whose `show` of the register fails with 128 and whose every other verb is the real one
   mkdir -p "$shim"
   printf '#!/bin/sh\ncase "$*" in *" show "*":r/D.md"*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$shim/git"; chmod +x "$shim/git"
-  _f867() {  # <shim 0|1> <bash snippet> — runs the snippet with the libs loaded; the fail file is $f
+  _f867() {  # <shim dir | -> <bash snippet> — runs the snippet with the libs loaded; the fail file is $f
     : > "$f"
-    bash -c 'if [ "$5" = 1 ]; then PATH="$4:$PATH"; fi; . "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh" 2>/dev/null; KIT_BP_FAIL_FILE="$2"; repo="$3"; eval "$6"' _ "$REAL_SCRIPTS" "$f" "$repo" "$shim" "$1" "$2" 2>/dev/null
+    bash -c 'if [ "$5" != - ]; then PATH="$5:$PATH"; fi; . "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh" 2>/dev/null; KIT_BP_FAIL_FILE="$2"; repo="$3"; eval "$6"' _ "$REAL_SCRIPTS" "$f" "$repo" "-" "$1" "$2" 2>/dev/null
   }
   # (fetch) the helper
-  rc=0; _f867 1 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"' || true
+  rc=0; _f867 "$shim" 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"' || true
   { [ -s "$f.rc" ] && [ "$(cat "$f.rc")" != "rc=0" ]; } || cf "(fetch) a register git could not read did not fail the fetch: $(cat "$f.rc" 2>/dev/null)"
-  _f867 0 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  _f867 - 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"'
   { [ "$(cat "$f.rc" 2>/dev/null)" = "rc=0" ] && grep -F 'D-01' "$f.out" >/dev/null; } || cf "(fetch, control) a readable register was not copied: $(cat "$f.rc" 2>/dev/null)"
-  _f867 1 'kit_register_fetch "$repo" HEAD r/ABSENT.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  _f867 "$shim" 'kit_register_fetch "$repo" HEAD r/ABSENT.md "$2.out"; echo "rc=$?" > "$2.rc"'
   { [ "$(cat "$f.rc" 2>/dev/null)" = "rc=0" ] && [ ! -s "$f.out" ]; } || cf "(fetch, absent) a path that is not there did not read as empty and succeed: $(cat "$f.rc" 2>/dev/null)"
   # (ids) _forks_entry_ids
-  _f867 1 '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" >/dev/null'
+  _f867 "$shim" '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" >/dev/null'
   grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(ids) an unreadable register was not recorded: $(cat "$f")"
-  _f867 1 '_forks_entry_ids "$repo" HEAD r/ABSENT.md "### " "D-[0-9]+" >/dev/null'
+  _f867 "$shim" '_forks_entry_ids "$repo" HEAD r/ABSENT.md "### " "D-[0-9]+" >/dev/null'
   [ ! -s "$f" ] || cf "(ids, absent) an absent register was recorded as a failed read: $(cat "$f")"
-  _f867 0 '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" > "$2.out"'
+  _f867 - '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" > "$2.out"'
   { [ ! -s "$f" ] && grep -x 'D-01' "$f.out" >/dev/null; } || cf "(ids, control) a readable register was recorded or not read: $(cat "$f") / $(cat "$f.out" 2>/dev/null)"
   # (diff) kit_decisions_touched_by_diff
-  _f867 1 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " >/dev/null'
+  _f867 "$shim" 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " >/dev/null'
   grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(diff) an unreadable register was not recorded: $(cat "$f")"
-  _f867 1 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/ABSENT.md "### " >/dev/null'
+  _f867 "$shim" 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/ABSENT.md "### " >/dev/null'
   [ ! -s "$f" ] || cf "(diff, absent) an absent register was recorded as a failed read: $(cat "$f")"
+  # (tree) a tree git cannot read is no empty register: the root tree object of HEAD is gone from a copy
+  cp -R "$repo" "$fd/rt" && tree="$(git -C "$fd/rt" rev-parse 'HEAD^{tree}')" && rm -f "$fd/rt/.git/objects/${tree:0:2}/${tree:2}"
+  [ ! -e "$fd/rt/.git/objects/${tree:0:2}/${tree:2}" ] || cf "(prereq, tree) the tree object is still there"
+  main="$repo"; repo="$fd/rt"
+  _f867 - 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  { [ -s "$f.rc" ] && [ "$(cat "$f.rc")" != "rc=0" ]; } || cf "(tree, fetch) an unreadable tree read as an absent register: $(cat "$f.rc" 2>/dev/null)"
+  _f867 - '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" >/dev/null'
+  grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(tree, ids) an unreadable tree was not recorded: $(cat "$f")"
+  _f867 - 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " >/dev/null'
+  grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(tree, diff) an unreadable tree was not recorded: $(cat "$f")"
+  repo="$main"
+  # (revision) a revision that does not resolve fails closed
+  _f867 - 'kit_register_fetch "$repo" no-such-rev r/D.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  [ "$(cat "$f.rc" 2>/dev/null)" != "rc=0" ] || cf "(revision) a revision that does not resolve read as an absent register"
+  # (diff) a failed register diff is a failed read, never "no entry changed"
+  mkdir -p "$fd/dshim"
+  printf '#!/bin/sh\ncase "$*" in *" diff "*"--unified=0"*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$fd/dshim/git"; chmod +x "$fd/dshim/git"
+  _f867 "$fd/dshim" 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " >/dev/null'
+  grep -F 'git could not diff HEAD~1...HEAD' "$f" >/dev/null || cf "(diff, fails) a register diff that failed was not recorded: $(cat "$f")"
+  _f867 - 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " > "$2.out"'
+  { [ ! -s "$f" ] && grep -x 'D-02' "$f.out" >/dev/null; } || cf "(diff, control) a readable diff was recorded or not read: $(cat "$f") / $(cat "$f.out" 2>/dev/null)"
+  # (tip) the window's copy of the register at the trunk tip
+  mkdir -p "$fd/tshim"
+  printf '#!/bin/sh\ncase "$*" in *" show "*"HEAD~1:r/D.md"*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$fd/tshim/git"; chmod +x "$fd/tshim/git"
+  _f867 "$fd/tshim" '_forks_window_entries "$repo" KIT-12 r/D.md "### " "D-[0-9]+" HEAD HEAD HEAD~1 >/dev/null 2>&1'
+  grep -F 'git could not read HEAD~1:r/D.md' "$f" >/dev/null || cf "(tip) an unreadable tip copy of the register was not recorded: $(cat "$f")"
   unset -f _f867
   # (landing) the check refuses, naming the revision and path
   id="$SB_PREFIX-883"
-  _nr_shim_cmd "$d/lshim" git ' show '"'*'"':requirements/DECISIONS.md'
-  PATH="$d/lshim:$oldp"
+  _nr_shim_cmd "$fd/lshim" git ' show '"'*'"':requirements/DECISIONS.md'
+  PATH="$fd/lshim:$oldp"
   _forks_drift_land work-fetch "$id" fetch 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
   PATH="$oldp"
   [ "$_FDL_RC" -ne 0 ] || cf "(landing) a register git could not fetch did not refuse"
   grep -q 'refusal=forks-register-unreadable' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(landing) no progress record carries refusal=forks-register-unreadable: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
   case "$_FDL_OUT" in *"git could not read"*":requirements/DECISIONS.md"*) : ;; *) cf "(landing) the refusal does not name the revision and path git could not read: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
   teardown
-  rm -rf "$d"
+  rm -rf "$fd"
   finish "a register git cannot fetch is recorded as a failed read and the forks: check refuses, naming <rev>:<path>; a path that is absent still reads as no register"
+}
+
+# =============================================================================
+# CASE — THE TRUNK-TIP COPY OF THE REGISTER IS READ ALONE.
+# The trunk gained an entry after the card reached dev_complete/, so its register blob differs from the branch's;
+# only that blob is unreadable. The landing refuses naming it: nothing else in the check reads it.
+# =============================================================================
+case_a_failed_trunk_tip_register_read_refuses_the_landing() {
+  cf_reset
+  local id="$SB_PREFIX-903" ida="$SB_PREFIX-904" slug=third rel oldp="$PATH" out rc bad real fd
+  make_sandbox third
+  fd="$SB_TMP/shims"; mkdir -p "$fd"; real="$(command -v git)"
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  seed_issue todo "$id" "$slug" chore "third copy" "feature/$id-work"
+  publish_sandbox
+  _forks_pickup "$id" "$slug"
+  seed_branch "$id" work "CHANGE-$id.txt"
+  rel="progress/in_progress/$id-$slug.md"
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "$rel" "progress/dev_complete/$id-$slug.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${id}: ready for review" --quiet >/dev/null 2>&1
+  printf '\n### D-02\n\n**Ruling.** Another card.\n\n**Provenance.** no work item.\n' > "$SB_TMP/add"
+  A="$SB_TMP/add" perl -0 -i -pe 'BEGIN{open F,"<",$ENV{A}; local $/; $x=<F>} s/(\*\*Ruling\.\*\* Old text\.\n)/$1$x/' "$SB_WORK/requirements/DECISIONS.md"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[PM] D-02 for another card" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  bad="$(git -C "$SB_WORK" rev-parse HEAD:requirements/DECISIONS.md)"
+  [ "$bad" != "$(git -C "$SB_WORK" rev-parse HEAD~1:requirements/DECISIONS.md)" ] || cf "(prereq, tip) the trunk tip's register blob is the card's own"
+  # a git that fails `show` only for the blob the trunk tip holds
+  printf '#!/bin/bash\ncase " $* " in *" show "*) for a in "$@"; do case "$a" in *:requirements/DECISIONS.md) [ "$(%s "${@:1:2}" rev-parse -q --verify "$a" 2>/dev/null)" = "%s" ] && exit 128 ;; esac; done ;; esac\nexec %s "$@"\n' "$real" "$bad" "$real" > "$fd/git"; chmod +x "$fd/git"
+  PATH="$fd:$oldp"
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  PATH="$oldp"
+  [ "$rc" -ne 0 ] || cf "(tip) a trunk-tip register blob git could not read did not refuse the landing"
+  case "$out" in *"git could not read"*":requirements/DECISIONS.md"*) : ;; *) cf "(tip) the refusal does not name the register git could not read: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  rm -f "$fd/git"
+  teardown
+  finish "a trunk-tip register blob git cannot read refuses the landing, naming the register"
+}
+
+# =============================================================================
+# CASE — A FAILED DIFF OF THE REGISTER IS NOT "NO ENTRY CHANGED".
+# The branch adds an entry under `forks: none` and the register diff fails. The landing refuses naming the diff, where
+# it used to land the card with the undeclared entry; the control, without the shim, refuses on the entry.
+# =============================================================================
+case_a_failed_register_diff_refuses_the_landing_it_used_to_let_through() {
+  cf_reset
+  local ida="$SB_PREFIX-904" oldp="$PATH" out rc real fd
+  make_sandbox diffcase
+  fd="$SB_TMP/shims"; mkdir -p "$fd"; real="$(command -v git)"
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  publish_sandbox
+  seed_issue dev_complete "$ida" newreg chore "Adds a register entry" "feature/$ida-work"
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/$ida-work" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "feature/$ida-work" >/dev/null 2>&1
+  printf '\n### D-02\n\n**Ruling.** [cross-cutting] A brand new fork, resolved on this branch.\n\n**Why.** The sandbox needs one.\n\n**Provenance.** no work item.\n' >> "$SB_WORK/requirements/DECISIONS.md"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[Dev] $ida: add D-02" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$ida-work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+  printf '#!/bin/sh\ncase "$*" in *" diff "*"--unified=0"*"requirements/DECISIONS.md"*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$fd/git"; chmod +x "$fd/git"
+  PATH="$fd:$oldp"
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  PATH="$oldp"
+  [ "$rc" -ne 0 ] || cf "a branch adding an entry under forks: none landed when the register diff failed"
+  case "$out" in *"git could not diff"*) : ;; *) cf "the refusal does not name the failed diff: $(printf '%s' "$out" | tr '\n' '|' | tail -c 2500)" ;; esac
+  ! origin_has_path "progress/qa_complete/$ida-newreg.md" || cf "the card advanced to qa_complete"
+  rm -f "$fd/git"
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) the branch adding an entry under forks: none landed"
+  case "$out" in *"D-02"*) : ;; *) cf "(control) the refusal does not name the entry: $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)" ;; esac
+  teardown
+  finish "a register diff that fails refuses the landing, naming the diff; without the failure the entry is refused"
+}
+
+# =============================================================================
+# CASE — make_sandbox LEAVES THE CALLER'S LOOP VARIABLE ALONE.
+# Its loop names `d`, which bash scopes dynamically: a caller's own `d` became `history`, and a cleanup of `$d`
+# removed a `history` directory from the harness's working directory. A throwaway working directory holds a
+# planted history/keep.txt and a caller's `d` across the call; both survive.
+# =============================================================================
+case_make_sandbox_leaves_the_callers_loop_variable_and_working_directory_alone() {
+  cf_reset
+  local d="mine" wd here="$PWD"
+  wd="$(mktemp -d)" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  mkdir -p "$wd/history" && : > "$wd/history/keep.txt"
+  cd "$wd" || { cf "no working directory"; finish "(no wd)"; return 0; }
+  make_sandbox >/dev/null 2>&1
+  rm -rf "$d"
+  cd "$here" || exit 64
+  [ "$d" = "mine" ] || cf "a caller's variable d was overwritten with '$d'"
+  [ -e "$wd/history/keep.txt" ] || cf "history/keep.txt was removed from the caller's working directory"
+  teardown
+  rm -rf "$wd"
+  finish "a caller's d survives make_sandbox, and a cleanup of it removes nothing from the working directory"
 }

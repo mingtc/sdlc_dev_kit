@@ -84,13 +84,22 @@ _kit_reg_note() {
   [ -z "${KIT_BP_FAIL_FILE:-}" ] || printf '%s\n' "$1" >> "$KIT_BP_FAIL_FILE"
   return 0
 }
-# kit_register_fetch <repo> <rev> <path> <dest> — copies <rev>:<path> to <dest>. A path that is not there leaves <dest>
-# empty and succeeds (no register there yet); a path that is there and cannot be read fails, and the caller says so.
-# `git show` exits 128 for both, so it is `rev-parse --verify` that tells them apart.
+# kit_register_read <repo> <rev> <path> — echoes <rev>:<path>. A path that is not in the tree there is no register yet: nothing
+# is echoed and it succeeds. Anything else that stops git reading it (an unreadable tree or blob, a revision that does not
+# resolve) fails, and the caller says so. `git show` exits 128 for the missing path and the unreadable object alike, and
+# `rev-parse --verify` cannot tell a tree it cannot read from a path that is absent, so `ls-tree` classifies: it fails
+# when the tree cannot be read and prints nothing for an absent path.
+kit_register_read() {
+  local ls
+  ls="$(git -C "$1" ls-tree "$2" -- "$3" 2>/dev/null)" || return 1   # return-class: predicate
+  [ -n "$ls" ] || return 0
+  git -C "$1" show "$2:$3" 2>/dev/null
+}
+# kit_register_fetch <repo> <rev> <path> <dest> — copies <rev>:<path> to <dest>, empty when the path is absent there;
+# fails as kit_register_read does.
 kit_register_fetch() {
   : > "$4"
-  git -C "$1" rev-parse -q --verify "$2:$3" >/dev/null 2>&1 || return 0   # return-class: predicate
-  git -C "$1" show "$2:$3" > "$4" 2>/dev/null
+  kit_register_read "$1" "$2" "$3" > "$4"
 }
 _kit_reg_pattern_rejected() {
   local a rc=0
@@ -171,9 +180,8 @@ kit_decision_register_retired() {
 #   following section's own insertions.
 kit_decisions_touched_by_diff() {
   local repo="$1" old="$2" new="$3" path="$4" mark="$5"
-  local branch_copy spans
-  git -C "$repo" rev-parse -q --verify "${new}:${path}" >/dev/null 2>&1 || return 0
-  branch_copy="$(git -C "$repo" show "${new}:${path}" 2>/dev/null)" || { _kit_reg_note "git could not read ${new}:${path}"; return 0; }
+  local branch_copy spans diffout
+  branch_copy="$(kit_register_read "$repo" "$new" "$path")" || { _kit_reg_note "git could not read ${new}:${path}"; return 0; }
   [ -n "$branch_copy" ] || return 0
   # ONE PASS builds each entry's SPAN "<id> <start> <end>" directly: an entry's end is the line
   # before whichever comes first, the next "<mark><id>" heading or the next "## " section
@@ -196,7 +204,9 @@ kit_decisions_touched_by_diff() {
   # at all), and under the caller's `pipefail` an empty `grep '^@@'` — nothing to loop over — must
   # not read as this FUNCTION failing: the `while` still ran zero times, correctly. `|| true`
   # guards the whole pipeline, including `sort -u` on empty input.
-  { git -C "$repo" diff --unified=0 "${old}...${new}" -- "$path" 2>/dev/null | grep '^@@' | while IFS= read -r hunk; do
+  # A diff that fails is a failed read, never "no entry changed": that reading lets an entry the branch added land.
+  diffout="$(git -C "$repo" diff --unified=0 "${old}...${new}" -- "$path" 2>/dev/null)" || { _kit_reg_note "git could not diff ${old}...${new} -- ${path}"; return 0; }
+  { printf '%s\n' "$diffout" | grep '^@@' | while IFS= read -r hunk; do
       local cd_part c d end
       cd_part=$(printf '%s' "$hunk" | sed -E 's/^@@ -[0-9]+(,[0-9]+)? \+([0-9]+(,[0-9]+)?).*/\2/')
       c=${cd_part%%,*}

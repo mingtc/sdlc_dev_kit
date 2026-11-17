@@ -1061,8 +1061,7 @@ kit_qa_verdict_check() {
 #   its heading prefix, as its own readers read it, and a fence rule here would make this one disagree with them.
 _forks_entry_ids() {
   local body
-  git -C "$1" rev-parse -q --verify "${2}:${3}" >/dev/null 2>&1 || return 0
-  body="$(git -C "$1" show "${2}:${3}" 2>/dev/null)" || { _kit_reg_note "git could not read ${2}:${3}"; return 0; }
+  body="$(kit_register_read "$1" "$2" "$3")" || { _kit_reg_note "git could not read ${2}:${3}"; return 0; }
   printf '%s\n' "$body" | LC_ALL=C awk -v m="$4" '
     index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); print id }' \
     | { grep -xE "${5}" || true; } | sort -u || true
@@ -1113,7 +1112,7 @@ _forks_window_entries() {
   added="$(comm -13 <(_forks_entry_ids "$repo" "${lo}^" "$path" "$mark" "$shape") <(_forks_entry_ids "$repo" "$hi" "$path" "$mark" "$shape"))"
   [ -n "$added" ] || return 0
   files="$(git -C "$repo" ls-tree -r --name-only "$tip" -- progress 2>/dev/null || true)"
-  tipcopy="$(git -C "$repo" show "${tip}:${path}" 2>/dev/null || true)"
+  tipcopy="$(kit_register_read "$repo" "$tip" "$path")" || { _kit_reg_note "git could not read ${tip}:${path}"; tipcopy=""; }
   for c in $(git -C "$repo" log --no-renames --reverse --format=%H "${lo}^..${hi}" -- "$path" 2>/dev/null || true); do
     cids="$(kit_decisions_touched_by_diff "$repo" "${c}^" "$c" "$path" "$mark")"
     for d in $cids; do ctable="${ctable}${c} ${d}"$'\n'; done

@@ -166,6 +166,7 @@ EOF
 # path with a space — an unquoted command expansion word-splits on it, which is a
 # real defect class this harness carries a dedicated case for.
 make_sandbox() {
+  local d   # the loop below names it; a caller's own `d` must survive the call
   SB_TMP="$(mktemp -d)"
   SB_ORIGIN="$SB_TMP/origin.git"
   SB_WORK="$SB_TMP/${1:-work}"
@@ -725,7 +726,7 @@ _kit_neutral_config() {
 # KIT_SCAFFOLD_MARK, never derived from check-board.sh's probe (the consumer): a fixture
 # derived from the tool agrees with it by construction. It writes the WHOLE shipped line.
 seed_scaffolding_tree() {
-  local want_project=true
+  local want_project=true _sf
   while [ $# -gt 0 ]; do
     case "$1" in
       --no-project) want_project=false; shift ;;
