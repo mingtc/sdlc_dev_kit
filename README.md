@@ -12,8 +12,9 @@ it runs the process for you — you run `/start` and answer its questions.
 
 **Language- and stack-agnostic in its core.** Works with any codebase, any test framework, any forge. The core
 requires only **git** and a **POSIX shell**; an optional module you enable (`process/MODULES.md`) may need more. It runs on
-**macOS, Linux, or Windows through WSL** — on WSL keep the project inside WSL's own filesystem (`~/…`), not under `/mnt/c`, where
-exec bits, symlinks and letter case do not behave as they do on Linux. Native Windows (Git Bash, PowerShell) is not supported.
+**macOS, Linux, or Windows through WSL 2** — on WSL keep the project inside WSL's own filesystem (`~/…`), not under `/mnt/c`, where
+every file reads as executable, a new script is committed without its exec bit, and two names that differ only in letter case
+are one file. Native Windows (Git Bash, PowerShell) is not supported.
 Run the self-test (`./scripts/test/run.sh`) as an ordinary user, not root: the cases that make a file unreadable cannot prove
 anything as root and say so. Built with [Claude Code](https://claude.com/claude-code) in
 mind — that's where the skills, agent definitions and hooks under `.claude/` actually run (the hooks stay

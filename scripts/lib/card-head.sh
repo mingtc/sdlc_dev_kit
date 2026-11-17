@@ -173,6 +173,8 @@ kit_card_fragments() {
   # The three placements and the strip, in one pass over the card. The texts travel through ENVIRON,
   # since awk -v expands escapes; the slots arrive as <slot> US <text>, separated by RS, a text's newlines
   # carried as GS (macOS awk splits on a newline when asked to split on another separator).
+  # A slot's `in` test is a statement of its own, before the assignment: mawk and busybox awk create
+  # ST[sn] on the left before they evaluate the right, so a test inside that assignment is always true there.
   KIT_FRAG_SLOTS="$slot_texts" KIT_FRAG_FM="$fm" KIT_FRAG_BE="$be" LC_ALL=C awk '
     function lines(t, arr,   n) { n = split(t, arr, "\n"); return n }
     function trim_end(arr, n) { while (n > 0 && arr[n] == "") n--; return n }
@@ -181,7 +183,7 @@ kit_card_fragments() {
       nfm = lines(ENVIRON["KIT_FRAG_FM"], FM); nfm = (ENVIRON["KIT_FRAG_FM"] == "") ? 0 : nfm
       nbe = lines(ENVIRON["KIT_FRAG_BE"], BE); nbe = (ENVIRON["KIT_FRAG_BE"] == "") ? 0 : trim_end(BE, nbe)
       nsl = split(ENVIRON["KIT_FRAG_SLOTS"], SL, "\036")
-      for (k = 1; k <= nsl; k++) { p = index(SL[k], "\037"); sn = substr(SL[k], 1, p - 1); st = substr(SL[k], p + 1); gsub("\035", "\n", st); ST[sn] = (sn in ST) ? ST[sn] "\n" st : st }
+      for (k = 1; k <= nsl; k++) { p = index(SL[k], "\037"); sn = substr(SL[k], 1, p - 1); st = substr(SL[k], p + 1); gsub("\035", "\n", st); if (sn in ST) ST[sn] = ST[sn] "\n" st; else ST[sn] = st }
       for (i = 1; i <= NR; i++) if (L[i] == "---") { if (++nd == 2) { close_ = i; break } }
       act = 0
       for (i = NR; i >= 1; i--) if (L[i] ~ /^## Activity[ \t]*$/) { act = i; break }
