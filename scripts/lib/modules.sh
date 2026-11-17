@@ -1548,7 +1548,7 @@ OWN_NAMES_EOF
   [ -n "$ids" ] || return 1   # return-class: predicate
   [ -f "$w" ] || : > "$w"; [ -f "$h" ] || : > "$h"
   cmp -s "$w" "$h" && return 0   # return-class: predicate
-  # a working copy git converts on the way in (core.autocrlf, a text attribute) differs from the committed bytes in its line endings
+  # hashed as `git add` would store it, so anything git's own clean path counts as no change passes: core.autocrlf, text/eol attributes, a clean filter
   w="$(git -C "$KIT_MOD_ROOT" hash-object --path="$path" "$w" 2>/dev/null)" || return 1   # return-class: predicate
   [ -n "$w" ] && [ "$w" = "$(git -C "$KIT_MOD_ROOT" hash-object --no-filters "$h" 2>/dev/null)" ]
 }
