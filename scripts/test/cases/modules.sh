@@ -586,6 +586,9 @@ case_a_kill_leaves_no_stray_file_and_a_resume_records_the_bytes_it_writes() {
   _md_kill_enable PROJECT.md
   [ "$_md_rc" -ge 128 ] || { cf "(a) the stand-in did not kill the enable (exit $_md_rc)"; finish "$L"; teardown; return; }
   [ -n "$(_md_strays "$SB_WORK")" ] || cf "(a) (premise) the kill left no side file, so the sweep below is untested"
+  # The killed run's scratch outside the project is the harness's to remove: it is in the sandbox (_md_kill_tmp).
+  [ -n "$(find "$SB_TMP/tmp" -mindepth 1 -maxdepth 1 -name 'kit-module.*' 2>/dev/null)" ] \
+    || cf "(a) the killed enable's scratch (kit-module.*) is not in the sandbox's temp directory: the run was not given it, so the scratch is left in the machine's temp directory, which nothing empties (or enable no longer makes one)"
   _md_mod enable example
   [ "$_md_rc" -eq 0 ] || cf "(a) the resume exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   st="$(_md_strays "$SB_WORK")"; [ -z "$st" ] || cf "(a) a stray file remains after the resume: $(printf '%s' "$st" | tr '\n' ' ')"
