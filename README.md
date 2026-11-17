@@ -12,7 +12,7 @@ it runs the process for you — you run `/start` and answer its questions.
 
 **Language- and stack-agnostic in its core.** Works with any codebase, any test framework, any forge. The core
 requires only **git** and a **POSIX shell**; an optional module you enable (`process/MODULES.md`) may need more. It runs on
-**macOS, Linux, or Windows through WSL 2** — on WSL keep the project inside WSL's own filesystem (`~/…`), not under `/mnt/c`, where
+**macOS, Linux, or Windows through WSL 2** — on WSL keep the project inside WSL's own filesystem (`~/…`), not under `/mnt/c`, where, by default,
 every file reads as executable, a new script is committed without its exec bit, and two names that differ only in letter case
 are one file. Native Windows (Git Bash, PowerShell) is not supported.
 Run the self-test (`./scripts/test/run.sh`) as an ordinary user, not root: the cases that make a file unreadable cannot prove
