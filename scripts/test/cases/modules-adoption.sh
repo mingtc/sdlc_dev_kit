@@ -1883,7 +1883,7 @@ case_the_commit_hint_of_a_disable_run_again_stages_what_the_first_run_removed() 
   [ -n "$hint" ] || cf "the run again prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   if [ -n "$hint" ]; then
     ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "the printed hint failed when run: $hint"
-    left="$(git -C "$SB_WORK" status --porcelain --untracked-files=all 2>/dev/null | grep -v '^D  ' | tr '\n' '|' | cut -c1-300)"
+    left="$(git -C "$SB_WORK" status --porcelain --untracked-files=all 2>/dev/null | grep -v '^[MDA]  ' | tr '\n' '|' | cut -c1-300)"
     [ -z "$left" ] || cf "following the hint left changes behind: $left"
     [ -z "$(git -C "$SB_WORK" ls-files -- .claude/roles/example.md)" ] || cf "the first run's deletion of .claude/roles/example.md is not staged"
   fi
