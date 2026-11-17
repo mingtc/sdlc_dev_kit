@@ -2164,7 +2164,7 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   node "$m/m3-tokens.mjs" '#2F6FEB' --name app --out "$d/b" >/dev/null 2>&1
   # (a2) a usage request succeeds and prints the usage; a call with no seed still refuses with 64
   out="$(node "$m/m3-tokens.mjs" --help 2>&1)"; i=$?
-  { [ "$i" -eq 0 ] && printf '%s' "$out" | grep -q 'usage: m3-tokens.mjs'; } || cf "(a2) m3-tokens.mjs --help does not exit 0 with its usage (exit $i): $out"
+  { [ "$i" -eq 0 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null; } || cf "(a2) m3-tokens.mjs --help does not exit 0 with its usage (exit $i): $out"
   node "$m/m3-tokens.mjs" >/dev/null 2>&1; i=$?
   [ "$i" -eq 64 ] || cf "(a2) m3-tokens.mjs with no seed does not exit 64 (exit $i)"
   # (a3) render.py takes --suffix with a value that opens with a hyphen, spaced as well as with an =
