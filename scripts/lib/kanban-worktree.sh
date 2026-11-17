@@ -282,6 +282,12 @@ kwt_lock() {
       if [ "$back" = "$tok" ]; then
         KWT_LOCK_HELD=true
         kit_on_exit 'kwt_unlock'
+        # A signal to the op ends it only once the git command it is running (a push, a rebase) has returned: bash
+        # runs a trap after its foreground command, so the lock is never released over a push still in flight.
+        # A hung push needs KILL, and KILL still leaves the push orphaned.
+        trap 'exit 143' TERM
+        trap 'exit 129' HUP
+        trap 'exit 130' INT
         return 0
       fi
       continue

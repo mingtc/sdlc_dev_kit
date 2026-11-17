@@ -644,3 +644,70 @@ case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_wri
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A TERM TO THE OP'S OWN PID WAITS FOR THE GIT COMMAND IT IS RUNNING BEFORE THE LOCK IS RELEASED.
+# The op ended at once and released the lock while its `git push` went on as an orphan and landed, so another
+# op could take the lock and sync while the first op's commit was still being pushed. bash runs a trap after
+# its foreground command, so the signal is answered once the push has returned:
+# (push) a pre-receive hook holds the push for six seconds; TERM goes to the op's pid alone. Two seconds later the
+#   op is alive and holds the lock; after it ends (143) the push has landed and the lock is gone.
+# (rebase) the push is rejected because the trunk moved; the retry's rebase is held by a pre-rebase hook; TERM goes
+#   to the op's pid alone. The lock is held until the rebase has finished, the worktree is not left mid-rebase,
+#   and the rebased commit sits on the trunk's new tip.
+# =============================================================================
+case_a_term_to_the_ops_pid_waits_for_its_push_and_its_rebase_before_the_lock_goes() {
+  cf_reset
+  local L="a board op sent TERM to its own pid keeps the lock until the push or the retry's rebase it is running has returned, leaves no rebase in progress, and then exits 143"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-876" id2="$SB_PREFIX-877" out rc=0 pid i hold="$SB_TMP/in-hook3" lock="$SB_WORK/.kanban-wt.lock" other="$SB_TMP/other"
+  seed_issue todo "$id" termwait chore "A card whose op is terminated while its push is held"
+  seed_issue todo "$id2" termrebase chore "A card whose op is terminated during its retry's rebase"
+  publish_sandbox
+  # (push)
+  printf '#!/bin/sh\ntouch "%s"\nsleep 6\nexit 0\n' "$hold" > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "waited for its push" ) > "$SB_TMP/term3.out" 2>&1 &
+  pid=$!
+  for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
+  [ -e "$hold" ] || cf "(prereq, push) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term3.out" | cut -c1-200)"
+  kill -TERM "$pid" 2>/dev/null
+  sleep 2
+  kill -0 "$pid" 2>/dev/null || cf "(push) the op ended while its push was still held by the hook"
+  [ -d "$lock" ] || cf "(push) the lock was released while the push was still in flight"
+  wait "$pid" 2>/dev/null; rc=$?
+  [ "$rc" -eq 143 ] || cf "(push) the op ended with status $rc, not 143"
+  [ ! -d "$lock" ] || cf "(push) the lock is still there after the op ended"
+  git -C "$SB_ORIGIN" log --format=%s -3 "$SB_TRUNK" 2>/dev/null | grep -F 'waited for its push' >/dev/null || cf "(push) the push had not landed by the time the lock was released"
+  rm -f "$SB_ORIGIN/hooks/pre-receive"
+  # (rebase): the first push is held until the trunk has moved, then rejected; the retry's rebase is held too
+  local gate="$SB_TMP/gate" go="$SB_TMP/go" rbhold="$SB_TMP/in-rebase"
+  printf '#!/bin/sh\nif mkdir "%s" 2>/dev/null; then touch "%s"; while [ ! -e "%s" ]; do sleep 1; done; exit 1; fi\nexit 0\n' "$gate" "$hold.2" "$go" > "$SB_ORIGIN/hooks/pre-receive"
+  chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  printf '#!/bin/sh\nif mkdir "%s.d" 2>/dev/null; then touch "%s"; sleep 6; fi\nexit 0\n' "$rbhold" "$rbhold" > "$SB_WORK/scripts/githooks/pre-rebase"; chmod +x "$SB_WORK/scripts/githooks/pre-rebase"
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id2" in_progress --role Dev --note "rebased then ended" ) > "$SB_TMP/term4.out" 2>&1 &
+  pid=$!
+  for i in $(seq 1 60); do [ -e "$hold.2" ] && break; sleep 1; done
+  [ -e "$hold.2" ] || cf "(prereq, rebase) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term4.out" | cut -c1-200)"
+  git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
+  printf 'moved\n' > "$other/OTHER-LANE.txt"
+  git -C "$other" add OTHER-LANE.txt >/dev/null 2>&1
+  git -C "$other" -c user.email=o@kit.invalid -c user.name=other -c commit.gpgsign=false commit -q -m "[PM] another lane moves the trunk" >/dev/null 2>&1
+  git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1 || cf "(prereq, rebase) the second clone could not move the trunk"
+  touch "$go"
+  for i in $(seq 1 60); do [ -e "$rbhold" ] && break; sleep 1; done
+  [ -e "$rbhold" ] || cf "(prereq, rebase) the retry never reached its rebase: $(tr '\n' '|' < "$SB_TMP/term4.out" | cut -c1-300)"
+  kill -TERM "$pid" 2>/dev/null
+  sleep 2
+  kill -0 "$pid" 2>/dev/null || cf "(rebase) the op ended while its rebase was still held"
+  [ -d "$lock" ] || cf "(rebase) the lock was released while the rebase was still running"
+  wait "$pid" 2>/dev/null; rc=$?
+  [ "$rc" -eq 143 ] || cf "(rebase) the op ended with status $rc, not 143"
+  [ ! -d "$lock" ] || cf "(rebase) the lock is still there after the op ended"
+  [ ! -d "$(git -C "$SB_WORK/.kanban-wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "(rebase) the kanban worktree is left mid-rebase"
+  [ ! -d "$(git -C "$SB_WORK/.kanban-wt" rev-parse --git-path rebase-apply 2>/dev/null)" ] || cf "(rebase) the kanban worktree is left mid-rebase (apply)"
+  git -C "$SB_WORK/.kanban-wt" log --format=%s -3 2>/dev/null | grep -F 'another lane moves the trunk' >/dev/null || cf "(rebase) the op's commit was not rebased onto the trunk's new tip: $(git -C "$SB_WORK/.kanban-wt" log --format=%s -3 2>/dev/null | tr '\n' '|')"
+  rm -f "$SB_ORIGIN/hooks/pre-receive" "$SB_WORK/scripts/githooks/pre-rebase"
+  finish "$L"
+  teardown
+}
