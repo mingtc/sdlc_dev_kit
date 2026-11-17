@@ -645,6 +645,16 @@ case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_wri
   teardown
 }
 
+# _tw_reap <pid> — waits at most 60 s for the op to end, then kills it; sets TW_RC to its status, or hung. A row whose op never ends
+# (the ablated form: a push held for ever) fails on its own instead of hanging the run.
+_tw_reap() {
+  local p="$1" i rc=0
+  for i in $(seq 1 60); do kill -0 "$p" 2>/dev/null || break; sleep 1; done
+  if kill -0 "$p" 2>/dev/null; then kill -KILL "$p" 2>/dev/null; wait "$p" 2>/dev/null; TW_RC=hung; return 0; fi
+  wait "$p" 2>/dev/null; rc=$?
+  TW_RC="$rc"
+}
+
 # =============================================================================
 # CASE — A TERM TO THE OP'S OWN PID WAITS FOR THE GIT COMMAND IT IS RUNNING BEFORE THE LOCK IS RELEASED.
 # The op ended at once and released the lock while its `git push` went on as an orphan and landed, so another
@@ -675,14 +685,14 @@ case_a_term_to_the_ops_pid_waits_for_its_push_and_its_rebase_before_the_lock_goe
   sleep 2
   kill -0 "$pid" 2>/dev/null || cf "(push) the op ended while its push was still held by the hook"
   [ -d "$lock" ] || cf "(push) the lock was released while the push was still in flight"
-  wait "$pid" 2>/dev/null; rc=$?
-  [ "$rc" -eq 143 ] || cf "(push) the op ended with status $rc, not 143"
+  _tw_reap "$pid"; rc="$TW_RC"
+  [ "$rc" = 143 ] || cf "(push) the op ended with status $rc, not 143"
   [ ! -d "$lock" ] || cf "(push) the lock is still there after the op ended"
   git -C "$SB_ORIGIN" log --format=%s -3 "$SB_TRUNK" 2>/dev/null | grep -F 'waited for its push' >/dev/null || cf "(push) the push had not landed by the time the lock was released"
   rm -f "$SB_ORIGIN/hooks/pre-receive"
   # (rebase): the first push is held until the trunk has moved, then rejected; the retry's rebase is held too
   local gate="$SB_TMP/gate" go="$SB_TMP/go" rbhold="$SB_TMP/in-rebase"
-  printf '#!/bin/sh\nif mkdir "%s" 2>/dev/null; then touch "%s"; while [ ! -e "%s" ]; do sleep 1; done; exit 1; fi\nexit 0\n' "$gate" "$hold.2" "$go" > "$SB_ORIGIN/hooks/pre-receive"
+  printf '#!/bin/sh\nif mkdir "%s" 2>/dev/null; then touch "%s"; n=0; while [ ! -e "%s" ] && [ $n -lt 60 ]; do sleep 1; n=$((n+1)); done; exit 1; fi\nexit 0\n' "$gate" "$hold.2" "$go" > "$SB_ORIGIN/hooks/pre-receive"
   chmod +x "$SB_ORIGIN/hooks/pre-receive"
   printf '#!/bin/sh\nif mkdir "%s.d" 2>/dev/null; then touch "%s"; sleep 6; fi\nexit 0\n' "$rbhold" "$rbhold" > "$SB_WORK/scripts/githooks/pre-rebase"; chmod +x "$SB_WORK/scripts/githooks/pre-rebase"
   ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id2" in_progress --role Dev --note "rebased then ended" ) > "$SB_TMP/term4.out" 2>&1 &
@@ -701,8 +711,8 @@ case_a_term_to_the_ops_pid_waits_for_its_push_and_its_rebase_before_the_lock_goe
   sleep 2
   kill -0 "$pid" 2>/dev/null || cf "(rebase) the op ended while its rebase was still held"
   [ -d "$lock" ] || cf "(rebase) the lock was released while the rebase was still running"
-  wait "$pid" 2>/dev/null; rc=$?
-  [ "$rc" -eq 143 ] || cf "(rebase) the op ended with status $rc, not 143"
+  _tw_reap "$pid"; rc="$TW_RC"
+  [ "$rc" = 143 ] || cf "(rebase) the op ended with status $rc, not 143"
   [ ! -d "$lock" ] || cf "(rebase) the lock is still there after the op ended"
   [ ! -d "$(git -C "$SB_WORK/.kanban-wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "(rebase) the kanban worktree is left mid-rebase"
   [ ! -d "$(git -C "$SB_WORK/.kanban-wt" rev-parse --git-path rebase-apply 2>/dev/null)" ] || cf "(rebase) the kanban worktree is left mid-rebase (apply)"
