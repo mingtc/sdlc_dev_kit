@@ -558,7 +558,6 @@ case_module_disable_checks_before_it_removes_and_keeps_a_role_layer_that_history
   printf '%s\n' "$_md_out" | grep -E 'edited|missing' >/dev/null && cf "(3) status after the re-enable reports an edited or missing thing"
   grep -E '^kept ' "$SB_WORK/process/MODULES" >/dev/null && cf "(3) the kept record survived the re-enable"
   _md_mod disable example
-  _md_snap "$SB_WORK" > "$s2"
   [ ! -e "$SB_WORK/.claude/roles/example.md" ] || cf "(3) the taken-up file was not removed by the next disable"
 
   finish "$L"
