@@ -2175,6 +2175,8 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   done
   _dm_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import render; render.parse(["render.py", "p", "o"] + sys.argv[2:])' "$m" --suffix --scheme dark
   { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "expected one argument"; } || cf "(a4) render.py --suffix --scheme dark takes --scheme as the suffix (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
+  _dm_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import render; render.parse(["render.py", "p", "o"] + sys.argv[2:])' "$m" --chr x
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "unrecognized arguments"; } || cf "(a4b) render.py reads --chr as --chrome, a prefix of an option name (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   # (a3) render.py takes --suffix with a value that opens with a hyphen, spaced as well as with an =
   mkdir -p "$d/rp"
   for i in "--suffix -x" "--suffix=-x"; do
@@ -2360,17 +2362,23 @@ EOF
     rm -rf "$d/h"; cp -R "$d/a" "$d/h"
     printf '%s\n' "$i" > "$d/h/requirements/design/tokens/app.dark.tokens.json"
     _dm_py "$m/contrast-audit.py" "$d/h" --strict
-    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.dark.tokens.json" && _dm_has "$_dm_out" "holds no colour token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l2) a dark token file holding $i passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.dark.tokens.json" && _dm_has "$_dm_out" "holds no color.* token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l2) a dark token file holding $i passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   done
   # (l3) the base file counts too when its namespace has theme files (or the run measured nothing); a spacing-only namespace beside them stays quiet
   rm -rf "$d/h"; cp -R "$d/a" "$d/h"
   printf '%s\n' '{}' > "$d/h/requirements/design/tokens/app.tokens.json"
   _dm_py "$m/contrast-audit.py" "$d/h" --strict
-  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.tokens.json" && _dm_has "$_dm_out" "holds no colour token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l3) a base token file holding {} passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.tokens.json" && _dm_has "$_dm_out" "holds no color.* token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l3) a base token file holding {} passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   rm -rf "$d/h"; cp -R "$d/a" "$d/h"
   printf '%s\n' '{"space":{"4":{"$value":"4px","$type":"dimension"}}}' > "$d/h/requirements/design/tokens/spacing.tokens.json"
   _dm_py "$m/contrast-audit.py" "$d/h" --strict
   { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UNREAD spacing.tokens.json"; } || cf "(l3) a spacing-only namespace of its own, beside a measured one, is reported or fails --strict (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (l5) a base of non-colour tokens beside a light and a dark file that both hold colours is what the hint leads to: nothing is unmeasured, nothing is said
+  rm -rf "$d/h"; cp -R "$d/a" "$d/h"
+  cp "$d/h/requirements/design/tokens/app.tokens.json" "$d/h/requirements/design/tokens/app.light.tokens.json"
+  printf '%s\n' '{"space":{"4":{"$value":"4px","$type":"dimension"}}}' > "$d/h/requirements/design/tokens/app.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/h" --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UNREAD app.tokens.json"; } || cf "(l5) a spacing-only base beside a light and a dark file that hold colours is reported or fails --strict (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   # (l4) the line for a theme file says what to do; a directory named like a token file is not one
   rm -rf "$d/h"; cp -R "$d/a" "$d/h"
   printf '%s\n' '{"space":{"4":{"$value":"4px","$type":"dimension"}}}' > "$d/h/requirements/design/tokens/app.spacing.tokens.json"
