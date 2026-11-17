@@ -1671,12 +1671,13 @@ case_a_failed_module_disable_keeps_every_row_until_the_disable_finishes() {
 # CASE — module.sh enable AND status OVER A MODULE WHOSE DISABLE FAILED PART-WAY SAY SO AND NAME THE WAY ON.
 #   The record still names the module, so enable says it is already enabled, exits 0 and places nothing; the files the
 #   failed disable removed stay removed and the record keeps all its rows. Both commands add that recorded things
-#   are missing and that the disable run again finishes it, or a disable and an enable put them back. A module
-#   with every recorded thing present gets no such line.
+#   are missing, with both readings (removed here, or left by a disable that stopped part-way, which the disable run again
+#   finishes). A module with every recorded thing present, or whose missing things the manifest no longer places, gets no
+#   such line.
 # =============================================================================
 case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   cf_reset
-  local L="module.sh enable and status over a module whose disable failed part-way say it is already enabled (exit 0, nothing placed, every row kept) and name the way on: the disable run again, or a disable and an enable; a module with nothing missing gets no such line"
+  local L="module.sh enable and status over a module whose disable failed part-way say it is already enabled (exit 0, nothing placed, every row kept) and name both readings of what is missing (removed here, or left by a disable that stopped part-way) and the disable run again; a module with nothing missing that the manifest still places gets no such line"
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
   if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
