@@ -96,7 +96,8 @@ def theme_rule(root, board, theme):
     return False
 
 
-def main(argv):
+def parse(argv):
+    """The arguments of a run, `argv` being the program name and then its arguments."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('project')
     ap.add_argument('out')
@@ -110,12 +111,24 @@ def main(argv):
     ap.add_argument('--wait', type=int, default=8000)
     ap.add_argument('--timeout', type=int, default=90)
     ap.add_argument('--chrome')
-    args = list(argv[1:])
-    for k in range(len(args) - 1):     # argparse reads `--suffix -x` as a missing value: join it, as `--suffix=-x`
-        if args[k] == '--suffix' and args[k + 1].startswith('-'):
-            args[k:k + 2] = ['--suffix=' + args[k + 1]]
+    known = set(ap._option_string_actions)
+    args, k = [], 1
+    while k < len(argv):    # argparse reads `--suffix -x` as a missing value: join it, as `--suffix=-x`, unless the next word is an option of ours; `--` ends the options
+        w = argv[k]
+        if w == '--':
+            args += argv[k:]
             break
-    a = ap.parse_args(args)
+        if w == '--suffix' and k + 1 < len(argv) and argv[k + 1].startswith('-') and argv[k + 1] not in known and argv[k + 1] != '--':
+            args.append('--suffix=' + argv[k + 1])
+            k += 2
+            continue
+        args.append(w)
+        k += 1
+    return ap.parse_args(args)
+
+
+def main(argv):
+    a = parse(argv)
     rt = a.runtime or os.environ.get('DC_RUNTIME')
     if not rt or not os.path.isfile(rt):
         print('RUNTIME-ABSENT: no design runtime (dc-runtime.js) given or found' + (f' at {rt}' if rt else '') + '. This module does not ship it; '
