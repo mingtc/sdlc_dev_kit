@@ -2167,6 +2167,14 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   { [ "$i" -eq 0 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null; } || cf "(a2) m3-tokens.mjs --help does not exit 0 with its usage (exit $i): $out"
   node "$m/m3-tokens.mjs" >/dev/null 2>&1; i=$?
   [ "$i" -eq 64 ] || cf "(a2) m3-tokens.mjs with no seed does not exit 64 (exit $i)"
+  # (a5) every argument error refuses with the usage and exit 64, and writes nothing: a name or a directory with no value, an unknown flag, two seeds, a bad seed
+  mkdir -p "$d/args"
+  for i in "--out $d/args/o1 --name" "--name app --out" "--bogus --out $d/args/o3" "#2F6FEB --out $d/args/o4" "#12345 --out $d/args/o5" "--name --out $d/args/o6"; do
+    # shellcheck disable=SC2086
+    out="$(cd "$d/args" && node "$m/m3-tokens.mjs" '#2F6FEB' $i 2>&1)"; j=$?
+    { [ "$j" -eq 64 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null && ! printf '%s' "$out" | grep -F 'TypeError' >/dev/null; } || cf "(a5) m3-tokens.mjs '#2F6FEB' $i does not refuse with the usage and exit 64 (exit $j): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  done
+  [ -z "$(find "$d/args" -type f 2>/dev/null)" ] || cf "(a5) a refused m3-tokens.mjs call wrote files: $(find "$d/args" -type f | tr '\n' ' ')"
   # (a4) the parsed suffix: a hyphen-led value is taken spaced or with an =, the last --suffix wins, and the parser's own option name is not swallowed
   for i in "--suffix -x|-x" "--suffix=-x|-x" "--suffix -x --suffix -y|-y"; do
     # shellcheck disable=SC2086
@@ -4333,11 +4341,21 @@ case_the_pull_skill_walked_over_a_file_changed_on_both_sides_names_it_and_shows_
   _dm_sh "$(_dm_pull_walk start)"
   _dm_sh "$(_DM_GONE=project/Timer.dc.html _dm_pull_walk both)"
   printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/Timer.dc.html' >/dev/null || cf "(d) a file gone from the canvas that the repo changed is not named (exit $_dm_rc): $_dm_out"
+  # (e0) the sha256sum of that PATH directory is the host's own when it has one, and shasum -a 256 wrapped only when it does not
+  local bin t2 t3
+  t3="$(mktemp -d)"
+  printf '#!/bin/sh\necho OWN-SHA256SUM\n' > "$t3/sha256sum"; chmod +x "$t3/sha256sum"
+  printf '#!/bin/sh\necho "SHASUM $*"\n' > "$t3/shasum"; chmod +x "$t3/shasum"
+  mkdir -p "$t3/a" "$t3/b"
+  _dm_sha256_bin "$t3/a" "$t3/sha256sum" ""
+  [ "$("$t3/a/sha256sum" x 2>&1)" = "OWN-SHA256SUM" ] || cf "(e0) a host with its own sha256sum and no shasum does not get that sha256sum in the scratch PATH: $("$t3/a/sha256sum" x 2>&1 | head -2)"
+  _dm_sha256_bin "$t3/b" "" "$t3/shasum"
+  [ "$("$t3/b/sha256sum" x 2>&1)" = "SHASUM -a 256 x" ] || cf "(e0) a host with shasum and no sha256sum does not get shasum -a 256 wrapped: $("$t3/b/sha256sum" x 2>&1 | head -2)"
+  rm -rf "${t3:?}"
   # (e) a host with sha256sum and no shasum gives the same answers (the harness admits such a host)
-  local bin t2
   bin="$(mktemp -d)"
   for t2 in bash awk find sort cut sed cat ls rm mkdir cp; do command -v "$t2" >/dev/null 2>&1 && ln -s "$(command -v "$t2")" "$bin/$t2"; done
-  printf '#!/bin/sh\nexec /usr/bin/shasum -a 256 "$@"\n' > "$bin/sha256sum"; chmod +x "$bin/sha256sum"
+  _dm_sha256_bin "$bin"
   _dm_sh "$(_dm_pull_walk start)"
   sed 's|<title>Timer</title>|<title>Timer CANVAS SIDE</title>|' "$SB_TMP/Timer.before" > "$pj/Timer.dc.html"
   cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
