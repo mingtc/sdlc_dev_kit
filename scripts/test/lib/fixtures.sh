@@ -104,8 +104,29 @@ finish() { if [ -z "$_cf" ]; then ok "$1"; else bad "$1" "$_cf"; fi; }
 
 # --- Sandbox construction ----------------------------------------------------
 # Sets globals: SB_TMP (temp root), SB_WORK (work repo), SB_ORIGIN (bare remote).
-SB_TMP=""; SB_WORK=""; SB_ORIGIN=""
-teardown() { [ -n "$SB_TMP" ] && rm -rf "$SB_TMP" 2>/dev/null; SB_TMP=""; }
+SB_TMP=""; SB_WORK=""; SB_ORIGIN=""; SB_OUT=""; SB_OUT_MADE=""
+teardown() {
+  [ -n "$SB_TMP" ] && rm -rf "$SB_TMP" 2>/dev/null; SB_TMP=""
+  [ -n "$SB_OUT_MADE" ] && rm -rf "$SB_OUT_MADE" 2>/dev/null; SB_OUT_MADE=""; SB_OUT=""
+}
+
+# sandbox_outside_tmp — sets SB_OUT to a directory whose physical path is not under /tmp, for a case whose
+# subject treats /tmp specially (brainstorming's stop-server.sh deletes a session directory under /tmp whole).
+# The sandbox when it is already outside (macOS puts it under /var/folders); else a directory made under
+# /var/tmp, because Linux and WSL put every `mktemp -d` under /tmp. teardown removes it with the sandbox.
+# Status 1 when there is none to be had (no writable /var/tmp, or one that leads back into /tmp): the
+# case SKIPs and says so.
+sandbox_outside_tmp() {
+  local p
+  SB_OUT=""
+  p="$(cd "$SB_TMP" 2>/dev/null && pwd -P)" || return 1
+  case "$p" in /tmp/*|/private/tmp/*) ;; *) SB_OUT="$SB_TMP"; return 0 ;; esac
+  SB_OUT_MADE="$(mktemp -d /var/tmp/kit-test.XXXXXX 2>/dev/null)" || { SB_OUT_MADE=""; return 1; }
+  p="$(cd "$SB_OUT_MADE" 2>/dev/null && pwd -P)" || return 1
+  case "$p" in /tmp/*|/private/tmp/*) return 1 ;; esac
+  SB_OUT="$SB_OUT_MADE"
+  return 0
+}
 trap teardown EXIT
 
 # Commit in the work repo BYPASSING the role-prefix hook (setup commits are

@@ -215,13 +215,13 @@ case_brainstorm_stop_server_does_not_delete_through_a_dotdot_path() {
   local rel=".claude/skills/brainstorming/scripts/stop-server.sh" L="stop-server.sh keeps a session directory reached through /tmp/.." phys arg pid out
   if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
   make_sandbox
-  mkdir -p "$SB_WORK/.brainstorm/s2/state"
-  phys="$(cd "$SB_WORK/.brainstorm/s2" && pwd -P)"
-  case "$phys" in /tmp/*|/private/tmp/*) teardown; skp "$L" "the sandbox is under /tmp itself"; return ;; esac
+  sandbox_outside_tmp || { teardown; skp "$L" "no directory outside /tmp to hold the session: the sandbox is under /tmp and /var/tmp could not be used"; return; }
+  mkdir -p "$SB_OUT/.brainstorm/s2/state"
+  phys="$(cd "$SB_OUT/.brainstorm/s2" && pwd -P)"
   case "$phys" in /private/*) arg="/tmp/..${phys#/private}" ;; *) arg="/tmp/..$phys" ;; esac
-  [ -d "$arg" ] || { teardown; skp "$L" "/tmp/.. does not reach the sandbox on this machine ($arg)"; return; }
+  [ -d "$arg" ] || { teardown; skp "$L" "/tmp/.. does not reach the session on this machine ($arg)"; return; }
   sleep 60 & pid=$!
-  printf '%s\n' "$pid" > "$SB_WORK/.brainstorm/s2/state/server.pid"
+  printf '%s\n' "$pid" > "$SB_OUT/.brainstorm/s2/state/server.pid"
   out="$(bash "$REAL_REPO_ROOT/$rel" "$arg" 2>&1)" || true
   kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
   [ -d "$phys" ] || cf "a session directory reached through /tmp/.. was deleted: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"

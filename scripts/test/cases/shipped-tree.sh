@@ -1169,8 +1169,8 @@ case_find_polluter_refuses_an_unrunnable_test_command() {
 # CASE — the brainstorming companion's stop-server.sh leaves no `server-info` behind.
 # The skill reads an existing `server-info` as "the server is alive", so a stopped server that
 # keeps it reads as running. A background `sleep` stands in for the server: the stop command
-# needs a pid, not Node. A session directory under /tmp is deleted whole by design, so there is
-# nothing to read there and the case SKIPs.
+# needs a pid, not Node. A session directory under /tmp is deleted whole by design, so there would be
+# nothing to read there: the session is built outside /tmp (sandbox_outside_tmp, lib/fixtures.sh).
 #   (a) stop: status stopped, process gone, no server-info, a server-stopped marker, the
 #       persistent session directory kept;
 #   (b) CONTROL: the process was alive before the stop, and server-info was present.
@@ -1181,8 +1181,8 @@ case_brainstorm_stop_server_leaves_no_server_info() {
   local rel=".claude/skills/brainstorming/scripts/stop-server.sh" out rc pid sess
   if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
   make_sandbox
-  sess="$SB_WORK/.brainstorm/s1"
-  case "$sess" in /tmp/*) teardown; skp "$L" "the sandbox is under /tmp, where stop-server.sh deletes the session whole"; return ;; esac
+  sandbox_outside_tmp || { teardown; skp "$L" "no directory outside /tmp to hold the session, where stop-server.sh would delete it whole: the sandbox is under /tmp and /var/tmp could not be used"; return; }
+  sess="$SB_OUT/.brainstorm/s1"
   mkdir -p "$sess/state"
   sleep 60 & pid=$!
   printf '%s\n' "$pid" > "$sess/state/server.pid"
