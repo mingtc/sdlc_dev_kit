@@ -774,6 +774,11 @@ case_a_grep_failure_is_blamed_on_the_shape_only_when_the_shape_is_bad() {
   bash -c '. "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && kit_decisions_cited "$3" "D-[0-9" >/dev/null; true' _ "$REAL_SCRIPTS" "$f" "$card"
   out="$(cat "$f")"
   case "$out" in *REGISTERS*) : ;; *) cf "(control) a shape grep rejects was not named as the REGISTERS fault: '$out'" ;; esac
+  # (mark) a heading mark grep rejects makes the same grep fail, and the declared declaration is what is named
+  printf '### D-01\n' > "$d/reg.md"; : > "$f"
+  bash -c '. "$1/lib/decision-register.sh" && KIT_BP_FAIL_FILE="$2" && kit_decision_register_live "$3" "### (" "D-[0-9]+" >/dev/null; true' _ "$REAL_SCRIPTS" "$f" "$d/reg.md"
+  out="$(cat "$f")"
+  case "$out" in *REGISTERS*) : ;; *) cf "(mark) a heading mark grep rejects was not named as the REGISTERS fault: '$out'" ;; esac
   rm -rf "$d"
-  finish "a grep exit 2 is blamed on the declared id shape only when grep rejects that shape on empty input"
+  finish "a grep exit 2 is blamed on the declared id shape or heading mark only when grep rejects the pattern it was given on empty input"
 }

@@ -2264,8 +2264,10 @@ else
     else
       # the working tree: git's own list (tracked, and untracked but not ignored), so a build leftover is not "the project's own"
       # -z: git quotes a name with a non-ASCII byte in the line form, and the quoted name is no path on disk
-      v_disk="$(git -C "$CB_TREE" ls-files -z --cached --others --exclude-standard -- scripts 2>/dev/null | tr '\0' '\n')" || cb_rd_note "git ls-files exited non-zero reading scripts/"
-      v_disk="$(while IFS= read -r v_p; do [ -n "$v_p" ] && { [ -e "$CB_TREE/$v_p" ] || [ -L "$CB_TREE/$v_p" ]; } && printf '%s\n' "$v_p"; done <<< "$v_disk")"
+      # read as NUL records, so a name holding a newline stays one name (shown with the newline as \n)
+      v_disk="$(git -C "$CB_TREE" ls-files -z --cached --others --exclude-standard -- scripts 2>/dev/null | while IFS= read -r -d '' v_p; do
+        if [ -e "$CB_TREE/$v_p" ] || [ -L "$CB_TREE/$v_p" ]; then printf '%s\n' "${v_p//$'\n'/\\n}"; fi
+      done)" || cb_rd_note "git ls-files exited non-zero reading scripts/"
     fi
   fi
   if cb_rd_dead; then

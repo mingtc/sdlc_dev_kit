@@ -1212,7 +1212,7 @@ _forks_reads_end() {  # <what> — <what> names the check in the message
   if [ -n "$f" ] && [ -s "$f" ]; then
     why="$(head -n 2 "$f" | tr '\n' ' ' | cut -c1-300)"
     rm -f "$f"
-    nxt="Next: fix what the line above names (a file that does not read: restore it from version control or the release zip; or the id shape declared in REGISTERS in scripts/check-board.sh), then re-run the command that refused; if it still refuses, stop and hand off."
+    nxt="Next: re-run the command that refused: a read of a local scratch copy that failed is a local fault, and a re-run clears it. If it refuses again and the line above names a file, not <rev>:<path>, restore that file from version control or the release zip, or fix the id shape declared in REGISTERS in scripts/check-board.sh; if <rev>:<path> keeps failing, stop and hand off."
     kit_refuse 1 forks-register-unreadable \
       "Error: a read the ${1} check makes failed (${why}) — it will not take an empty answer for 'no register' or 'nothing cited'." \
       "$nxt" \
@@ -1362,6 +1362,7 @@ _forks_cited_ids() {
   fi
   if [ -z "$scratch" ] || [ -z "$sec_scratch" ]; then
     rm -f "$scratch" "$sec_scratch"
+    _kit_reg_label="$src"
     kit_decisions_cited "$src" "$id_shape" | sort -u || true
     return 0
   fi
