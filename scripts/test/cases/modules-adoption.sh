@@ -1853,7 +1853,7 @@ case_module_enable_keeps_the_reason_a_placement_failed_and_ignores_an_exported_n
   _md_rc=0; _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR PATH="$shim:$PATH" KIT_MOD_STATE_NOTE="leaked from the environment" KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/module.sh enable example 2>&1 </dev/null )" || _md_rc=$?
   chmod 755 "$SB_WORK/.claude/roles"
   [ "$_md_rc" -ne 0 ] || cf "enable exited 0 although a placed file could not be written"
-  printf '%s\n' "$_md_out" | grep -F '.claude/roles/example.md' >/dev/null || cf "the refusal does not keep the path that could not be written: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'Could not write .claude/roles/example.md either' >/dev/null || cf "the refusal does not keep the path that could not be written: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_md_out" | grep -F 'leaked from the environment' >/dev/null && cf "an exported KIT_MOD_STATE_NOTE is in the refusal: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
