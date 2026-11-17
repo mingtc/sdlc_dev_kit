@@ -2183,6 +2183,13 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
     { [ "$j" -eq 64 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null && ! printf '%s' "$out" | grep -F 'TypeError' >/dev/null; } || cf "(a5) m3-tokens.mjs '#2F6FEB' $i does not refuse with the usage and exit 64 (exit $j): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
   done
   [ -z "$(find "$d/args" -type f 2>/dev/null)" ] || cf "(a5) a refused m3-tokens.mjs call wrote files: $(find "$d/args" -type f | tr '\n' ' ')"
+  # (a6) an empty value is no value, whatever the word splitting above would do with it: refused with the usage, nothing written
+  mkdir -p "$d/args6"
+  out="$(cd "$d/args6" && node "$m/m3-tokens.mjs" '#2F6FEB' --name '' --out "$d/args6/e1" 2>&1)"; j=$?
+  { [ "$j" -eq 64 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null; } || cf "(a6) m3-tokens.mjs --name '' is not refused with the usage and exit 64 (exit $j): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  out="$(cd "$d/args6" && node "$m/m3-tokens.mjs" '#2F6FEB' --out '' 2>&1)"; j=$?
+  { [ "$j" -eq 64 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null && ! printf '%s' "$out" | grep -F 'ENOENT' >/dev/null; } || cf "(a6) m3-tokens.mjs --out '' is not refused with the usage and exit 64 (exit $j): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  [ -z "$(find "$d/args6" -type f 2>/dev/null)" ] || cf "(a6) a refused empty-value call wrote files: $(find "$d/args6" -type f | tr '\n' ' ')"
   # (a4) the parsed suffix: a hyphen-led value is taken spaced or with an =, the last --suffix wins, and the parser's own option name is not swallowed
   for i in "--suffix -x|-x" "--suffix=-x|-x" "--suffix -x --suffix -y|-y"; do
     # shellcheck disable=SC2086
