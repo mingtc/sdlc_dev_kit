@@ -956,7 +956,7 @@ kit_mod_plans_collide() {
 # per line, plus the record).
 kit_mod_enable() {
   local name="$1" plan="$KIT_MOD_TMP/plan" rows="$KIT_MOD_TMP/rows" placed_f="$KIT_MOD_TMP/placed" conflicts blockers kind tgt rend extra dst placed=0 blocks=0 bid out resuming=0 sha has next_text unfilled=""
-  KIT_MOD_TOUCHED=""
+  KIT_MOD_TOUCHED=""; KIT_MOD_STATE_NOTE=""
   _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before any refusal, as disable does: a killed run's side file of the record
   kit_mod_plan "$name" "$plan"
   if kit_mod_is_enabled "$name"; then
@@ -964,7 +964,7 @@ kit_mod_enable() {
     if [ "$(kit_mod_enabled_version "$name")" != "$KIT_MOD_VERSION" ]; then
       echo "  This kit holds version $KIT_MOD_VERSION of it: placed files change through the kit upgrade, not through enable."
     fi
-    _kit_mod_missing_hint "$name"
+    _kit_mod_missing_hint "$name" "$plan"
     return 0
   fi
   kit_mod_have_sha || kit_refuse 1 module-no-sha-tool \
@@ -1035,6 +1035,7 @@ kit_mod_enable() {
         if ! _kit_mod_place_file "$rend" "$dst" "$extra"; then
           _kit_mod_clean_strays "$tgt"
           _kit_mod_unplace "$placed_f"
+          KIT_MOD_STATE_NOTE="Could not write $tgt either; what this run had placed was taken back."
           [ "$resuming" = 1 ] || _kit_mod_state_put "$name" "" /dev/null
           kit_refuse 1 module-write-failed \
             "Error: could not write $tgt; what this run had placed was taken back." \
@@ -1050,6 +1051,7 @@ kit_mod_enable() {
       else
         if ! out="$( _kit_mod_put_block "$dst" "$bid" "$extra" "$rend" 2>&1 )"; then
           _kit_mod_unplace "$placed_f"
+          KIT_MOD_STATE_NOTE="Could not put the block into $tgt either; what this run had placed was taken back."
           [ "$resuming" = 1 ] || _kit_mod_state_put "$name" "" /dev/null
           kit_refuse 1 module-write-failed \
             "Error: could not put module $name's block into $tgt; what this run had placed was taken back." \
@@ -1088,6 +1090,12 @@ kit_mod_enable() {
 
 # ── disable ───────────────────────────────────────────────────────────────────
 
+# _kit_mod_touch_if_changed <path> — name the path in KIT_MOD_TOUCHED when git shows an uncommitted change in it: a path an
+# earlier run removed still has to be staged by the run that finishes the disable.
+_kit_mod_touch_if_changed() {
+  [ -z "$(cd "$KIT_MOD_ROOT" && git status --porcelain --untracked-files=no -- ":(literal)$1" 2>/dev/null)" ] || KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${1}
+"
+}
 _kit_mod_prune() {  # <relative path of a removed file> — remove the directories it leaves empty
   local d
   d="$(dirname "$1")"
@@ -1138,7 +1146,7 @@ _kit_mod_disable_blockers() {
 kit_mod_disable() {
   local name="$1" rows="$KIT_MOD_TMP/rows" keptf="$KIT_MOD_TMP/kept-rows" failf="$KIT_MOD_TMP/failed-rows" donef="$KIT_MOD_TMP/done-rows" ver kind sha tgt slot dst bid removed=0 gone=0 was=module blockers tag t
   local failed="" mbout bsha
-  KIT_MOD_TOUCHED=""; KIT_MOD_KEPT=""; KIT_MOD_ROLES_KEPT=""
+  KIT_MOD_TOUCHED=""; KIT_MOD_KEPT=""; KIT_MOD_ROLES_KEPT=""; KIT_MOD_STATE_NOTE=""
   _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before the name is checked, as enable does: a run killed between the record's copy and its move leaves the copy, with no row naming it
   _kit_mod_need_name "$name"
   if ! kit_mod_is_enabled "$name" && ! kit_mod_is_pending "$name"; then
@@ -1162,7 +1170,7 @@ kit_mod_disable() {
     dst="$KIT_MOD_ROOT/$tgt"
     _kit_mod_clean_strays "$tgt"
     if [ "$kind" = file ]; then
-      if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then gone=$((gone + 1)); printf 'file %s %s\n' "${sha%%|*}" "$tgt" >> "$donef"; _kit_mod_prune "$tgt"; continue; fi
+      if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then gone=$((gone + 1)); printf 'file %s %s\n' "${sha%%|*}" "$tgt" >> "$donef"; _kit_mod_touch_if_changed "$tgt"; _kit_mod_prune "$tgt"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_sha "$dst")" "$sha"; then
         sha="$(_kit_mod_sha "$dst")"
         # A role layer that history uses stays: [e] would flag every commit under the role without it.
@@ -1199,7 +1207,7 @@ ROLE_TAGS_EOF
       fi
     else
       bid="$(_kit_mod_bid "$name" "$slot")"
-      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; continue; fi
+      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; _kit_mod_touch_if_changed "$tgt"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha"; then
         bsha="$(_kit_mod_block_sha "$dst" "$bid")"
         # In a subshell: its refusal speaks for the one file, and says NOTHING WAS CHANGED, which is not true
@@ -1220,8 +1228,8 @@ ROLE_TAGS_EOF
       fi
     fi
   done < "$rows"
-  KIT_MOD_STATE_NOTE="$removed file(s) and block(s) of $name were already removed; the record is unchanged, so running disable again finishes it."
   if [ -n "$failed" ]; then
+    KIT_MOD_STATE_NOTE="$removed file(s) and block(s) of $name were already removed, and these could not be: $(printf '%s' "$failed" | tr '\n' ';' | sed 's/;$//; s/;/; /g'). The record is unchanged; once they can be removed and the record written, running disable again retries them."
     # Every row stays recorded in the state it was in (enabled, or an enable that had not finished), the removed
     # ones too: a row is dropped only when the whole disable has finished, so an upgrade in between reads a removed
     # file as removed here, not as new in the module, and a re-run retries what failed.
@@ -1235,6 +1243,7 @@ ROLE_TAGS_EOF
       "  They still act, and $KIT_MOD_STATE_REL still records $name with all its rows." \
       "Next: make each path above removable — a file goes with the write permission of the directory that holds it, so check the directory's mode as well as the file's, and clear any immutable flag — then run ./scripts/module.sh disable $name again; what was removed stays removed."
   fi
+  KIT_MOD_STATE_NOTE="$removed file(s) and block(s) of $name were already removed; the record is unchanged, so running disable again finishes it."
   if [ -s "$keptf" ]; then _kit_mod_state_put "$name" "$ver" "$keptf" kept; else _kit_mod_state_put "$name" "" /dev/null; fi
   KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${KIT_MOD_STATE_REL}
 "
@@ -1280,19 +1289,21 @@ _kit_mod_block_state() {  # <path> <block id> <sha>
   else echo edited; fi
 }
 
-# _kit_mod_missing_hint <name> — when a recorded thing of an enabled module is missing, a line naming the two ways on: a
-# disable that stopped part-way reads the same as files removed by hand.
+# _kit_mod_missing_hint <name> <plan-file> — when a recorded thing the plan still places is missing, a line naming both
+# readings: the project removed it, or a disable stopped part-way. A row the plan no longer places is not counted: the
+# upgrade's own item tells the project to delete it.
 _kit_mod_missing_hint() {
   local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows"
   kit_mod_rows_merged "$name" > "$rf"
   while read -r kind sha tgt slot; do
     [ -n "$kind" ] || continue
     m=$((m + 1))
+    awk -F'\t' -v k="$kind" -v p="$tgt" -v s="$slot" '$1 == k && $2 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$2" || continue
     if [ "$kind" = file ]; then st="$(_kit_mod_file_state "$tgt" "$sha")"; else st="$(_kit_mod_block_state "$tgt" "$(_kit_mod_bid "$name" "$slot")" "$sha")"; fi
     [ "$st" != missing ] || n=$((n + 1))
   done < "$rf"
   rm -f "$rf"
-  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing. If a disable of $name stopped part-way, ./scripts/module.sh disable $name finishes it; to put them back, disable it and enable it again."
+  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
   return 0
 }
 
@@ -1344,10 +1355,10 @@ kit_mod_status() {
   fi
   kit_mod_rows_merged "$name" > "$KIT_MOD_TMP/status-rows"
   _kit_mod_status_rows "$name" "$KIT_MOD_TMP/status-rows"
-  _kit_mod_missing_hint "$name"
   if [ -f "$(_kit_mod_src)/modules/$name/module.manifest" ]; then
     # a subshell: a manifest that does not read refuses and exits, and a report goes on with the next module
     if ( kit_mod_plan "$name" "$KIT_MOD_TMP/status-plan-$name" ) >/dev/null 2>"$KIT_MOD_TMP/status-err-$name"; then
+      _kit_mod_missing_hint "$name" "$KIT_MOD_TMP/status-plan-$name"
       _kit_mod_req_run "$KIT_MOD_TMP/status-plan-$name.reqs" "$KIT_MOD_TMP/status-req-$name"
       _kit_mod_req_lines "$KIT_MOD_TMP/status-req-$name" status
     else
