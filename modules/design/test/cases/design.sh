@@ -387,6 +387,14 @@ _dm_registry() {
   { printf '# CANVAS — app\n\n### Screens\n\n| UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |\n|---|---|---|---|---|---|---|---|---|\n'
     for r in "$@"; do printf '%s\n' "$r" | awk -F'|' '{ printf "| %s | %s | t | phone |  | %s | %s | %s | %s |\n", $1, $2, $3, $4, $5, $6 }'; done; } > "$d/CANVAS.md"
 }
+# _dm_sha256_bin <dir> [<sha256sum> [<shasum>]] — puts a sha256sum into <dir>, for a scratch PATH: the host's own when it has one, else `shasum -a 256` in a wrapper.
+# The two paths default to the host's; an empty one says the host lacks that tool.
+_dm_sha256_bin() {
+  local own="${2-$(command -v sha256sum 2>/dev/null)}" sh2="${3-$(command -v shasum 2>/dev/null)}"
+  if [ -n "$own" ]; then ln -s "$own" "$1/sha256sum"
+  else printf '#!/bin/sh\nexec %s -a 256 "$@"\n' "$sh2" > "$1/sha256sum"; chmod +x "$1/sha256sum"
+  fi
+}
 _dm_tokens() { mkdir -p "$SB_WORK/requirements/design/tokens"; printf '%s\n' "$1" > "$SB_WORK/requirements/design/tokens/${2:-app.tokens.json}"; }   # <json> [<file name>]
 # _dm_card <number> <shelf> <design line> — a card on a status shelf of the sandbox.
 _dm_card() {  # a shelf name written beside its number reads as a citation to the builder, so the number comes first

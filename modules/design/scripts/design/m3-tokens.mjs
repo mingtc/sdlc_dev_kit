@@ -17,15 +17,21 @@ const mcu = await import(path.join(here, 'vendor', 'material-color-utilities', '
 const { argbFromHex, hexFromArgb, Hct, SchemeTonalSpot, MaterialDynamicColors, TonalPalette, Contrast } = mcu;
 
 const args = process.argv.slice(2);
-const opt = (n, d) => (args.includes(n) ? args[args.indexOf(n) + 1] : d);
-const valueOf = new Set(['--name', '--out'].map(n => args.indexOf(n) + 1).filter(i => i > 0));
-const seed = args.find((a, i) => !valueOf.has(i) && /^#?[0-9a-fA-F]{6}$/.test(a));
 const usage = 'usage: m3-tokens.mjs <seed hex> [--name NS] [--out DIR] [--pin-primary]';
 if (args.includes('--help') || args.includes('-h')) { console.log(usage); process.exit(0); }
-if (!seed) { console.error(usage); process.exit(64); }
-const ns = opt('--name', 'm3');
-const out = opt('--out', 'requirements/design/tokens');
-const pin = args.includes('--pin-primary');
+const refuse = why => { console.error(`m3-tokens.mjs: ${why}\n${usage}`); process.exit(64); };
+let seed, ns = 'm3', out = 'requirements/design/tokens', pin = false;
+for (let i = 0; i < args.length; i++) {      // every argument error refuses with the usage and exit 64, before anything is written
+  const a = args[i];
+  if (a === '--name' || a === '--out') {
+    const v = args[++i];
+    if (v === undefined || v.startsWith('--')) refuse(`${a} needs a value`);
+    if (a === '--name') ns = v; else out = v;
+  } else if (a === '--pin-primary') pin = true;
+  else if (/^#?[0-9a-fA-F]{6}$/.test(a)) { if (seed) refuse('more than one seed'); seed = a; }
+  else refuse(`unknown argument ${a}`);
+}
+if (!seed) refuse('no seed');
 const S = JSON.parse(fs.readFileSync(path.join(here, 'vendor', 'm3-static.json'), 'utf8'));
 
 const kebab = s => s.replace(/[A-Z]/g, c => '-' + c.toLowerCase());
