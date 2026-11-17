@@ -716,7 +716,7 @@ _dm_links_fixture() {
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — See the list\n\n**UI:** default, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#default]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: the list is sorted.\n\n##### F1-S2 — Edit\n\n**UI:** default\n\n- [ ] AC1: (UI) the edit form shows. [design: UX-002#default]\n' > "$SB_WORK/requirements/PRD-001-app.md"
   printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n\n~~~\n```\ninside\n~~~\n\n```code```\n' > "$SB_WORK/requirements/PRD-002-api.md"
-  printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n\n    ```\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
+  printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n\nA line of prose, then an indented block that is code, not a fence.\n\n    ```\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
   _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
   _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
   _dm_commit "the screens"; _DM_X="$_DM_SHA"
