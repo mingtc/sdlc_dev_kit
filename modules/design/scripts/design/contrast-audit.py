@@ -16,7 +16,7 @@ below --min prints `LOW`; one at or above prints nothing but the total. A colour
 a DTCG colour object with a `hex` are read; an alpha below ff, a name, a function are not) prints `UNREAD`, and so does a run that measured
 no pair (`NONE`), and so does a token file that is not JSON (`UNREAD <file>: <why>`; a trailing comma, a BOM, an empty file) and a token file that holds no
 colour token when it is a theme file, or the base file of a namespace that has theme files or of a run that measured nothing
-(`UNREAD <file>: holds no colour token`; its theme is not measured): --strict fails on all four, so an unread colour or file never passes as a measured one. A colour token outside `color.*` (`$type: color`, its own or
+(`UNREAD <file>: holds no color.* token`; its theme is not measured): --strict fails on all four, so an unread colour or file never passes as a measured one. A colour token outside `color.*` (`$type: color`, its own or
 its group's, or a #hex value) is in no pair, since pairs are `color.on-X` on `color.X`: a `NOTE` line names them, and the count says how many;
 it is a report, never a failure (a primitive such as `palette.ink`, which `color.*` tokens point at by alias, is healthy and is listed there too).
 TARGETS. In each artboard under <design>/*/project/*.dc.html, a <button>, <a>, <input>, <select> or element with role="button" whose
@@ -227,12 +227,19 @@ def main(argv):
     badnames = {pr.split(' ', 1)[0] for pr in tprobs}
     ondisk = sorted(f.name for f in tdir.glob('*.tokens.json') if f.is_file()) if tdir.is_dir() else []
     themed = {namespace(n) for n in ondisk if cdl.file_theme(n) is not None}
-    # a file with no colour token leaves its theme unmeasured: a theme file always, the base file when its namespace has theme files or the run measured nothing
-    # (a namespace of non-colour tokens alone, with no theme file, is a legitimate set)
-    bare = [n for n in ondisk if n not in badnames and not any(k.startswith('color-') for k in files.get(n, {}))
-            and (cdl.file_theme(n) is not None or namespace(n) in themed or measured == 0)]
-    lines += [f"UNREAD {n}: holds no colour token, so its theme is not measured (a <ns>.<theme>.tokens.json holds that theme's colours; non-colour tokens go in <ns>.tokens.json)"
-              if cdl.file_theme(n) is not None else f'UNREAD {n}: holds no colour token, so its base theme is not measured' for n in bare]
+    def has_color(n):
+        return any(k.startswith('color-') for k in files.get(n, {}))
+
+    def shared_base(n):    # a base of non-colour tokens beside a light file and theme files that all hold colours: every colour is measured in them
+        ths = [m for m in ondisk if namespace(m) == namespace(n) and cdl.file_theme(m) is not None]
+        return bool(ths) and all(has_color(m) for m in ths) and any(cdl.file_theme(m) == 'light' for m in ths)
+    # a file with no color.* token leaves its theme unmeasured: a theme file always, the base file when its namespace has theme files (unless the base is only a shared
+    # set of non-colour tokens, as above) or the run measured nothing; a namespace of non-colour tokens alone, with no theme file, is a legitimate set
+    bare = [n for n in ondisk if n not in badnames and not has_color(n)
+            and (cdl.file_theme(n) is not None or measured == 0 or (namespace(n) in themed and not shared_base(n)))]
+    lines += [f"UNREAD {n}: holds no color.* token, so its theme is not measured (a <ns>.<theme>.tokens.json holds that theme's colours; non-colour tokens go in <ns>.tokens.json)"
+              if cdl.file_theme(n) is not None else f"UNREAD {n}: holds no color.* token, so its base theme is not measured (the first theme's colours go in <ns>.tokens.json, or in a <ns>.light.tokens.json)"
+              for n in bare]
     lines += [f"NOTE {f}: colour token(s) outside color.* that no pair measures: {', '.join(ns[:12])}{' ...' if len(ns) > 12 else ''}" for f, ns in sorted(away.items())]
     if unpaired:
         lines.append('NOTE: colour token(s) in no pair that this tool cannot measure (an alpha, a function): ' + ', '.join(sorted({u[2] for u in unpaired})[:12]))

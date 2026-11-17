@@ -98,7 +98,7 @@ def theme_rule(root, board, theme):
 
 def parse(argv):
     """The arguments of a run, `argv` being the program name and then its arguments."""
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, allow_abbrev=False)
     ap.add_argument('project')
     ap.add_argument('out')
     ap.add_argument('--runtime')
