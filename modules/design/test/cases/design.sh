@@ -2167,6 +2167,14 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   { [ "$i" -eq 0 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null; } || cf "(a2) m3-tokens.mjs --help does not exit 0 with its usage (exit $i): $out"
   node "$m/m3-tokens.mjs" >/dev/null 2>&1; i=$?
   [ "$i" -eq 64 ] || cf "(a2) m3-tokens.mjs with no seed does not exit 64 (exit $i)"
+  # (a4) the parsed suffix: a hyphen-led value is taken spaced or with an =, the last --suffix wins, and the parser's own option name is not swallowed
+  for i in "--suffix -x|-x" "--suffix=-x|-x" "--suffix -x --suffix -y|-y"; do
+    # shellcheck disable=SC2086
+    _dm_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import render; print(render.parse(["render.py", "p", "o"] + sys.argv[2:]).suffix)' "$m" ${i%|*}
+    { [ "$_dm_rc" -eq 0 ] && [ "$_dm_out" = "${i#*|}" ]; } || cf "(a4) render.py parses '${i%|*}' to '$_dm_out', not '${i#*|}' (exit $_dm_rc)"
+  done
+  _dm_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import render; render.parse(["render.py", "p", "o"] + sys.argv[2:])' "$m" --suffix --scheme dark
+  { [ "$_dm_rc" -eq 2 ] && _dm_has "$_dm_out" "expected one argument"; } || cf "(a4) render.py --suffix --scheme dark takes --scheme as the suffix (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-200)"
   # (a3) render.py takes --suffix with a value that opens with a hyphen, spaced as well as with an =
   mkdir -p "$d/rp"
   for i in "--suffix -x" "--suffix=-x"; do
@@ -2354,6 +2362,21 @@ EOF
     _dm_py "$m/contrast-audit.py" "$d/h" --strict
     { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.dark.tokens.json" && _dm_has "$_dm_out" "holds no colour token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l2) a dark token file holding $i passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   done
+  # (l3) the base file counts too when its namespace has theme files (or the run measured nothing); a spacing-only namespace beside them stays quiet
+  rm -rf "$d/h"; cp -R "$d/a" "$d/h"
+  printf '%s\n' '{}' > "$d/h/requirements/design/tokens/app.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/h" --strict
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "UNREAD app.tokens.json" && _dm_has "$_dm_out" "holds no colour token" && _dm_has "$_dm_out" "1 token file(s) not read"; } || cf "(l3) a base token file holding {} passes --strict as if its theme were measured (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  rm -rf "$d/h"; cp -R "$d/a" "$d/h"
+  printf '%s\n' '{"space":{"4":{"$value":"4px","$type":"dimension"}}}' > "$d/h/requirements/design/tokens/spacing.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/h" --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UNREAD spacing.tokens.json"; } || cf "(l3) a spacing-only namespace of its own, beside a measured one, is reported or fails --strict (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  # (l4) the line for a theme file says what to do; a directory named like a token file is not one
+  rm -rf "$d/h"; cp -R "$d/a" "$d/h"
+  printf '%s\n' '{"space":{"4":{"$value":"4px","$type":"dimension"}}}' > "$d/h/requirements/design/tokens/app.spacing.tokens.json"
+  mkdir -p "$d/h/requirements/design/tokens/x.dark.tokens.json"
+  _dm_py "$m/contrast-audit.py" "$d/h" --strict
+  { _dm_has "$_dm_out" "UNREAD app.spacing.tokens.json" && _dm_has "$_dm_out" "non-colour tokens go in <ns>.tokens.json" && ! _dm_has "$_dm_out" "x.dark.tokens.json"; } || cf "(l4) the line for a theme file with no colour does not say where non-colour tokens go, or a directory named x.dark.tokens.json is reported (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   # (m) a colour token under another head than color: the converter takes it by its type, the audit says no pair measures it, and a primitive reached by alias stays healthy
   rm -rf "$d/f"; mkdir -p "$d/f/requirements/design/tokens" "$d/f/out"
   cat > "$d/f/requirements/design/tokens/app.tokens.json" <<'EOF'
