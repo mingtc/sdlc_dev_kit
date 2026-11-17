@@ -2222,3 +2222,61 @@ case_a_forks_refusal_leaves_no_scratch_file_and_names_the_revision_path() {
   rm -rf "$dir"
   finish "a refusal inside the forks: check's read window leaves no scratch file, and a failed register read names <rev>:<path>"
 }
+
+# =============================================================================
+# CASE — A REGISTER GIT CANNOT FETCH IS A FAILED READ, NOT AN EMPTY REGISTER.
+# `git show` exits 128 for a missing path and for an unreadable object alike, and the forks: checks turned both
+# into an empty register. `rev-parse --verify` tells them apart: (absent) a path that is not there is no register
+# and reads as empty; (unreadable) a path that is there and cannot be read is recorded, and the check refuses.
+# Rows: the fetch helper, the id reader, the diff reader, and the whole check in a landing.
+# =============================================================================
+case_a_register_git_cannot_fetch_is_a_failed_read_not_an_empty_register() {
+  cf_reset
+  local d repo shim real f out rc id oldp="$PATH"
+  d="$(mktemp -d "${TMPDIR:-/tmp}/forks-fetch.XXXXXX")" || { cf "no temp dir"; finish "(no temp dir)"; return 0; }
+  repo="$d/repo"; shim="$d/shim"; f="$d/fail"; real="$(command -v git)"
+  git init -q "$repo" && mkdir -p "$repo/r" && printf '## A\n\n### D-01\n\nbody\n' > "$repo/r/D.md" \
+    && git -C "$repo" add r/D.md && git -C "$repo" -c user.email=a@b -c user.name=n -c commit.gpgsign=false commit -q -m one \
+    || { cf "no fixture repository"; rm -rf "$d"; finish "(no fixture)"; return 0; }
+  printf '### D-02\n' >> "$repo/r/D.md"
+  git -C "$repo" -c user.email=a@b -c user.name=n -c commit.gpgsign=false commit -q -am two
+  # a git whose `show` of the register fails with 128 and whose every other verb is the real one
+  mkdir -p "$shim"
+  printf '#!/bin/sh\ncase "$*" in *" show "*":r/D.md"*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$shim/git"; chmod +x "$shim/git"
+  _f867() {  # <shim 0|1> <bash snippet> — runs the snippet with the libs loaded; the fail file is $f
+    : > "$f"
+    bash -c 'if [ "$5" = 1 ]; then PATH="$4:$PATH"; fi; . "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh" 2>/dev/null; KIT_BP_FAIL_FILE="$2"; repo="$3"; eval "$6"' _ "$REAL_SCRIPTS" "$f" "$repo" "$shim" "$1" "$2" 2>/dev/null
+  }
+  # (fetch) the helper
+  rc=0; _f867 1 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"' || true
+  { [ -s "$f.rc" ] && [ "$(cat "$f.rc")" != "rc=0" ]; } || cf "(fetch) a register git could not read did not fail the fetch: $(cat "$f.rc" 2>/dev/null)"
+  _f867 0 'kit_register_fetch "$repo" HEAD r/D.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  { [ "$(cat "$f.rc" 2>/dev/null)" = "rc=0" ] && grep -F 'D-01' "$f.out" >/dev/null; } || cf "(fetch, control) a readable register was not copied: $(cat "$f.rc" 2>/dev/null)"
+  _f867 1 'kit_register_fetch "$repo" HEAD r/ABSENT.md "$2.out"; echo "rc=$?" > "$2.rc"'
+  { [ "$(cat "$f.rc" 2>/dev/null)" = "rc=0" ] && [ ! -s "$f.out" ]; } || cf "(fetch, absent) a path that is not there did not read as empty and succeed: $(cat "$f.rc" 2>/dev/null)"
+  # (ids) _forks_entry_ids
+  _f867 1 '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" >/dev/null'
+  grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(ids) an unreadable register was not recorded: $(cat "$f")"
+  _f867 1 '_forks_entry_ids "$repo" HEAD r/ABSENT.md "### " "D-[0-9]+" >/dev/null'
+  [ ! -s "$f" ] || cf "(ids, absent) an absent register was recorded as a failed read: $(cat "$f")"
+  _f867 0 '_forks_entry_ids "$repo" HEAD r/D.md "### " "D-[0-9]+" > "$2.out"'
+  { [ ! -s "$f" ] && grep -x 'D-01' "$f.out" >/dev/null; } || cf "(ids, control) a readable register was recorded or not read: $(cat "$f") / $(cat "$f.out" 2>/dev/null)"
+  # (diff) kit_decisions_touched_by_diff
+  _f867 1 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/D.md "### " >/dev/null'
+  grep -F 'git could not read HEAD:r/D.md' "$f" >/dev/null || cf "(diff) an unreadable register was not recorded: $(cat "$f")"
+  _f867 1 'kit_decisions_touched_by_diff "$repo" HEAD~1 HEAD r/ABSENT.md "### " >/dev/null'
+  [ ! -s "$f" ] || cf "(diff, absent) an absent register was recorded as a failed read: $(cat "$f")"
+  unset -f _f867
+  # (landing) the check refuses, naming the revision and path
+  id="$SB_PREFIX-883"
+  _nr_shim_cmd "$d/lshim" git ' show '"'*'"':requirements/DECISIONS.md'
+  PATH="$d/lshim:$oldp"
+  _forks_drift_land work-fetch "$id" fetch 1 "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+  PATH="$oldp"
+  [ "$_FDL_RC" -ne 0 ] || cf "(landing) a register git could not fetch did not refuse"
+  grep -q 'refusal=forks-register-unreadable' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(landing) no progress record carries refusal=forks-register-unreadable: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  case "$_FDL_OUT" in *"git could not read"*":requirements/DECISIONS.md"*) : ;; *) cf "(landing) the refusal does not name the revision and path git could not read: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  teardown
+  rm -rf "$d"
+  finish "a register git cannot fetch is recorded as a failed read and the forks: check refuses, naming <rev>:<path>; a path that is absent still reads as no register"
+}

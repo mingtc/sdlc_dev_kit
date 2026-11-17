@@ -78,6 +78,20 @@ kit_prd_surface() {
 # _kit_reg_pattern_rejected <grep args> — success when grep rejects the pattern it was given (the first argument that
 # is not an option): grep exits 2 on it over empty input, which no read error can cause. A grep that failed with a
 # pattern it accepts failed on what it read.
+# _kit_reg_note <text> — records a failed read of something that is not a grep stage (a register git could not
+# fetch) in KIT_BP_FAIL_FILE, for the caller that named one.
+_kit_reg_note() {
+  [ -z "${KIT_BP_FAIL_FILE:-}" ] || printf '%s\n' "$1" >> "$KIT_BP_FAIL_FILE"
+  return 0
+}
+# kit_register_fetch <repo> <rev> <path> <dest> — copies <rev>:<path> to <dest>. A path that is not there leaves <dest>
+# empty and succeeds (no register there yet); a path that is there and cannot be read fails, and the caller says so.
+# `git show` exits 128 for both, so it is `rev-parse --verify` that tells them apart.
+kit_register_fetch() {
+  : > "$4"
+  git -C "$1" rev-parse -q --verify "$2:$3" >/dev/null 2>&1 || return 0   # return-class: predicate
+  git -C "$1" show "$2:$3" > "$4" 2>/dev/null
+}
 _kit_reg_pattern_rejected() {
   local a rc=0
   for a in "$@"; do
@@ -158,7 +172,8 @@ kit_decision_register_retired() {
 kit_decisions_touched_by_diff() {
   local repo="$1" old="$2" new="$3" path="$4" mark="$5"
   local branch_copy spans
-  branch_copy="$(git -C "$repo" show "${new}:${path}" 2>/dev/null)" || return 0
+  git -C "$repo" rev-parse -q --verify "${new}:${path}" >/dev/null 2>&1 || return 0
+  branch_copy="$(git -C "$repo" show "${new}:${path}" 2>/dev/null)" || { _kit_reg_note "git could not read ${new}:${path}"; return 0; }
   [ -n "$branch_copy" ] || return 0
   # ONE PASS builds each entry's SPAN "<id> <start> <end>" directly: an entry's end is the line
   # before whichever comes first, the next "<mark><id>" heading or the next "## " section

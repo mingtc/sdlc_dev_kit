@@ -1060,7 +1060,10 @@ kit_qa_verdict_check() {
 #   so a prose heading ('### Notes') is not one. A fenced example heading still is: the register is read by
 #   its heading prefix, as its own readers read it, and a fence rule here would make this one disagree with them.
 _forks_entry_ids() {
-  git -C "$1" show "${2}:${3}" 2>/dev/null | LC_ALL=C awk -v m="$4" '
+  local body
+  git -C "$1" rev-parse -q --verify "${2}:${3}" >/dev/null 2>&1 || return 0
+  body="$(git -C "$1" show "${2}:${3}" 2>/dev/null)" || { _kit_reg_note "git could not read ${2}:${3}"; return 0; }
+  printf '%s\n' "$body" | LC_ALL=C awk -v m="$4" '
     index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); print id }' \
     | { grep -xE "${5}" || true; } | sort -u || true
 }
@@ -1515,7 +1518,7 @@ kit_forks_check() {
       _fl_end="$(_forks_entry_ids "$repo" "$_forks_win_end" "$_freg_path" "$_freg_mark" "$_freg_shape" | sort -u || true)"
       _fl_bfile="$(mktemp "${TMPDIR:-/tmp}/forks-live-branch.XXXXXX" 2>/dev/null || true)"
       if [ -n "$_fl_bfile" ]; then
-        git -C "$repo" show "${new_rev}:${_freg_path}" > "$_fl_bfile" 2>/dev/null || : > "$_fl_bfile"
+        kit_register_fetch "$repo" "$new_rev" "$_freg_path" "$_fl_bfile" || _kit_reg_note "git could not read ${new_rev}:${_freg_path}"
         _kit_reg_label="${new_rev}:${_freg_path}"
         _fl_bret="$(kit_decision_register_retired "$_fl_bfile" "$_freg_shape" | sort -u || true)"
         _kit_reg_label=""
@@ -1541,7 +1544,7 @@ kit_forks_check() {
         "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
         "       NOTHING WAS CHANGED."
     fi
-    git -C "$repo" show "${new_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+    kit_register_fetch "$repo" "$new_rev" "$_freg_path" "$_forks_branch_reg" || _kit_reg_note "git could not read ${new_rev}:${_freg_path}"
 
     _kit_reg_label="${new_rev}:${_freg_path}"
     _forks_live_all="$_forks_live_all
@@ -1549,7 +1552,7 @@ $(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
     # The trunk's copy is read too: a ruling can land there after the branch was cut. An id the
     # branch itself retired stays not live.
     _fr_retired="$(kit_decision_register_retired "$_forks_branch_reg" "$_freg_shape")"
-    git -C "$repo" show "${old_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+    kit_register_fetch "$repo" "$old_rev" "$_freg_path" "$_forks_branch_reg" || _kit_reg_note "git could not read ${old_rev}:${_freg_path}"
     _kit_reg_label="${old_rev}:${_freg_path}"
     _fr_trunk="$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+' | sort -u)"
     _kit_reg_label=""
