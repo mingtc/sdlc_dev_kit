@@ -2177,7 +2177,7 @@ case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it(
   [ "$i" -eq 64 ] || cf "(a2) m3-tokens.mjs with no seed does not exit 64 (exit $i)"
   # (a5) every argument error refuses with the usage and exit 64, and writes nothing: a name or a directory with no value, an unknown flag, two seeds, a bad seed
   mkdir -p "$d/args"
-  for i in "--out $d/args/o1 --name" "--name app --out" "--bogus --out $d/args/o3" "#2F6FEB --out $d/args/o4" "#12345 --out $d/args/o5" "--name --out $d/args/o6"; do
+  for i in "--out $d/args/o1 --name" "--name app --out" "--bogus --out $d/args/o3" "#2F6FEB --out $d/args/o4" "#12345 --out $d/args/o5" "--name --out $d/args/o6" "--name --pin-primary --out $d/args/o7"; do
     # shellcheck disable=SC2086
     out="$(cd "$d/args" && node "$m/m3-tokens.mjs" '#2F6FEB' $i 2>&1)"; j=$?
     { [ "$j" -eq 64 ] && printf '%s' "$out" | grep -F 'usage: m3-tokens.mjs' >/dev/null && ! printf '%s' "$out" | grep -F 'TypeError' >/dev/null; } || cf "(a5) m3-tokens.mjs '#2F6FEB' $i does not refuse with the usage and exit 64 (exit $j): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
