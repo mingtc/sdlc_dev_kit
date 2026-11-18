@@ -627,10 +627,11 @@ if [ ${#LIVED[@]} -gt 0 ]; then
   # A run cut off after a self-check move was pushed and before this checkout caught up leaves the newest commits on the
   # trunk only: read the trunk's log when this checkout is at or behind it, and make the checkout reach it first.
   _lv_ref="HEAD"; _lv_ff=""
-  if git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1 \
-     && git -C "$ROOT" merge-base --is-ancestor HEAD "refs/remotes/$REMOTE/$TRUNK" 2>/dev/null; then
-    _lv_ref="refs/remotes/$REMOTE/$TRUNK"
-    [ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" = "$(git -C "$ROOT" rev-parse "$_lv_ref" 2>/dev/null)" ] || _lv_ff="$REMOTE/$TRUNK"
+  _lv_tr="refs/remotes/$REMOTE/$TRUNK"
+  _lv_tip="$(git -C "$ROOT" rev-parse --verify --quiet "$_lv_tr" 2>/dev/null || true)"  # card-read-exempt: the trunk, not a card branch
+  if [ -n "$_lv_tip" ] && git -C "$ROOT" merge-base --is-ancestor HEAD "$_lv_tip" 2>/dev/null; then
+    _lv_ref="$_lv_tr"
+    [ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" = "$_lv_tip" ] || _lv_ff="$REMOTE/$TRUNK"
   fi
   _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' "$_lv_ref" 2>/dev/null | awk -F '\t' '
     $2 ~ /^\[[^]]*\] kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+$/ { print $1; exit }
