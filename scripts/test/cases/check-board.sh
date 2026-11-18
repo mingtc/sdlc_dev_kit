@@ -4689,6 +4689,52 @@ EOT
 }
 
 # =============================================================================
+# CASE — arm [q] says DID NOT RUN when git cannot read a register copy of the ruling history.
+# A path that is absent at a revision is a legitimate skip; a blob or a tree git cannot read (a partial or shallow
+# clone used offline, a damaged object) is not, and the arm used to skip the commit without a word and print a clean
+# verdict. A shim `git` makes the register's `show` (then its `ls-tree`) fail with 128, as an unreadable object does.
+#   control: no shim              -> the unstamped change is named, no DID NOT RUN
+#   (a) `show` of the register fails -> the arm says DID NOT RUN, names what it could not read, carries a Next
+#   (b) `ls-tree` of the register fails -> the same
+# =============================================================================
+case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark reg out q real_git shim mode
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: could not derive REGISTERS from the defaults block."
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  reg="$SB_WORK/$reg_path"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  mkdir -p "$(dirname "$reg")"
+  printf '# DECISIONS\n## A. Bucket\n%sD-01 — first\n**Ruling.** Alpha holds.\n**Why.** Reasons.\n**Provenance.** PM.\n' "$reg_mark" > "$reg"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[PM] register v1" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* Alpha holds\./**Ruling.** Alpha holds, except for one case./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-01 gains an exception" >/dev/null 2>&1
+  publish_sandbox
+  real_git="$(command -v git)"
+  out="$(cb_run)"; q="$(printf '%s\n' "$out" | _cb_q_section)"
+  printf '%s\n' "$q" | grep -F 'D-01 — its Ruling text changed' >/dev/null || cf "(control) the unstamped change was not named without a shim: $q"
+  printf '%s\n' "$q" | grep -F 'DID NOT RUN' >/dev/null && cf "(control) the arm says DID NOT RUN without a shim: $q"
+  for mode in show ls-tree; do
+    shim="$SB_TMP/shim-$mode"; mkdir -p "$shim"
+    printf '%s\n' '#!/bin/sh' \
+      "case \" \$* \" in *\" $mode \"*) case \"\$*\" in *\"$reg_path\"*) exit 128 ;; esac ;; esac" \
+      "exec \"$real_git\" \"\$@\"" > "$shim/git"
+    chmod +x "$shim/git"
+    out="$(PATH="$shim:$PATH" cb_run)"; q="$(printf '%s\n' "$out" | _cb_q_section)"
+    printf '%s\n' "$q" | grep -F 'DID NOT RUN' >/dev/null || cf "($mode) git could not read the register's history and arm [q] does not say DID NOT RUN: $q"
+    printf '%s\n' "$q" | grep -F "git could not read" >/dev/null || cf "($mode) the arm does not name what git could not read: $q"
+    printf '%s\n' "$q" | grep -F 'Next:' >/dev/null || cf "($mode) the DID NOT RUN line carries no Next: $q"
+  done
+  finish "arm [q]: a register copy git cannot read (its blob, then its tree) in the ruling history is DID NOT RUN with the reason and a Next, where an absent one stays a skip"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm [q]: an edit that only adds (or removes) the CROSS_CUTTING_MARKER at the head of a
 # Ruling is not a Ruling change. The marker sits in the Ruling field, so the comparison strips it
 # from both sides first; a real text change still names the entry, with or without the marker.

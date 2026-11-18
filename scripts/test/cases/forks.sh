@@ -626,6 +626,7 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   #     todo/ is a separator reformat (em-dash -> hyphen) of the identical wording — no ruling,
   #     no text change. Must land clean. NO cf_reset here: (a)'s failures, if any, must survive
   #     into the one 'finish' call below, not be silently cleared by starting part (b).
+  [ -z "$SB_TMP" ] || cf "(leak) a sandbox is still up when (b) makes its own: $SB_TMP"
   make_sandbox work-b
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   local idb="$SB_PREFIX-682"
@@ -659,6 +660,7 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   # (c) THE SAME AC REWRITE AS (a), but the changed bullet itself carries a '[decision:D-01]'
   #     citation (no space after the colon). Must land clean: the citation is real and must be
   #     SEEN on the bullet, not silently missed because of its spacing.
+  [ -z "$SB_TMP" ] || cf "(leak) a sandbox is still up when (c) makes its own: $SB_TMP"
   make_sandbox work-c
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   local idcc="$SB_PREFIX-685"
