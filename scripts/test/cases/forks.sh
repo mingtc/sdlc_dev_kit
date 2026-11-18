@@ -656,6 +656,7 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(b, control) a separator-only AC reformat after todo/ — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   origin_has_path "progress/qa_complete/$idb-reformat.md" || cf "(b, control) the card did not advance to qa_complete/"
+  teardown
 
   # (c) THE SAME AC REWRITE AS (a), but the changed bullet itself carries a '[decision:D-01]'
   #     citation (no space after the colon). Must land clean: the citation is real and must be

@@ -1624,12 +1624,18 @@ case_release_all_gates_green_follows_the_last_gate() {
 #             --publish-only command and no temp worktree is left registered.
 # INT is not run: a background job ignores it, so its status is read, not run.
 # =============================================================================
+# _hup_ignored — true when a HUP sent to a shell of this harness does nothing: it was started with HUP ignored (nohup, some CI wrappers), and a signal
+# ignored on entry is inherited and cannot be trapped. A child that kills itself with HUP survives to print only then. (`trap -p HUP` shows nothing
+# in bash 3.2 even when HUP is ignored, so the signal is sent.)
+_hup_ignored() { [ "$( { bash -c 'kill -HUP $$; echo alive' 2>/dev/null; } 2>/dev/null )" = alive ]; }
 case_release_a_signalled_cut_stops() {
   cf_reset
   if ! has_release; then skp "a signalled release.sh stops" "scripts/release.sh absent"; return; fi
-  local leg out rc pid i shimdir mark real_git real_mv tool match after sig
+  local leg out rc pid i shimdir mark real_git real_mv tool match after sig hup_skip=0
+  if _hup_ignored; then hup_skip=1; fi
   real_git="$(command -v git)"; real_mv="$(command -v mv)"
   for leg in commit hup restore bump push publish; do
+    [ "$leg" = hup ] && [ "$hup_skip" = 1 ] && continue
     make_sandbox; seed_release_files 1.1.0
     [ "$leg" = publish ] && enable_publish
     publish_sandbox
@@ -1696,5 +1702,6 @@ case_release_a_signalled_cut_stops() {
     esac
     teardown
   done
+  [ "$hup_skip" = 0 ] || skp "a HUP to release.sh's own pid ends the cut (the hup leg of case_release_a_signalled_cut_stops)" "HUP is ignored in this harness (it was started under nohup or a wrapper that ignores HUP), and a signal ignored on entry is inherited and cannot be trapped, so release.sh cannot see it; the other five legs ran"
   finish "a signal to release.sh's own pid (TERM, and HUP) ends the cut non-zero with no tag on the remote: during the release commit (and the account says the commit exists), during a commit that fails (the bump is restored), while a version file is rewritten (every file is restored), during the first push, and during the distribution push (the account carries the publish command and no worktree is left)"
 }

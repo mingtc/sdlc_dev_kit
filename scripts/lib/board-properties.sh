@@ -735,8 +735,12 @@ _bp_ruling_history() {
   while read -r sha; do
     [ -n "$sha" ] || continue
     par="$(git -C "$KIT_BP_HIST_REPO" rev-parse --verify --quiet "$sha^1" 2>/dev/null)" || continue
-    git -C "$KIT_BP_HIST_REPO" show "$par:$rpath" > "$oldf" 2>/dev/null || continue
-    git -C "$KIT_BP_HIST_REPO" show "$sha:$rpath" > "$newf" 2>/dev/null || continue
+    # A register absent at a revision is a legitimate skip (nothing is echoed); one git cannot read is not: it is recorded, and the arm says DID NOT RUN.
+    kit_register_read "$KIT_BP_HIST_REPO" "$par" "$rpath" > "$oldf" \
+      || { _kit_reg_note "git could not read ${par:0:9}:${rpath}, so its ruling history is not read (a partial or shallow clone, or a damaged object). Next: fetch the missing objects (git fetch --unshallow), then re-run"; continue; }
+    kit_register_read "$KIT_BP_HIST_REPO" "$sha" "$rpath" > "$newf" \
+      || { _kit_reg_note "git could not read ${sha:0:9}:${rpath}, so its ruling history is not read (a partial or shallow clone, or a damaged object). Next: fetch the missing objects (git fetch --unshallow), then re-run"; continue; }
+    [ -s "$oldf" ] && [ -s "$newf" ] || continue
     n=$((n+1))
     ospans="$(_bp_entry_spans "$oldf" "$rmark" "$rshape")"
     nspans="$(_bp_entry_spans "$newf" "$rmark" "$rshape")"
