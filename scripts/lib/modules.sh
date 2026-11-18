@@ -1096,6 +1096,14 @@ _kit_mod_touch_if_changed() {
   [ -z "$(cd "$KIT_MOD_ROOT" && git status --porcelain --untracked-files=no -- ":(literal)$1" 2>/dev/null)" ] || KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${1}
 "
 }
+# _kit_mod_touch_if_block_changed <host> <name> <slot> — the same for a block already gone, judged by the block's own lines:
+# the host is named only when they differ between the working tree, the index and HEAD. The host's other lines are the
+# project's, and a hint that named the host for them would stage them too.
+_kit_mod_touch_if_block_changed() {
+  kit_mod_block_changed "$1" "$2" "$3" || return 0
+  KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${1}
+"
+}
 _kit_mod_prune() {  # <relative path of a removed file> — remove the directories it leaves empty
   local d
   d="$(dirname "$1")"
@@ -1207,7 +1215,7 @@ ROLE_TAGS_EOF
       fi
     else
       bid="$(_kit_mod_bid "$name" "$slot")"
-      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; _kit_mod_touch_if_changed "$tgt"; continue; fi
+      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; _kit_mod_touch_if_block_changed "$tgt" "$name" "$slot"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha"; then
         bsha="$(_kit_mod_block_sha "$dst" "$bid")"
         # In a subshell: its refusal speaks for the one file, and says NOTHING WAS CHANGED, which is not true

@@ -1927,32 +1927,88 @@ case_module_enable_keeps_the_reason_a_placement_failed_and_ignores_an_exported_n
 }
 
 # =============================================================================
-# CASE — THE COMMIT HINT OF A DISABLE RUN AGAIN STAGES WHAT THE FIRST RUN REMOVED, TOO.
+# CASE — THE COMMIT HINT OF A DISABLE RUN AGAIN STAGES WHAT THE FIRST RUN REMOVED, TOO, AND NOTHING ELSE.
 #   The first run removes every file and cannot drop the record; the run again finds them already gone. Following the
-#   Next line it prints (git add -A over the paths it names) leaves nothing uncommitted: no deletion is left behind.
+#   Next line it prints (git add -A over the paths it names) leaves no deletion behind. Before the first run the project
+#   removed the block in PROJECT.md by hand and committed that; before the run again it edits PROJECT.md and a tracked
+#   file of its own. Neither edit is the module's: both are still unstaged after the hint, and nothing else is.
 # =============================================================================
 case_the_commit_hint_of_a_disable_run_again_stages_what_the_first_run_removed() {
   cf_reset
-  local L="following the commit hint a module.sh disable run again prints, after a first run that removed the files but could not drop the record, leaves git status clean"
+  local L="following the commit hint a module.sh disable run again prints, after a first run that removed the files but could not drop the record, stages every removal and leaves only the project's own edits (one in a block host whose block was removed and committed, one in another tracked file) unstaged"
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
   if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
   _mu_subject_ok || { finish "$L"; return; }
-  local hint left
+  local hint staged unstaged other
   _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _mu_land "drop the example gate row on purpose"
   chmod 555 "$SB_WORK/process"
   _md_mod disable example
   chmod 755 "$SB_WORK/process"
   [ "$_md_rc" -ne 0 ] || cf "(prereq) the first disable exited 0 although the record could not be dropped"
+  printf '%s\n' "a line of the project's own" >> "$SB_WORK/PROJECT.md"
+  other="$(git -C "$SB_WORK" ls-files -- scripts/config.sh)"
+  [ -n "$other" ] || cf "(prereq) scripts/config.sh is not tracked in the sandbox"
+  printf '%s\n' "# a line of the project's own" >> "$SB_WORK/scripts/config.sh"
   _md_mod disable example
   [ "$_md_rc" -eq 0 ] || cf "the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
   [ -n "$hint" ] || cf "the run again prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   if [ -n "$hint" ]; then
     ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "the printed hint failed when run: $hint"
-    left="$(git -C "$SB_WORK" status --porcelain --untracked-files=all 2>/dev/null | grep -v '^[MDA]  ' | tr '\n' '|' | cut -c1-300)"
-    [ -z "$left" ] || cf "following the hint left changes behind: $left"
+    staged="$(git -C "$SB_WORK" diff --cached --name-only 2>/dev/null)"
+    unstaged="$(git -C "$SB_WORK" diff --name-only 2>/dev/null | LC_ALL=C sort | tr '\n' ' ')"
+    printf '%s\n' "$staged" | grep -xF PROJECT.md >/dev/null && cf "following the hint staged PROJECT.md, whose only change is the project's own line: $hint"
+    printf '%s\n' "$staged" | grep -xF scripts/config.sh >/dev/null && cf "following the hint staged scripts/config.sh, which the module never touched: $hint"
+    [ "$unstaged" = "PROJECT.md scripts/config.sh " ] || cf "following the hint did not leave exactly the project's two edits unstaged: [$unstaged]"
+    [ -z "$(git -C "$SB_WORK" ls-files --others --exclude-standard 2>/dev/null)" ] || cf "following the hint left untracked files: $(git -C "$SB_WORK" ls-files --others --exclude-standard | tr '\n' '|' | cut -c1-200)"
     [ -z "$(git -C "$SB_WORK" ls-files -- .claude/roles/example.md)" ] || cf "the first run's deletion of .claude/roles/example.md is not staged"
+    printf '%s\n' "$staged" | grep -xF .gitignore >/dev/null || cf "the first run's removal of the block in .gitignore is not staged: $hint"
+  fi
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DISABLE NAMES A BLOCK'S HOST IN ITS COMMIT HINT ONLY WHEN THE BLOCK ITSELF CHANGED.
+#   (a) The project removed the module's block in PROJECT.md by hand, committed that, then added a line of its own to
+#   PROJECT.md: the disable's hint does not name PROJECT.md, so following it leaves that line unstaged. (b) Removed by hand
+#   and not committed: the hint names PROJECT.md, so following it stages the removal.
+# =============================================================================
+case_a_disable_names_a_gone_blocks_host_only_when_the_block_changed() {
+  cf_reset
+  local L="module.sh disable names a block host already without the block in its commit hint only when the block's own lines differ from HEAD: a removal committed earlier plus an unrelated edit leaves the edit unstaged; a removal not committed is staged by the hint"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local hint
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _mu_land "drop the example gate row on purpose"
+  printf '%s\n' "a line of the project's own" >> "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(a) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
+  [ -n "$hint" ] || cf "(a) disable prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  case " $hint " in *" PROJECT.md "*) cf "(a) the hint names PROJECT.md, whose block's removal was committed: $hint" ;; esac
+  if [ -n "$hint" ]; then
+    ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "(a) the printed hint failed when run: $hint"
+    git -C "$SB_WORK" diff --cached --name-only 2>/dev/null | grep -xF PROJECT.md >/dev/null && cf "(a) following the hint staged the project's own line in PROJECT.md"
+    [ "$(git -C "$SB_WORK" diff --name-only 2>/dev/null | tr '\n' ' ')" = "PROJECT.md " ] || cf "(a) following the hint did not leave exactly PROJECT.md unstaged: [$(git -C "$SB_WORK" diff --name-only | tr '\n' ' ')]"
+  fi
+  teardown
+
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(b) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
+  case " $hint " in *" PROJECT.md "*) : ;; *) cf "(b) the hint does not name PROJECT.md, whose block was removed and not committed: $hint" ;; esac
+  if [ -n "$hint" ]; then
+    ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "(b) the printed hint failed when run: $hint"
+    [ -z "$(git -C "$SB_WORK" diff --name-only 2>/dev/null)" ] || cf "(b) following the hint left unstaged changes: $(git -C "$SB_WORK" diff --name-only | tr '\n' ' ')"
   fi
   finish "$L"
   teardown
