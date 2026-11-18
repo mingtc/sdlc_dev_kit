@@ -1704,14 +1704,14 @@ case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   _md_mod status example
   printf '%s\n' "$_md_out" | grep -F "$((rows0 - 1)) of $rows0 recorded things are missing" >/dev/null || cf "(status) does not count the missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_md_out" | grep -F './scripts/module.sh disable example' >/dev/null || cf "(status) does not name the disable run again: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
-  printf '%s\n' "$_md_out" | grep -F 'removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way' >/dev/null || cf "(status) does not name both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way' >/dev/null || cf "(status) does not name both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   teardown
 
   # a file the project deleted by hand: the same line, with both readings
   _mu_pair
   rm -f "$SB_WORK/.claude/skills/example-skill/SKILL.md"
   _md_mod status example
-  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
     || cf "(hand) status over a deleted file does not give the line with both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   teardown
 
@@ -1723,6 +1723,72 @@ case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) status names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   _md_mod enable example
   printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) enable names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MISSING-THINGS LINE COUNTS A MISSING THING ONLY WHILE ITS REMOVAL IS NOT COMMITTED.
+#   A file or block the project removed and committed, from a commit that records the module, is the project's own
+#   choice: status and enable stay quiet about it. A removal not yet committed (deleted, or staged with git rm) still
+#   counts, and so does one from an enable that was never committed (the state a disable killed part-way leaves before
+#   any commit). With one of each, only the uncommitted one is counted.
+# =============================================================================
+case_the_missing_things_line_counts_only_a_removal_not_committed() {
+  cf_reset
+  local L="status and enable count a missing file or block only while its removal is not committed: a committed removal gets no line; an unstaged or staged removal, and one from an enable never committed, get the line; with one of each only the uncommitted one is counted"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 skill=".claude/skills/example-skill/SKILL.md" role=".claude/roles/example.md"
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  # a file removed and committed: no line, in either command
+  git -C "$SB_WORK" rm -q -- "$skill" >/dev/null 2>&1
+  _mu_land "remove the example skill on purpose"
+  [ ! -e "$SB_WORK/$skill" ] || cf "(prereq) $skill is still there after its removal was committed"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed file) status names a removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed file) enable names a removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # ...and a second file removed but not committed: only that one is counted
+  rm -f "$SB_WORK/$role"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
+    || cf "(one of each) status does not count the one uncommitted removal alone: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # ...staged with git rm, still not committed: still counted
+  git -C "$SB_WORK" rm -q --cached -- "$role" >/dev/null 2>&1
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(staged file) enable does not count a removal staged and not committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # a block removed: counted until the removal is committed, then not
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  grep -F 'KIT-MODULE:example:gates' "$SB_WORK/PROJECT.md" >/dev/null && cf "(prereq) the block is still in PROJECT.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(uncommitted block) status does not count a block removed and not committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _mu_land "drop the example gate row on purpose"
+  printf '%s\n' "unrelated line" >> "$SB_WORK/PROJECT.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed block) status names a block removal that is committed (the host has another, unrelated edit): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed block) enable names a block removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # an enable that was never committed, a file then gone: counted, though git shows no change at the path
+  _mu_pair
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(prereq) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  _mu_land "disable the example module"
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || cf "(prereq) the enable again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  rm -f "$SB_WORK/$skill"
+  [ -z "$(git -C "$SB_WORK" status --porcelain -- "$skill")" ] || cf "(prereq) git shows a change at $skill, so this row does not test an enable never committed"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(never committed) status does not count a file gone from an enable that was never committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(never committed) enable does not count it: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }

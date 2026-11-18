@@ -1289,21 +1289,39 @@ _kit_mod_block_state() {  # <path> <block id> <sha>
   else echo edited; fi
 }
 
-# _kit_mod_missing_hint <name> <plan-file> — when a recorded thing the plan still places is missing, a line naming both
-# readings: the project removed it, or a disable stopped part-way. A row the plan no longer places is not counted: the
-# upgrade's own item tells the project to delete it.
+# _kit_mod_removal_committed <name> <kind> <path> <slot> <HEAD's record> — status 0 when a missing thing's removal is
+# committed: HEAD's record names the module enabled with this row, and git shows no change at the thing (a file: none
+# at the path; a block: HEAD, the index and the working tree all lack it). A removal not yet committed, and one from an
+# enable that was never committed (HEAD does not record the row), are not.
+_kit_mod_removal_committed() {
+  awk -v n="$1" -v k="$2" -v p="$3" -v s="$4" '{ sub(/\r$/, "") }
+    $1 == "module" || $1 == "kept" || $1 == "pending" { on = ($1 == "module" && $2 == n); next }
+    on && $1 == k && $3 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$5" || return 1   # return-class: predicate
+  if [ "$2" = file ]; then
+    [ -z "$(cd "$KIT_MOD_ROOT" && git status --porcelain --untracked-files=no -- ":(literal)$3" 2>/dev/null)" ]
+  else
+    ! kit_mod_block_changed "$3" "$1" "$4"
+  fi
+}
+
+# _kit_mod_missing_hint <name> <plan-file> — when a recorded thing the plan still places is missing and its removal is
+# not committed, a line naming both readings: the project removed it, or a disable stopped part-way. A row the plan no
+# longer places is not counted: the upgrade's own item tells the project to delete it. Nor is a removal committed from a
+# commit that records the module: that is the project's own.
 _kit_mod_missing_hint() {
-  local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows"
+  local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows" hr="$KIT_MOD_TMP/hint-head-record"
   kit_mod_rows_merged "$name" > "$rf"
+  if ! ( cd "$KIT_MOD_ROOT" && git show "HEAD:./$KIT_MOD_STATE_REL" ) > "$hr" 2>/dev/null; then : > "$hr"; fi
   while read -r kind sha tgt slot; do
     [ -n "$kind" ] || continue
     m=$((m + 1))
     awk -F'\t' -v k="$kind" -v p="$tgt" -v s="$slot" '$1 == k && $2 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$2" || continue
     if [ "$kind" = file ]; then st="$(_kit_mod_file_state "$tgt" "$sha")"; else st="$(_kit_mod_block_state "$tgt" "$(_kit_mod_bid "$name" "$slot")" "$sha")"; fi
-    [ "$st" != missing ] || n=$((n + 1))
+    [ "$st" = missing ] || continue
+    _kit_mod_removal_committed "$name" "$kind" "$tgt" "$slot" "$hr" || n=$((n + 1))
   done < "$rf"
-  rm -f "$rf"
-  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
+  rm -f "$rf" "$hr"
+  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
   return 0
 }
 

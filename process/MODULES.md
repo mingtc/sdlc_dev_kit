@@ -186,4 +186,6 @@ is the template; `modules/example/` is the module to copy.
 - `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
   `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
   an Action required entry.
-- The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file.
+- The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file. `status`
+  and `enable` add a line counting the missing ones whose removal is not committed (removed here, or left by a disable
+  that stopped part-way); a removal committed from a commit that records the module is the project's own and is not counted.
