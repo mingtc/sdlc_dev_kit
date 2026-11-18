@@ -775,6 +775,63 @@ case_kit_upgrade_still_replaces_an_ungraduated_stub() {
 }
 
 # =============================================================================
+# CASE — THE UPGRADE WRITES NO FILE THROUGH A SYMBOLIC LINK.
+#
+# In the project, a.txt (as the old kit shipped it) is a link to a file outside the tree, e.txt (new
+# upstream) a link to a file that does not exist yet, and sub/ a link to a directory outside the tree
+# holding f.txt as the old kit shipped it (g.txt is new upstream there). A write to any of them would land
+# outside the project, so each is a merge item that names the link, with the new copy staged, and the
+# files outside are untouched. (control) The same files, plain, are replaced and added.
+# =============================================================================
+case_kit_upgrade_writes_no_file_through_a_symbolic_link() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh writes no kit file through a symbolic link, at the path or at a directory above it: each such path is a merge item naming the link, its new copy staged, and what the link points at is untouched; the same paths, plain, are replaced and added as before"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.2.0
+  local o="$SB_TMP/outside" cl="$KU_T/$KU_CHECKLIST_REL" p want link
+  mkdir -p "$o/sub"; printf 'a1\n' > "$o/a.txt"; printf 'f1\n' > "$o/sub/f.txt"
+  rm -f "$KU_T/a.txt"; ln -s "$o/a.txt" "$KU_T/a.txt"
+  ln -s "$o/e.txt" "$KU_T/e.txt"
+  ln -s "$o/sub" "$KU_T/sub"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "links"; } >/dev/null 2>&1 || _fixture_die "case_kit_upgrade_writes_no_file_through_a_symbolic_link: the links were not committed"
+
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "the upgrade exited $(_ku_rc up), want 0: $(_ku_out up)"
+  [ "$(cat "$o/a.txt")" = a1 ] || cf "(a.txt) the file the link points at was written: $(cat "$o/a.txt")"
+  [ ! -e "$o/e.txt" ] || cf "(e.txt) a file was made where the dangling link points: $(cat "$o/e.txt")"
+  [ "$(cat "$o/sub/f.txt")" = f1 ] || cf "(sub/f.txt) the file under the linked directory was written: $(cat "$o/sub/f.txt")"
+  [ ! -e "$o/sub/g.txt" ] || cf "(sub/g.txt) a new file was made in the linked directory"
+  for p in a.txt e.txt sub; do [ -L "$KU_T/$p" ] || cf "($p) is no longer a symbolic link"; done
+  # <path>@<what the item must say>@<the staged copy's text>
+  while IFS='@' read -r p link want; do
+    [ -n "$p" ] || continue
+    grep -F -- "merge $p — " "$cl" 2>/dev/null | grep '^- \[ \] ' | grep -F -- "$link is a symbolic link here" >/dev/null \
+      || cf "($p) no unmarked merge item names '$link' as a symbolic link: $(grep -F -- "$p" "$cl" 2>/dev/null | tr '\n' '|')"
+    [ "$(cat "$KU_T/.kit-upgrade/files/$p.kit-new" 2>/dev/null)" = "$want" ] || cf "($p) the new copy is not staged at .kit-upgrade/files/$p.kit-new"
+  done <<'LINK_ROWS'
+a.txt@a.txt@a2
+e.txt@e.txt@e1
+sub/f.txt@sub/@f2
+sub/g.txt@sub/@g1
+LINK_ROWS
+
+  # (control) the same paths, plain.
+  _ku_pair 0.1.0 0.2.0
+  mkdir -p "$KU_T/sub"; printf 'f1\n' > "$KU_T/sub/f.txt"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "sub back"; } >/dev/null 2>&1 || _fixture_die "case_kit_upgrade_writes_no_file_through_a_symbolic_link: (control) sub/ was not committed"
+  _ku_run plain --into "$KU_T"
+  [ "$(_ku_rc plain)" = 0 ] || cf "(control) the upgrade exited $(_ku_rc plain), want 0: $(_ku_out plain)"
+  for p in a.txt:a2 e.txt:e1 sub/f.txt:f2 sub/g.txt:g1; do
+    [ "$(cat "$KU_T/${p%%:*}" 2>/dev/null)" = "${p#*:}" ] || cf "(control) ${p%%:*}, plain, is not the new kit's: $(cat "$KU_T/${p%%:*}" 2>/dev/null)"
+  done
+  grep -F 'symbolic link' "$KU_T/$KU_CHECKLIST_REL" >/dev/null 2>&1 && cf "(control) the checklist names a symbolic link where there is none"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — "REMOVED UPSTREAM" NEVER SAYS "DELETE IT" ABOUT A FILE THE PROJECT ITSELF CHANGED.
 #
 # c.txt is dropped by the new kit. One target has it unchanged from the old release (today's

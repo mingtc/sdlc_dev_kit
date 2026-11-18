@@ -1562,6 +1562,46 @@ case_module_status_without_a_sha256_tool_says_it_cannot_judge() {
 }
 
 # =============================================================================
+# CASE — module.sh status WITH NO NAME ENDS NON-ZERO ON A REFUSAL, AS status <name> DOES.
+#   Operand: an enabled module's process/MODULES with (a) a `module` line whose name is not a module name, and
+#   (b) a `file` row of the enabled module whose path leaves the project. Each is a refusal; status must end 1
+#   with it, not print it and end 0. (control) The record clean: status ends 0.
+# =============================================================================
+case_module_status_with_no_name_ends_non_zero_on_a_refusal() {
+  cf_reset
+  local L="module.sh status with no name ends 1, printing the Error and a Next: line and writing the refusal's record, when process/MODULES names a module whose name is not a module name or an enabled module's file row whose path leaves the project, as status <name> does; with the record clean it ends 0"
+  if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  local miss; miss="$(_md_missing_program)"
+  [ -z "$miss" ] || { cf "(prereq) $miss is absent from the tree under test"; finish "$L"; return; }
+  _md_sandbox
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-200)"; finish "$L"; teardown; return; }
+  local rec="$SB_WORK/process/MODULES" row line id
+  cp "$rec" "$SB_TMP/MODULES.clean"
+  _md_mod status
+  [ "$_md_rc" -eq 0 ] || cf "(control) status over a clean record exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  printf 'outside\n' > "$SB_TMP/outside.txt"
+  # <row>@<line appended to process/MODULES>@<refusal id>
+  while IFS='@' read -r row line id; do
+    [ -n "$row" ] || continue
+    cp "$SB_TMP/MODULES.clean" "$rec"
+    printf '%s\n' "$line" >> "$rec"
+    _md_mod status
+    [ "$_md_rc" -eq 1 ] || cf "($row) status with no name exited $_md_rc after the refusal, not 1: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$_md_out" | grep -F 'Error:' >/dev/null && printf '%s\n' "$_md_out" | grep -F 'Next:' >/dev/null \
+      || cf "($row) status printed no Error and Next: lines: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    [ "$(_md_recs "$id")" -ge 1 ] || cf "($row) no refusal=$id record"
+  done <<ST_ROWS
+a module line that is no module name@module ../x 1.0.0@module-name-bad
+a file row that leaves the project@file $(_old_sha "$SB_TMP/outside.txt") ../outside.txt@module-record-bad
+ST_ROWS
+  cp "$SB_TMP/MODULES.clean" "$rec"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A RECORD-ONLY RUN IS SENT TO THE FULL PATH BY AN UNCOMMITTED CHANGE IN WHAT THE MODULE PLACES, NOT BY ONE ELSEWHERE IN A FILE IT ONLY ADDS A BLOCK TO.
 #   The module's version moved and nothing it places did. (a) An uncommitted edit outside the module's blocks in
 #   PROJECT.md and .gitignore: the record is moved, nothing staged, and the edits are left as they were. (b) An edit

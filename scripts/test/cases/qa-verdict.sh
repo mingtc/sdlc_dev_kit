@@ -591,6 +591,44 @@ case_finish_pr_qa_verdict_pointer_unresolved_refuses() {
 }
 
 # =============================================================================
+# CASE — A path:line POINTER TO THE LAST LINE OF A FILE WITH NO FINAL NEWLINE RESOLVES. The bound a pointer
+# is checked against counts that line, as the reader of the quote's range does; QA re-reading the code
+# cannot fix a count that leaves it out. A file that ends in a newline counts as before, and a line past
+# the end of either is still refused.
+# =============================================================================
+case_a_pointer_to_the_last_line_of_a_file_with_no_final_newline_resolves() {
+  cf_reset
+  local r row cell want ev
+  r="$(mktemp -d)" || _fixture_die "case_a_pointer_to_the_last_line_of_a_file_with_no_final_newline_resolves: mktemp -d failed"
+  printf 'first\nthe product line' > "$r/two.txt"
+  printf 'the only line' > "$r/one.txt"
+  printf 'first\nsecond\n' > "$r/ends.txt"
+  : > "$r/empty.txt"
+  { git -C "$r" init -q && git -C "$r" add -A \
+      && git -C "$r" -c user.name=t -c user.email=t@example.invalid commit -q -m seed; } >/dev/null 2>&1 \
+    || _fixture_die "case_a_pointer_to_the_last_line_of_a_file_with_no_final_newline_resolves: the fixture repository was not made"
+  # <row>@<cell>@<an event _qav_cell_events must print>
+  while IFS='@' read -r row cell want; do
+    [ -n "$row" ] || continue
+    ev="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_cell_events "$2" HEAD "$3" file:line' _ "$REAL_SCRIPTS" "$r" "$cell" 2>&1)"
+    case "$ev" in *"$want"*) : ;; *) cf "($row) the pointer '$cell' read as '$(printf '%s' "$ev" | tr '\n' '|')', not '$want'" ;; esac
+  done <<'NL_ROWS'
+last of two, no newline@two.txt:2 "the product line"@P two.txt:2 OK 2 2
+both of two, no newline@two.txt:1-2 "first"@P two.txt:1-2 OK 1 2
+one line, no newline@one.txt:1 "the only line"@P one.txt:1 OK 1 1
+past the end, no newline@two.txt:3 "x"@P two.txt:3 BAD line 3 is past two.txt's 2 line(s)
+control: ends in a newline@ends.txt:2 "second"@P ends.txt:2 OK 2 2
+control: past one that ends in a newline@ends.txt:3 "x"@P ends.txt:3 BAD line 3 is past ends.txt's 2 line(s)
+control: an empty file@empty.txt:1 "x"@P empty.txt:1 BAD line 1 is past empty.txt's 0 line(s)
+NL_ROWS
+  # The quote on that last line is found where the pointer says, so the row passes as a whole.
+  bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_quote_in_range "$2" HEAD two.txt 2 2 "the product line"' _ "$REAL_SCRIPTS" "$r" \
+    || cf "(last of two, no newline) the quote 'the product line' is not found at two.txt:2"
+  rm -rf "$r"
+  finish "a path:line pointer to the last line of a file with no final newline resolves, and its quote is found there; one line past it is refused with the count that includes it, and a file that ends in a newline or is empty counts as before"
+}
+
+# =============================================================================
 # CASE — A QUOTE ABSENT FROM A test/file:line ROW REFUSES (qa-verdict-quote-missing); A QUOTE
 # PRESENT BUT NOT ON THE CITED LINE REFUSES (qa-verdict-quote-not-found) — made concrete: a pointer
 # that is real and resolves, but does not show the claim.

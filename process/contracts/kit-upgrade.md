@@ -26,6 +26,10 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   never touched is replaced; a file new upstream is added, unless the project removed its directory.
   *Why:* only the three-way comparison tells "the kit moved" from "the project moved"; comparing two
   sides reads every local edit as drift.
+- **Nothing is written through a symbolic link.** A kit path that is a symbolic link in the project, or
+  lies under a directory that is one, is a merge item: its new copy is staged and the link is left as it is.
+  *Why:* a write through a link lands wherever the link points, which the merge base says nothing about and
+  which may be outside the project.
 - **An enabled module's placed files are carried by the record, never past an edit.** A module's placed files are
   not in the shipped manifest, so the three-way comparison above cannot see them; `process/MODULES` is their merge
   base, and [`module-lifecycle.md`](module-lifecycle.md) § 2 states the rules for a file. This upgrade's own duties,

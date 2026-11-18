@@ -17,6 +17,7 @@
 #   new upstream, absent here           added
 #   new copy is day-one scaffolding,    NEVER written: the checklist says so instead (below)
 #   the project's copy no longer is
+#   a symbolic link, or under one       NEVER written through: staged and a merge item, as below
 #   anything else                       NEVER overwritten: the new one is staged under
 #                                       .kit-upgrade/files/ and the checklist says merge it
 # A STAGED COPY NEVER CARRIES A LIVE NAME: each `.claude` path component is written `_claude`, and
@@ -712,6 +713,16 @@ SHA=""
 if command -v shasum >/dev/null 2>&1; then SHA="shasum -a 256"
 elif command -v sha256sum >/dev/null 2>&1; then SHA="sha256sum"; fi
 sha_of() { $SHA "$1" 2>/dev/null | awk '{print $1}'; }
+# link_on_path <path> — <path>, or the nearest directory above it, that is a symbolic link in the target, or
+# nothing. A write there would land wherever the link points, so such a path is a merge item.
+link_on_path() {
+  local q="$1"
+  while [ -n "$q" ]; do
+    if [ -L "$TGT/$q" ]; then printf '%s' "$q"; return 0; fi
+    case "$q" in */*) q="${q%/*}" ;; *) q="" ;; esac
+  done
+  return 0
+}
 OLD_MAN="$TGT/process/KIT-MANIFEST"
 DEGRADED=""   # why a differing file cannot be told apart from an edited one
 [ -n "$SHA" ] || DEGRADED="no sha256 tool (shasum or sha256sum) is on this machine"
@@ -770,6 +781,13 @@ while IFS="$(printf '\t')" read -r p nh oh; do
   # The scaffolding guard (header).
   if is_scaffold "$src" && [ -e "$dst" ] && ! is_scaffold "$dst"; then
     BLOCKED+=("$p"); continue
+  fi
+  lnk="$(link_on_path "$p")"
+  if [ -n "$lnk" ]; then
+    MERGE+=("$p")
+    if [ "$lnk" = "$p" ]; then MERGE_WHY+=("$p is a symbolic link here, and the kit writes no file through one (it would land wherever the link points)")
+    else MERGE_WHY+=("$lnk/ is a symbolic link here, and the kit writes no file through one (it would land wherever the link points)"); fi
+    continue
   fi
   if [ ! -e "$dst" ]; then
     if [ -f "$OLD_MAN" ] && [ -z "$oh" ]; then   # new upstream
@@ -919,7 +937,8 @@ staged_rel() {
 staged_mod_rel() {
   printf '%s/modules/%s/%s%s.kit-new' "$STAGE_DIR" "$1" "$(disarm_path "$2")" "$([ "$3" = - ] || printf '.%s-block' "$3")"
 }
-put() {  # <src> <dst> — copy, carrying the executable bit
+put() {  # <src> <dst> — copy, carrying the executable bit; never through a symbolic link at <dst>
+  [ ! -L "$2" ] || return 1
   mkdir -p "$(dirname "$2")" && cp "$1" "$2" || return 1
   if [ -x "$1" ]; then chmod +x "$2"; else chmod a-x "$2"; fi
 }

@@ -496,7 +496,8 @@ _qav_cell_events() {
       printf 'P %s BAD %s\n' "$_tok" "${_path} is a directory, not a file, at ${rev}"
       continue
     fi
-    _nlines="$(git -C "$repo" show "${rev}:${_path}" 2>/dev/null | wc -l | tr -d ' ')"
+    # awk counts a last line with no final newline, as sed -n (which reads the quote's range) prints it.
+    _nlines="$(git -C "$repo" show "${rev}:${_path}" 2>/dev/null | LC_ALL=C awk 'END { print NR }')"
     if [ -z "$_lo" ] || [ -z "$_hi" ] || ! [ "$_lo" -ge 1 ] 2>/dev/null || ! [ "$_hi" -ge "$_lo" ] 2>/dev/null; then
       printf 'P %s BAD %s\n' "$_tok" "malformed line range"
     elif [ "$_hi" -gt "$_nlines" ]; then
