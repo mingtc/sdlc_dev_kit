@@ -25,7 +25,7 @@ for (let i = 0; i < args.length; i++) {      // every argument error refuses wit
   const a = args[i];
   if (a === '--name' || a === '--out') {
     const v = args[++i];
-    if (v === undefined || v.startsWith('--')) refuse(`${a} needs a value`);
+    if (v === undefined || v === '' || v.startsWith('--')) refuse(`${a} needs a value`);
     if (a === '--name') ns = v; else out = v;
   } else if (a === '--pin-primary') pin = true;
   else if (/^#?[0-9a-fA-F]{6}$/.test(a)) { if (seed) refuse('more than one seed'); seed = a; }
