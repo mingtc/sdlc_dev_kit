@@ -352,8 +352,22 @@ kwt_lock() {
 }
 
 kwt_unlock() {
+  # A signal runs its trap as soon as the git command it interrupted returns, which can be before the retry's own
+  # `git rebase --abort`: a rebase this op left in progress is aborted here, so the Next below can run. Only the holder
+  # of the lock does it, and the kanban worktree is never left mid-rebase on purpose.
+  if [ "$KWT_LOCK_HELD" = "true" ] && [ -n "${KWT:-}" ]; then
+    local _kwt_gd; _kwt_gd="$(git -C "$KWT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    if [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then
+      git -C "$KWT" rebase --abort >/dev/null 2>&1 || true
+    fi
+  fi
   # The op ended with its commit made and no push landed: killed between the two. kwt_finalize
-  # reports its own failures and clears this first, so what reaches here was cut off.
+  # reports its own failures and clears this first, so what reaches here was cut off. The same signal can land after a
+  # push that succeeded and before kwt_finalize clears it: the remote's tracking ref, which that push updated, says so.
+  if [ -n "$KWT_UNPUSHED" ] && git -C "$KWT" merge-base --is-ancestor HEAD "refs/remotes/$KWT_REMOTE/${DEFAULT_BRANCH:-}" 2>/dev/null; then
+    echo "Note: this op was ended by a signal after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree; $KWT_REMOTE/${DEFAULT_BRANCH:-} already holds it, so there is nothing to publish." >&2
+    KWT_UNPUSHED=""
+  fi
   if [ -n "$KWT_UNPUSHED" ]; then
     {
       echo "Error: this op ended after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree, while its push was still to run or in flight."
