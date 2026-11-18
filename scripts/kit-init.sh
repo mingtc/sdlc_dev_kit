@@ -626,12 +626,14 @@ if [ ${#LIVED[@]} -gt 0 ]; then
   # and an earlier run already undone are not taken.
   # A run cut off after a self-check move was pushed and before this checkout caught up leaves the newest commits on the
   # trunk only: read the trunk's log when this checkout is at or behind it, and make the checkout reach it first.
-  _lv_ref="HEAD"; _lv_ff=""
+  _lv_ref="HEAD"; _lv_ff=""; _lv_div=""
   _lv_tr="refs/remotes/$REMOTE/$TRUNK"
   _lv_tip="$(git -C "$ROOT" rev-parse --verify --quiet "$_lv_tr" 2>/dev/null || true)"  # card-read-exempt: the trunk, not a card branch
-  if [ -n "$_lv_tip" ] && git -C "$ROOT" merge-base --is-ancestor HEAD "$_lv_tip" 2>/dev/null; then
+  if [ -n "$_lv_tip" ] && [ "$CUR_BRANCH" = "$TRUNK" ] && git -C "$ROOT" merge-base --is-ancestor HEAD "$_lv_tip" 2>/dev/null; then
     _lv_ref="$_lv_tr"
     [ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" = "$_lv_tip" ] || _lv_ff="$REMOTE/$TRUNK"
+  elif [ -n "$_lv_tip" ] && [ "$CUR_BRANCH" = "$TRUNK" ] && ! git -C "$ROOT" merge-base --is-ancestor "$_lv_tip" HEAD 2>/dev/null; then
+    _lv_div="$REMOTE/$TRUNK"   # neither is an ancestor of the other: the trunk holds commits this checkout lacks
   fi
   _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' "$_lv_ref" 2>/dev/null | awk -F '\t' '
     $2 ~ /^\[[^]]*\] kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+$/ { print $1; exit }
@@ -649,6 +651,8 @@ if [ ${#LIVED[@]} -gt 0 ]; then
       "  there is no resume path." \
       "Next: do not initialize this repository. If this is a re-run you meant to make, or an earlier run was cut off" \
       "  after its commits, undo every commit kit-init made, then run it again:" \
+      ${_lv_div:+"  This checkout has diverged from ${_lv_div}: bring it up to date first, then run kit-init again for the full list:"} \
+      ${_lv_div:+"        git pull --rebase ${REMOTE} ${TRUNK}"} \
       ${_lv_ff:+"        git merge --ff-only ${_lv_ff}"} \
       "        git revert --no-commit ${_lv_shas}" \
       "        MSG_OK=1 git commit -m '[${SELF_ROLE}] undo kit-init'" \

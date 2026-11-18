@@ -753,3 +753,47 @@ case_kit_init_cut_off_before_the_checkout_caught_up_names_the_trunks_commits() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE ALREADY-LIVED NEXT OFF THE TRUNK, AND OVER A DIVERGED CHECKOUT.
+# The checkout is two commits behind a trunk that holds a whole kit-init run.
+# (branch) on another branch, and on a detached HEAD, the Next prints no `git merge`: pasting it would move that branch.
+# (diverged) after one unrelated commit on the stale trunk checkout, the Next prints no `git merge` either, every commit it
+#   reverts is in the checkout's history, and it says to `git pull --rebase` the remote's trunk and run kit-init again.
+# =============================================================================
+case_kit_init_lived_refusal_off_the_trunk_and_on_a_diverged_checkout_prints_no_merge() {
+  cf_reset
+  local L="kit-init.sh, over a lived checkout behind the trunk that is on another branch, on a detached HEAD or diverged from the trunk, prints no git merge line; a diverged one names only commits in its history and says to pull --rebase first"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local out rc sha cmds
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || { cf "(prereq) kit-init did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"; finish "$L"; teardown; return; }
+  git -C "$SB_WORK" reset -q --hard HEAD~2 || cf "(prereq) could not set the checkout back"
+  # (branch) another branch, then a detached HEAD
+  git -C "$SB_WORK" checkout -q -b side-branch || cf "(prereq) could not leave the trunk"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "(branch) the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'git merge' >/dev/null && cf "(branch) the Next prints a git merge line on a checkout that is not on the trunk"
+  git -C "$SB_WORK" checkout -q --detach || cf "(prereq) could not detach"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "(detached) the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'git merge' >/dev/null && cf "(detached) the Next prints a git merge line on a detached HEAD"
+  # (diverged) back on the trunk, one commit of its own that the trunk does not have
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" || cf "(prereq) could not return to the trunk"
+  printf 'x\n' > "$SB_WORK/unrelated.txt"
+  git -C "$SB_WORK" add unrelated.txt
+  ( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[Dev] an unrelated change on the stale checkout" ) >/dev/null 2>&1 || cf "(prereq) could not commit the unrelated file"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "(diverged) the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'git merge' >/dev/null && cf "(diverged) the Next prints a git merge line over a diverged checkout"
+  cmds="$(printf '%s\n' "$out" | sed -n -E 's/^ *((MSG_OK=1 )?git .*)$/\1/p')"
+  for sha in $(printf '%s\n' "$cmds" | sed -n -E 's/.*git revert --no-commit (.*)$/\1/p'); do
+    git -C "$SB_WORK" merge-base --is-ancestor "$sha" HEAD || cf "(diverged) the Next reverts $sha, which is not in the checkout's history"
+  done
+  printf '%s\n' "$cmds" | grep -F "git pull --rebase origin $SB_TRUNK" >/dev/null || cf "(diverged) the Next does not say to git pull --rebase origin $SB_TRUNK: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  finish "$L"
+  teardown
+}
