@@ -2163,3 +2163,55 @@ case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — a marker-block write that is refused leaves no scratch file in the temp directory.
+# kit_mb_insert and kit_mb_remove build the new bytes in a scratch file, then _kit_mb_commit writes the host; when that
+# write is refused (a host the user cannot write) the library exits through kit_refuse, and the scratch must go with it.
+# A private TMPDIR holds whatever is left; each function has its own check, because a fix in one caller leaves the other.
+#   (a) insert refused: the host cannot be written, nothing is left in TMPDIR or beside the host, the host is unchanged;
+#   (b) remove refused: the same, for a block that is there;
+#   (c) CONTROL: the same calls on a writable host succeed and leave nothing.
+# =============================================================================
+case_marker_block_a_refused_write_leaves_no_scratch_file() {
+  cf_reset
+  local L="a refused marker-block insert or remove leaves no scratch file in the temp directory or beside the host"
+  if [ "$(id -u)" = 0 ]; then skp "$L" "running as root: chmod cannot make a file unwritable"; return; fi
+  make_sandbox
+  local d="$SB_TMP/mbr" t="$SB_TMP/mbr-tmp" f rc out
+  mkdir -p "$d" "$t"
+  f="$d/shared.md"
+  printf 'intro\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$f"
+  printf '| Gate | C |\n|---|---|\n| g1 | c1 |\n' > "$d/one.txt"
+  _mb() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; export TMPDIR="$t"; "$@" ) 2>&1; }
+  _left() { { ls -A "$t"; ls -A "$d" | grep -F 'kit-mb.'; } 2>/dev/null; }
+
+  # (c) control, writable: both calls succeed and nothing is left.
+  _mb kit_mb_insert "$f" alpha gates "$d/one.txt" >/dev/null; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) the control insert exited $rc"
+  _mb kit_mb_remove "$f" alpha >/dev/null; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) the control remove exited $rc"
+  [ -z "$(_left)" ] || cf "(c) a successful insert and remove left: $(_left | tr '\n' ' ')"
+
+  # (a) insert on a host that cannot be written.
+  cp "$f" "$d/before-a.md"; chmod 444 "$f"
+  out="$(_mb kit_mb_insert "$f" alpha gates "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) (premise) the insert on a read-only host exited 0, so no refusal was tested"
+  printf '%s\n' "$out" | grep -F 'could not write' >/dev/null || cf "(a) (premise) the refusal is not the write-back's: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  [ -z "$(_left)" ] || cf "(a) the refused insert left a scratch file: $(_left | tr '\n' ' ')"
+  cmp -s "$f" "$d/before-a.md" || cf "(a) the refused insert changed the host"
+  chmod 644 "$f"
+
+  # (b) remove on a host that cannot be written.
+  _mb kit_mb_insert "$f" alpha gates "$d/one.txt" >/dev/null; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) (premise) the insert that sets up the block exited $rc"
+  cp "$f" "$d/before-b.md"; chmod 444 "$f"
+  out="$(_mb kit_mb_remove "$f" alpha)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) (premise) the remove on a read-only host exited 0, so no refusal was tested"
+  printf '%s\n' "$out" | grep -F 'could not write' >/dev/null || cf "(b) (premise) the refusal is not the write-back's: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  [ -z "$(_left)" ] || cf "(b) the refused remove left a scratch file: $(_left | tr '\n' ' ')"
+  cmp -s "$f" "$d/before-b.md" || cf "(b) the refused remove changed the host"
+  chmod 644 "$f"
+  finish "$L"
+  teardown
+}

@@ -86,14 +86,14 @@ _kit_mb_state() {
 
 # _kit_mb_commit <file> <new-copy> — replace <file> with <new-copy> only when it differs, keeping the
 # file's mode: the bytes go to a copy of the file made beside it (cp -p), and that copy is moved over
-# it, so a write that fails (a full disk) has not touched <file>. Sets KIT_MB_CHANGED.
+# it, so a write that fails (a full disk) has not touched <file>, and a refused write removes <new-copy> too. Sets KIT_MB_CHANGED.
 _kit_mb_commit() {
   local side
   if cmp -s "$1" "$2"; then
     KIT_MB_CHANGED=0
   else
     side="$(mktemp "$1.kit-mb.XXXXXX")" && cp -p "$1" "$side" && cat "$2" > "$side" && mv "$side" "$1" \
-      || { rm -f "${side:-}"; kit_refuse 1 marker-block-unwritable "Error: marker-block: could not write $1." "Next: check the file's permissions and the free space beside it, then re-run; the file was not changed." "      NOTHING WAS CHANGED."; }
+      || { rm -f "${side:-}" "$2"; kit_refuse 1 marker-block-unwritable "Error: marker-block: could not write $1." "Next: check the file's permissions and the free space beside it, then re-run; the file was not changed." "      NOTHING WAS CHANGED."; }
     KIT_MB_CHANGED=1
   fi
   return 0
