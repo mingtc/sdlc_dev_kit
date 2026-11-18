@@ -145,7 +145,7 @@ kit_mb_insert() {
   if [ "$state" = bad ]; then
     kit_refuse 1 marker-block-markers-malformed "Error: marker-block: $file has a lone, repeated or misordered marker for block '$name'." "Next: open $file, leave exactly one '$(kit_mb_begin_line "$name")' line above one '$(kit_mb_end_line "$name")' line (or delete both), then re-run." "      NOTHING WAS CHANGED."
   fi
-  tmp="$(mktemp)" || { [ "$created" = 1 ] && rm -f "$file"; kit_refuse 1 marker-block-no-scratch "Error: marker-block: could not create a scratch file." "Next: check the temp directory, then re-run."; }
+  tmp="$(mktemp "${TMPDIR:-/tmp}/kit-mb.XXXXXX")" || { [ "$created" = 1 ] && rm -f "$file"; kit_refuse 1 marker-block-no-scratch "Error: marker-block: could not create a scratch file." "Next: check the temp directory, then re-run."; }
   if [ "$state" = one ]; then
     KMB_B="$(kit_mb_begin_line "$name")" KMB_E="$(kit_mb_end_line "$name")" KMB_C="$content" awk '
       function emit(  l) { print b cr; while ((getline l < cf) > 0) { sub(/\r$/, "", l); print l cr } close(cf); print e cr }
@@ -201,7 +201,7 @@ kit_mb_remove() {
   if [ "$state" = bad ]; then
     kit_refuse 1 marker-block-markers-malformed "Error: marker-block: $file has a lone, repeated or misordered marker for block '$name'." "Next: open $file, leave exactly one '$(kit_mb_begin_line "$name")' line above one '$(kit_mb_end_line "$name")' line (or delete both), then re-run." "      NOTHING WAS CHANGED."
   fi
-  tmp="$(mktemp)" || kit_refuse 1 marker-block-no-scratch "Error: marker-block: could not create a scratch file." "Next: check the temp directory, then re-run."
+  tmp="$(mktemp "${TMPDIR:-/tmp}/kit-mb.XXXXXX")" || kit_refuse 1 marker-block-no-scratch "Error: marker-block: could not create a scratch file." "Next: check the temp directory, then re-run."
   KMB_B="$(kit_mb_begin_line "$name")" KMB_E="$(kit_mb_end_line "$name")" awk '
     BEGIN { b = ENVIRON["KMB_B"]; e = ENVIRON["KMB_E"] }
     { l = $0; sub(/\r$/, "", l) }
