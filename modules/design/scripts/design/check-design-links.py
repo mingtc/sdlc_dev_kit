@@ -69,7 +69,7 @@ Reports (each line starts with its class)
                 changed since; the row goes back to review. In a wireframe canvas: gate 1 only, and only when the structure differs
   SUPERSEDED    a citation of a superseded screen        DUPLICATE  one UX id on two rows
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
-                approved gate cell whose file is not there. "Exists" follows the filesystem: a registry path that differs from a
+                approved gate cell whose file is not there, or an open or changes one (a superseded row may lose its file). "Exists" follows the filesystem: a registry path that differs from a
                 tracked file only in case resolves on a case-insensitive one, so ARTBOARD stays silent there and STALE-APPROVAL
                 (which reads git) still reports a missing approved file
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
@@ -100,6 +100,7 @@ Report lines, not findings (shown; never counted, never an exit status):
   CONTENT-ONLY  the approved rows of a wireframe canvas whose bytes moved since the approval and whose structure did not
   UNCOVERED-WIRE, STALE-PENDING-WIRE   an UNCOVERED or STALE-PENDING finding that reaches only wireframe rows
   UNCITED       a row no PRD cites
+  UNROWED       an artboard (*.dc.html under a canvas's project/) that no registry row names and no screen with a row imports: the check does not read it
   UNREAD        a sheet, script or imported screen an artboard loads that the check cannot read (an uploaded `/_blob/` file): its
                 colours are not checked. Put the sheet under project/ as a file and link it by a relative path; or a token file that is not
                 JSON (a trailing comma, a BOM, an empty file): none of its tokens are read
@@ -138,7 +139,7 @@ KNOWN = ['ux-id', 'file', 'title', 'platform', 'pair', 'states', 'stories', 'sta
 REGISTRY_NAME, PROJECT_SUBDIR = 'CANVAS.md', 'project'
 SKIP_SHELVES = ('done', 'declined', 'history')
 GATE_CELL = re.compile(r'(open|changes|superseded|approved(?:@([0-9a-f]{7,40}))?)')
-REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY',
+REPORT_CLASSES = ('UNCITED', 'UNCLASSIFIED', 'UNROWED', 'SCRIPT-COLOUR', 'UNREAD', 'UNCOMPARED', 'DESIGN-STORY',
                   'MODE', 'CONTENT-ONLY', 'UNCOVERED-WIRE', 'STALE-PENDING-WIRE', 'TOKEN-VIA-IMPORTER')
 WAIVER_MARK = re.compile(r'\[decision:\s*(D-\d+)\]')
 MODE_LINE = re.compile(r'^\s*[-*]\s*\*\*Mode:\*\*\s*(.*?)\s*$')
@@ -1471,6 +1472,22 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
                 out.append(line('SCRIPT-COLOUR', f"{art.relative_to(root)}: {', '.join(sc[:4])}{' ...' if len(sc) > 4 else ''} in the component script (report only: a script cannot be read as CSS)"))
         elif any(v.startswith('approved') for v in r['gates'].values()):
             out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there"))
+        elif not r['superseded']:
+            out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} is registered ({r['status']}) but {art.relative_to(root)} is not there"))
+
+    # an artboard no row names (a superseded row still names its file), which no screen with a row imports: said, never counted
+    named = set()
+    for r in rows:
+        try:
+            named.add((r['canvas'] / PROJECT_SUBDIR / r['file']).relative_to(root).as_posix())
+        except ValueError:
+            pass
+    imported = {n for text_, loaded_ in rowtext.values() for n, _ in loaded_}
+    for c in sorted(dsn.glob(f'*/{REGISTRY_NAME}')):
+        for f in sorted((c.parent / PROJECT_SUBDIR).rglob('*.dc.html')):
+            key = f.relative_to(root).as_posix()
+            if key not in named and key not in imported:
+                out.append(line('UNROWED', f"{key}: no registry row names this artboard and no screen with a row imports it, so the check does not read it (info). Add its row to {c.relative_to(root).as_posix()}"))
 
     for label, uxs in content_only.values():
         out.append(line('CONTENT-ONLY', f"{label}: {', '.join(uxs)} approved, with text, numbers or styles changed since and the structure as approved (mode wireframe, info)"))

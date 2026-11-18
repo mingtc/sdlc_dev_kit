@@ -94,9 +94,13 @@ version of the file or by deleting it. A file with no manifest line that is alre
   [ -f "$repo" ] || continue
   want=$(awk -v p="$f" '{ q = $1; for (i = 2; i <= NF - 2; i++) q = q " " $i } q == p { print $NF }' requirements/design/<canvas>/CANVAS.md)
   have=$( (shasum -a 256 "$repo" 2>/dev/null || sha256sum "$repo") | cut -d' ' -f1)
-  [ "$want" = "$have" ] || echo "BOTH-SIDES $f"
+  [ "$want" = "$have" ] && continue
+  got=; [ -f ".cache/design/pull/$f" ] && got=$( (shasum -a 256 ".cache/design/pull/$f" 2>/dev/null || sha256sum ".cache/design/pull/$f") | cut -d' ' -f1)
+  [ "$have" = "$got" ] || echo "BOTH-SIDES $f"
 done
 ```
+
+A file the pull brings byte-equal to the repo's is not on both sides (a send that landed before its record was written leaves the manifest older than both), and is not printed.
 
 If it prints any line, **do not place**. For each file show the human the repo's change and the canvas's, with `<base>` as in the diff below, and ask how to go on.
 Laying the pull over the file would drop the repo's change from the tip.

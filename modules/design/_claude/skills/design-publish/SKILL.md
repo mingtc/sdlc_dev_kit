@@ -43,7 +43,14 @@ every `project/` file with `read` (it reports each sha) and compare those.
 
 ## 3. The set to send
 
-Every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
+First put the boards in the spelling a pull writes, so a `data-props` you wrote spaced, or with a number like `1e3`, is sent compact and a later pull reads no change in it
+(`canvas.json` is put in the same spelling, and is sent only when the layout changed, as below):
+
+```sh normalise
+python3 scripts/design/normalise-canvas.py requirements/design/<canvas>/project
+```
+
+A file it names `UNREAD` is not sent: show the human. Then the set is every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
 `canvas.json` only when the layout changed, plus a file the human named to restore. **Never `git diff` against the pull commit:** it misses a canvas edit the
 human rejected, which only they can name. A file the repo dropped goes in `remove`; a file the canvas dropped (the pull took the deletion in) is not repo-only and is not sent back.
 Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them.
