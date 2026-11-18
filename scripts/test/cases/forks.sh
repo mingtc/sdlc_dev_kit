@@ -878,11 +878,12 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   [ "$_FDL_RC" -eq 0 ] || cf "(g) a [decision: D-01] on the second line of an unchanged AC was counted as the card's own fork — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
   teardown
 
-  # (h) the same citation on an AC whose item changed (its checklist line cites too) is the card's: refused under forks: none
+  # (h) the same wrapped citation on an AC whose item changed is the card's: the checklist line cites only D-02 (the answer to
+  # the drift check), so forks: [D-02] covers it and the second line's D-01 is the one left, refused
   id="$SB_PREFIX-869"
   _FDL_TODO_CONT="  and the ruling applies, per [decision: D-01]." _forks_drift_land work-h "$id" wrapchanged 0 \
-    "- [ ] AC1 — the sandbox's seeded behaviour holds, now widened [decision: D-01]." "" "none"
-  [ "$_FDL_RC" -ne 0 ] || cf "(h) an AC that changed, citing D-01, landed under forks: none — finish-pr.sh exited 0"
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, now widened [decision: D-02]." "" "[D-02]"
+  [ "$_FDL_RC" -ne 0 ] || cf "(h) an AC that changed, its second line citing D-01, landed under forks: [D-02] — finish-pr.sh exited 0"
   grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "(h) the refusal is not forks-contradicted: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
   teardown

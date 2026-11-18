@@ -873,6 +873,9 @@ _fence_shape() {
     top-tab)       tail="$(printf '%s\n' 'Some prose.' "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
     item-tab)      tail="$(printf '%s\n' '  The page shows:' "$(printf '\t')$f" "$(printf '\t')- [ ] step one" "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
     item-unclosed) tail="$(printf '%s\n' "  $f" '  make test' '- [ ] AC3 — (UI) c.')" ;;
+    doctest)       tail="$(printf '%s\n' '  The REPL prints four:' "  ${f}python" '  >>> f(2)' '  4' "  $f" '- [ ] AC2 — (UI) b.')" ;;
+    shell-continue) tail="$(printf '%s\n' "  ${f}sh" '  make \' '  > out.txt' "  $f" '- [ ] AC2 — (UI) b.')" ;;
+    gt-in-fence)   tail="$(printf '%s\n' "${f}text" '>>> f(2)' "> $f" 'still code' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-fence)   tail="$(printf '%s\n' '' "> $f" '> - [ ] AC9 — (UI) ex.' "> $f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-open)    tail="$(printf '%s\n' '' "> $f" '> make test' '' '- [ ] AC2 — (UI) b.')" ;;
     deep-nested)   tail="$(printf '%s\n' '  - one' '    - two' '      - three' "        $f" '        - [ ] AC9 — (UI) deep' "        $f" '- [ ] AC2 — (UI) b.')" ;;
@@ -895,12 +898,12 @@ _fence_shape_ids() {
     unclosed) echo "AC1" ;;
     item-four|item-five|item-tab|top-tab) echo "AC1 AC2" ;;
     item-unclosed) echo "AC1 AC3" ;;
-    quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter) echo "AC1 AC2" ;;
+    quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter|doctest|shell-continue|gt-in-fence) echo "AC1 AC2" ;;
     ten-item) echo "AC1 AC3 AC4" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter doctest shell-continue gt-in-fence"
 
 # =============================================================================
 # CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
@@ -947,6 +950,18 @@ case_qa_gate_fence_rule_shapes() {
     esac
     [ "${ul%% *}" = "$wantl" ] || cf "(u, $shape) the unclosed fence is reported at line '$ul': want '$wantl'"
   done
+  # (v) the line a container ended a fence on: the unclosed fence's second number is the first line past the item or
+  # quote that held it, and a fence the text ends on has none; (w) the refusal names that line, and says to indent
+  local uo ue wante msg
+  for shape in unclosed item-unclosed quote-open deep-unclosed; do
+    read -r uo ue <<< "$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
+    if [ "$shape" = unclosed ]; then wante=""; else wante="$(_fence_shape "$shape" | grep -n '^- \[ \] AC' | tail -1 | cut -d: -f1)"; fi
+    [ "$ue" = "$wante" ] || cf "(v, $shape) the line the container ended the fence on is '$ue': want '$wante'"
+  done
+  read -r uo ue <<< "$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape quote-open)" 2>&1)"
+  msg="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_refuse_unclosed_fence X-1 "$2"' _ "$REAL_SCRIPTS" "$uo $ue" 2>&1)"
+  case "$msg" in *"opens on line $uo inside a list item or quote that ends on line $ue"*) : ;; *) cf "(w) the refusal for a fence its quote ended does not name lines $uo and $ue: $(printf '%s' "$msg" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$msg" in *"Next:"*"'>' markers"*) : ;; *) cf "(w) the Next: for a fence its quote ended does not name the '>' markers: $(printf '%s' "$msg" | tr '\n' '|' | cut -c1-400)" ;; esac
   finish "the fence rule reads these shapes the way CommonMark does (a ~~~ block holding a backtick line, a longer outer fence, an unclosed fence, a four-space and a tab indent, an inline span, a closing line with trailing text, a fence inside a list item, an unclosed fence in Context, and a fence four spaces, five spaces and a tab deep inside an AC item), the forks reader's heading test treats an unclosed fence and a longer outer fence by the same rule, a checklist-looking line inside an AC item's deep fence is no stray, and the line that opened a fence nothing closes is found"
 }
 
@@ -980,6 +995,11 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair same "a comment block after the item changed" "$(printf '%s\n%s' "$line" "<!-- note one -->")" "$(printf '%s\n%s' "$line" "<!-- note two -->")"
   _pair diff "a checklist-looking line in a fenced body changed" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  - [ ] step one" "  $f")" "$(printf '%s\n%s\n%s\n%s' "$line" "  $f" "  - [ ] step two" "  $f")"
   _pair diff "a quoted AC's continuation changed" "$(printf '%s\n%s\n%s' '> - [ ] AC1 — the response is:' '>   only when beta.' '> - [ ] AC2 — x')" "$(printf '%s\n%s\n%s' '> - [ ] AC1 — the response is:' '>   only when NOT beta.' '> - [ ] AC2 — x')"
+  _pair diff "a quote nested in the item changed" "$(printf '%s\n%s\n%s' '- [ ] AC1 — the banner reads:' '  > Your session expired.' '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s' '- [ ] AC1 — the banner reads:' '  > Your session has ended.' '- [ ] AC2 — x')"
+  _pair diff "a quote nested in a quoted AC changed" "$(printf '%s\n%s\n%s' '> - [ ] AC1 — one' '>   > inner one' '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s' '> - [ ] AC1 — one' '>   > inner two' '- [ ] AC2 — x')"
+  _pair diff "a fence nested in a quoted AC changed" "$(printf '%s\n%s\n%s\n%s\n%s' '> - [ ] AC1 — one' ">   $f" '>   code one' ">   $f" '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s\n%s\n%s' '> - [ ] AC1 — one' ">   $f" '>   code two' ">   $f" '- [ ] AC2 — x')"
+  _pair same "the bullet after a nested quote changed" "$(printf '%s\n%s\n%s' "$line" '  > a banner' '- [ ] AC2 — one')" "$(printf '%s\n%s\n%s' "$line" '  > a banner' '- [ ] AC2 — two')"
+  _pair diff "a doctest line in the item's fence changed" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" "  ${f}python" '  >>> f(2)' '  4' "  $f")" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" "  ${f}python" '  >>> f(2)' '  5' "  $f")"
   _pair diff "a nested sub-item changed" "$(printf '%s\n%s\n%s' "$line" '  - [ ] step one' '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s' "$line" '  - [ ] step two' '- [ ] AC2 — x')"
   _pair diff "a lazy line starting with a number other than 1 changed" "$(printf '%s\n%s' "$line" '14. only when beta.')" "$(printf '%s\n%s' "$line" '14. only when NOT beta.')"
   _pair same "a line starting 1. after the item changed (it opens a list)" "$(printf '%s\n%s' "$line" '1. note one')" "$(printf '%s\n%s' "$line" '1. note two')"
