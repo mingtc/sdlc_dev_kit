@@ -718,3 +718,38 @@ case_a_term_to_the_ops_pid_waits_for_its_push_and_its_rebase_before_the_lock_goe
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — kit-init.sh CUT OFF AFTER A PUSHED SELF-CHECK MOVE, BEFORE THE CHECKOUT CAUGHT UP: the trunk holds commits the
+# checkout does not. The re-run refuses as lived and its Next must name every commit the run made on the trunk, newest
+# included, and bring the checkout up to the trunk first; run as printed, the commands let the re-run complete.
+# =============================================================================
+case_kit_init_cut_off_before_the_checkout_caught_up_names_the_trunks_commits() {
+  cf_reset
+  local L="kit-init.sh, over a run whose newest commits are on the trunk but not in the checkout, prints a Next that brings the checkout to the trunk and names every commit the run made there, and, run as printed, lets the re-run complete"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local out rc cmds sha mine
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || { cf "(prereq) kit-init did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"; finish "$L"; teardown; return; }
+  # The trunk keeps the whole run; the checkout is two commits behind it, as when the run was cut off before its fast-forward.
+  mine="$(git -C "$SB_WORK" log --format='%h %s' "origin/$SB_TRUNK" | grep -E '^[0-9a-f]+ \[[^]]*\] (kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+|kit-init self-check: (mint scratch card [^ ]+|commit-msg hook accepts a role-tagged subject|remove the scratch card — the board is yours, empty)|[^ ]+ → [a-z_]+: kit-init self-check → [a-z_]+)$' | cut -d' ' -f1)"
+  git -C "$SB_WORK" reset -q --hard HEAD~2 || cf "(prereq) could not set the checkout back"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" != "$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")" ] || cf "(prereq) the checkout is not behind the trunk"
+  [ -n "$(ls "$SB_WORK/progress/dev_complete" 2>/dev/null | grep -v '^\.')" ] || cf "(prereq) no scratch card in dev_complete, so the window is not the one under test"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "the re-run did not refuse over a lived board"
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "the re-run did not refuse as lived: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  cmds="$(printf '%s\n' "$out" | sed -n -E 's/^ *((MSG_OK=1 )?git .*)$/\1/p')"
+  if [ -z "$cmds" ]; then cf "the refusal prints no git command on a line of its own: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"; finish "$L"; teardown; return; fi
+  for sha in $mine; do
+    printf '%s\n' "$cmds" | grep -F "$sha" >/dev/null || cf "the printed commands omit kit-init's commit $sha, which is on the trunk"
+  done
+  ( cd "$SB_WORK" && bash -c "$cmds" ) >/dev/null 2>&1 || cf "a printed command failed: $cmds"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "after the printed commands the re-run did not complete (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}

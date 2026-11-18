@@ -624,7 +624,15 @@ if [ ${#LIVED[@]} -gt 0 ]; then
   # script writes it below (the initialization; the scratch card's mint, its two moves, the hook proof and its
   # removal), with the role tag any `[...]`: a user commit that merely mentions kit-init, a revert that quotes one,
   # and an earlier run already undone are not taken.
-  _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' 2>/dev/null | awk -F '\t' '
+  # A run cut off after a self-check move was pushed and before this checkout caught up leaves the newest commits on the
+  # trunk only: read the trunk's log when this checkout is at or behind it, and make the checkout reach it first.
+  _lv_ref="HEAD"; _lv_ff=""
+  if git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1 \
+     && git -C "$ROOT" merge-base --is-ancestor HEAD "refs/remotes/$REMOTE/$TRUNK" 2>/dev/null; then
+    _lv_ref="refs/remotes/$REMOTE/$TRUNK"
+    [ "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" = "$(git -C "$ROOT" rev-parse "$_lv_ref" 2>/dev/null)" ] || _lv_ff="$REMOTE/$TRUNK"
+  fi
+  _lv_shas="$(git -C "$ROOT" log --format='%h%x09%s' "$_lv_ref" 2>/dev/null | awk -F '\t' '
     $2 ~ /^\[[^]]*\] kit-init: initialize the kit — prefix [^ ]+, trunk [^ ]+$/ { print $1; exit }
     $2 ~ /^\[[^]]*\] kit-init self-check: (mint scratch card [^ ]+|commit-msg hook accepts a role-tagged subject|remove the scratch card — the board is yours, empty)$/ { print $1 }
     $2 ~ /^\[[^]]*\] [^ ]+ → [a-z_]+: kit-init self-check → [a-z_]+$/ { print $1 }' | tr '\n' ' ' || true)"
@@ -640,6 +648,7 @@ if [ ${#LIVED[@]} -gt 0 ]; then
       "  there is no resume path." \
       "Next: do not initialize this repository. If this is a re-run you meant to make, or an earlier run was cut off" \
       "  after its commits, undo every commit kit-init made, then run it again:" \
+      ${_lv_ff:+"        git merge --ff-only ${_lv_ff}"} \
       "        git revert --no-commit ${_lv_shas}" \
       "        MSG_OK=1 git commit -m '[${SELF_ROLE}] undo kit-init'" \
       "        git push" \
