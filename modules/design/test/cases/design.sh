@@ -5293,3 +5293,116 @@ case_a_screen_reading_a_token_it_never_declares_is_a_token_undeclared_finding_un
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE LINK CHECK SAYS AN ARTBOARD NO ROW NAMES, AND REPORTS AN open OR changes ROW WHOSE FILE IS NOT THERE.
+#   Operand: scripts/design/check-design-links.py --strict over the clean links fixture, then over it with one screen no row names (a report
+#   line naming the file, never counted, exit 0), a screen only another screen imports (not said), an open row and a changes row whose files
+#   are gone (an ARTBOARD finding each, exit 1) and a superseded row whose file is gone (not a finding).
+# =============================================================================
+case_the_link_check_says_an_unrowed_artboard_and_an_open_row_whose_file_is_gone() {
+  cf_reset
+  local L="check-design-links.py --strict says UNROWED, naming the file and never counting it, for an artboard no registry row names and that no screen with a row imports, and reports an open or changes row whose file is not there as an ARTBOARD finding, as it does an approved one, and not a superseded one"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "UNROWED"; } || cf "(a) the clean fixture says UNROWED or exits $_dm_rc: $(_dm_brief 300)"
+  # (b) a screen no row names; (c) a screen only an imported-by-a-rowed-screen reads is not said
+  _dm_art "$D/Z.dc.html" 009 '--color-primary: #485d92;' '<h1 id="ux-009-t">Nobody registered me</h1>'
+  _dm_art "$D/I.dc.html" 004 '' '<h2 id="ux-004-t">Imported</h2>'
+  _dm_art "$D/B.dc.html" 002 '--color-primary: #485d92;' '<dc-import name="I" hint-size="390px,844px"></dc-import><h1 id="ux-002-title" style="color: var(--color-primary)"><a href="A.dc.html">Edit</a></h1>' PRD-001-F1-S2
+  _dm_commit "a screen nobody registered, and an imported one"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(b) an unrowed screen is counted or fails the check (exit $_dm_rc): $(_dm_brief 300)"
+  { _dm_line_has "$_dm_out" "UNROWED" "requirements/design/app/project/Z.dc.html"; } || cf "(b) no UNROWED line names Z.dc.html: $(_dm_brief 300)"
+  _dm_line_has "$_dm_out" "UNROWED" "I.dc.html" && cf "(c) a screen only an importer reads is said to be unrowed: $(_dm_brief 300)"
+  # (d) an open row, a changes row and a superseded row, each with no file
+  printf '| UX-007 | Gone.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  printf '| UX-008 | Gone2.dc.html | t | phone |  | default | PRD-001-F1-S2 | changes | open |\n' >> "$C"
+  printf '| UX-010 | Gone3.dc.html | t | phone |  | default | PRD-001-F1-S2 | superseded | superseded |\n' >> "$C"
+  _dm_commit "rows whose files are gone"
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 1 ] || cf "(d) rows whose files are gone exit $_dm_rc under --strict, not 1: $(_dm_brief 300)"
+  { _dm_line_has "$_dm_out" "ARTBOARD" "Gone.dc.html is not there" && _dm_line_has "$_dm_out" "ARTBOARD" "Gone2.dc.html is not there"; } || cf "(d) no ARTBOARD line for an open row and a changes row whose files are not there: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "Gone3.dc.html" && cf "(d) a superseded row whose file is gone is reported: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL SKILL'S both BLOCK NAMES NO FILE THAT IS EQUAL ON BOTH SIDES.
+#   Operand: the both block over a pull whose Timer is byte-equal to the repo's changed Timer while the manifest still names the older bytes (a
+#   send that landed and a crash before its record): nothing is named; a Timer that differs is named.
+# =============================================================================
+case_the_pull_skill_walked_over_a_file_equal_on_both_sides_names_nothing() {
+  cf_reset
+  local L="the design-pull skill's both block names no file whose pulled bytes equal the repo's, though the manifest is older than both, and still names one that differs"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local pj="$SB_WORK/.cache/design/pull/project" t="$SB_WORK/requirements/design/steep/project/Timer.dc.html"
+  _dm_edit "$t" 's|<title>Timer</title>|<title>Timer SENT</title>|'
+  _dm_commit "the Designer changes Timer and sends it"
+  _dm_sh "$(_dm_pull_walk start)"
+  cp "$t" "$pj/Timer.dc.html"
+  cp "$SB_WORK/requirements/design/steep/project/Settings.dc.html" "$pj/Settings.dc.html"
+  _dm_sh "$(_dm_pull_walk both)"
+  { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(a) a file equal on both sides is named (exit $_dm_rc): $_dm_out"
+  sed 's|SENT|EDITED ON THE CANVAS|' "$t" > "$pj/Timer.dc.html"
+  _dm_sh "$(_dm_pull_walk both)"
+  printf '%s\n' "$_dm_out" | grep -Fx 'BOTH-SIDES project/Timer.dc.html' >/dev/null || cf "(b) (control) a file that differs on the two sides is not named: $_dm_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PUBLISH SKILL'S normalise BLOCK SENDS data-props IN THE COMPACT FORM THE PULL WRITES.
+#   Operand: the block over a board whose data-props was written spaced: it becomes compact, a second run changes nothing, and the pull's
+#   normaliser finds nothing left to rewrite.
+# =============================================================================
+case_the_publish_skill_normalises_data_props_to_the_form_a_pull_writes() {
+  cf_reset
+  local L="the design-publish skill's normalise block rewrites a spaced data-props to the compact form, changes nothing on a second run, and leaves nothing for the pull's normaliser"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local f="$SB_WORK/requirements/design/steep/project/Main.dc.html" blk
+  blk="$(_dm_fence "$SB_WORK/.claude/skills/design-publish/SKILL.md" normalise | sed 's|<canvas>|steep|g')"
+  [ -n "$blk" ] || cf "(prereq) the publish skill has no normalise block"
+  _dm_edit "$f" "s|\\(data-dc-script data-props=\\).*>\$|\\1'{\"view\": {\"editor\": \"enum\", \"default\": \"list\"}}'>|"
+  grep -F '"view": {' "$f" >/dev/null || cf "(prereq) the board was not given a spaced data-props"
+  _dm_sh "$blk"
+  grep -F "data-props='{\"view\":{\"editor\":\"enum\",\"default\":\"list\"}}'" "$f" >/dev/null || cf "(a) the block left data-props spaced (exit $_dm_rc): $(grep -o "data-props=.*" "$f" | head -1 | cut -c1-120)"
+  _dm_sh "$blk"
+  { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(b) a second run changes something (exit $_dm_rc): $_dm_out"
+  _dm_py scripts/design/normalise-canvas.py --check requirements/design/steep/project
+  { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) the pull's normaliser would still rewrite a file the block normalised (exit $_dm_rc): $_dm_out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL SKILL GIVES THE TWO STEPS TO TAKE ONE CANVAS EDIT AND REJECT ANOTHER.
+#   Operand: the skill's text: answer yes to the pull, then restore the rejected file from the base through the repo and commit it.
+# =============================================================================
+case_the_pull_skill_gives_the_two_steps_for_a_partial_acceptance() {
+  cf_reset
+  local L="the design-pull skill names the two steps to take one canvas edit and reject another: answer yes to the pull, then restore the rejected file from the base with git checkout and commit it"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_pull_fixture || { finish "$L"; teardown; return; }
+  local s="$SB_WORK/.claude/skills/design-pull/SKILL.md" para
+  para="$(grep -A3 'To take one canvas edit and reject another' "$s" 2>/dev/null)"
+  [ -n "$para" ] || cf "the skill has no account of taking one canvas edit and rejecting another"
+  _dm_has "$para" "answer yes to the pull" || cf "the account does not say to answer yes to the pull first"
+  _dm_has "$para" 'git checkout <base> -- requirements/design/<canvas>/<path>' || cf "the account does not give the restore from the base"
+  _dm_has "$para" 'restore <path>' || cf "the account does not say to commit the restore"
+  finish "$L"
+  teardown
+}
