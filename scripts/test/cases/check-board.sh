@@ -4727,9 +4727,20 @@ case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_co
     chmod +x "$shim/git"
     out="$(PATH="$shim:$PATH" cb_run)"; q="$(printf '%s\n' "$out" | _cb_q_section)"
     printf '%s\n' "$q" | grep -F 'DID NOT RUN' >/dev/null || cf "($mode) git could not read the register's history and arm [q] does not say DID NOT RUN: $q"
-    printf '%s\n' "$q" | grep -F "git could not read" >/dev/null || cf "($mode) the arm does not name what git could not read: $q"
+    printf '%s\n' "$q" | grep -F "its ruling history is not read" >/dev/null || cf "($mode) the arm does not say the ruling history is not read (this reader's own text): $q"
     printf '%s\n' "$q" | grep -F 'Next:' >/dev/null || cf "($mode) the DID NOT RUN line carries no Next: $q"
+    # a complete repository has nothing to unshallow: the Next names a re-fetch or a check of the repository
+    printf '%s\n' "$q" | grep -F 'unshallow' >/dev/null && cf "($mode) the Next offers git fetch --unshallow in a complete repository: $q"
+    printf '%s\n' "$q" | grep -F 'git fsck' >/dev/null || cf "($mode) the Next does not name a check or a re-fetch that works on a complete repository: $q"
   done
+  # (shallow) a clone cut at --depth 1 has a boundary commit with no parent to read: it is not a root, and the arm says so (DID NOT RUN) with the Next that fits
+  rm -rf "$SB_TMP/shallow"
+  git clone -q --depth 1 "file://$SB_ORIGIN" "$SB_TMP/shallow" >/dev/null 2>&1 || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: the depth-1 clone failed."
+  [ "$(git -C "$SB_TMP/shallow" rev-parse --is-shallow-repository)" = true ] || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: the clone is not shallow."
+  out="$(SB_WORK="$SB_TMP/shallow" cb_run)"; q="$(printf '%s\n' "$out" | _cb_q_section)"
+  printf '%s\n' "$q" | grep -F 'DID NOT RUN' >/dev/null || cf "(shallow) the clone's history stops at a boundary commit and arm [q] does not say DID NOT RUN: $q"
+  printf '%s\n' "$q" | grep -F "its ruling history is not read" >/dev/null || cf "(shallow) the arm does not say the ruling history is not read: $q"
+  printf '%s\n' "$q" | grep -F 'git fetch --unshallow' >/dev/null || cf "(shallow) the Next does not name git fetch --unshallow: $q"
   finish "arm [q]: a register copy git cannot read (its blob, then its tree) in the ruling history is DID NOT RUN with the reason and a Next, where an absent one stays a skip"
   teardown
 }
