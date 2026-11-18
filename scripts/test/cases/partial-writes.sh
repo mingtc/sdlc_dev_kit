@@ -184,9 +184,8 @@ case_a_board_op_terminated_in_its_push_names_the_unpushed_commit_and_how_to_publ
 }
 
 # =============================================================================
-# CASE — a TERM SENT TO THE OP'S OWN PID, not its group: the op exits at once and the orphaned push goes on and
-# LANDS. The exit text must not say the commit is not on the remote; the printed commands, run once the push has
-# landed, are harmless, and the next op lands.
+# CASE — a TERM TO THE OP'S OWN PID, not its group, during a push that lands: the exit text hedges and never says the
+# commit is not on the remote; the printed commands, run once the push has landed, are harmless, and the next op lands.
 # =============================================================================
 case_a_term_to_the_ops_pid_alone_does_not_report_a_landing_push_as_unpublished() {
   cf_reset
@@ -657,9 +656,7 @@ _tw_reap() {
 
 # =============================================================================
 # CASE — A TERM TO THE OP'S OWN PID WAITS FOR THE GIT COMMAND IT IS RUNNING BEFORE THE LOCK IS RELEASED.
-# The op ended at once and released the lock while its `git push` went on as an orphan and landed, so another
-# op could take the lock and sync while the first op's commit was still being pushed. bash runs a trap after
-# its foreground command, so the signal is answered once the push has returned:
+# bash runs a trap after its foreground command, so the signal is answered once the git command has returned:
 # (push) a pre-receive hook holds the push for six seconds; TERM goes to the op's pid alone. Two seconds later the
 #   op is alive and holds the lock; after it ends (143) the push has landed and the lock is gone.
 # (rebase) the push is rejected because the trunk moved; the retry's rebase is held by a pre-rebase hook; TERM goes
