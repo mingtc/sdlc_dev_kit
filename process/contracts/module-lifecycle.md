@@ -116,6 +116,8 @@ what "enabled" and "disabled" must mean.
 - A module whose files carry the blanks, in a project not yet stamped ⇒ refuse, pointing at kit-init.
 - A disable that cannot rewrite a shared file ⇒ refuse before removing anything.
 - An extension point whose reader is missing from the project's copy of the kit ⇒ refuse, naming each file.
+- A fragment source carrying a `KIT-MODULES` slot line or a control byte (octal 035 to 037), which every mint of its
+  template would refuse ⇒ refuse, naming each source and where it would go, before anything is written.
 - A required requirement whose check fails or does not finish ⇒ refuse, naming each one and how to get it, before anything
   is written (an optional one warns). A requirement line that does not read ⇒ the manifest refusal above.
 - A record row whose path leaves the project ⇒ refuse: nothing may act on it.

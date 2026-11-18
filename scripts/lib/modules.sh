@@ -43,6 +43,8 @@
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
 # shellcheck source=marker-block.sh
 . "$(dirname "${BASH_SOURCE[0]}")/marker-block.sh" || return 1   # return-class: internal
+# shellcheck source=card-head.sh
+. "$(dirname "${BASH_SOURCE[0]}")/card-head.sh" || return 1   # return-class: internal
 
 KIT_MOD_STATE_REL='process/MODULES'
 # The names a harness reads. A module stores them disarmed (`_claude/`, not `.claude/`); a source
@@ -291,9 +293,10 @@ _kit_mod_status_folders() {
 #   file<TAB><target><TAB><rendered copy><TAB>x|-            (a copied file)
 #   block<TAB><target><TAB><rendered copy><TAB><slot>        (a marker block; the `gitignore` slot is the end of .gitignore)
 # the rendered copies living under $KIT_MOD_TMP, <plan>.needs beside it (one line per extension point the
-# module uses, for the reader check) and <plan>.reqs (one tab-separated record per requirement:
+# module uses, for the reader check), <plan>.reqs (one tab-separated record per requirement:
 # kind R|A, id, severity required|optional|agent, check or call, how to get it, what is lost or what a pass
-# looks like). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the module's release-notes file, or
+# looks like) and <plan>.frags (one tab-separated row per fragment: target, source in the module, rendered
+# copy). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the module's release-notes file, or
 # nothing), and KIT_MOD_SETUP and KIT_MOD_SETUP_SH (the module's SETUP.md and setup.sh, as paths under the kit, or
 # nothing). Refuses a manifest that is wrong.
 kit_mod_plan() {
@@ -310,7 +313,7 @@ kit_mod_plan() {
   local wd="$KIT_MOD_TMP/render-of-$name" mname="" roles_f kinds_f needs
   rm -rf "$wd"; mkdir -p "$wd" || _kit_mod_bad "$name" "could not make a scratch directory under $KIT_MOD_TMP."
   roles_f="$wd/gen-roles"; kinds_f="$wd/gen-kinds"; needs="$plan.needs"
-  : > "$roles_f"; : > "$kinds_f"; : > "$needs"; : > "$plan.reqs"
+  : > "$roles_f"; : > "$kinds_f"; : > "$needs"; : > "$plan.reqs"; : > "$plan.frags"
   folders="$(_kit_mod_status_folders)"
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
@@ -385,6 +388,7 @@ FRAG_EOF
                 n=$((n + 1)); gen="$wd/r$n"
                 _kit_mod_render "$dir/$src" "$gen" || _kit_mod_bad "$name" "could not render $src (read it, and put the stamped values in) — the file is unreadable or the temp directory is not writable."
                 printf 'file\tprocess/fragments.d/%s/%s.%s\t%s\t-\n' "$tpl" "$name" "$mode" "$gen" >> "$plan"
+                printf 'process/fragments.d/%s/%s.%s\t%s\t%s\n' "$tpl" "$name" "$mode" "$src" "$gen" >> "$plan.frags"
                 printf 'fragment %s %s\n' "$tpl" "$slot" >> "$needs" ;;
       block)
                 extra=""
@@ -866,6 +870,7 @@ kit_mod_would_place() {
   _kit_mod_req_run "$plan.reqs" "$KIT_MOD_TMP/would-req-$name"
   _kit_mod_req_blockers "$KIT_MOD_TMP/would-req-$name"
   _kit_mod_reader_blockers "$plan.needs"
+  _kit_mod_fragment_faults "$plan" "$name"
   _kit_mod_conflicts "$plan" "$name"
   while IFS="$(printf '\t')" read -r kind tgt rend extra; do
     if git -C "$KIT_MOD_ROOT" check-ignore -q --no-index -- "$tgt" 2>/dev/null; then
@@ -949,6 +954,21 @@ kit_mod_plans_collide() {
   return 0
 }
 
+# _kit_mod_fragment_faults <plan> <name> — one line per fragment of the plan that a mint would refuse
+# (kit_fragment_fault in lib/card-head.sh: a KIT-MODULES slot line of its own, or a control byte), naming the
+# module's source and the place it would go; nothing when none would be.
+_kit_mod_fragment_faults() {
+  local tgt src gen
+  [ -f "$1.frags" ] || return 0
+  while IFS="$(printf '\t')" read -r tgt src gen; do
+    case "$(kit_fragment_fault "$gen")" in
+      markers) echo "  modules/$2/$src (placed as $tgt) carries a KIT-MODULES slot line of its own (the template owns the slots)" ;;
+      control) echo "  modules/$2/$src (placed as $tgt) holds a control byte, octal 035, 036 or 037 (the mint uses them to carry slot text)" ;;
+    esac
+  done < "$1.frags"
+  return 0
+}
+
 # ── enable ────────────────────────────────────────────────────────────────────
 
 # kit_mod_enable <name> — place the module, register it, record it. Idempotent: an enabled module is
@@ -999,6 +1019,16 @@ kit_mod_enable() {
     "$blockers" \
     "  NOTHING WAS CHANGED." \
     "Next: merge each file named above from the kit release (a kit upgrade lists them as merge items), then run ./scripts/module.sh enable $name again."
+  blockers="$(_kit_mod_fragment_faults "$plan" "$name")"
+  if [ -n "$blockers" ]; then
+    if [ "$resuming" = 1 ]; then next_text="fix each file named above in modules/$name/, then run ./scripts/module.sh enable $name again to finish it, or ./scripts/module.sh disable $name to take it back."
+    else next_text="fix each file named above in modules/$name/ (take the line or the byte out), then run ./scripts/module.sh enable $name again."; fi
+    kit_refuse 1 module-fragment-bad \
+      "Error: module $name would place fragments that every mint of their template refuses:" \
+      "$blockers" \
+      "  NOTHING WAS CHANGED." \
+      "Next: $next_text"
+  fi
   conflicts="$(_kit_mod_conflicts "$plan" "$name")"
   if [ -n "$conflicts" ]; then
     if [ "$resuming" = 1 ]; then

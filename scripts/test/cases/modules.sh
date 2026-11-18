@@ -766,6 +766,50 @@ case_the_manifest_keys_for_fragments_move_checks_and_cell_checks_place_and_refus
 }
 
 # =============================================================================
+# CASE — ENABLE REFUSES A FRAGMENT EVERY MINT OF ITS TEMPLATE WOULD REFUSE, BEFORE IT WRITES.
+#   A fragment source carrying a KIT-MODULES slot line of its own or a control byte (octal 035 to 037) would be
+#   placed, and every mint of its template would then refuse. Enable asks the mint's own question of each
+#   fragment it would place and names the module's source to fix.
+# =============================================================================
+case_module_enable_refuses_a_fragment_every_mint_would_refuse() {
+  cf_reset
+  local L="enable refuses a module whose fragment source carries a KIT-MODULES slot line or a control byte (octal 035, 036 or 037), with module-fragment-bad, naming the source under modules/<name>/ and the place it would go and only that one, NOTHING WAS CHANGED and a Next: line, and the tree unchanged; the same module with the fragment clean enables"
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _md_sandbox
+  [ -f "$SB_WORK/scripts/module.sh" ] || cf "(prereq) scripts/module.sh is absent from the tree under test"
+  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" d="$SB_WORK/modules/mf" b
+  mkdir -p "$d/fragments"
+  printf 'name: mf\nversion: 0.1.0\npurpose: A fabricated module.\nfragment: ISSUE body-end fragments/end.txt\nfragment: PRD slot-story-fields fragments/story.txt\n' > "$d/module.manifest"
+  printf '**MF:** story\n' > "$d/fragments/story.txt"
+  _mf_bad() {  # <tag> <text of fragments/end.txt> <what the line must say>
+    printf '%s\n' "$2" > "$d/fragments/end.txt"
+    _md_snap "$SB_WORK" > "$s0"
+    _md_mod enable mf
+    [ "$_md_rc" -eq 1 ] || cf "($1) enable was not refused (exit $_md_rc): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || cf "($1) the refusal changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-200)"
+    [ "$(_md_recs module-fragment-bad)" -ge 1 ] || cf "($1) no refusal=module-fragment-bad record: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$_md_out" | grep -F "modules/mf/fragments/end.txt (placed as process/fragments.d/ISSUE/mf.body-end) $3" >/dev/null \
+      || cf "($1) the refusal does not name the source, the place it would go and '$3': $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$_md_out" | grep -F 'fragments/story.txt' >/dev/null && cf "($1) the refusal names the clean fragment too"
+    printf '%s\n' "$_md_out" | grep -F 'NOTHING WAS CHANGED' >/dev/null || cf "($1) the refusal does not say NOTHING WAS CHANGED"
+    printf '%s\n' "$_md_out" | grep '^Next:.*modules/mf/.*module.sh enable mf' >/dev/null || cf "($1) no Next: line naming modules/mf/ and enable again"
+    [ "$_md_rc" -ne 0 ] || _md_mod disable mf   # an enable that went through is taken back, so the next row starts from the same tree
+  }
+  _mf_bad markers '<!-- KIT-MODULES:story-fields leaked -->' 'carries a KIT-MODULES slot line'
+  for b in 035 036 037; do _mf_bad "control $b" "one$(printf "\\$b")two" 'holds a control byte'; done
+  unset -f _mf_bad
+  # (control) the same module with the fragment clean enables and places it.
+  printf 'MF-END\n' > "$d/fragments/end.txt"
+  _md_mod enable mf
+  [ "$_md_rc" -eq 0 ] || cf "(control) enable of the clean module exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  [ -f "$SB_WORK/process/fragments.d/ISSUE/mf.body-end" ] || cf "(control) the clean fragment was not placed"
+  _md_mod disable mf
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — EVERY SHIPPED MODULE READS AS A MODULE: ITS MANIFEST NAMES ITS DIRECTORY, IT HAS A ROW IN THE MODULES INDEX,
 # AND IT ENABLES AND DISABLES BACK TO THE BYTES IT FOUND.
 #   Derived from modules/*/module.manifest, so a module added later is judged without a case of its own for this.
@@ -841,7 +885,7 @@ _mx_proj() {  # <dir> — a project that holds module.sh and its libraries, a PR
   mkdir -p "$1/scripts/lib" "$1/requirements" "$1/modules"
   cp "$REAL_SCRIPTS/module.sh" "$1/scripts/"
   local l
-  for l in modules.sh marker-block.sh refuse.sh progress-record.sh usage.sh exit-trap.sh; do cp "$REAL_SCRIPTS/lib/$l" "$1/scripts/lib/"; done
+  for l in modules.sh marker-block.sh card-head.sh refuse.sh progress-record.sh usage.sh exit-trap.sh; do cp "$REAL_SCRIPTS/lib/$l" "$1/scripts/lib/"; done
   printf '# PROJECT.md\n\n| Gate | C |\n|---|---|\n| g | `x` |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$1/PROJECT.md"
   printf '# CORPUS\n\n<!-- KIT-MODULES:corpus-manifest the slot -->\n\nmid\n\n<!-- KIT-MODULES:corpus-buckets the slot -->\n' > "$1/requirements/CORPUS.md"
 }

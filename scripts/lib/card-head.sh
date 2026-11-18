@@ -101,7 +101,43 @@ kit_fill_card() {
       print }' "$card" > "$card.fill" && mv "$card.fill" "$card"
 }
 
-# kit_card_fragments <card-file> <template> <fragments-dir> — the last step of a mint: place what an
+# kit_fragment_fault <file> — why a mint would refuse <file> as a fragment, as one word on stdout: `markers`
+# when it carries a KIT-MODULES slot line of its own, `control` when it holds a control byte (octal 035 to 037,
+# which the mint uses to carry slot text); nothing when neither. kit_card_fragments asks it of every fragment
+# and module enable (lib/modules.sh) of every fragment a module would place, so the two refuse by one rule.
+kit_fragment_fault() {
+  local text gs=$'\035' rs=$'\036' us=$'\037'
+  if grep -qF 'KIT-MODULES' "$1"; then echo markers; return 0; fi
+  text="$(sed 's/\r$//' "$1")"
+  case "$text" in *"$gs"*|*"$rs"*|*"$us"*) echo control ;; esac
+  return 0
+}
+
+# _kit_fragment_owner <process/MODULES> <template>/<file> — the module whose `module` or `pending` section
+# records the fragment as placed by it, or nothing (no record, or a `kept` row: a disable left it, so it is the
+# project's own).
+_kit_fragment_owner() {
+  [ -f "$1" ] || return 0
+  awk -v p="process/fragments.d/$2" '$1 == "module" || $1 == "pending" { m = $2; next } $1 == "kept" { m = ""; next }
+    $1 == "file" && $3 == p && m != "" { print m; exit }' "$1"
+}
+
+# _kit_fragment_next <checkout|trunk> <owner module or ""> <what> <why> — the text of a fragment refusal's
+# `Next:`: take <what> out of the file, or, for a module's, out of its source and place it again; and push
+# the fix when the mint read the trunk.
+_kit_fragment_next() {
+  local push=""
+  [ "$1" != trunk ] || push=" Then commit and push the fix: this mint reads process/fragments.d from the trunk, not from this checkout."
+  if [ -n "$2" ]; then
+    printf '%s' "module $2 placed this fragment. When its source in modules/$2/ (the manifest's fragment: line names it) holds $3, fix it there and run ./scripts/module.sh disable $2, then ./scripts/module.sh enable $2, to place the fixed copy; when $3 is an edit of yours, take it out of this file.${push} The mint made nothing."
+  elif [ -n "$push" ]; then
+    printf '%s' "take $3 out of the fragment$4.${push} The mint made nothing."
+  else
+    printf '%s' "take $3 out of the fragment$4; the mint made nothing."
+  fi
+}
+
+# kit_card_fragments <card-file> <template> <fragments-dir> [trunk] — the last step of a mint: place what an
 # add-on contributes, and remove what the core left for it. <template> is the template's stem
 # (`PRD`, `ISSUE`); the fragments are the files in <fragments-dir>/<template>/, read from the working tree
 # like the template itself, in file-name order:
@@ -114,10 +150,12 @@ kit_fill_card() {
 # fragment. EVERY slot line is removed, fragment or none, so a project that enables nothing has no
 # trace of it. A fragment the template cannot take, a name that is no mode, or a fragment that carries
 # a slot line of its own or a control byte (octal 035 to 037), refuses through kit_refuse and the
-# caller's EXIT trap removes the work file.
+# caller's EXIT trap removes the work file. The last two refusals' `Next:` names where the fix goes: the
+# module's source when process/MODULES (beside <fragments-dir>) records a module as having placed the file,
+# and a push when [trunk] is given (subtask.sh reads the fragments from the trunk's tree, not the checkout).
 # The work file is rewritten through <card-file>.fill, which that trap names.
 kit_card_fragments() {
-  local card="$1" tpl="$2" dir="$3/$2" f base name mode slot text nl=$'\n'
+  local card="$1" tpl="$2" dir="$3/$2" from="${4:-checkout}" f base name mode slot text fault owner nl=$'\n'
   local fm="" be="" out="$1.fill" rs=$'\036' us=$'\037' gs=$'\035' slot_texts=""
   if [ -d "$dir" ]; then
     for f in "$dir"/*; do
@@ -143,19 +181,20 @@ kit_card_fragments() {
           "Error: process/fragments.d/${f#"$3"/} is not readable, so the ${tpl} mint cannot place it." \
           "Next: fix its permissions, or remove it; the mint made nothing."
       fi
-      if grep -qF 'KIT-MODULES' "$f"; then
-        kit_refuse 1 fragment-content-markers \
-          "Error: process/fragments.d/${f#"$3"/} carries a KIT-MODULES slot line of its own, which would leave the minted file with a marker no reader removes." \
-          "Next: take that line out of the fragment (the template owns the slots); the mint made nothing."
-      fi
-      text="$(sed 's/\r$//' "$f")"
-      case "$text" in
-        *"$gs"*|*"$rs"*|*"$us"*)
+      fault="$(kit_fragment_fault "$f")"
+      [ -z "$fault" ] || owner="$(_kit_fragment_owner "${3%/*}/MODULES" "${f#"$3"/}")"
+      case "$fault" in
+        markers)
+          kit_refuse 1 fragment-content-markers \
+            "Error: process/fragments.d/${f#"$3"/} carries a KIT-MODULES slot line of its own, which would leave the minted file with a marker no reader removes." \
+            "Next: $(_kit_fragment_next "$from" "$owner" "that line" " (the template owns the slots)")" ;;
+        control)
           kit_refuse 1 fragment-control-byte \
             "Error: process/fragments.d/${f#"$3"/} holds a control byte (octal 035, 036 or 037). The ${tpl} mint uses them to carry slot text, so it refuses them in every fragment." \
             "       In a slot's text a 035 would become a newline and a 036 would drop the text after it." \
-            "Next: take that byte out of the fragment; the mint made nothing." ;;
+            "Next: $(_kit_fragment_next "$from" "$owner" "that byte" "")" ;;
       esac
+      text="$(sed 's/\r$//' "$f")"
       case "$mode" in
         frontmatter) fm="${fm}${fm:+$nl}${text}" ;;
         body-end)    be="${be}${be:+$nl}${text}" ;;

@@ -48,7 +48,7 @@ _md_gone_reason() { printf '%s' "modules/example/module.manifest is absent from 
 # shipped with the kit, so its absence is a failure of the case, never an N/A.
 _md_missing_program() {
   local f
-  for f in scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh; do
+  for f in scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/card-head.sh; do
     [ -f "$REAL_REPO_ROOT/$f" ] || { printf '%s' "$f"; return 0; }
   done
   return 0

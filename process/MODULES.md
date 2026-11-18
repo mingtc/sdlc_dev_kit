@@ -47,7 +47,10 @@ naming every path and writing nothing, when:
   write), a file the kit itself ships, a block whose host has no slot, no final newline or a stray marker;
 - **the project's copy of the kit does not read a point the module uses** (a project that took an older kit
   and then enabled a module would get a check that is placed and never run). The refusal names the file to
-  merge from the release; merge it, then enable again.
+  merge from the release; merge it, then enable again;
+- a fragment the module places carries a `KIT-MODULES` slot line of its own or a control byte (octal 035 to 037),
+  which every mint of its template would refuse (`process/contracts/issue-creation.md` § 3). The refusal names
+  the source in `modules/<name>/` to fix.
 
 **On day one,** `kit-init.sh --with <name>[,<name>]` enables the module after it has stamped the project and before
 it commits, so the module's files and `process/MODULES` are in the initialization commit. Its preflight asks every

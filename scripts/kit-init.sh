@@ -183,8 +183,9 @@ Options:
                       questions scripts/module.sh enable asks: the module exists, its manifest reads,
                       the commands its required requirements name are there (each check is run, as
                       process/contracts/module-lifecycle.md § 2 says), this copy of the kit reads every
-                      point it uses, and nothing it would place exists already or is ignored by git. A
-                      refusal there writes nothing of kit-init's.
+                      point it uses, no fragment it places would be refused by a mint, and nothing it
+                      would place exists already or is ignored by git. A refusal there writes nothing
+                      of kit-init's.
                       ./scripts/module.sh list names the modules; process/MODULES.md says what
                       enabling does. Omit it and no module is enabled; enable one later with
                       ./scripts/module.sh enable <M>.
@@ -740,8 +741,8 @@ if [ -n "$WITH_NEW" ]; then
   [ "$ENABLE_HOOKS" != "true" ] || _with_own="$_with_own .claude/settings.json"
   [ "$GATE_MODE" != "write" ] || _with_own="$_with_own scripts/verify.sh"
   _with_tmp="$(mktemp -d "${TMPDIR:-/tmp}/kit-init-with.XXXXXX")" || { echo "Error: could not make a scratch directory." >&2; exit 1; }   # exit-class: internal
-  if [ ! -x "$SCRIPT_DIR/module.sh" ] || [ ! -f "$SCRIPT_DIR/lib/modules.sh" ] || [ ! -f "$SCRIPT_DIR/lib/marker-block.sh" ]; then
-    pf "--with: scripts/module.sh, scripts/lib/modules.sh or scripts/lib/marker-block.sh is missing, so no module can be enabled. Restore them:  git checkout -- scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh"
+  if [ ! -x "$SCRIPT_DIR/module.sh" ] || [ ! -f "$SCRIPT_DIR/lib/modules.sh" ] || [ ! -f "$SCRIPT_DIR/lib/marker-block.sh" ] || [ ! -f "$SCRIPT_DIR/lib/card-head.sh" ]; then
+    pf "--with: scripts/module.sh, scripts/lib/modules.sh, scripts/lib/marker-block.sh or scripts/lib/card-head.sh is missing, so no module can be enabled. Restore them:  git checkout -- scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/card-head.sh"
   else
     # `read -a` drops a trailing empty element, so the stray comma is looked for in the string itself.
     case ",$WITH_NEW," in *,,*) pf "--with '$WITH_NEW' names an empty module (a stray comma)." ;; esac

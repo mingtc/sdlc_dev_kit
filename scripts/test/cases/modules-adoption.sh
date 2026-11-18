@@ -189,7 +189,7 @@ _mu_clone_tree() {
 # _mu_subject_ok — the programs under test ship; their absence is a failure, never an N/A.
 _mu_subject_ok() {
   local f
-  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/exit-trap.sh; do
+  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/card-head.sh scripts/lib/exit-trap.sh; do
     [ -f "$REAL_REPO_ROOT/$f" ] || { cf "(prereq) $f is absent from the tree under test"; return 1; }
   done
 }
@@ -307,7 +307,7 @@ _mu_ki_sandbox() {
 # =============================================================================
 case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
   cf_reset
-  local L="kit-init.sh --with refuses in the preflight, writing nothing and exiting 1, an unknown module, a stray comma, a path the module would place that exists, a reader this copy of the kit lacks, a block host with no slot and a placed path git ignores, each naming the module and the cause; an enable that fails after the stamp refuses with module-enable-after-stamp and a hand finish that works"
+  local L="kit-init.sh --with refuses in the preflight, writing nothing and exiting 1, an unknown module, a stray comma, a path the module would place that exists, a reader this copy of the kit lacks, a block host with no slot, a fragment every mint would refuse and a placed path git ignores, each naming the module and the cause; an enable that fails after the stamp refuses with module-enable-after-stamp and a hand finish that works"
   if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
@@ -386,6 +386,11 @@ case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
     _row "two modules that place one path in two cases" "--with ca,cc" "module ca places docs/same.txt" "module cc places docs/SAME.txt" -- --with ca,cc
     _row "a path kit-init copies, spelt in another case" "--with hookycase" ".claude/Settings.json" "kit-init writes it" -- --enable-hooks --with hookycase
   fi
+  # a fragment every mint of its template would refuse (a control byte); last, as a run that went through would stamp the tree
+  mkdir -p "$SB_WORK/modules/fragbad"
+  printf 'name: fragbad\nversion: 0.1.0\npurpose: A fixture module whose fragment holds a control byte.\nfragment: ISSUE body-end f.txt\n' > "$SB_WORK/modules/fragbad/module.manifest"
+  printf 'one\036two\n' > "$SB_WORK/modules/fragbad/f.txt"
+  _row "a fragment every mint would refuse" "--with fragbad" "modules/fragbad/f.txt (placed as process/fragments.d/ISSUE/fragbad.body-end)" "control byte" -- --with fragbad
   unset -f _row
   teardown
 
