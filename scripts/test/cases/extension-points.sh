@@ -2200,7 +2200,7 @@ case_marker_block_a_refused_write_leaves_no_scratch_file() {
   printf '%s\n' "$out" | grep -F 'could not write' >/dev/null || cf "(a) (premise) the refusal is not the write-back's: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   [ -z "$(_left)" ] || cf "(a) the refused insert left a scratch file: $(_left | tr '\n' ' ')"
   cmp -s "$f" "$d/before-a.md" || cf "(a) the refused insert changed the host"
-  chmod 644 "$f"
+  chmod 644 "$f"; rm -rf "$t" "$d"/*kit-mb.*; mkdir -p "$t"
 
   # (b) remove on a host that cannot be written.
   _mb kit_mb_insert "$f" alpha gates "$d/one.txt" >/dev/null; rc=$?
