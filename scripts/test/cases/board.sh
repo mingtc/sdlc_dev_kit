@@ -3787,6 +3787,19 @@ case_trunk_cases_reach_step_3_under_a_global_default_branch() {
       *) cf "$c, run with init.defaultBranch in the global config, recorded '$res' (PASS FAIL SKIP): $(grep -m1 'FAIL' "$log" | tr -d '\033' | cut -c1-700)" ;;
     esac
   done
+  # The same key through GIT_CONFIG_GLOBAL, which wins over HOME: the helper must shut that out too.
+  printf '[init]\n\tdefaultBranch = %s\n' "$planted" > "$fake/gcg"
+  [ "$(HOME="$log.none" GIT_CONFIG_GLOBAL="$fake/gcg" git config --get init.defaultBranch 2>/dev/null)" = "$planted" ] \
+    || { rm -rf "$fake" "$log"; _fixture_die "case_trunk_cases_reach_step_3_under_a_global_default_branch: git does not read GIT_CONFIG_GLOBAL, so the key this row plants is not in reach."; }
+  c=case_trunk_fallback_warns
+  res="$( export HOME="$fake" XDG_CONFIG_HOME="$fake" GIT_CONFIG_GLOBAL="$fake/gcg"; trap teardown EXIT
+          p0=$PASS f0=$FAIL s0=$SKIP
+          "$c" >"$log" 2>&1
+          printf '%s %s %s' "$((PASS-p0))" "$((FAIL-f0))" "$((SKIP-s0))" )"
+  case "$res" in
+    "1 0 0"|"0 0 1") ;;
+    *) cf "$c, run with init.defaultBranch in GIT_CONFIG_GLOBAL, recorded '$res' (PASS FAIL SKIP): $(grep -m1 'FAIL' "$log" | tr -d '\033' | cut -c1-700)" ;;
+  esac
   rm -rf "$fake" "$log"
   if [ -z "$_cf" ] && [ -z "$ran" ]; then
     skp "$L" "every trunk-chain case skipped on this tree:$skipped"; return
