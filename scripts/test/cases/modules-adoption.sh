@@ -1220,7 +1220,7 @@ case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse() {
     printf '%s\n' "$_mu_out" | grep -F "modules/example/fragments/issue-sign-off.txt (placed as $placed) $3" >/dev/null \
       || cf "($1) the refusal does not name the module's source, the place it would go and '$3': $(_mu_flat)"
     printf '%s\n' "$_mu_out" | grep -F 'NOTHING WAS CHANGED' >/dev/null || cf "($1) the refusal does not say NOTHING WAS CHANGED"
-    printf '%s\n' "$_mu_out" | grep -F "Next: fix each file named above under $MU_NEW" >/dev/null || cf "($1) no Next: line naming the new kit: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F "Next: fix each file named above under $(cd "$MU_NEW" && pwd -P)" >/dev/null || cf "($1) no Next: line naming the new kit: $(_mu_flat)"
     [ ! -e "$SB_WORK/.kit-upgrade" ] && [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] || cf "($1) the upgrade left staging or a checklist"
     _md_snap "$SB_WORK" > "$s1"
     cmp -s "$s0" "$s1" || { cf "($1) the upgrade changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-240)"; _uf_back "$1"; }
