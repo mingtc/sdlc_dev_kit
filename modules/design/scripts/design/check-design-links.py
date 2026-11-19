@@ -238,6 +238,14 @@ def was_tracked(root, rel):
     return bool(out.strip()) if rc == 0 else None
 
 
+def same_file(a, b):
+    """True when both paths are regular files that are one file on this filesystem. A dangling or looping symlink is no file: False, never a crash."""
+    try:
+        return a.is_file() and b.is_file() and os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
 def is_commit(root, rev):
     return git(root, 'rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}')[0] == 0
 
@@ -1500,7 +1508,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         for f in sorted((c.parent / PROJECT_SUBDIR).rglob('*.dc.html')):
             key = f.relative_to(root).as_posix()
             # a row's spelling is followed as the filesystem follows it: a file a row reaches under another letter case is named
-            if key not in named and key not in imported and not any(a.is_file() and os.path.samefile(a, f) for a in named_art):
+            if key not in named and key not in imported and not any(same_file(a, f) for a in named_art):
                 out.append(line('UNROWED', f"{key}: no registry row names this artboard and no screen with a row imports it, so the check does not read it (info). Add its row to {c.relative_to(root).as_posix()}"))
 
     for label, uxs in content_only.values():

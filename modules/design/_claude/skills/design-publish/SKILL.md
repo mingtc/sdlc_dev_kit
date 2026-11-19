@@ -30,7 +30,7 @@ Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Ar
 
 `CANVAS.md` says `Last pull: none` and has no canvas URL: this is a new canvas. Read the Design type's instructions and `format.md` first (`list_types`,
 `describe_type`), `list_artifacts` with `type: "Design System"` for a system to use, then `create_from_type` **once**, record its URL and `version`
-in `CANVAS.md`, run step 3's `normalise` block over `project/`, and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
+in `CANVAS.md`, run step 3's `normalise` block over `project/`, commit what it rewrote, and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
 publish each, with the `version` the last result gave. Then step 6. Every later publish starts at step 2.
 
 ## 2. List, once, and refuse a canvas that moved
