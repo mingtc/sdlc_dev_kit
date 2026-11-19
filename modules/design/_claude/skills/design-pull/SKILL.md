@@ -32,7 +32,7 @@ Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Ar
 Then make sure the working tree holds nothing of the canvas that is not committed: `git status --porcelain requirements/design/<canvas>` must print nothing.
 If it prints something, **stop**: commit it if it is the Designer's own work, otherwise tell the human what it is and wait (with no human present, the role's rule 11 applies: end the pull here). A pull lays files over `project/`, and its undo would destroy an uncommitted file.
 
-Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again (the role's § Taking the canvas in says why).
+Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again.
 
 ## 1. Find the canvas and what you last took in
 
@@ -201,4 +201,4 @@ awk -v p='<path>' '{ q = $1; for (i = 2; i <= NF - 2; i++) q = q " " $i } q != p
 
 Then two commits under `[Designer]` (the role's § Taking the canvas in): the files already in `project/`, then `CANVAS.md` with
 `Last pull: <V> @ <that commit>` and the manifest, with `COMMENTS.md` and the registry in the same commit as the screens they describe.
-Subject: `[Designer] design: take in <canvas>`. Then `bash scripts/design/trunk-sync.sh push`, and if it refuses stop with its `Next:` before you tell the human anything: the gate reads the trunk. Push the commits as they are; a rebase or a re-landing changes the shas that `Last pull` and the gate cells name. Then tell the human what changed and what you will do next. **You publish nothing here.**
+Subject: `[Designer] design: take in <canvas>`. Then `bash scripts/design/trunk-sync.sh push`, and if it refuses stop with its `Next:` before you tell the human anything: the gate reads the trunk. The role's § Taking the canvas in says why none is rebased. Then tell the human what changed and what you will do next. **You publish nothing here.**

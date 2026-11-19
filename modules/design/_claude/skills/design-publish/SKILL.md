@@ -26,7 +26,7 @@ Name your surface in one line before anything else: look at your tools.
 Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Artifact` tool's `list` (B). If it is refused, stop with
 `Next: run /login in Claude Code, then run /design-publish again (modules/design/SETUP.md).` An empty list is a pass.
 
-Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again (the role's § Taking the canvas in says why).
+Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again.
 
 ## 1. The first publish
 
@@ -56,7 +56,7 @@ A file it names `UNREAD` is not sent: show the human. Commit every file it rewro
 change) is committed too, so the next `/design-pull` finds a clean tree. Then the set is every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
 `canvas.json` only when the layout changed, plus a file the human named to restore. **Never `git diff` against the pull commit:** it misses a canvas edit the
 human rejected, which only they can name. A file the repo dropped goes in `remove`; a file the canvas dropped (the pull took the deletion in) is not repo-only and is not sent back.
-Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them, and push each commit (`bash scripts/design/trunk-sync.sh push`) before the send: if the push is refused, stop with its `Next:` and send nothing. Push as it is: a rebase or a re-landing changes the shas `CANVAS.md` records.
+Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them, and push each commit (`bash scripts/design/trunk-sync.sh push`) before the send: if the push is refused, stop with its `Next:` and send nothing.
 
 ## 4. Send
 
