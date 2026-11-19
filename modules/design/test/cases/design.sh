@@ -5349,7 +5349,8 @@ case_the_link_check_says_an_unrowed_artboard_and_an_open_row_whose_file_is_gone(
   [ "$_dm_rc" -eq 0 ] || cf "(d2) the Verify line fails over a project whose only open row is a briefed, never-drawn screen (exit $_dm_rc): $_dm_out"
   # (e) the same project with no git history to ask: the missing files are not reported either way
   rm -rf "${SB_TMP:?}/nogit"; mkdir -p "$SB_TMP/nogit"; cp -R "$SB_WORK/requirements" "$SB_TMP/nogit/"
-  _dm_py scripts/design/check-design-links.py --strict "$SB_TMP/nogit"
+  GIT_CEILING_DIRECTORIES="$SB_TMP" git -C "$SB_TMP/nogit" rev-parse >/dev/null 2>&1 && cf "(e) (premise) the copy sits inside a repository, so the check could ask git"
+  _dm_rc=0; _dm_out="$( cd "$SB_WORK" && env GIT_CEILING_DIRECTORIES="$SB_TMP" PYTHONDONTWRITEBYTECODE=1 python3 scripts/design/check-design-links.py --strict "$SB_TMP/nogit" 2>&1 </dev/null )" || _dm_rc=$?
   _dm_has "$_dm_out" " is registered (" && cf "(e) with no git to ask, an open row whose file is missing is reported: $(_dm_brief 400)"
   finish "$L"
   teardown
@@ -5407,6 +5408,7 @@ case_the_publish_skill_normalises_data_props_to_the_form_a_pull_writes() {
   { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) the pull's normaliser would still rewrite a file the block normalised (exit $_dm_rc): $_dm_out"
   local sk="$SB_WORK/.claude/skills/design-publish/SKILL.md"
   awk '/^## 1\./ { f = 1; next } /^## 2\./ { f = 0 } f' "$sk" | grep -F 'normalise' >/dev/null || cf "(d) the first publish (step 1) does not run the normalise block"
+  awk '/^## 1\./ { f = 1; next } /^## 2\./ { f = 0 } f' "$sk" | tr '\n' ' ' | grep -F 'commit what it rewrote' >/dev/null || cf "(d) the first publish (step 1) does not say to commit what the normaliser rewrote before it sends"
   grep -F 'a file it rewrote that is not sent' "$sk" >/dev/null || cf "(e) the skill does not say to commit a file the normaliser rewrote though it is not sent"
   finish "$L"
   teardown
@@ -5455,6 +5457,29 @@ case_the_link_check_does_not_say_unrowed_of_a_file_a_row_names_in_another_case()
   _dm_py scripts/design/check-design-links.py --strict
   _dm_line_has "$_dm_out" "UNROWED" "Xcase.dc.html" && cf "(a) a file a row names in another case is said to be unrowed: $(_dm_brief 300)"
   _dm_line_has "$_dm_out" "UNROWED" "Z.dc.html" || cf "(b) (control) a screen no row names is not said to be unrowed: $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE LINK CHECK READS A DANGLING OR LOOPING *.dc.html SYMLINK AS AN ARTBOARD NO ROW NAMES, AND DOES NOT CRASH.
+#   Operand: scripts/design/check-design-links.py over the clean links fixture with project/Dang.dc.html -> nowhere and project/Loop.dc.html -> itself:
+#   each is an UNROWED report line, there is no traceback, and --strict still exits 0 over the clean fixture.
+# =============================================================================
+case_the_link_check_does_not_crash_on_a_dangling_or_looping_artboard_symlink() {
+  cf_reset
+  local L="check-design-links.py says UNROWED of a dangling *.dc.html symlink and of one that points to itself, prints no traceback, and exits 0 under --strict over a clean project"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project"
+  ln -s nowhere.dc.html "$D/Dang.dc.html" 2>/dev/null && ln -s Loop.dc.html "$D/Loop.dc.html" 2>/dev/null || { teardown; skp "$L" "this filesystem makes no symbolic links"; return; }
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "Traceback" && cf "(a) the check crashes over a symlink artboard: $(_dm_brief 400)"
+  [ "$_dm_rc" -eq 0 ] || cf "(a) the clean project with two symlink artboards exits $_dm_rc under --strict: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "UNROWED" "Dang.dc.html" || cf "(b) a dangling symlink artboard is not said to be unrowed: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "UNROWED" "Loop.dc.html" || cf "(b) a looping symlink artboard is not said to be unrowed: $(_dm_brief 400)"
   finish "$L"
   teardown
 }
