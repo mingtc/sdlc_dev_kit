@@ -18,6 +18,7 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Changed
 
+- **On the built-in `Artifact` tool, `/design-publish` re-reads every `project/` file just before the send** and stops with `/design-pull` if any sha moved from the manifest, and says the server will not refuse a moved canvas there; step 6 runs `/design-pull` before `Last publish` is written when a read-back sha differs, sent or unsent.
 - **The link check says `UNROWED <file>`** for an artboard no registry row names and no screen with a row imports (a report line, never counted), and the `ARTBOARD` lines it prints for a row whose file is not there end in a `Next:`.
 - **The pull skill's `both` block names no file whose pulled bytes equal the repo's**, so a send that landed before its record was written no longer stops the pull; **the publish skill, at the first publish too, puts the boards in the pull's spelling first** (`normalise-canvas.py`) and commits what it rewrote, so a `data-props` written spaced, or with `1e3`, is sent compact and a later pull reads no change in it.
 - **`m3-tokens.mjs` refuses every argument error** with the usage and exit 64, before it writes anything: a `--name` or `--out` with no value (empty, or another `--` flag), an unknown argument, a second seed.

@@ -35,11 +35,11 @@ publish each, with the `version` the last result gave. Then step 6. Every later 
 
 ## 2. List, once, and refuse a canvas that moved
 
-A: `list_files <slug>`. Keep its `version` as `V`: **the one list serves the check and the send**. Set every `project/` sha beside the manifest's
+A: `list_files <slug>`. Keep its `version` as `V`: **on A the one list serves the check and the send**. Set every `project/` sha beside the manifest's
 **canvas sha** in `CANVAS.md`. If any file differs, is new or is gone, **stop**: someone changed the canvas since your last pull, and sending now would
 replace it. Say so and run `/design-pull` first. A version id that moved alone, with every sha equal, is no change. **One exception:** a file the human
 has told you, in this conversation, to restore (they reject the canvas's edit of it) may differ; it goes in the set (step 3) with the repo's bytes, and every other difference still stops. **On B:** `list` has no hash, so read
-every `project/` file with `read` (it reports each sha) and compare those.
+every `project/` file with `read` (it reports each sha) and compare those; step 4 reads them again just before the send.
 
 ## 3. The set to send
 
@@ -59,8 +59,13 @@ Send nothing else; an unchanged file is not resent. Commit the files you are abo
 ## 4. Send
 
 A: `publish_files <slug>` with `base_version: V` (the version from step 2, not a new list), `mode: "patch"`, and the files by absolute path
-(`as` is the served path, such as `project/Timer.dc.html`). One call for the set. **On B:** `publish` takes a `root` and `files`, and refuses a repo path as
-`root`: stage a copy (`rsync -a --delete` the set into a temporary folder, `diff -r` it against the repo) and publish from there.
+(`as` is the served path, such as `project/Timer.dc.html`). One call for the set.
+
+**On B:** `publish` takes a `root` and `files`, and refuses a repo path as `root`. Do the slow part first: stage a copy (`rsync -a --delete` the set into a temporary
+folder, `diff -r` it against the repo). Then, with nothing between it and the send, `read` every `project/` file again and set each sha beside the manifest's **canvas sha** and
+step 2's. A file that differs, is new or is gone: **stop**, send nothing, run `/design-pull`; a file the human told you to restore (step 2) may differ. Then `publish` from the staged folder at once.
+B's `publish` carries no base version, so **the server will not refuse a moved canvas**: it is documented to refuse a file you replace that changed since you read it (not observed), and
+it ignores every other file. The re-read narrows the window and does not close it; step 5's warning and step 6's read-back are the backstop.
 
 ## 5. Read the result: a warning stops you
 
@@ -81,10 +86,10 @@ A: `publish_files <slug>` with `base_version: V` (the version from step 2, not a
 A: `list_files` again. Every file you sent has the sha of the repo bytes you sent (the canvas holds exactly those bytes); every file you did not send has
 its manifest canvas sha. This is required **despite the type's "never verify" rule**: that rule stops layout re-checks during a creation run, and this is a hash
 comparison with no render, which this role makes a standing instruction. A publish reports no bytes and the server accepts stale bytes on the live version, so
-the read-back is the only proof. A file whose sha differs, sent or unsent, was changed by someone since your list: run `/design-pull` before anything else,
-and never re-send.
+the read-back is the only proof. A file whose sha differs, sent or unsent, was changed by someone since your list: **run `/design-pull` before you write `Last publish` or commit `CANVAS.md`**,
+and never re-send. **On B** the read-back is `read` of every `project/` file again.
 
-Write the new `version` and the manifest into `CANVAS.md`: `Last publish: <version> @ <repo commit>` (the commit that holds what you sent, made before the send),
+With every sha matched, or after that pull, write the new `version` and the manifest into `CANVAS.md`: `Last publish: <version> @ <repo commit>` (the commit that holds what you sent, made before the send),
 canvas sha and repo sha now equal for what you sent. Commit `CANVAS.md` (`[Designer] design: publish <canvas>`).
 If you changed one file with `edit_version` instead of step 4's `publish_files`, no local bytes exist: read the file back (`read_file`) and compare it with your change applied to the copy you pulled.
 

@@ -82,8 +82,8 @@ what changed with the version the check used, reads a `warnings` entry against t
    your change applied to the copy you pulled.
 
 These steps are written in surface A's words, and the behaviour below was observed on A only. On B, `list` gives sizes and no hash,
-so compare by reading (`read` reports each file's sha) before you send; B is documented to refuse a publish built on a stale copy,
-which has not been observed here.
+so compare by reading (`read` reports each file's sha) immediately before you send; B's `publish` carries no base version and the server will not refuse a moved canvas.
+It is documented to refuse a file you replace that changed since you read it, which has not been observed here.
 
 On A, saving a file means retyping it: `read_file` puts text in the transcript and no tool writes it to disk. Write what you
 read and compare the sha; a mismatch means read again, and a file whose sha differs is never committed. A bulk `paths` read is
