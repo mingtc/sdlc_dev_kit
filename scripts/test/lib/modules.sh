@@ -121,11 +121,17 @@ exec /bin/mkdir "$@"
 MKDIR_EOF
   chmod +x "$SB_TMP/shim/mkdir"
 }
-# _md_kill_enable <destination suffix> [<module>] — enable under that stand-in; the status is left in _md_rc.
+# _md_kill_tmp — the TMPDIR to give a run the stand-ins may kill: a directory in the sandbox, made here, printed. A
+# SIGKILL runs no trap, so the scratch the killed program made under TMPDIR (module.sh's kit-module.*, kit-upgrade.sh's
+# kit-upgrade-*.*, marker-block's mktemp files) is never removed by it; in the sandbox, teardown removes it, where in
+# the machine's temp directory every run of the self-test would add to what is left there.
+_md_kill_tmp() { mkdir -p "$SB_TMP/tmp" && printf '%s' "$SB_TMP/tmp"; }
+# _md_kill_enable <destination suffix> [<module>] — enable under that stand-in, with _md_kill_tmp's TMPDIR; the
+# status is left in _md_rc.
 _md_kill_enable() {
   rm -rf "$SB_TMP/records"
   _md_rc=0
-  _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" PATH="$SB_TMP/shim:$PATH" KILL_ON="$1" KILL_PID_FILE="$SB_TMP/kill-pid" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ ./scripts/module.sh enable "${2:-example}" 2>&1 </dev/null )" || _md_rc=$?
+  _md_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" TMPDIR="$(_md_kill_tmp)" PATH="$SB_TMP/shim:$PATH" KILL_ON="$1" KILL_PID_FILE="$SB_TMP/kill-pid" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ ./scripts/module.sh enable "${2:-example}" 2>&1 </dev/null )" || _md_rc=$?
 }
 # _md_strays <root> — every temporary file a killed run could leave behind, one per line.
 _md_strays() { find "$1" -path "$1/.git" -prune -o \( -name '*.kit-mod-new' -o -name '*.kit-mb.*' \) -print 2>/dev/null; }

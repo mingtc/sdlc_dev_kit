@@ -132,12 +132,14 @@ _mu_project_edits() {
   rm -f "$SB_WORK/process/fragments.d/ISSUE/example.body-end" "$SB_WORK/scripts/move-check.d/in_progress/50-example.sh"
 }
 # _mu_up <project> [VAR=value…] — the NEW kit's kit-upgrade.sh, run from a directory outside both trees; the
-# status is left in _mu_rc and the output in _mu_out. Records go to a directory emptied first.
+# status is left in _mu_rc and the output in _mu_out. Records go to a directory emptied first. A run given KILL_NTH (under
+# the kill stand-in) gets _md_kill_tmp as its TMPDIR, so what a SIGKILL leaves is removed by teardown.
 _mu_rc=0; _mu_out=""
 _mu_up() {
-  local proj="$1"; shift
+  local proj="$1" kt=""; shift
+  case " $* " in *" KILL_NTH="*) kt="$(_md_kill_tmp)" ;; esac
   rm -rf "$SB_TMP/up-records"; _mu_rc=0
-  _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/up-records" KILL_PID_FILE="$SB_TMP/kill-pid" "$@" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ "$MU_NEW/scripts/kit-upgrade.sh" --into "$proj" 2>&1 </dev/null )" || _mu_rc=$?
+  _mu_out="$( cd "$MU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/up-records" KILL_PID_FILE="$SB_TMP/kill-pid" ${kt:+"TMPDIR=$kt"} "$@" bash -c 'echo $$ > "$KILL_PID_FILE"; exec "$@"' _ "$MU_NEW/scripts/kit-upgrade.sh" --into "$proj" 2>&1 </dev/null )" || _mu_rc=$?
 }
 _mu_recs() { cat "$SB_TMP"/up-records/*.tsv 2>/dev/null | grep -c "refusal=$1" || true; }
 # _mu_flat — the last output on one line, for a failure message.
@@ -743,6 +745,8 @@ case_a_killed_module_write_is_rerun_as_the_full_path_and_a_record_only_failure_u
     rm -rf "$run"; cp -R "$SB_WORK" "$run"; rootp="$(cd "$run" && pwd -P)"; echo 0 > "$SB_TMP/count"
     _mu_up "$run" PATH="$SB_TMP/cshim:$PATH" KILL_ROOT="$rootp" KILL_NTH="$n" KILL_COUNT="$SB_TMP/count"
     [ "$_mu_rc" -eq 137 ] || cf "(a) the kill stand-in did not kill (exit $_mu_rc): $(_mu_flat)"
+    [ -n "$(find "$SB_TMP/tmp" -mindepth 1 -maxdepth 1 -name 'kit-upgrade-modules.*' 2>/dev/null)" ] \
+      || cf "(a) the killed upgrade's scratch (kit-upgrade-modules.*) is not in the sandbox's temp directory: _mu_up did not give the killed run its TMPDIR, so the scratch is left in the machine's temp directory (or kit-upgrade.sh no longer makes one)"
     grep -F -x ' M .claude/roles/example.md' <<<"$(git -C "$run" status --porcelain)" >/dev/null || cf "(a) the kill did not leave the role doc modified: $(git -C "$run" status --porcelain | tr '\n' '|')"
     grep -E '^pending example ' "$run/process/MODULES" >/dev/null || cf "(a) the kill did not leave a pending section"
     _mu_up "$run"
