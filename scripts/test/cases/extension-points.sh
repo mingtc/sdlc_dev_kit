@@ -2293,3 +2293,47 @@ case_marker_block_a_refused_write_leaves_no_scratch_file() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — a refused marker-block write takes back the host file the same insert created.
+# kit_mb_insert creates an absent gitignore-slot host empty before it builds the block; when the write back is then
+# refused, the file must go with the refusal, which says NOTHING WAS CHANGED. A 250-byte name the filesystem takes has
+# no room for the side file's 14-byte suffix (`.kit-mb.XXXXXX`), so it refuses the write back and nothing else, as root
+# too. A read-only directory cannot stand in: it refuses the creation first.
+#   (a) the host did not exist: the refusal is the write-back's, and the host is gone;
+#   (b) CONTROL: the host existed: the same refusal leaves it, its bytes unchanged.
+# =============================================================================
+case_marker_block_a_refused_write_takes_back_the_file_the_insert_created() {
+  cf_reset
+  local L="a marker-block insert whose write back is refused removes the host file it created, and keeps one that was there"
+  make_sandbox
+  local d="$SB_TMP/mbc" t="$SB_TMP/mbc-tmp" long out rc
+  mkdir -p "$d" "$t"
+  long="$(printf '%250s' '' | tr ' ' g)"
+  printf 'node_modules/\n' > "$d/one.txt"
+  if ! { : > "$d/$long"; } 2>/dev/null || { : > "$d/$long.kit-mb.probe0"; } 2>/dev/null; then
+    skp "$L" "this filesystem's name limit is not 255 bytes, so a 250-byte name does not refuse the side file alone"
+    teardown; return
+  fi
+  rm -f "$d/$long"
+  _mbc() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; export TMPDIR="$t"; "$@" ) 2>&1; }
+
+  # (a) the host did not exist.
+  out="$(_mbc kit_mb_insert "$d/$long" alpha:gitignore gitignore "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) (premise) the insert exited 0, so no refusal was tested"
+  printf '%s\n' "$out" | grep -F 'could not write' >/dev/null || cf "(a) (premise) the refusal is not the write-back's: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  [ ! -e "$d/$long" ] || cf "(a) the refused insert left the host file it created ($(wc -c < "$d/$long" | tr -d ' ') bytes)"
+
+  # (b) control: the host existed.
+  printf 'keep/\n' > "$d/$long"; cp "$d/$long" "$d/before-b"
+  out="$(_mbc kit_mb_insert "$d/$long" alpha:gitignore gitignore "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) (premise) the insert exited 0, so no refusal was tested"
+  printf '%s\n' "$out" | grep -F 'could not write' >/dev/null || cf "(b) (premise) the refusal is not the write-back's: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  if [ -f "$d/$long" ]; then
+    cmp -s "$d/$long" "$d/before-b" || cf "(b) the refused insert changed the host file that was there"
+  else
+    cf "(b) the refused insert removed a host file it did not create"
+  fi
+  finish "$L"
+  teardown
+}
