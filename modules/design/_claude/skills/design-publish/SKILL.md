@@ -88,7 +88,8 @@ B's `publish` carries no base version. It may refuse a send when this session ha
 A: `list_files` again. Every file you sent has the sha of the repo bytes you sent (the canvas holds exactly those bytes); every file you did not send has
 its manifest canvas sha. This is required **despite the type's "never verify" rule**: that rule stops layout re-checks during a creation run, and this is a hash
 comparison with no render, which this role makes a standing instruction. A publish reports no bytes and the server accepts stale bytes on the live version, so
-the read-back is the only proof. A file whose sha differs, sent or unsent, was changed by someone since your list: **run `/design-pull` before you write `Last publish` or commit `CANVAS.md`**,
+the read-back is the only proof. A file whose sha differs, sent or unsent, was changed by someone since your list: **run `/design-pull` before you write `Last publish` or commit `CANVAS.md`**
+(a pull entered from here is still a pull: it shows the diff and waits for the human's go-ahead, and a go given before the diff existed is not one),
 and never re-send. **On B** the read-back is `read` of every `project/` file again.
 
 With every sha matched, or after that pull, write the new `version` and the manifest into `CANVAS.md`: `Last publish: <version> @ <repo commit>` (the commit that holds what you sent, made before the send),

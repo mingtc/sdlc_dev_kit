@@ -20,6 +20,7 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Changed
 
+- **A `/design-pull` entered from `/design-publish` step 6 still shows the diff and waits for your go-ahead**; a go given before the diff existed is not one.
 - **On the built-in `Artifact` tool, `/design-publish` re-reads every `project/` file just before the send** and stops with `/design-pull` if any sha moved from the manifest, and, if the tool refuses the send as unviewed, reads the page and runs again; step 6 runs `/design-pull` before `Last publish` is written when a read-back sha differs, sent or unsent.
 - **The link check says `UNROWED <file>`** for an artboard no registry row names and no screen with a row imports (a report line, never counted), and the `ARTBOARD` lines it prints for a row whose file is not there end in a `Next:`.
 - **The pull skill's `both` block names no file whose pulled bytes equal the repo's**, so a send that landed before its record was written no longer stops the pull; **the publish skill, at the first publish too, puts the boards in the pull's spelling first** (`normalise-canvas.py`) and commits what it rewrote, so a `data-props` written spaced, or with `1e3`, is sent compact and a later pull reads no change in it.
