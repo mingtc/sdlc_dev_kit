@@ -102,6 +102,26 @@ cf() { _cf="${_cf}${_cf:+; }$1"; }
 cf_reset() { _cf=""; }
 finish() { if [ -z "$_cf" ]; then ok "$1"; else bad "$1" "$_cf"; fi; }
 
+# script_libs <script>… — the file names of the libraries the scripts source, and those the libraries
+# source in turn, once each: every `. "$SCRIPT_DIR/lib/<f>"` and `. "$(dirname "${BASH_SOURCE[0]}")/<f>"`
+# line, conditional or not. A fixture that copies a script's libraries, or checks they ship, takes the
+# list from here, so a library a script gains is in it. A library the tree lacks is still named.
+_script_libs_seen=" "
+script_libs() { _script_libs_seen=" "; local f; for f in "$@"; do _script_libs_of "$f"; done; }
+_script_libs_of() {
+  local dir l
+  [ -f "$1" ] || return 0
+  case "${1%/*}" in */lib) dir="${1%/*}" ;; *) dir="${1%/*}/lib" ;; esac
+  for l in $(sed -n -e '/^[[:space:]]*#/d' \
+      -e 's/.*\. "\$SCRIPT_DIR\/lib\/\([^"]*\)".*/\1/p' \
+      -e 's/.*\. "\$(dirname "\${BASH_SOURCE\[0\]}")\/\([^"]*\)".*/\1/p' "$1"); do
+    case "$_script_libs_seen" in *" $l "*) continue ;; esac
+    _script_libs_seen="$_script_libs_seen$l "
+    printf '%s\n' "$l"
+    _script_libs_of "$dir/$l"
+  done
+}
+
 # --- Sandbox construction ----------------------------------------------------
 # Sets globals: SB_TMP (temp root), SB_WORK (work repo), SB_ORIGIN (bare remote).
 SB_TMP=""; SB_WORK=""; SB_ORIGIN=""; SB_OUT=""; SB_OUT_MADE=""

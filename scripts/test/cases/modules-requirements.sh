@@ -22,7 +22,7 @@ _mq_flat() { printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-"${1:-260}"; }
 # _mq_subject_ok — the programs under test ship; their absence is a failure, never an N/A.
 _mq_subject_ok() {
   local f
-  for f in scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh; do
+  for f in scripts/module.sh $(script_libs "$REAL_REPO_ROOT/scripts/module.sh" | sed 's|^|scripts/lib/|'); do
     [ -f "$REAL_REPO_ROOT/$f" ] || { cf "(prereq) $f is absent from the tree under test"; return 1; }
   done
 }

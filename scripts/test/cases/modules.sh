@@ -889,7 +889,7 @@ _mx_proj() {  # <dir> — a project that holds module.sh and its libraries, a PR
   mkdir -p "$1/scripts/lib" "$1/requirements" "$1/modules"
   cp "$REAL_SCRIPTS/module.sh" "$1/scripts/"
   local l
-  for l in modules.sh marker-block.sh card-head.sh refuse.sh progress-record.sh usage.sh exit-trap.sh; do cp "$REAL_SCRIPTS/lib/$l" "$1/scripts/lib/"; done
+  for l in $(script_libs "$REAL_SCRIPTS/module.sh"); do cp "$REAL_SCRIPTS/lib/$l" "$1/scripts/lib/"; done
   printf '# PROJECT.md\n\n| Gate | C |\n|---|---|\n| g | `x` |\n\n<!-- KIT-MODULES:gates the slot -->\n\ntail\n' > "$1/PROJECT.md"
   printf '# CORPUS\n\n<!-- KIT-MODULES:corpus-manifest the slot -->\n\nmid\n\n<!-- KIT-MODULES:corpus-buckets the slot -->\n' > "$1/requirements/CORPUS.md"
 }
@@ -900,6 +900,44 @@ _mx_mod() {  # <kit dir> <name> <version> <manifest line>… — modules/<name>/
 }
 _mx_rc=0; _mx_out=""
 _mx_run() { _mx_rc=0; _mx_out="$( cd "$1" && shift && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$SB_TMP/records" ./scripts/module.sh "$@" 2>&1 </dev/null )" || _mx_rc=$?; }
+
+# =============================================================================
+# CASE — THE FIXTURES' LIBRARY LISTS FOLLOW THE SCRIPTS' OWN SOURCE LINES.
+#   Operand: a copy of the scripts under test whose module.sh sources one more library. _mx_proj copies
+#   it into the project it builds (and module.sh runs there), and each of the three prerequisite checks
+#   (_md_missing_program, _mq_subject_ok, _mu_subject_ok) names it when the copy lacks it. On the real
+#   tree the checks are quiet.
+# =============================================================================
+case_fixture_library_lists_follow_the_scripts_source_lines() {
+  cf_reset
+  local L="the fixtures that copy or check module.sh's libraries take the list from the scripts' source lines: a library module.sh gains is copied by _mx_proj and named as missing by each prerequisite check"
+  [ -f "$REAL_SCRIPTS/module.sh" ] || { cf "scripts/module.sh is absent from the tree under test"; finish "$L"; return; }
+  make_sandbox
+  local K="$SB_TMP/fl-kit" P="$SB_TMP/fl-proj" got
+  mkdir -p "$K"; cp -R "$REAL_SCRIPTS" "$K/scripts"
+  printf 'kit_fl_probe() { :; }\n' > "$K/scripts/lib/fl-probe.sh"
+  awk '{ print } $0 == ". \"$SCRIPT_DIR/lib/modules.sh\"" { print ". \"$SCRIPT_DIR/lib/fl-probe.sh\"" }' "$REAL_SCRIPTS/module.sh" > "$K/scripts/module.sh"
+  grep -qF '. "$SCRIPT_DIR/lib/fl-probe.sh"' "$K/scripts/module.sh" || _fixture_die "case_fixture_library_lists_follow_the_scripts_source_lines: the new source line did not land in module.sh"
+  chmod +x "$K/scripts/module.sh"
+  # (copy) _mx_proj copies the new library, and module.sh runs in the project it builds.
+  ( REAL_REPO_ROOT="$K"; REAL_SCRIPTS="$K/scripts"; _mx_proj "$P" )
+  [ -f "$P/scripts/lib/fl-probe.sh" ] || cf "(_mx_proj) the project lacks scripts/lib/fl-probe.sh, which its module.sh sources"
+  _mx_run "$P" list
+  [ "$_mx_rc" -eq 0 ] || cf "(_mx_proj) module.sh list in the built project exited $_mx_rc: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
+  # (checks) the copy lacks the library: each prerequisite check names it.
+  rm -f "$K/scripts/lib/fl-probe.sh"
+  got="$( REAL_REPO_ROOT="$K"; REAL_SCRIPTS="$K/scripts"; _md_missing_program )"
+  [ "$got" = scripts/lib/fl-probe.sh ] || cf "(_md_missing_program) named '$got', not scripts/lib/fl-probe.sh"
+  got="$( REAL_REPO_ROOT="$K"; REAL_SCRIPTS="$K/scripts"; _cf=""; _mq_subject_ok; printf '%s' "$_cf" )"
+  case "$got" in *scripts/lib/fl-probe.sh*) ;; *) cf "(_mq_subject_ok) did not name scripts/lib/fl-probe.sh: '$got'" ;; esac
+  got="$( REAL_REPO_ROOT="$K"; REAL_SCRIPTS="$K/scripts"; _cf=""; _mu_subject_ok; printf '%s' "$_cf" )"
+  case "$got" in *scripts/lib/fl-probe.sh*) ;; *) cf "(_mu_subject_ok) did not name scripts/lib/fl-probe.sh: '$got'" ;; esac
+  # (control) the real tree: every check is quiet.
+  got="$(_md_missing_program)"; [ -z "$got" ] || cf "(control) _md_missing_program names $got on the real tree"
+  got="$( _cf=""; _mq_subject_ok; _mu_subject_ok; printf '%s' "$_cf" )"; [ -z "$got" ] || cf "(control) a prerequisite check fails on the real tree: $got"
+  finish "$L"
+  teardown
+}
 
 case_module_enable_takes_only_what_it_wrote_and_blocks_are_per_slot() {
   cf_reset

@@ -191,7 +191,7 @@ _mu_clone_tree() {
 # _mu_subject_ok — the programs under test ship; their absence is a failure, never an N/A.
 _mu_subject_ok() {
   local f
-  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/card-head.sh scripts/lib/exit-trap.sh; do
+  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh $(script_libs "$REAL_REPO_ROOT"/scripts/kit-upgrade.sh "$REAL_REPO_ROOT"/scripts/kit-init.sh "$REAL_REPO_ROOT"/scripts/module.sh | sed 's|^|scripts/lib/|'); do
     [ -f "$REAL_REPO_ROOT/$f" ] || { cf "(prereq) $f is absent from the tree under test"; return 1; }
   done
 }
