@@ -1202,6 +1202,94 @@ case_brainstorm_stop_server_leaves_no_server_info() {
 }
 
 # =============================================================================
+# CASE — brainstorming's stop-server.sh READS A ZOMBIE SERVER AS STOPPED.
+# A server that has exited and that its parent has not reaped (a container started without an init)
+# still answers kill -0; read as alive, it would draw a SIGKILL, which a zombie does not answer, and the
+# stop would report "process still running". ps -o stat= names it with a Z. The control: a live server
+# that ignores TERM is still killed before the stop says stopped.
+# =============================================================================
+case_brainstorm_stop_server_reads_a_zombie_server_as_stopped() {
+  cf_reset
+  local L="brainstorming's stop-server.sh reports a server that has exited and is not yet reaped (a zombie) as stopped, and still kills a live server that ignores TERM before it says stopped"
+  local rel=".claude/skills/brainstorming/scripts/stop-server.sh" out rc sess live i st
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  [ -n "$(ps_stat "$$")" ] || { skp "$L" "ps -o stat= names no state on this machine, so a zombie cannot be told"; return; }
+  make_sandbox
+  if ! zombie_start; then
+    st="$(ps_stat "${ZOMBIE_PID:-x}")"; zombie_stop; teardown
+    _fixture_die "case_brainstorm_stop_server_reads_a_zombie_server_as_stopped: no zombie within five seconds (pid '$ZOMBIE_PID', ps says '$st')."
+  fi
+  sess="$SB_TMP/zombie"; mkdir -p "$sess/state"
+  printf '%s\n' "$ZOMBIE_PID" > "$sess/state/server.pid"
+  printf '{"type":"server-started"}\n' > "$sess/state/server-info"
+  rc=0; out="$(bash "$REAL_REPO_ROOT/$rel" "$sess" 2>&1)" || rc=$?
+  st="$(ps_stat "$ZOMBIE_PID")"
+  case "$st" in Z*) ;; *) cf "(instrument) the server was no longer a zombie when the stop ended (ps says '$st'), so the zombie rows prove nothing" ;; esac
+  zombie_stop
+  [ "$rc" -eq 0 ] || cf "(zombie) the stop exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F '"stopped"' >/dev/null || cf "(zombie) no stopped status: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  # The control: a live server that ignores TERM.
+  sess="$SB_TMP/live"; mkdir -p "$sess/state"
+  bash -c 'trap "" TERM; echo ready > "$1"; exec sleep 60' _ "$SB_TMP/ready" & live=$!
+  i=0; while [ ! -s "$SB_TMP/ready" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+  [ -s "$SB_TMP/ready" ] || cf "(control) the stand-in server never said it was ready"
+  printf '%s\n' "$live" > "$sess/state/server.pid"
+  rc=0; out="$(bash "$REAL_REPO_ROOT/$rel" "$sess" 2>&1)" || rc=$?
+  st="$(ps_stat "$live")"
+  case "$st" in ''|Z*) ;; *) cf "(control) the stop returned while the server still runs (ps says '$st'): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"; kill -9 "$live" 2>/dev/null ;; esac
+  wait "$live" 2>/dev/null
+  [ "$rc" -eq 0 ] || cf "(control) the stop exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F '"stopped"' >/dev/null || cf "(control) no stopped status: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — brainstorming's server.cjs READS A ZOMBIE OWNER AS EXITED.
+# The server shuts down once its owner process has exited; an owner that has exited and that its parent
+# has not reaped still answers the signal. ownerAlive() is taken from the shipped server.cjs and asked
+# about: a zombie (exited); the same zombie with no ps on PATH (alive: the signal's answer stands); a
+# live process (alive); a reaped one (exited).
+# =============================================================================
+case_brainstorm_server_reads_a_zombie_owner_as_exited() {
+  cf_reset
+  local L="brainstorming's server.cjs reads an owner that has exited and is not yet reaped (a zombie) as exited, keeps the signal's answer when ps cannot run, and still reads a live owner as alive and a reaped one as exited"
+  local rel=".claude/skills/brainstorming/scripts/server.cjs" fn nodebin nops out pid st
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  nodebin="$(command -v node 2>/dev/null)" || { skp "$L" "node absent: the brainstorming server runs on node"; return; }
+  [ -n "$(ps_stat "$$")" ] || { skp "$L" "ps -o stat= names no state on this machine, so a zombie cannot be told"; return; }
+  fn="$(sed -n '/^  function ownerAlive() {$/,/^  }$/p' "$REAL_REPO_ROOT/$rel")"
+  [[ "$fn" == *'process.kill(ownerPid, 0)'* ]] \
+    || _fixture_die "case_brainstorm_server_reads_a_zombie_owner_as_exited: no ownerAlive() with a process.kill probe in $rel."
+  _bs_owner() {   # <pid> — what ownerAlive() says of it
+    "$nodebin" -e "let ownerPid = Number(process.argv[1]);
+$fn
+console.log(ownerAlive() ? 'alive' : 'exited');" "$1" 2>&1
+  }
+  if ! zombie_start; then
+    st="$(ps_stat "${ZOMBIE_PID:-x}")"; zombie_stop
+    _fixture_die "case_brainstorm_server_reads_a_zombie_owner_as_exited: no zombie within five seconds (pid '$ZOMBIE_PID', ps says '$st')."
+  fi
+  out="$(_bs_owner "$ZOMBIE_PID")"
+  [ "$out" = exited ] || cf "(zombie) ownerAlive() read a zombie owner as '$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)', not exited"
+  nops="$(mktemp -d)"
+  out="$(PATH="$nops" _bs_owner "$ZOMBIE_PID")"
+  [ "$out" = alive ] || cf "(no ps) with ps out of reach ownerAlive() read the zombie as '$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)', not alive (the signal's answer)"
+  rm -rf "$nops"
+  st="$(ps_stat "$ZOMBIE_PID")"
+  case "$st" in Z*) ;; *) cf "(instrument) the owner was no longer a zombie after the reads (ps says '$st'), so the zombie rows prove nothing" ;; esac
+  zombie_stop
+  sleep 60 & pid=$!
+  out="$(_bs_owner "$pid")"
+  [ "$out" = alive ] || cf "(control) ownerAlive() read a live owner as '$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)', not alive"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+  out="$(_bs_owner "$pid")"
+  [ "$out" = exited ] || cf "(control) ownerAlive() read a reaped owner as '$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)', not exited"
+  unset -f _bs_owner
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
 #
 # A consumer reads `"blind_spots": []` as "this walk has no blind spots", which is false: the
@@ -2699,7 +2787,7 @@ case_seam_shape_reformat_is_loud() {
   #    With both auto-detections removed, check-board has nothing but the declaration left.
   git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/check-board.sh" --full 2>&1 )" || true
+  out="$( cd "$SB_WORK" && no_machine_git_config "$SB_WORK/scripts/check-board.sh" --full 2>&1 )" || true
   printf '%s' "$out" | grep -F '<unresolved trunk>' >/dev/null \
     || cf "(c) check-board.sh did not announce the unresolved trunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
 

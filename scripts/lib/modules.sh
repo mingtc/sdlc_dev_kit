@@ -43,6 +43,8 @@
 . "$(dirname "${BASH_SOURCE[0]}")/refuse.sh" || return 1   # return-class: internal
 # shellcheck source=marker-block.sh
 . "$(dirname "${BASH_SOURCE[0]}")/marker-block.sh" || return 1   # return-class: internal
+# shellcheck source=card-head.sh
+. "$(dirname "${BASH_SOURCE[0]}")/card-head.sh" || return 1   # return-class: internal
 
 KIT_MOD_STATE_REL='process/MODULES'
 # The names a harness reads. A module stores them disarmed (`_claude/`, not `.claude/`); a source
@@ -291,9 +293,10 @@ _kit_mod_status_folders() {
 #   file<TAB><target><TAB><rendered copy><TAB>x|-            (a copied file)
 #   block<TAB><target><TAB><rendered copy><TAB><slot>        (a marker block; the `gitignore` slot is the end of .gitignore)
 # the rendered copies living under $KIT_MOD_TMP, <plan>.needs beside it (one line per extension point the
-# module uses, for the reader check) and <plan>.reqs (one tab-separated record per requirement:
+# module uses, for the reader check), <plan>.reqs (one tab-separated record per requirement:
 # kind R|A, id, severity required|optional|agent, check or call, how to get it, what is lost or what a pass
-# looks like). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the module's release-notes file, or
+# looks like) and <plan>.frags (one tab-separated row per fragment: target, source in the module, rendered
+# copy). Sets KIT_MOD_VERSION, KIT_MOD_PURPOSE and KIT_MOD_NOTES (the module's release-notes file, or
 # nothing), and KIT_MOD_SETUP and KIT_MOD_SETUP_SH (the module's SETUP.md and setup.sh, as paths under the kit, or
 # nothing). Refuses a manifest that is wrong.
 kit_mod_plan() {
@@ -310,7 +313,7 @@ kit_mod_plan() {
   local wd="$KIT_MOD_TMP/render-of-$name" mname="" roles_f kinds_f needs
   rm -rf "$wd"; mkdir -p "$wd" || _kit_mod_bad "$name" "could not make a scratch directory under $KIT_MOD_TMP."
   roles_f="$wd/gen-roles"; kinds_f="$wd/gen-kinds"; needs="$plan.needs"
-  : > "$roles_f"; : > "$kinds_f"; : > "$needs"; : > "$plan.reqs"
+  : > "$roles_f"; : > "$kinds_f"; : > "$needs"; : > "$plan.reqs"; : > "$plan.frags"
   folders="$(_kit_mod_status_folders)"
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
@@ -385,6 +388,7 @@ FRAG_EOF
                 n=$((n + 1)); gen="$wd/r$n"
                 _kit_mod_render "$dir/$src" "$gen" || _kit_mod_bad "$name" "could not render $src (read it, and put the stamped values in) — the file is unreadable or the temp directory is not writable."
                 printf 'file\tprocess/fragments.d/%s/%s.%s\t%s\t-\n' "$tpl" "$name" "$mode" "$gen" >> "$plan"
+                printf 'process/fragments.d/%s/%s.%s\t%s\t%s\n' "$tpl" "$name" "$mode" "$src" "$gen" >> "$plan.frags"
                 printf 'fragment %s %s\n' "$tpl" "$slot" >> "$needs" ;;
       block)
                 extra=""
@@ -866,6 +870,7 @@ kit_mod_would_place() {
   _kit_mod_req_run "$plan.reqs" "$KIT_MOD_TMP/would-req-$name"
   _kit_mod_req_blockers "$KIT_MOD_TMP/would-req-$name"
   _kit_mod_reader_blockers "$plan.needs"
+  _kit_mod_fragment_faults "$plan" "$name"
   _kit_mod_conflicts "$plan" "$name"
   while IFS="$(printf '\t')" read -r kind tgt rend extra; do
     if git -C "$KIT_MOD_ROOT" check-ignore -q --no-index -- "$tgt" 2>/dev/null; then
@@ -949,6 +954,21 @@ kit_mod_plans_collide() {
   return 0
 }
 
+# _kit_mod_fragment_faults <plan> <name> — one line per fragment of the plan that a mint would refuse
+# (kit_fragment_fault in lib/card-head.sh: a KIT-MODULES slot line of its own, or a control byte), naming the
+# module's source and the place it would go; nothing when none would be.
+_kit_mod_fragment_faults() {
+  local tgt src gen
+  [ -f "$1.frags" ] || return 0
+  while IFS="$(printf '\t')" read -r tgt src gen; do
+    case "$(kit_fragment_fault "$gen")" in
+      markers) echo "  modules/$2/$src (placed as $tgt) carries a KIT-MODULES slot line of its own (the template owns the slots)" ;;
+      control) echo "  modules/$2/$src (placed as $tgt) holds a control byte, octal 035, 036 or 037 (the mint uses them to carry slot text)" ;;
+    esac
+  done < "$1.frags"
+  return 0
+}
+
 # ── enable ────────────────────────────────────────────────────────────────────
 
 # kit_mod_enable <name> — place the module, register it, record it. Idempotent: an enabled module is
@@ -999,6 +1019,16 @@ kit_mod_enable() {
     "$blockers" \
     "  NOTHING WAS CHANGED." \
     "Next: merge each file named above from the kit release (a kit upgrade lists them as merge items), then run ./scripts/module.sh enable $name again."
+  blockers="$(_kit_mod_fragment_faults "$plan" "$name")"
+  if [ -n "$blockers" ]; then
+    if [ "$resuming" = 1 ]; then next_text="fix each file named above in modules/$name/, then run ./scripts/module.sh enable $name again to finish it, or ./scripts/module.sh disable $name to take it back."
+    else next_text="fix each file named above in modules/$name/ (take the line or the byte out), then run ./scripts/module.sh enable $name again."; fi
+    kit_refuse 1 module-fragment-bad \
+      "Error: module $name would place fragments that every mint of their template refuses:" \
+      "$blockers" \
+      "  NOTHING WAS CHANGED." \
+      "Next: $next_text"
+  fi
   conflicts="$(_kit_mod_conflicts "$plan" "$name")"
   if [ -n "$conflicts" ]; then
     if [ "$resuming" = 1 ]; then
@@ -1094,6 +1124,14 @@ kit_mod_enable() {
 # earlier run removed still has to be staged by the run that finishes the disable.
 _kit_mod_touch_if_changed() {
   [ -z "$(cd "$KIT_MOD_ROOT" && git status --porcelain --untracked-files=no -- ":(literal)$1" 2>/dev/null)" ] || KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${1}
+"
+}
+# _kit_mod_touch_if_block_changed <host> <name> <slot> — the same for a block already gone, judged by the block's own lines:
+# the host is named only when they differ between the working tree, the index and HEAD. The host's other lines are the
+# project's, and a hint that named the host for them would stage them too.
+_kit_mod_touch_if_block_changed() {
+  kit_mod_block_changed "$1" "$2" "$3" || return 0
+  KIT_MOD_TOUCHED="${KIT_MOD_TOUCHED}${1}
 "
 }
 _kit_mod_prune() {  # <relative path of a removed file> — remove the directories it leaves empty
@@ -1207,7 +1245,7 @@ ROLE_TAGS_EOF
       fi
     else
       bid="$(_kit_mod_bid "$name" "$slot")"
-      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; _kit_mod_touch_if_changed "$tgt"; continue; fi
+      if [ ! -f "$dst" ] || ! kit_mb_has "$dst" "$bid"; then gone=$((gone + 1)); printf 'block %s %s %s\n' "${sha%%|*}" "$tgt" "$slot" >> "$donef"; _kit_mod_touch_if_block_changed "$tgt" "$name" "$slot"; continue; fi
       if _kit_mod_sha_in "$(_kit_mod_block_sha "$dst" "$bid")" "$sha"; then
         bsha="$(_kit_mod_block_sha "$dst" "$bid")"
         # In a subshell: its refusal speaks for the one file, and says NOTHING WAS CHANGED, which is not true
@@ -1289,21 +1327,39 @@ _kit_mod_block_state() {  # <path> <block id> <sha>
   else echo edited; fi
 }
 
-# _kit_mod_missing_hint <name> <plan-file> — when a recorded thing the plan still places is missing, a line naming both
-# readings: the project removed it, or a disable stopped part-way. A row the plan no longer places is not counted: the
-# upgrade's own item tells the project to delete it.
+# _kit_mod_removal_committed <name> <kind> <path> <slot> <HEAD's record> — status 0 when a missing thing's removal is
+# committed: HEAD's record names the module enabled with this row, and git shows no change at the thing (a file: none
+# at the path; a block: HEAD, the index and the working tree all lack it). A removal not yet committed, and one from an
+# enable that was never committed (HEAD does not record the row), are not.
+_kit_mod_removal_committed() {
+  awk -v n="$1" -v k="$2" -v p="$3" -v s="$4" '{ sub(/\r$/, "") }
+    $1 == "module" || $1 == "kept" || $1 == "pending" { on = ($1 == "module" && $2 == n); next }
+    on && $1 == k && $3 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$5" || return 1   # return-class: predicate
+  if [ "$2" = file ]; then
+    [ -z "$(cd "$KIT_MOD_ROOT" && git status --porcelain --untracked-files=no -- ":(literal)$3" 2>/dev/null)" ]
+  else
+    ! kit_mod_block_changed "$3" "$1" "$4"
+  fi
+}
+
+# _kit_mod_missing_hint <name> <plan-file> — when a recorded thing the plan still places is missing and its removal is
+# not committed, a line naming both readings: the project removed it, or a disable stopped part-way. A row the plan no
+# longer places is not counted: the upgrade's own item tells the project to delete it. Nor is a removal committed from a
+# commit that records the module: that is the project's own.
 _kit_mod_missing_hint() {
-  local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows"
+  local name="$1" kind sha tgt slot n=0 m=0 st rf="$KIT_MOD_TMP/hint-rows" hr="$KIT_MOD_TMP/hint-head-record"
   kit_mod_rows_merged "$name" > "$rf"
+  if ! ( cd "$KIT_MOD_ROOT" && git show "HEAD:./$KIT_MOD_STATE_REL" ) > "$hr" 2>/dev/null; then : > "$hr"; fi
   while read -r kind sha tgt slot; do
     [ -n "$kind" ] || continue
     m=$((m + 1))
     awk -F'\t' -v k="$kind" -v p="$tgt" -v s="$slot" '$1 == k && $2 == p && (k == "file" || $4 == s) { f = 1 } END { exit !f }' "$2" || continue
     if [ "$kind" = file ]; then st="$(_kit_mod_file_state "$tgt" "$sha")"; else st="$(_kit_mod_block_state "$tgt" "$(_kit_mod_bid "$name" "$slot")" "$sha")"; fi
-    [ "$st" != missing ] || n=$((n + 1))
+    [ "$st" = missing ] || continue
+    _kit_mod_removal_committed "$name" "$kind" "$tgt" "$slot" "$hr" || n=$((n + 1))
   done < "$rf"
-  rm -f "$rf"
-  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
+  rm -f "$rf" "$hr"
+  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
   return 0
 }
 
@@ -1380,6 +1436,7 @@ kit_mod_status() {
 #   kit_mod_upgrade_stage_record <name> <dir>   leave the module's final record in <dir>, a work order
 #   kit_mod_upgrade_finish_record <name> <dir>  carry the work order out and remove it (run again after a kill)
 #   kit_mod_upgrade_own_work <path>             whether a file with uncommitted changes holds only blocks a killed run wrote
+#   kit_mod_upgrade_fragment_faults <name>      the fragments it would write that every mint refuses, asked before any write
 # The scan writes nothing in the project. It leaves its findings in $KMU_DIR (= $KIT_MOD_TMP/up-<name>):
 #   act    <action> TAB <kind> TAB <target> TAB <slot|-> TAB <rendered copy|-> TAB <x|-> TAB <why>
 #          write    the file or block is as enable wrote it (or is new in the module) and can be placed
@@ -1634,4 +1691,14 @@ kit_mod_upgrade_finish_record() {
 # upgrade has written its files: a reader the upgrade brings is then in place.
 kit_mod_upgrade_readers() {
   _kit_mod_reader_blockers "$KIT_MOD_TMP/up-$1/plan.needs"
+}
+# kit_mod_upgrade_fragment_faults <name> — after the scan: one line per fragment the upgrade would write, or stage for a
+# merge, that every mint would refuse (the lines enable's fragment check prints), or nothing. A fragment the tree already
+# holds as the new kit has it is not written, so it is not judged here. Status 1: no scratch file.
+kit_mod_upgrade_fragment_faults() {
+  local d="$KIT_MOD_TMP/up-$1"
+  [ -f "$d/plan.frags" ] || return 0
+  awk -F'\t' 'FILENAME == ARGV[1] { if ($1 == "write" || $1 == "merge") due[$3] = 1; next } ($1 in due)' \
+    "$d/act" "$d/plan.frags" > "$d/due.frags" || return 1   # return-class: relay
+  _kit_mod_fragment_faults "$d/due" "$1"
 }

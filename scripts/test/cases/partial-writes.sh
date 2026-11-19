@@ -726,6 +726,54 @@ case_a_term_to_the_ops_pid_waits_for_its_push_and_its_rebase_before_the_lock_goe
 }
 
 # =============================================================================
+# CASE — A KANBAN LOCK WHOSE HOLDER IS A ZOMBIE IS REAPED.
+# A holder that has exited and that its parent has not reaped (a container started without an init) still
+# answers kill -0 and ps -p; ps -o stat= names it with a Z. The next op on the same host reaps the lock and
+# moves the card; read as alive, the holder would make it wait KWT_LOCK_WAIT and refuse kanban-lock-held.
+# The control runs the library's own probe, taken from the sandbox's copy, on a live holder (held) and a
+# reaped one (abandoned).
+# =============================================================================
+case_a_kanban_lock_held_by_a_zombie_is_reaped() {
+  cf_reset
+  local L="a kanban lock whose holder on this host is a zombie is reaped by the next op, which moves the card; the same probe reads a live holder as holding the lock and a reaped one as gone"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  [ -n "$(ps_stat "$$")" ] || { skp "$L" "ps -o stat= names no state on this machine, so a zombie cannot be told"; return; }
+  make_sandbox
+  local id="$SB_PREFIX-892" out rc=0 lock="$SB_WORK/.kanban-wt.lock" lib="$SB_WORK/scripts/lib/kanban-worktree.sh" fn pid ans st
+  seed_issue todo "$id" zombie chore "A card moved past a zombie's lock"
+  publish_sandbox
+  if ! zombie_start; then
+    st="$(ps_stat "${ZOMBIE_PID:-x}")"; zombie_stop; teardown
+    _fixture_die "case_a_kanban_lock_held_by_a_zombie_is_reaped: no zombie within five seconds (pid '$ZOMBIE_PID', ps says '$st')."
+  fi
+  mkdir "$lock" && printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=%s\n' "$ZOMBIE_PID" "$(date +%s)" "$(hostname 2>/dev/null || echo '?')" "$ZOMBIE_PID.zombie" > "$lock/info" \
+    || { zombie_stop; teardown; _fixture_die "case_a_kanban_lock_held_by_a_zombie_is_reaped: could not plant the lock at $lock."; }
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "moved past a zombie's lock" 2>&1 )" || rc=$?
+  st="$(ps_stat "$ZOMBIE_PID")"
+  case "$st" in Z*) ;; *) cf "(instrument) the holder was no longer a zombie when the op ended (ps says '$st'), so the rows below prove nothing" ;; esac
+  zombie_stop
+  [ "$rc" -eq 0 ] || cf "the op did not move the card past a zombie's lock (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'looked abandoned' >/dev/null || cf "the op did not say it reaped the lock: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/in_progress/$id-zombie.md" || cf "the card did not reach in_progress/ on the trunk"
+  [ ! -e "$lock" ] || cf "the lock is still there after the op ended"
+  # The control: the same probe on a live holder and on a reaped one.
+  fn="$(sed -n '/^kwt__lock_abandoned() {$/,/^}$/p' "$lib")"
+  [[ "$fn" == *'kill -0'* ]] \
+    || { teardown; _fixture_die "case_a_kanban_lock_held_by_a_zombie_is_reaped: no kwt__lock_abandoned() with a kill -0 probe in $lib."; }
+  mkdir -p "$lock"
+  sleep 60 & pid=$!
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=live\n' "$pid" "$(date +%s)" "$(hostname 2>/dev/null || echo '?')" > "$lock/info"
+  ans="$( eval "$fn"; KWT_LOCK="$lock"; KWT_LOCK_STALE=120; kwt__lock_abandoned 2>&1 )"
+  [ -z "$ans" ] || cf "(control) the probe read a live holder as abandoned: '$ans'"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+  ans="$( eval "$fn"; KWT_LOCK="$lock"; KWT_LOCK_STALE=120; kwt__lock_abandoned 2>&1 )"
+  [ "$ans" = yes ] || cf "(control) the probe did not read a reaped holder as abandoned: '$ans'"
+  rm -rf "$lock"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — kit-init.sh CUT OFF AFTER A PUSHED SELF-CHECK MOVE, BEFORE THE CHECKOUT CAUGHT UP: the trunk holds commits the
 # checkout does not. The re-run refuses as lived and its Next must name every commit the run made on the trunk, newest
 # included, and bring the checkout up to the trunk first; run as printed, the commands let the re-run complete.

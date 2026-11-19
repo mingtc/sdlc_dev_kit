@@ -14,6 +14,15 @@
 #   SHAPE (ii) UNMEASURED-CLAIM-NOW-MEASURED — a MEASURE-FIRST / "not yet measured" /
 #              "does not exist yet" claim whose named verdict artifact or issue HAS since landed.
 #
+# WHAT IS READ AS A CLAIM: the phrase and the landed artifact in the SAME SENTENCE of one line;
+# a table row is one sentence, whatever cells hold the two. A phrase between a pair of double
+# quotes (straight or curly) on its line is a MENTION of the phrase, not a claim, and is skipped;
+# backticks, *italics* and **bold** are still claims, since a status line writes its state that
+# way. The cost: a claim whose artifact is named only in an earlier sentence, or a real claim
+# quoted on purpose, is not reported; an abbreviation such as "e.g. " ends a sentence early; and
+# a stray " (an inch mark) pairs with the next " on its line, so a claim between the two is read
+# as a mention. A quote is never paired across lines, so an unclosed one hides nothing past it.
+#
 # NO BASE RATE SHIPS. How often these greps cry wolf depends on the tree, and a figure from
 # another project reads as a rate for this one. Adjudicate the first report, count the false
 # positives, and record that rate with its date; an instrument that does not say how often it
@@ -32,6 +41,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import re
 import sys
 from pathlib import Path
@@ -49,6 +59,19 @@ OPEN_CLAIM = re.compile(
 UNMEASURED_CLAIM = re.compile(
     r"\b(measure[- ]first|unmeasured|not yet measured|no measurement|"
     r"awaiting measurement|pending measurement)\b", re.I)
+# A sentence ends at . ! or ? followed by white space.
+SEGMENT_END = re.compile(r"[.!?]\s")
+# A phrase inside a pair of double quotes on its line is mentioned, not claimed.
+MENTION_SPAN = re.compile(
+    r'"[^"]*"'
+    r"|\u201c[^\u201d]*\u201d")
+
+
+def _segment(line: str, starts: list, at: int) -> str:
+    """The sentence of `line` that holds offset `at`."""
+    i = bisect.bisect_right(starts, at) - 1
+    end = starts[i + 1] if i + 1 < len(starts) else len(line)
+    return line[starts[i]:end]
 
 
 def _id_prefixes(root: Path):
@@ -125,18 +148,24 @@ def survey(root: Path = REPO_ROOT):
             continue
         for number, line in enumerate((root / rel).read_text(encoding="utf-8",
                                                              errors="replace").splitlines(), 1):
+            starts = [0] + [m.end() for m in SEGMENT_END.finditer(line)]
+            mentions = [m.span() for m in MENTION_SPAN.finditer(line)]
             for shape, pattern in (("superseded-conclusion", OPEN_CLAIM),
                                    ("unmeasured-claim-now-measured", UNMEASURED_CLAIM)):
-                claim = pattern.search(line)
-                if not claim:
-                    continue
-                for match in artifact.finditer(line):
-                    token = match.group(1) or match.group(2)
-                    why = landed(root, token, prefixes)
-                    if why:
-                        rows.append({"shape": shape, "path": rel, "line": number,
-                                     "claim": claim.group(0), "artifact": token,
-                                     "why": why, "text": line.strip()[:160]})
+                row = None
+                for claim in pattern.finditer(line):
+                    if any(a <= claim.start() and claim.end() <= b for a, b in mentions):
+                        continue
+                    for match in artifact.finditer(_segment(line, starts, claim.start())):
+                        token = match.group(1) or match.group(2)
+                        why = landed(root, token, prefixes)
+                        if why:
+                            row = {"shape": shape, "path": rel, "line": number,
+                                   "claim": claim.group(0), "artifact": token,
+                                   "why": why, "text": line.strip()[:160]}
+                            break
+                    if row:
+                        rows.append(row)
                         break
     return rows, derived
 

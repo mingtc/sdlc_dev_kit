@@ -108,7 +108,10 @@ case "$CMD" in
     else
       names="$(kit_mod_enabled_names)"
       if [ -z "$names" ]; then echo "module: none enabled (no process/MODULES, or it records none). ./scripts/module.sh list names what could be."
-      else printf '%s\n' "$names" | while read -r n; do kit_mod_status "$n"; done; fi
+      else
+        # Not a pipe: a refusal inside kit_mod_status must end this script, which a pipe's subshell cannot.
+        while read -r n; do kit_mod_status "$n"; done <<< "$names"
+      fi
     fi ;;
   enable)
     kit_mod_enable "$NAME"

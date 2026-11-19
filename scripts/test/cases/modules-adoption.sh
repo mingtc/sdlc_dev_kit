@@ -191,7 +191,7 @@ _mu_clone_tree() {
 # _mu_subject_ok — the programs under test ship; their absence is a failure, never an N/A.
 _mu_subject_ok() {
   local f
-  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/exit-trap.sh; do
+  for f in scripts/kit-upgrade.sh scripts/kit-init.sh scripts/module.sh scripts/lib/modules.sh scripts/lib/marker-block.sh scripts/lib/card-head.sh scripts/lib/exit-trap.sh; do
     [ -f "$REAL_REPO_ROOT/$f" ] || { cf "(prereq) $f is absent from the tree under test"; return 1; }
   done
 }
@@ -309,7 +309,7 @@ _mu_ki_sandbox() {
 # =============================================================================
 case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
   cf_reset
-  local L="kit-init.sh --with refuses in the preflight, writing nothing and exiting 1, an unknown module, a stray comma, a path the module would place that exists, a reader this copy of the kit lacks, a block host with no slot and a placed path git ignores, each naming the module and the cause; an enable that fails after the stamp refuses with module-enable-after-stamp and a hand finish that works"
+  local L="kit-init.sh --with refuses in the preflight, writing nothing and exiting 1, an unknown module, a stray comma, a path the module would place that exists, a reader this copy of the kit lacks, a block host with no slot, a fragment every mint would refuse and a placed path git ignores, each naming the module and the cause; an enable that fails after the stamp refuses with module-enable-after-stamp and a hand finish that works"
   if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
@@ -388,6 +388,11 @@ case_kit_init_with_refuses_before_it_writes_and_names_what_stops_it() {
     _row "two modules that place one path in two cases" "--with ca,cc" "module ca places docs/same.txt" "module cc places docs/SAME.txt" -- --with ca,cc
     _row "a path kit-init copies, spelt in another case" "--with hookycase" ".claude/Settings.json" "kit-init writes it" -- --enable-hooks --with hookycase
   fi
+  # a fragment every mint of its template would refuse (a control byte); last, as a run that went through would stamp the tree
+  mkdir -p "$SB_WORK/modules/fragbad"
+  printf 'name: fragbad\nversion: 0.1.0\npurpose: A fixture module whose fragment holds a control byte.\nfragment: ISSUE body-end f.txt\n' > "$SB_WORK/modules/fragbad/module.manifest"
+  printf 'one\036two\n' > "$SB_WORK/modules/fragbad/f.txt"
+  _row "a fragment every mint would refuse" "--with fragbad" "modules/fragbad/f.txt (placed as process/fragments.d/ISSUE/fragbad.body-end)" "control byte" -- --with fragbad
   unset -f _row
   teardown
 
@@ -1181,6 +1186,66 @@ case_kit_upgrade_refuses_before_it_writes_when_an_enabled_module_cannot_be_judge
   teardown
 }
 
+# =============================================================================
+# CASE — kit-upgrade REFUSES A FRAGMENT EVERY MINT WOULD REFUSE, BEFORE IT WRITES, AS ENABLE DOES.
+#   The new kit's copy of the enabled module changes the fragment it places so that it carries a KIT-MODULES slot line
+#   or a control byte (octal 035 to 037). Written over the copy enable wrote, or staged for a merge over the project's
+#   edit, it would make every mint of its template refuse. With the fragment clean the same new version is carried.
+# =============================================================================
+case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse() {
+  cf_reset
+  local L="kit-upgrade.sh refuses, before it writes, an enabled module's new version whose fragment carries a KIT-MODULES slot line or a control byte (octal 035, 036 or 037), whether it would write the fragment or stage it for a merge: module-fragment-bad, the module's source and the place it would go named, NOTHING WAS CHANGED, a Next: line naming the new kit, the tree byte-equal; the same new version with the fragment clean is carried"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  _mu_pair
+  _mu_new_version
+  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" src="$MU_NEW/modules/example/fragments/issue-sign-off.txt" placed="process/fragments.d/ISSUE/example.body-end" keep="$SB_TMP/frag.keep" b
+  [ -f "$src" ] && [ -f "$SB_WORK/$placed" ] \
+    || _fixture_die "case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse: the example module's ISSUE body-end fragment is not fragments/issue-sign-off.txt placed as $placed, so this case would change nothing."
+  cp "$src" "$keep"
+  # An upgrade that went through is undone, so the next row starts from the committed tree. A tree that does not come
+  # back is a fixture failure: every row after it would read another subject.
+  _uf_back() {  # <label>
+    git -C "$SB_WORK" checkout -q -- . && git -C "$SB_WORK" clean -fdq
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || _fixture_die "case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse: the tree did not come back after the upgrade of row ($1): $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-240)"
+  }
+  _uf_bad() {  # <label> <line the new kit's fragment gains> <what the refusal must say>
+    { cat "$keep"; printf '%s\n' "$2"; } > "$src"; _mu_manifest "$MU_NEW"
+    _md_snap "$SB_WORK" > "$s0"
+    _mu_up "$SB_WORK"
+    [ "$_mu_rc" -eq 1 ] || cf "($1) the upgrade was not refused (exit $_mu_rc): $(_mu_flat)"
+    [ "$(_mu_recs module-fragment-bad)" -ge 1 ] || cf "($1) no refusal=module-fragment-bad record: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F "modules/example/fragments/issue-sign-off.txt (placed as $placed) $3" >/dev/null \
+      || cf "($1) the refusal does not name the module's source, the place it would go and '$3': $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F 'NOTHING WAS CHANGED' >/dev/null || cf "($1) the refusal does not say NOTHING WAS CHANGED"
+    printf '%s\n' "$_mu_out" | grep -F "Next: fix each file named above under $(cd "$MU_NEW" && pwd -P)" >/dev/null || cf "($1) no Next: line naming the new kit: $(_mu_flat)"
+    [ ! -e "$SB_WORK/.kit-upgrade" ] && [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] || cf "($1) the upgrade left staging or a checklist"
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || { cf "($1) the upgrade changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-240)"; _uf_back "$1"; }
+  }
+  # (a) the fragment as enable wrote it: the upgrade would write the new copy over it.
+  _uf_bad markers '<!-- KIT-MODULES:body-end leaked -->' 'carries a KIT-MODULES slot line'
+  for b in 035 036 037; do _uf_bad "control $b" "one$(printf "\\$b")two" 'holds a control byte'; done
+
+  # (control) the same new version with the fragment clean is carried: the fragment is written. The tree is then put back.
+  { cat "$keep"; printf 'A clean line the new version adds.\n'; } > "$src"; _mu_manifest "$MU_NEW"
+  _md_snap "$SB_WORK" > "$s0"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(control) the upgrade with the fragment clean exited $_mu_rc: $(_mu_flat)"
+  [ "$(tail -1 "$SB_WORK/$placed")" = "A clean line the new version adds." ] || cf "(control) the clean fragment was not written"
+  _uf_back control
+
+  # (b) the project edited the fragment: the upgrade would stage the new copy for a merge.
+  printf 'the project own line\n' >> "$SB_WORK/$placed"; _mu_land "the project's edit to the fragment"
+  _uf_bad "staged for a merge" "one$(printf '\036')two" 'holds a control byte'
+  unset -f _uf_bad _uf_back
+
+  finish "$L"
+  teardown
+}
+
 # _mu_vf_setup — a project with the example module enabled, upgraded to a kit whose module notes carry a passing and a failing
 # Verify: line (and a second module, shipped and not enabled, whose notes would fail if read); the checklist marked and landed.
 _mu_vf_setup() {
@@ -1561,6 +1626,46 @@ case_module_status_without_a_sha256_tool_says_it_cannot_judge() {
 }
 
 # =============================================================================
+# CASE — module.sh status WITH NO NAME ENDS NON-ZERO ON A REFUSAL, AS status <name> DOES.
+#   Operand: an enabled module's process/MODULES with (a) a `module` line whose name is not a module name, and
+#   (b) a `file` row of the enabled module whose path leaves the project. Each is a refusal; status must end 1
+#   with it, not print it and end 0. (control) The record clean: status ends 0.
+# =============================================================================
+case_module_status_with_no_name_ends_non_zero_on_a_refusal() {
+  cf_reset
+  local L="module.sh status with no name ends 1, printing the Error and a Next: line and writing the refusal's record, when process/MODULES names a module whose name is not a module name or an enabled module's file row whose path leaves the project, as status <name> does; with the record clean it ends 0"
+  if ! _md_have_example; then skp_lived "$L" "$(_md_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  local miss; miss="$(_md_missing_program)"
+  [ -z "$miss" ] || { cf "(prereq) $miss is absent from the tree under test"; finish "$L"; return; }
+  _md_sandbox
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || { cf "(prereq) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-200)"; finish "$L"; teardown; return; }
+  local rec="$SB_WORK/process/MODULES" row line id
+  cp "$rec" "$SB_TMP/MODULES.clean"
+  _md_mod status
+  [ "$_md_rc" -eq 0 ] || cf "(control) status over a clean record exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  printf 'outside\n' > "$SB_TMP/outside.txt"
+  # <row>@<line appended to process/MODULES>@<refusal id>
+  while IFS='@' read -r row line id; do
+    [ -n "$row" ] || continue
+    cp "$SB_TMP/MODULES.clean" "$rec"
+    printf '%s\n' "$line" >> "$rec"
+    _md_mod status
+    [ "$_md_rc" -eq 1 ] || cf "($row) status with no name exited $_md_rc after the refusal, not 1: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$_md_out" | grep -F 'Error:' >/dev/null && printf '%s\n' "$_md_out" | grep -F 'Next:' >/dev/null \
+      || cf "($row) status printed no Error and Next: lines: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+    [ "$(_md_recs "$id")" -ge 1 ] || cf "($row) no refusal=$id record"
+  done <<ST_ROWS
+a module line that is no module name@module ../x 1.0.0@module-name-bad
+a file row that leaves the project@file $(_old_sha "$SB_TMP/outside.txt") ../outside.txt@module-record-bad
+ST_ROWS
+  cp "$SB_TMP/MODULES.clean" "$rec"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A RECORD-ONLY RUN IS SENT TO THE FULL PATH BY AN UNCOMMITTED CHANGE IN WHAT THE MODULE PLACES, NOT BY ONE ELSEWHERE IN A FILE IT ONLY ADDS A BLOCK TO.
 #   The module's version moved and nothing it places did. (a) An uncommitted edit outside the module's blocks in
 #   PROJECT.md and .gitignore: the record is moved, nothing staged, and the edits are left as they were. (b) An edit
@@ -1708,14 +1813,14 @@ case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   _md_mod status example
   printf '%s\n' "$_md_out" | grep -F "$((rows0 - 1)) of $rows0 recorded things are missing" >/dev/null || cf "(status) does not count the missing things: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$_md_out" | grep -F './scripts/module.sh disable example' >/dev/null || cf "(status) does not name the disable run again: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
-  printf '%s\n' "$_md_out" | grep -F 'removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way' >/dev/null || cf "(status) does not name both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way' >/dev/null || cf "(status) does not name both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   teardown
 
   # a file the project deleted by hand: the same line, with both readings
   _mu_pair
   rm -f "$SB_WORK/.claude/skills/example-skill/SKILL.md"
   _md_mod status example
-  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing: removed here (nothing to do if on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
     || cf "(hand) status over a deleted file does not give the line with both readings: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   teardown
 
@@ -1727,6 +1832,72 @@ case_module_enable_and_status_after_a_failed_disable_name_the_way_on() {
   printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) status names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   _md_mod enable example
   printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(unplaced) enable names a row the manifest no longer places: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MISSING-THINGS LINE COUNTS A MISSING THING ONLY WHILE ITS REMOVAL IS NOT COMMITTED.
+#   A file or block the project removed and committed, from a commit that records the module, is the project's own
+#   choice: status and enable stay quiet about it. A removal not yet committed (deleted, or staged with git rm) still
+#   counts, and so does one from an enable that was never committed (the state a disable killed part-way leaves before
+#   any commit). With one of each, only the uncommitted one is counted.
+# =============================================================================
+case_the_missing_things_line_counts_only_a_removal_not_committed() {
+  cf_reset
+  local L="status and enable count a missing file or block only while its removal is not committed: a committed removal gets no line; an unstaged or staged removal, and one from an enable never committed, get the line; with one of each only the uncommitted one is counted"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 skill=".claude/skills/example-skill/SKILL.md" role=".claude/roles/example.md"
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  # a file removed and committed: no line, in either command
+  git -C "$SB_WORK" rm -q -- "$skill" >/dev/null 2>&1
+  _mu_land "remove the example skill on purpose"
+  [ ! -e "$SB_WORK/$skill" ] || cf "(prereq) $skill is still there after its removal was committed"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed file) status names a removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed file) enable names a removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # ...and a second file removed but not committed: only that one is counted
+  rm -f "$SB_WORK/$role"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable example finishes it)." >/dev/null \
+    || cf "(one of each) status does not count the one uncommitted removal alone: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # ...staged with git rm, still not committed: still counted
+  git -C "$SB_WORK" rm -q --cached -- "$role" >/dev/null 2>&1
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(staged file) enable does not count a removal staged and not committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # a block removed: counted until the removal is committed, then not
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  grep -F 'KIT-MODULE:example:gates' "$SB_WORK/PROJECT.md" >/dev/null && cf "(prereq) the block is still in PROJECT.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(uncommitted block) status does not count a block removed and not committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _mu_land "drop the example gate row on purpose"
+  printf '%s\n' "unrelated line" >> "$SB_WORK/PROJECT.md"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed block) status names a block removal that is committed (the host has another, unrelated edit): $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'recorded things are missing' >/dev/null && cf "(committed block) enable names a block removal that is committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  teardown
+
+  # an enable that was never committed, a file then gone: counted, though git shows no change at the path
+  _mu_pair
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(prereq) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  _mu_land "disable the example module"
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || cf "(prereq) the enable again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  rm -f "$SB_WORK/$skill"
+  [ -z "$(git -C "$SB_WORK" status --porcelain -- "$skill")" ] || cf "(prereq) git shows a change at $skill, so this row does not test an enable never committed"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(never committed) status does not count a file gone from an enable that was never committed: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing" >/dev/null || cf "(never committed) enable does not count it: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }
@@ -1865,32 +2036,88 @@ case_module_enable_keeps_the_reason_a_placement_failed_and_ignores_an_exported_n
 }
 
 # =============================================================================
-# CASE — THE COMMIT HINT OF A DISABLE RUN AGAIN STAGES WHAT THE FIRST RUN REMOVED, TOO.
+# CASE — THE COMMIT HINT OF A DISABLE RUN AGAIN STAGES WHAT THE FIRST RUN REMOVED, TOO, AND NOTHING ELSE.
 #   The first run removes every file and cannot drop the record; the run again finds them already gone. Following the
-#   Next line it prints (git add -A over the paths it names) leaves nothing uncommitted: no deletion is left behind.
+#   Next line it prints (git add -A over the paths it names) leaves no deletion behind. Before the first run the project
+#   removed the block in PROJECT.md by hand and committed that; before the run again it edits PROJECT.md and a tracked
+#   file of its own. Neither edit is the module's: both are still unstaged after the hint, and nothing else is.
 # =============================================================================
 case_the_commit_hint_of_a_disable_run_again_stages_what_the_first_run_removed() {
   cf_reset
-  local L="following the commit hint a module.sh disable run again prints, after a first run that removed the files but could not drop the record, leaves git status clean"
+  local L="following the commit hint a module.sh disable run again prints, after a first run that removed the files but could not drop the record, stages every removal and leaves only the project's own edits (one in a block host whose block was removed and committed, one in another tracked file) unstaged"
   _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
   if _pw_is_root; then skp "$L" "running as root: chmod cannot make a path unwritable"; return; fi
   _mu_subject_ok || { finish "$L"; return; }
-  local hint left
+  local hint staged unstaged other
   _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _mu_land "drop the example gate row on purpose"
   chmod 555 "$SB_WORK/process"
   _md_mod disable example
   chmod 755 "$SB_WORK/process"
   [ "$_md_rc" -ne 0 ] || cf "(prereq) the first disable exited 0 although the record could not be dropped"
+  printf '%s\n' "a line of the project's own" >> "$SB_WORK/PROJECT.md"
+  other="$(git -C "$SB_WORK" ls-files -- scripts/config.sh)"
+  [ -n "$other" ] || cf "(prereq) scripts/config.sh is not tracked in the sandbox"
+  printf '%s\n' "# a line of the project's own" >> "$SB_WORK/scripts/config.sh"
   _md_mod disable example
   [ "$_md_rc" -eq 0 ] || cf "the disable run again exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
   hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
   [ -n "$hint" ] || cf "the run again prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
   if [ -n "$hint" ]; then
     ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "the printed hint failed when run: $hint"
-    left="$(git -C "$SB_WORK" status --porcelain --untracked-files=all 2>/dev/null | grep -v '^[MDA]  ' | tr '\n' '|' | cut -c1-300)"
-    [ -z "$left" ] || cf "following the hint left changes behind: $left"
+    staged="$(git -C "$SB_WORK" diff --cached --name-only 2>/dev/null)"
+    unstaged="$(git -C "$SB_WORK" diff --name-only 2>/dev/null | LC_ALL=C sort | tr '\n' ' ')"
+    printf '%s\n' "$staged" | grep -xF PROJECT.md >/dev/null && cf "following the hint staged PROJECT.md, whose only change is the project's own line: $hint"
+    printf '%s\n' "$staged" | grep -xF scripts/config.sh >/dev/null && cf "following the hint staged scripts/config.sh, which the module never touched: $hint"
+    [ "$unstaged" = "PROJECT.md scripts/config.sh " ] || cf "following the hint did not leave exactly the project's two edits unstaged: [$unstaged]"
+    [ -z "$(git -C "$SB_WORK" ls-files --others --exclude-standard 2>/dev/null)" ] || cf "following the hint left untracked files: $(git -C "$SB_WORK" ls-files --others --exclude-standard | tr '\n' '|' | cut -c1-200)"
     [ -z "$(git -C "$SB_WORK" ls-files -- .claude/roles/example.md)" ] || cf "the first run's deletion of .claude/roles/example.md is not staged"
+    printf '%s\n' "$staged" | grep -xF .gitignore >/dev/null || cf "the first run's removal of the block in .gitignore is not staged: $hint"
+  fi
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DISABLE NAMES A BLOCK'S HOST IN ITS COMMIT HINT ONLY WHEN THE BLOCK ITSELF CHANGED.
+#   (a) The project removed the module's block in PROJECT.md by hand, committed that, then added a line of its own to
+#   PROJECT.md: the disable's hint does not name PROJECT.md, so following it leaves that line unstaged. (b) Removed by hand
+#   and not committed: the hint names PROJECT.md, so following it stages the removal.
+# =============================================================================
+case_a_disable_names_a_gone_blocks_host_only_when_the_block_changed() {
+  cf_reset
+  local L="module.sh disable names a block host already without the block in its commit hint only when the block's own lines differ from HEAD: a removal committed earlier plus an unrelated edit leaves the edit unstaged; a removal not committed is staged by the hint"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local hint
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _mu_land "drop the example gate row on purpose"
+  printf '%s\n' "a line of the project's own" >> "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(a) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
+  [ -n "$hint" ] || cf "(a) disable prints no commit hint: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  case " $hint " in *" PROJECT.md "*) cf "(a) the hint names PROJECT.md, whose block's removal was committed: $hint" ;; esac
+  if [ -n "$hint" ]; then
+    ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "(a) the printed hint failed when run: $hint"
+    git -C "$SB_WORK" diff --cached --name-only 2>/dev/null | grep -xF PROJECT.md >/dev/null && cf "(a) following the hint staged the project's own line in PROJECT.md"
+    [ "$(git -C "$SB_WORK" diff --name-only 2>/dev/null | tr '\n' ' ')" = "PROJECT.md " ] || cf "(a) following the hint did not leave exactly PROJECT.md unstaged: [$(git -C "$SB_WORK" diff --name-only | tr '\n' ' ')]"
+  fi
+  teardown
+
+  _mu_pair
+  awk '/KIT-MODULE:example:gates BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gates END/ { s = 0 }' "$SB_WORK/PROJECT.md" > "$SB_TMP/project.new" && cp "$SB_TMP/project.new" "$SB_WORK/PROJECT.md"
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(b) disable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-240)"
+  hint="$(printf '%s\n' "$_md_out" | sed -n 's/^  \(git add -A -- .*\)$/\1/p')"
+  case " $hint " in *" PROJECT.md "*) : ;; *) cf "(b) the hint does not name PROJECT.md, whose block was removed and not committed: $hint" ;; esac
+  if [ -n "$hint" ]; then
+    ( cd "$SB_WORK" && eval "$hint" ) >/dev/null 2>&1 || cf "(b) the printed hint failed when run: $hint"
+    [ -z "$(git -C "$SB_WORK" diff --name-only 2>/dev/null)" ] || cf "(b) following the hint left unstaged changes: $(git -C "$SB_WORK" diff --name-only | tr '\n' ' ')"
   fi
   finish "$L"
   teardown

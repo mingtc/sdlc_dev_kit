@@ -313,7 +313,14 @@ function startServer() {
 
   function ownerAlive() {
     if (!ownerPid) return true;
-    try { process.kill(ownerPid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+    try { process.kill(ownerPid, 0); } catch (e) { if (e.code !== 'EPERM') return false; }
+    // An owner that has exited and that its parent has not reaped (a zombie) still answers the
+    // signal; ps names it with a Z. If ps cannot run or say, the signal's answer stands.
+    try {
+      const stat = require('child_process').execFileSync('ps', ['-o', 'stat=', '-p', String(ownerPid)],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+      return !/^\s*Z/.test(stat);
+    } catch (e) { return true; }
   }
 
   // Check every 60s: exit if owner process died or idle for 30 minutes

@@ -47,7 +47,10 @@ naming every path and writing nothing, when:
   write), a file the kit itself ships, a block whose host has no slot, no final newline or a stray marker;
 - **the project's copy of the kit does not read a point the module uses** (a project that took an older kit
   and then enabled a module would get a check that is placed and never run). The refusal names the file to
-  merge from the release; merge it, then enable again.
+  merge from the release; merge it, then enable again;
+- a fragment the module places carries a `KIT-MODULES` slot line of its own or a control byte (octal 035 to 037),
+  which every mint of its template would refuse (`process/contracts/issue-creation.md` § 3). The refusal names
+  the source in `modules/<name>/` to fix.
 
 **On day one,** `kit-init.sh --with <name>[,<name>]` enables the module after it has stamped the project and before
 it commits, so the module's files and `process/MODULES` are in the initialization commit. Its preflight asks every
@@ -186,4 +189,6 @@ is the template; `modules/example/` is the module to copy.
 - `kit-upgrade.sh` runs no requirement check and prints no `SETUP.md` for an enabled module whose new version adds one:
   `status` names a requirement that does not hold, and a step the person must take belongs in the module's release notes as
   an Action required entry.
-- The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file.
+- The record is not checked by `check-board.sh`; `./scripts/module.sh status` shows an edited or missing file. `status`
+  and `enable` add a line counting the missing ones whose removal is not committed (removed here, or left by a disable
+  that stopped part-way); a removal committed from a commit that records the module is the project's own and is not counted.

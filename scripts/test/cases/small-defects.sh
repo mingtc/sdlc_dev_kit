@@ -155,6 +155,86 @@ HY_ROWS
 }
 
 # =============================================================================
+# CASE — THE STALENESS GREPS READ A CLAIM WHERE IT IS SAID.
+# A claim phrase counts only with the landed artifact in the same sentence of its line (a table
+# row is one sentence), and a phrase between a pair of double quotes (straight or curly) on its
+# line is a mention, not a claim. Each false row is suppressed by one of those rules alone; the
+# true rows are still reported: a claim in another table cell from its artifact, in backticks, in
+# italics or in bold, a real claim after a quoted one on the same line, and a claim after an
+# unpaired quote, on its line or on the line after it.
+# =============================================================================
+case_staleness_greps_read_a_claim_only_where_it_is_said() {
+  cf_reset
+  if ! command -v python3 >/dev/null 2>&1; then skp "the staleness greps read a claim where it is said" "python3 absent — these are advisory instruments and Python is their declared carve-out"; return; fi
+  local hy="$REAL_SCRIPTS/hygiene/staleness_greps.py"
+  if [ ! -f "$hy" ]; then skp "the staleness greps read a claim where it is said" "scripts/hygiene/staleness_greps.py absent"; return; fi
+  make_sandbox
+  local root="$SB_TMP/stale" rc row shape n want got
+  mkdir -p "$root/scripts" "$root/progress/done" "$root/process" "$root/dev"
+  printf '# verdict\n' > "$root/dev/verdict.md"
+  printf 'ISSUE_PREFIX="${ISSUE_PREFIX:-PFX}"\nPRD_PREFIX="${PRD_PREFIX:-PRD}"\n' > "$root/scripts/config.sh"
+  printf '# x\n' > "$root/progress/done/PFX-001-x.md"
+  printf '#!/bin/sh\n' > "$root/scripts/parse.sh"
+  {
+    printf '# probe\n'
+    printf 'scripts/parse.sh does not exist yet.\n'
+    printf 'PFX-001 is still open.\n'
+    printf 'The parser is **unmeasured** until scripts/parse.sh runs.\n'
+    printf '| a | scripts/parse.sh is still open | b |\n'
+    printf 'scripts/gone.sh does not exist yet.\n'
+    printf 'The old note said it does not exist. Now scripts/parse.sh runs.\n'
+    printf '| it does not exist | scripts/parse.sh |\n'
+    printf 'A row reads "still open" while scripts/parse.sh runs.\n'
+    printf 'The word `unmeasured` names a state; scripts/parse.sh has one.\n'
+    printf 'A row reads \342\200\234still open\342\200\235 while scripts/parse.sh runs.\n'
+    printf 'The note is *still open* in tone; scripts/parse.sh runs.\n'
+    printf 'The word "unmeasured" is old; scripts/parse.sh is unmeasured.\n'
+    printf '| PFX-001 | still open | |\n'
+    printf '| Q-5 | measure-first | dev/verdict.md |\n'
+    printf 'Status: `MEASURE-FIRST` until dev/verdict.md lands.\n'
+    printf '*not yet measured* (dev/verdict.md)\n'
+    printf 'He wrote "the fix; PFX-001 is still open.\n'
+    printf 'A quote opens "here and goes on\n'
+    printf 'to say scripts/parse.sh is still open" for now.\n'
+  } > "$root/process/probe.md"
+  rc=0; ( cd "$SB_TMP" && PYTHONDONTWRITEBYTECODE=1 python3 -I "$hy" --root "$root" >"$SB_TMP/sg.out" 2>&1 ) || rc=$?
+  [ "$rc" -eq 0 ] || cf "staleness_greps.py exited $rc over the fixture: $(tr '\n' '|' < "$SB_TMP/sg.out" | cut -c1-200)"
+  got="$(grep -E '^\[[a-z-]+\] process/probe\.md:[0-9]+$' "$SB_TMP/sg.out")"
+  # <row>@<shape>@<line of probe.md>@<reported: yes|no>
+  while IFS='@' read -r row shape n want; do
+    [ -n "$row" ] || continue
+    if printf '%s\n' "$got" | grep -Fx "[$shape] process/probe.md:$n" >/dev/null; then
+      [ "$want" = yes ] || cf "($row) line $n is reported as a $shape suspicion, but its phrase is not a claim there: $(sed -n "${n}p" "$root/process/probe.md")"
+    else
+      [ "$want" = no ] || cf "($row) line $n is not reported as a $shape suspicion: $(sed -n "${n}p" "$root/process/probe.md") | out: $(tr '\n' '|' < "$SB_TMP/sg.out" | cut -c1-200)"
+    fi
+  done <<SG_ROWS
+plain@superseded-conclusion@2@yes
+issue@superseded-conclusion@3@yes
+bold@unmeasured-claim-now-measured@4@yes
+same-cell@superseded-conclusion@5@yes
+not-landed@superseded-conclusion@6@no
+other-sentence@superseded-conclusion@7@no
+other-cell@superseded-conclusion@8@yes
+double-quote@superseded-conclusion@9@no
+backtick@unmeasured-claim-now-measured@10@yes
+curly-quote@superseded-conclusion@11@no
+italics@superseded-conclusion@12@yes
+claim-after-a-mention@unmeasured-claim-now-measured@13@yes
+issue-in-another-cell@superseded-conclusion@14@yes
+verdict-in-another-cell@unmeasured-claim-now-measured@15@yes
+status-in-backticks@unmeasured-claim-now-measured@16@yes
+verdict-after-italics@unmeasured-claim-now-measured@17@yes
+unbalanced-quote-before@superseded-conclusion@18@yes
+quote-opened-a-line-above@superseded-conclusion@20@yes
+SG_ROWS
+  n="$(printf '%s\n' "$got" | grep -c .)"
+  [ "$n" -eq 14 ] || cf "the report holds $n suspicion line(s) for process/probe.md, not the 14 true rows: $(printf '%s' "$got" | tr '\n' '|')"
+  finish "the staleness greps report a claim with its landed artifact in the same sentence, in another table cell, in backticks, in italics or in bold, and skip a phrase in another sentence or inside a pair of double quotes on its line"
+  teardown
+}
+
+# =============================================================================
 # CASE — verify.sh REFUSES A GATE WHOSE COMMAND IS ONLY WHITESPACE.
 # `gate|core| ` passed the shape test (-z on a one-space string) and died later on an empty command array.
 # =============================================================================

@@ -213,7 +213,11 @@ every PRD of every project. A mint is refused, and writes nothing, for a name th
 `frontmatter` fragment for a template with none (`fragment-frontmatter-missing`), a fragment that
 itself carries a slot line (`fragment-content-markers`), one holding a control byte, octal 035 to 037,
 which the mint uses to carry slot text (`fragment-control-byte`), and an unreadable one
-(`fragment-unreadable`).
+(`fragment-unreadable`). The `Next:` of those two content refusals names the fix that reaches the mint: the
+fragment itself; for a slice, a commit and a push as well, since `subtask.sh` reads the trunk; for a fragment that
+`process/MODULES` records a module as having placed, the module's source, placed again by a disable and an
+enable. `module enable` asks the same two questions of every fragment a module would place, and so does a kit upgrade
+of every fragment an enabled module's new copy would write; each refuses before it writes (`module-fragment-bad`).
 
 ## 4. WHAT GREEN MEANS
 

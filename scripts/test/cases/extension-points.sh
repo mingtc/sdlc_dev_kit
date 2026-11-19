@@ -2016,6 +2016,84 @@ case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enable
 }
 
 # =============================================================================
+# CASE — A FRAGMENT REFUSAL'S NEXT: NAMES WHERE THE FIX HAS TO GO.
+#   A fragment carrying a slot line or a control byte is refused at the mint. Taking it out of the file is
+#   the whole fix only for the project's own fragment in the checkout: a slice reads the trunk's fragments,
+#   so the fix must be pushed; a fragment process/MODULES records a module as having placed comes from the
+#   module's source, so the fix goes there and the module places it again, also when process/MODULES has
+#   CRLF line ends. A `kept` row (a disable left the file) makes it the project's own.
+# =============================================================================
+case_a_fragment_refusals_next_names_where_the_fix_goes() {
+  cf_reset
+  local L="a fragment refused for a slot line or a control byte names in its Next: the fix that reaches the mint: the file for the project's own fragment read from the checkout, a commit and push for a slice (it reads the trunk), the module's source and a disable and enable for a fragment process/MODULES records a module as having placed, and the file again for one a disable kept"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then skp "$L" ".claude/templates/SUBTASK.template.md is absent from this tree"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  local pid="$SB_PREFIX-920" id="$SB_PREFIX-921" frag="process/fragments.d/ISSUE/probe.body-end" n=0 rc=0 out="" next="" rec=""
+  seed_issue todo "$pid" parent chore "Slice parent"
+  publish_sandbox
+
+  _fn_mint() {  # issue | slice -> rc, out, next (the first Next: line), rec (the records directory)
+    n=$((n + 1)); rc=0; rec="$SB_TMP/fn-rec-$n"
+    if [ "$1" = slice ]; then out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$rec" ./scripts/subtask.sh new "$pid" "s$n" probe --title "Slice" 2>&1 )" || rc=$?
+    else out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$rec" ./scripts/new-issue.sh probe --id "$id" 2>&1 )" || rc=$?; fi
+    next="$(printf '%s\n' "$out" | grep '^Next:' | head -1)"
+  }
+  _fn_put() {  # <fragment text> [<process/MODULES text>] -> both in the checkout and on the trunk
+    mkdir -p "$SB_WORK/process/fragments.d/ISSUE"; printf '%s\n' "$1" > "$SB_WORK/$frag"
+    if [ -n "${2:-}" ]; then printf '%s\n' "$2" > "$SB_WORK/process/MODULES"; else rm -f "$SB_WORK/process/MODULES"; fi
+    git -C "$SB_WORK" add -A process >/dev/null 2>&1
+    sbcommit -m "[PM] the probe fragment" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  }
+  _fn_check() {  # <label> <rule id> <own|push|module|module-push>
+    [ "$rc" -ne 0 ] || { cf "$1: the mint was not refused"; return; }
+    grep -q "refusal=$2" "$rec"/*.tsv 2>/dev/null || cf "$1: no refusal=$2 record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    [ -n "$next" ] || { cf "$1: the refusal carries no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"; return; }
+    case "$3" in
+      own|push) case "$next" in *module*) cf "$1: the Next: sends the project's own fragment to a module: $next" ;; esac ;;
+      *) case "$next" in *"modules/probe/"*"./scripts/module.sh disable probe"*"./scripts/module.sh enable probe"*) ;;
+           *) cf "$1: the Next: does not send the fix to modules/probe/ and a disable and enable of probe: $next" ;; esac ;;
+    esac
+    case "$3" in
+      own|module) case "$next" in *push*) cf "$1: the Next: asks for a push, though this mint reads the checkout: $next" ;; esac ;;
+      *) case "$next" in *"commit and push"*trunk*) ;; *) cf "$1: the Next: does not say to commit and push the fix to the trunk this mint reads: $next" ;; esac ;;
+    esac
+  }
+  local marker='<!-- KIT-MODULES:story-fields leaked -->' ctl=$'one\036two' row
+  row="file 0000000000000000000000000000000000000000000000000000000000000000 $frag"
+
+  # (a) THE PROJECT'S OWN FRAGMENT: the file is the fix where the mint reads the checkout; a slice reads the trunk.
+  _fn_put "$marker"
+  _fn_mint issue; _fn_check "(a) own slot line, new-issue" fragment-content-markers own
+  _fn_mint slice; _fn_check "(a) own slot line, slice" fragment-content-markers push
+  _fn_put "$ctl"
+  _fn_mint issue; _fn_check "(a) own control byte, new-issue" fragment-control-byte own
+  _fn_mint slice; _fn_check "(a) own control byte, slice" fragment-control-byte push
+  # (b) A MODULE'S: the record names it, so the fix is the module's source, placed again.
+  _fn_put "$marker" "module probe 1.0.0"$'\n'"$row"
+  _fn_mint issue; _fn_check "(b) a module's slot line, new-issue" fragment-content-markers module
+  _fn_mint slice; _fn_check "(b) a module's slot line, slice" fragment-content-markers module-push
+  _fn_put "$marker" "module probe 1.0.0"$'\r\n'"$row"$'\r'
+  _fn_mint issue; _fn_check "(b) a module's slot line, process/MODULES with CRLF line ends, new-issue" fragment-content-markers module
+  _fn_put "$ctl" "pending probe 1.0.0"$'\n'"$row"
+  _fn_mint issue; _fn_check "(b) a pending module's control byte, new-issue" fragment-control-byte module
+  # (c) KEPT BY A DISABLE: the project's own again, though another module's section comes first.
+  _fn_put "$ctl" "module other 1.0.0"$'\n'"${row%probe.body-end}other.body-end"$'\n'"kept probe 1.0.0"$'\n'"$row"
+  _fn_mint issue; _fn_check "(c) a kept fragment, new-issue" fragment-control-byte own
+  # (control) the same fragment, clean, mints: each refusal above was the fragment's.
+  _fn_put "PROBE-CLEAN" "module probe 1.0.0"$'\n'"$row"
+  _fn_mint issue
+  [ "$rc" -eq 0 ] || cf "(control) a clean fragment was refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  unset -f _fn_mint _fn_put _fn_check
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A PASS ROW WHOSE CELL CHECK RAN AND PASSED IS NOT THE OBSERVED ROW THE LANDING NEEDS.
 #   The landing needs an observed row, one the gate re-read a line for: a `test`/`file:line` row, or a row of another kind with a
 #   quoted resolving path:line (the next case). A kind a module adds is pointer-only: a cell check (scripts/qa-cell.d/<kind>/)

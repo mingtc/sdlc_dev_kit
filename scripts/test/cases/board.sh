@@ -3421,7 +3421,7 @@ case_trunk_fallback_warns() {
   # Step 3: neither is set → the last-resort literal, named as a GUESS.
   git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-310" dev_complete \
+  out="$( cd "$SB_WORK" && no_machine_git_config "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-310" dev_complete \
             --role Dev --note "fallback step 3" 2>&1 )"
   printf '%s' "$out" | grep 'GUESS' >/dev/null \
     || cf "the last-resort fallback did not announce itself as a guess: $out"
@@ -3730,10 +3730,10 @@ case_trunk_chain_announces_every_fallback() {
   # ── STEP 3: drop init.defaultBranch too. BOTH must say so, and say it differently —
   #    the step-3 message must not be reachable while step 2 still has an answer.
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
-  out="$(cb_run 2>&1)" || true
+  out="$(no_machine_git_config cb_run 2>&1)" || true
   printf '%s' "$out" | grep 'step 3' >/dev/null \
     || cf "(step 3) check-board fell to the last-resort constant and said nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  out="$(run_release 1.1.0 --dry-run 2>&1)" || true
+  out="$(no_machine_git_config run_release 1.1.0 --dry-run 2>&1)" || true
   printf '%s' "$out" | grep 'is a GUESS' >/dev/null \
     || cf "(step 3) release.sh fell to the last-resort constant with no warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
@@ -3746,12 +3746,65 @@ case_trunk_chain_announces_every_fallback() {
     || _fixture_die "case_trunk_chain_announces_every_fallback: could not read the last-resort constant — the expected value would be empty and both arms below would pass on nothing."
   printf '%s' "$out" | grep -F "'$last_resort'" >/dev/null \
     || cf "release.sh's step-3 guess is not the library's constant '$last_resort' — the three implementations agree on the WARNING and not on the ANSWER"
-  out="$(cb_run 2>&1)" || true
-  printf '%s' "$out" | grep -F "$last_resort" >/dev/null \
-    || cf "check-board's step-3 trunk is not the library's constant '$last_resort'"
+  out="$(no_machine_git_config cb_run 2>&1)" || true
+  # Read where check-board names the trunk — its source label, "origin/<trunk> @ <sha>" or
+  # "(no origin/<trunk> ref)". A bare grep for the name matches the checkout's branch.
+  printf '%s' "$out" | grep -F -e "read from: origin/$last_resort @" -e "(no origin/$last_resort ref)" >/dev/null \
+    || cf "check-board's step-3 trunk is not the library's constant '$last_resort': $(printf '%s' "$out" | grep -m1 'read from:' | cut -c1-200)"
 
   finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both — none of them announces at step 1, and both agree with the library on the step-3 constant"
   teardown
+}
+
+# =============================================================================
+# CASE — THE TRUNK-CHAIN CASES REACH STEP 3 ON A MACHINE THAT SETS init.defaultBranch GLOBALLY.
+# Step 3 of the chain is "neither origin/HEAD nor init.defaultBranch answers". Unsetting the
+# repo-local key leaves the machine's global one in reach, and a case reading it sees step 2.
+# Each case below runs with a HOME of this case's own whose .gitconfig sets the key, so the
+# answer does not depend on the machine that runs the harness.
+# =============================================================================
+case_trunk_cases_reach_step_3_under_a_global_default_branch() {
+  cf_reset
+  local L="the trunk-chain cases reach step 3 while the global git config sets init.defaultBranch"
+  local fake log c res ran="" skipped="" planted="machine-default"
+  fake="$(mktemp -d)"; log="$(mktemp)"
+  # The planted name is neither the sandbox's trunk nor the last-resort constant, so an answer
+  # read from it cannot pass for either.
+  printf '[init]\n\tdefaultBranch = %s\n' "$planted" > "$fake/.gitconfig"
+  # INSTRUMENT CHECK: git reads the planted file as the global config. Without it every case
+  # below would pass because the key was never in reach.
+  [ "$(HOME="$fake" XDG_CONFIG_HOME="$fake" git config --global --get init.defaultBranch 2>/dev/null)" = "$planted" ] \
+    || { rm -rf "$fake" "$log"; _fixture_die "case_trunk_cases_reach_step_3_under_a_global_default_branch: git does not read $fake/.gitconfig as the global config, so the key this case plants is not in reach."; }
+  for c in case_trunk_fallback_warns case_trunk_chain_announces_every_fallback case_seam_shape_reformat_is_loud; do
+    # A subshell: the inner case's PASS/FAIL/SKIP counts stay out of the run's, and are printed.
+    res="$( export HOME="$fake" XDG_CONFIG_HOME="$fake"; trap teardown EXIT
+            p0=$PASS f0=$FAIL s0=$SKIP
+            "$c" >"$log" 2>&1
+            printf '%s %s %s' "$((PASS-p0))" "$((FAIL-f0))" "$((SKIP-s0))" )"
+    case "$res" in
+      "1 0 0") ran="$ran ${c#case_}" ;;
+      "0 0 1") skipped="$skipped ${c#case_}" ;;
+      *) cf "$c, run with init.defaultBranch in the global config, recorded '$res' (PASS FAIL SKIP): $(grep -m1 'FAIL' "$log" | tr -d '\033' | cut -c1-700)" ;;
+    esac
+  done
+  # The same key through GIT_CONFIG_GLOBAL, which wins over HOME: the helper must shut that out too.
+  printf '[init]\n\tdefaultBranch = %s\n' "$planted" > "$fake/gcg"
+  [ "$(HOME="$log.none" GIT_CONFIG_GLOBAL="$fake/gcg" git config --get init.defaultBranch 2>/dev/null)" = "$planted" ] \
+    || { rm -rf "$fake" "$log"; _fixture_die "case_trunk_cases_reach_step_3_under_a_global_default_branch: git does not read GIT_CONFIG_GLOBAL, so the key this row plants is not in reach."; }
+  c=case_trunk_fallback_warns
+  res="$( export HOME="$fake" XDG_CONFIG_HOME="$fake" GIT_CONFIG_GLOBAL="$fake/gcg"; trap teardown EXIT
+          p0=$PASS f0=$FAIL s0=$SKIP
+          "$c" >"$log" 2>&1
+          printf '%s %s %s' "$((PASS-p0))" "$((FAIL-f0))" "$((SKIP-s0))" )"
+  case "$res" in
+    "1 0 0"|"0 0 1") ;;
+    *) cf "$c, run with init.defaultBranch in GIT_CONFIG_GLOBAL, recorded '$res' (PASS FAIL SKIP): $(grep -m1 'FAIL' "$log" | tr -d '\033' | cut -c1-700)" ;;
+  esac
+  rm -rf "$fake" "$log"
+  if [ -z "$_cf" ] && [ -z "$ran" ]; then
+    skp "$L" "every trunk-chain case skipped on this tree:$skipped"; return
+  fi
+  finish "$L — ran:$ran${skipped:+; skipped:$skipped}"
 }
 
 # =============================================================================

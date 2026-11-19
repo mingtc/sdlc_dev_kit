@@ -181,6 +181,51 @@ ${ac1_text}
 EOF
 }
 
+# no_machine_git_config <command> [args…] — run a command (a shell function too) with no global or
+# system git config in reach: HOME and XDG_CONFIG_HOME name an empty directory, and
+# GIT_CONFIG_NOSYSTEM=1 drops the system file, and the GIT_CONFIG_GLOBAL, _SYSTEM, _COUNT and
+# _PARAMETERS variables are unset. A case asserting what the trunk chain does when the
+# PROJECT sets nothing runs the call through it, so a key the machine sets (init.defaultBranch)
+# cannot answer in the project's place. GIT_CONFIG_GLOBAL would read better, and needs git 2.32,
+# newer than the 2.28 README.md's day one names. The sandbox's identity is repo-local, so commits still work.
+no_machine_git_config() {
+  local h rc=0
+  h="$(mktemp -d)" || return 1
+  ( unset GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+    export HOME="$h" XDG_CONFIG_HOME="$h" GIT_CONFIG_NOSYSTEM=1; "$@" ) || rc=$?
+  rm -rf "$h"
+  return "$rc"
+}
+
+# ps_stat <pid> — the process's state as `ps -o stat=` prints it (a Z first for a zombie), blanks
+# removed; nothing when there is no such process or ps cannot say.
+ps_stat() { ps -o stat= -p "$1" 2>/dev/null | tr -d ' \t'; }
+
+# zombie_start — leave a zombie for a liveness case: a parent that never waits (it execs sleep) and its
+# child, which exits after a second. Sets ZOMBIE_PID (the child) and ZOMBIE_PARENT; status 0 once ps
+# names the child with a Z, 1 when that has not happened within five seconds. zombie_stop kills the
+# parent, so the zombie is handed to init and reaped.
+zombie_start() {
+  local f i=0
+  ZOMBIE_PID=""; ZOMBIE_PARENT=""
+  f="$(mktemp)" || return 1
+  bash -c 'sleep 1 & echo "$!" > "$1"; exec sleep 300' _ "$f" &
+  ZOMBIE_PARENT=$!
+  while [ "$i" -lt 50 ]; do
+    [ -n "$ZOMBIE_PID" ] || ZOMBIE_PID="$(cat "$f" 2>/dev/null)"
+    case "$(ps_stat "${ZOMBIE_PID:-x}")" in Z*) rm -f "$f"; return 0 ;; esac
+    sleep 0.1; i=$((i + 1))
+  done
+  rm -f "$f"
+  return 1
+}
+zombie_stop() {
+  [ -n "${ZOMBIE_PARENT:-}" ] || return 0
+  kill "$ZOMBIE_PARENT" 2>/dev/null; wait "$ZOMBIE_PARENT" 2>/dev/null
+  ZOMBIE_PARENT=""
+  return 0
+}
+
 # make_sandbox [work_subdir]
 # The optional arg names the work-repo subdirectory under the temp root (default
 # "work"). Pass a name CONTAINING A SPACE (e.g. "work dir") to reproduce a repo
