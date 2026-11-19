@@ -1089,17 +1089,31 @@ def parse_registry(text, label, canvas):
 LIST_ITEM = re.compile(r'[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)')
 
 
-def fence_parse(ln):
-    """-> (quote depth, text past the '>' markers, its indent in columns), a tab counting to the next multiple of four."""
-    s, d = ln.rstrip('\r'), 0
-    while True:
-        k = 0
-        while k < 3 and s[k:k + 1] == ' ':
-            k += 1
-        if s[k:k + 1] != '>':
+def fence_parse(ln, cols=(), iqs=(), maxq=None):
+    """-> (quote depth, the item level the last marker sits in, text past the '>' markers, its indent in columns), a tab
+    counting to the next multiple of four. A marker is read at most three columns past the item it sits in (`cols` and `iqs`:
+    each open item's text column and the quote depth it opened at). With `maxq` set, reading stops once that many markers are
+    read: past them a '>' is the text of a fence's line."""
+    s, d, j = ln.rstrip('\r'), 0, 0
+    while maxq is None or d < maxq:
+        ind = 0
+        for ch in s:
+            if ch == ' ':
+                ind += 1
+            elif ch == '\t':
+                ind += 4 - ind % 4
+            else:
+                break
+        jp = j
+        for c in range(j, len(cols)):
+            if iqs[c] != d or cols[c] > ind:
+                break
+            jp = c + 1
+        base = cols[jp - 1] if jp > j else 0
+        k = len(s) - len(s.lstrip(' \t'))
+        if ind - base > 3 or s[k:k + 1] != '>':
             break
-        d += 1
-        s = s[k + 1:]
+        d, j, s = d + 1, jp, s[k + 1:]
         if s[:1] == ' ':
             s = s[1:]
     ind = 0
@@ -1110,7 +1124,7 @@ def fence_parse(ln):
             ind += 4 - ind % 4
         else:
             break
-    return d, s, ind
+    return d, j, s, ind
 
 
 def fence_scan(text):
@@ -1120,7 +1134,7 @@ def fence_scan(text):
     (`>` markers) and the list items, kept as the column their text starts at, are the containers: a line indented less than an
     item's text ends the item, one with fewer markers ends the quote, and a fence its container ends first is never closed. YAML frontmatter
     is no fence: its lines are returned as they are."""
-    out, icol, fch, flen, fdepth, fq, qd, fopened, unclosed, infm = [], [], None, 0, 0, 0, 0, None, None, False
+    out, icol, iq, fch, flen, fdepth, fq, qd, fopened, unclosed, infm = [], [], [], None, 0, 0, 0, 0, None, None, False
     for n, raw in enumerate(text.splitlines(), 1):
         if n == 1 and re.match(r'---[ \t\r]*$', raw):
             infm = True
@@ -1130,25 +1144,29 @@ def fence_scan(text):
             infm = not re.match(r'---[ \t\r]*$', raw)
             out.append((n, raw))
             continue
-        d, s, ind = fence_parse(raw)
+        d, j, s, ind = fence_parse(raw, icol, iq, fq if fch else None)
         if s.strip(' \t'):
+            keep = j
+            while keep < len(icol) and iq[keep] == d:
+                keep += 1
+            del icol[keep:], iq[keep:]
             if d != qd:
                 if fch and fq > d:
                     unclosed, fch = unclosed or fopened, None
-                if not fch:
-                    icol = []
                 qd = d
-            while icol and ind < icol[-1]:
+            while icol and iq[-1] == d and ind < icol[-1]:
                 icol.pop()
+                iq.pop()
             if fch and len(icol) < fdepth:
                 unclosed, fch = unclosed or fopened, None
-            if not fch and ind < (icol[-1] if icol else 0) + 4:
+            if not fch and ind < (icol[-1] if icol and iq[-1] == d else 0) + 4:
                 m = LIST_ITEM.match(s)
                 if m:
                     after = s[m.end(1):]
                     sp = len(after) - len(after.lstrip(' \t'))
                     icol.append(ind + len(m.group(1)) + (1 if not after.strip(' \t') or sp > 4 else sp))
-        lim = ((icol[-1] if icol else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
+                    iq.append(d)
+        lim = ((icol[-1] if icol and iq[-1] == d else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
         t = s.lstrip(' \t')
         c, run = t[:1], 0
         if ind <= lim and c in ('`', '~'):
