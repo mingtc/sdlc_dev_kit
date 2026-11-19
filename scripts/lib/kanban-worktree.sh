@@ -225,6 +225,9 @@ KWT_SYNCED=false
 # Set by kwt_commit to the commit it made; cleared by kwt_finalize once that commit is pushed (or reported).
 # Still set when kwt_unlock runs means the op ended between the two. A report, not a knob.
 KWT_UNPUSHED=""
+# True once kwt_sync has found no rebase in progress in the kanban worktree: a rebase seen at the exit is then this
+# op's own (the retry's), and only that one is aborted. A report for kwt_unlock, not a knob.
+KWT_REBASE_OURS=false
 
 # The commands that publish a commit left in $KWT; kwt_finalize's push failure and kwt_unlock each print them
 # under their own `Next:` line.
@@ -352,20 +355,35 @@ kwt_lock() {
 }
 
 kwt_unlock() {
+  # Local git only below, so ignoring signals here cannot hang: a second one must not skip the text or the lock removal.
+  # Put back at the end when this op still runs on (finish-pr.sh unlocks, then goes on).
+  local _kwt_rearm=false
+  [ "$KWT_LOCK_HELD" = "true" ] && _kwt_rearm=true
+  trap '' TERM HUP INT
   # A signal runs its trap as soon as the git command it interrupted returns, which can be before the retry's own
-  # `git rebase --abort`: a rebase this op left in progress is aborted here, so the Next below can run. Only the holder
-  # of the lock does it, and the kanban worktree is never left mid-rebase on purpose.
+  # `git rebase --abort`: a rebase this op started is aborted here, so the Next below can run. Never one that was
+  # already open when the op began (KWT_REBASE_OURS): a person may be resolving it.
+  local _kwt_gd="" _kwt_midrebase=false
   if [ "$KWT_LOCK_HELD" = "true" ] && [ -n "${KWT:-}" ]; then
-    local _kwt_gd; _kwt_gd="$(git -C "$KWT" rev-parse --absolute-git-dir 2>/dev/null || true)"
-    if [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then
+    _kwt_gd="$(git -C "$KWT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    if [ "$KWT_REBASE_OURS" = "true" ] && [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then
       git -C "$KWT" rebase --abort >/dev/null 2>&1 || true
     fi
+    if [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then _kwt_midrebase=true; fi
   fi
   # The op ended with its commit made and no push landed: killed between the two. kwt_finalize
   # reports its own failures and clears this first, so what reaches here was cut off. The same signal can land after a
-  # push that succeeded and before kwt_finalize clears it: the remote's tracking ref, which that push updated, says so.
-  if [ -n "$KWT_UNPUSHED" ] && git -C "$KWT" merge-base --is-ancestor HEAD "refs/remotes/$KWT_REMOTE/${DEFAULT_BRANCH:-}" 2>/dev/null; then
-    echo "Note: this op was ended by a signal after its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")) in the kanban worktree; $KWT_REMOTE/${DEFAULT_BRANCH:-} already holds it, so there is nothing to publish." >&2
+  # push that succeeded and before kwt_finalize clears it. The remote's tracking ref, which that push updated, then holds
+  # the commit; it is not re-read from the remote here, so the text says only that. Never while a rebase is still stopped:
+  # HEAD is then the remote's tip, not this op's commit.
+  if [ -n "$KWT_UNPUSHED" ] && [ "$_kwt_midrebase" = "false" ] && git -C "$KWT" merge-base --is-ancestor HEAD "refs/remotes/$KWT_REMOTE/${DEFAULT_BRANCH:-}" 2>/dev/null; then
+    {
+      echo "Note: this op was ended by a signal after its push to $KWT_REMOTE/${DEFAULT_BRANCH:-} returned success: $KWT_REMOTE/${DEFAULT_BRANCH:-}, as this clone last saw it, holds its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")). The next board op re-reads it from the remote."
+      echo "      What the op did after its push did not run: finish-pr.sh's branch deletion and its move to qa_complete, or the main checkout catching up."
+      echo "Next: ./scripts/check-board.sh shows whether anything is left undone; bring the main checkout up to the trunk:"
+      echo "         git -C '$MAIN_ROOT' pull --ff-only $KWT_REMOTE ${DEFAULT_BRANCH:-}"
+      echo "      For finish-pr.sh, do not run it again (nothing is left to merge): delete the landed branch and run move-issue.sh <id> qa_complete --landed-at <the sha above> --role <role> --note '<what the review found>'."
+    } >&2
     KWT_UNPUSHED=""
   fi
   if [ -n "$KWT_UNPUSHED" ]; then
@@ -380,6 +398,11 @@ kwt_unlock() {
   if [ "$KWT_LOCK_HELD" = "true" ]; then
     rm -rf "$KWT_LOCK" 2>/dev/null || true
     KWT_LOCK_HELD=false
+  fi
+  if [ "$_kwt_rearm" = "true" ]; then
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
   fi
 }
 
@@ -533,6 +556,15 @@ kwt__ensure_detached() {
 # ---------------------------------------------------------------------------
 kwt_sync() {
   local detail
+  # A rebase already open here is somebody's to finish, and the dirty guard below would misdescribe it.
+  local _kwt_gd2; _kwt_gd2="$(git -C "$KWT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+  if [ -n "$_kwt_gd2" ] && { [ -d "$_kwt_gd2/rebase-merge" ] || [ -d "$_kwt_gd2/rebase-apply" ]; }; then
+    kit_refuse 1 kanban-sync-rebase-in-progress \
+      "Error: a rebase is in progress in the kanban worktree — refusing to sync over it." \
+      "       Worktree: $KWT" \
+      "Next: finish it by hand, then re-run this command: resolve the conflicts, git -C '$KWT' add -- progress/, git -C '$KWT' rebase --continue, then git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH. Or give it up with git -C '$KWT' rebase --abort. The op changed nothing; it left the rebase as it found it."
+  fi
+  KWT_REBASE_OURS=true
   # Dirty guard FIRST: it is local, so it must run even when the fetch below fails.
   if [ "$KWT_DISCARD_DIRTY" != "true" ]; then
     local dirty untracked

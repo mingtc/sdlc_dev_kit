@@ -186,11 +186,11 @@ case_a_board_op_terminated_in_its_push_names_the_unpushed_commit_and_how_to_publ
 # =============================================================================
 # CASE — a TERM TO THE OP'S OWN PID, not its group, during a push that lands: the op waits for the push, and its exit text
 # says the remote already holds the commit. It neither hedges ("may or may not") nor says the commit is unpublished, prints
-# no command to run, and leaves no lock; the next op lands.
+# a next action for the steps it did not reach, and leaves no lock; the next op lands.
 # =============================================================================
 case_a_term_to_the_ops_pid_alone_does_not_report_a_landing_push_as_unpublished() {
   cf_reset
-  local L="a board op sent TERM to its own pid while its push lands says the remote already holds the commit, neither hedging nor calling it unpublished, prints no command to run, leaves no lock, and the next op lands"
+  local L="a board op sent TERM to its own pid while its push lands says the remote already holds the commit, neither hedging nor calling it unpublished, names what did not run and what to do, leaves no lock, and the next op lands"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   local id="$SB_PREFIX-875" out rc=0 pid i hold="$SB_TMP/in-hook2" cmds
@@ -206,11 +206,15 @@ case_a_term_to_the_ops_pid_alone_does_not_report_a_landing_push_as_unpublished()
   out="$(cat "$SB_TMP/term2.out")"
   printf '%s\n' "$out" | grep -E 'NOT on |is not on ' >/dev/null && cf "the exit text states the commit is unpublished, which the orphaned push disproves: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -F 'may or may not' >/dev/null && cf "the exit text hedges over a push that returned success: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
-  printf '%s\n' "$out" | grep -F 'already holds it' >/dev/null || cf "the exit text does not say the remote already holds the commit: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'as this clone last saw it' >/dev/null || cf "the exit text does not say what the claim rests on: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "the exit text names no next action for the steps the op did not reach: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'pull --ff-only' >/dev/null || cf "the exit text does not say how to bring the main checkout up to the trunk"
   git -C "$SB_ORIGIN" log --format=%s -3 "$SB_TRUNK" 2>/dev/null | grep -F 'landed anyway' >/dev/null || cf "the push had not landed when the op ended"
   [ ! -d "$SB_WORK/.kanban-wt.lock" ] || cf "the lock is still there after the op ended"
-  cmds="$(printf '%s\n' "$out" | sed -n 's/^ *\(git -C .*\)$/\1/p')"
-  [ -z "$cmds" ] || cf "the exit text prints a command to run over a commit that is already published: $cmds"
+  cmds="$(printf '%s\n' "$out" | sed -n 's/^ *\(git -C .*pull --ff-only.*\)$/\1/p')"
+  if [ -z "$cmds" ]; then cf "the exit text prints no pull --ff-only command on a line of its own"; else
+    bash -c "$cmds" >/dev/null 2>&1 || cf "the printed pull failed: $cmds"
+  fi
   rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" dev_complete --role Dev --note "after" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "the next op was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
@@ -799,44 +803,106 @@ case_kit_init_lived_refusal_off_the_trunk_and_on_a_diverged_checkout_prints_no_m
 }
 
 # =============================================================================
-# CASE — A SIGNAL DURING A REBASE THAT CONFLICTS LEAVES NO REBASE IN PROGRESS.
+# CASE — A SIGNAL DURING A REBASE THAT CONFLICTS LEAVES NO REBASE IN PROGRESS, AND SAYS NOTHING FALSE.
 # The first push is rejected because another clone moved the same card to another column, so the retry's rebase hits a
 # rename conflict; a pre-rebase hook holds it. TERM goes to the op's pid alone. The op waits for the rebase to stop, then
-# ends 143 with the lock gone and the kanban worktree not in `rebase-merge` or `rebase-apply`, so the fetch-and-rebase it
-# prints can run.
+# ends 143 with the lock gone. In each variant the exit text hedges ("may or may not") and never says the remote already
+# holds the commit:
+# (abort) the worktree is not left in `rebase-merge` or `rebase-apply`, so the fetch-and-rebase it prints can run.
+# (stuck) the abort cannot run (a `git` that fails it): HEAD is then the remote's tip, which holds no commit of the op's.
+# (second) a second TERM arrives while the exit is aborting the rebase: it is ignored, the hedge is printed and the lock goes.
 # =============================================================================
 case_a_signal_during_a_conflicting_rebase_leaves_no_rebase_in_progress() {
   cf_reset
-  local L="a board op sent TERM to its own pid while the retry's rebase conflicts ends 143 with the lock gone and the kanban worktree not mid-rebase"
+  local L="a board op sent TERM to its own pid while the retry's rebase conflicts ends 143 with the lock gone, the worktree not mid-rebase, the hedge printed and no false claim that the remote holds the commit; a failed abort and a second TERM change none of that but the rebase state"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local v rc pid i out id="$SB_PREFIX-878" real
+  for v in abort stuck second; do
+    make_sandbox
+    local hold="$SB_TMP/in-hook5" lock="$SB_WORK/.kanban-wt.lock" other="$SB_TMP/other2" wt="$SB_WORK/.kanban-wt" f
+    local gate="$SB_TMP/gate2" go="$SB_TMP/go2" rbhold="$SB_TMP/in-rebase2" shim="$SB_TMP/shim5" abhit="$SB_TMP/abort-hit"
+    seed_issue todo "$id" conflictrb chore "A card whose op is terminated while its rebase conflicts"
+    publish_sandbox
+    printf '#!/bin/sh\nif mkdir "%s" 2>/dev/null; then touch "%s"; n=0; while [ ! -e "%s" ] && [ $n -lt 60 ]; do sleep 1; n=$((n+1)); done; exit 1; fi\nexit 0\n' "$gate" "$hold" "$go" > "$SB_ORIGIN/hooks/pre-receive"
+    chmod +x "$SB_ORIGIN/hooks/pre-receive"
+    printf '#!/bin/sh\nif mkdir "%s.d" 2>/dev/null; then touch "%s"; sleep 6; fi\nexit 0\n' "$rbhold" "$rbhold" > "$SB_WORK/scripts/githooks/pre-rebase"; chmod +x "$SB_WORK/scripts/githooks/pre-rebase"
+    real="$(command -v git)"; mkdir -p "$shim"
+    case "$v" in
+      stuck)  printf '#!/bin/sh\ncase "$*" in *" rebase --abort"*) exit 1 ;; esac\nexec %s "$@"\n' "$real" > "$shim/git" ;;
+      second) printf '#!/bin/sh\ncase "$*" in *" rebase --abort"*) touch "%s"; sleep 4 ;; esac\nexec %s "$@"\n' "$abhit" "$real" > "$shim/git" ;;
+      *)      printf '#!/bin/sh\nexec %s "$@"\n' "$real" > "$shim/git" ;;
+    esac
+    chmod +x "$shim/git"
+    ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK PATH="$shim:$PATH" ./scripts/move-issue.sh "$id" in_progress --role Dev --note "conflicting rebase" ) > "$SB_TMP/term5.out" 2>&1 &
+    pid=$!
+    for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
+    [ -e "$hold" ] || cf "($v, prereq) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term5.out" | cut -c1-200)"
+    git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
+    f="$(ls "$other/progress/todo" | grep -F "$id" | head -1)"
+    mkdir -p "$other/progress/blocked"
+    git -C "$other" mv "progress/todo/$f" "progress/blocked/$f" >/dev/null 2>&1 || cf "($v, prereq) the second clone could not move the card"
+    git -C "$other" -c user.email=o@kit.invalid -c user.name=other -c commit.gpgsign=false commit -q -m "[PM] another lane blocks the card" >/dev/null 2>&1
+    git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1 || cf "($v, prereq) the second clone could not move the trunk"
+    touch "$go"
+    for i in $(seq 1 60); do [ -e "$rbhold" ] && break; sleep 1; done
+    [ -e "$rbhold" ] || cf "($v, prereq) the retry never reached its rebase: $(tr '\n' '|' < "$SB_TMP/term5.out" | cut -c1-300)"
+    kill -TERM "$pid" 2>/dev/null
+    if [ "$v" = second ]; then
+      for i in $(seq 1 60); do [ -e "$abhit" ] && break; sleep 1; done
+      [ -e "$abhit" ] || cf "(second, prereq) the exit never reached its abort"
+      kill -TERM "$pid" 2>/dev/null
+    fi
+    _tw_reap "$pid"; rc="$TW_RC"
+    out="$(cat "$SB_TMP/term5.out")"
+    [ "$rc" = 143 ] || cf "($v) the op ended with status $rc, not 143"
+    [ ! -d "$lock" ] || cf "($v) the lock is still there after the op ended"
+    printf '%s\n' "$out" | grep -F 'already holds it' >/dev/null && cf "($v) the exit text says the remote holds the commit, which it does not: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$out" | grep -F 'may or may not' >/dev/null || cf "($v) the exit text does not hedge: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    if [ "$v" != stuck ]; then
+      [ ! -d "$(git -C "$wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "($v) the kanban worktree is left in rebase-merge"
+      [ ! -d "$(git -C "$wt" rev-parse --git-path rebase-apply 2>/dev/null)" ] || cf "($v) the kanban worktree is left in rebase-apply"
+    fi
+    rm -f "$SB_ORIGIN/hooks/pre-receive" "$SB_WORK/scripts/githooks/pre-rebase"
+    teardown
+  done
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — A BOARD OP OVER A REBASE A HUMAN IS RESOLVING REFUSES, AND LEAVES THE RESOLUTION ALONE.
+# The kit's own Next lines send a human into the board worktree to resolve a rebase. With that rebase stopped and the
+# resolution staged, a board op refuses naming the rebase in progress, and neither the rebase nor the staged file changes.
+# =============================================================================
+case_a_board_op_over_a_rebase_in_progress_refuses_and_keeps_the_resolution() {
+  cf_reset
+  local L="a board op run while the kanban worktree is mid-rebase with a staged resolution refuses naming the rebase in progress, and the rebase and the staged resolution are still there afterwards"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
-  local id="$SB_PREFIX-878" rc=0 pid i hold="$SB_TMP/in-hook5" lock="$SB_WORK/.kanban-wt.lock" other="$SB_TMP/other2"
-  local gate="$SB_TMP/gate2" go="$SB_TMP/go2" rbhold="$SB_TMP/in-rebase2" wt="$SB_WORK/.kanban-wt" f
-  seed_issue todo "$id" conflictrb chore "A card whose op is terminated while its rebase conflicts"
+  local id1="$SB_PREFIX-879" id2="$SB_PREFIX-880" id3="$SB_PREFIX-881" out rc wt="$SB_WORK/.kanban-wt" other="$SB_TMP/other3" f
+  seed_issue todo "$id1" first chore "The card that creates the board worktree"
+  seed_issue todo "$id2" handrb chore "A card whose file is rebased by hand"
+  seed_issue todo "$id3" third chore "A card moved while the rebase is open"
   publish_sandbox
-  printf '#!/bin/sh\nif mkdir "%s" 2>/dev/null; then touch "%s"; n=0; while [ ! -e "%s" ] && [ $n -lt 60 ]; do sleep 1; n=$((n+1)); done; exit 1; fi\nexit 0\n' "$gate" "$hold" "$go" > "$SB_ORIGIN/hooks/pre-receive"
-  chmod +x "$SB_ORIGIN/hooks/pre-receive"
-  printf '#!/bin/sh\nif mkdir "%s.d" 2>/dev/null; then touch "%s"; sleep 6; fi\nexit 0\n' "$rbhold" "$rbhold" > "$SB_WORK/scripts/githooks/pre-rebase"; chmod +x "$SB_WORK/scripts/githooks/pre-rebase"
-  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "conflicting rebase" ) > "$SB_TMP/term5.out" 2>&1 &
-  pid=$!
-  for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
-  [ -e "$hold" ] || cf "(prereq) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term5.out" | cut -c1-200)"
+  ( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id1" in_progress --role Dev --note first ) >/dev/null 2>&1 || cf "(prereq) the first op failed"
+  f="$(ls "$wt/progress/todo" | grep -F "$id2" | head -1)"
+  printf 'human line\n' >> "$wt/progress/todo/$f"
+  git -C "$wt" add "progress/todo/$f" >/dev/null 2>&1
+  MSG_OK=1 git -C "$wt" -c user.email=h@kit.invalid -c user.name=human -c commit.gpgsign=false commit -q -m "[Dev] a hand edit" >/dev/null 2>&1
   git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
-  f="$(ls "$other/progress/todo" | grep -F "$id" | head -1)"
-  mkdir -p "$other/progress/blocked"
-  git -C "$other" mv "progress/todo/$f" "progress/blocked/$f" >/dev/null 2>&1 || cf "(prereq) the second clone could not move the card"
-  git -C "$other" -c user.email=o@kit.invalid -c user.name=other -c commit.gpgsign=false commit -q -m "[PM] another lane blocks the card" >/dev/null 2>&1
+  printf 'other line\n' >> "$other/progress/todo/$f"
+  git -C "$other" -c user.email=o@kit.invalid -c user.name=other -c commit.gpgsign=false commit -q -am "[PM] another edit" >/dev/null 2>&1
   git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1 || cf "(prereq) the second clone could not move the trunk"
-  touch "$go"
-  for i in $(seq 1 60); do [ -e "$rbhold" ] && break; sleep 1; done
-  [ -e "$rbhold" ] || cf "(prereq) the retry never reached its rebase: $(tr '\n' '|' < "$SB_TMP/term5.out" | cut -c1-300)"
-  kill -TERM "$pid" 2>/dev/null
-  _tw_reap "$pid"; rc="$TW_RC"
-  [ "$rc" = 143 ] || cf "the op ended with status $rc, not 143"
-  [ ! -d "$lock" ] || cf "the lock is still there after the op ended"
-  [ ! -d "$(git -C "$wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "the kanban worktree is left in rebase-merge"
-  [ ! -d "$(git -C "$wt" rev-parse --git-path rebase-apply 2>/dev/null)" ] || cf "the kanban worktree is left in rebase-apply"
-  rm -f "$SB_ORIGIN/hooks/pre-receive" "$SB_WORK/scripts/githooks/pre-rebase"
+  git -C "$wt" fetch -q origin "$SB_TRUNK" >/dev/null 2>&1
+  MSG_OK=1 git -C "$wt" -c user.email=h@kit.invalid -c user.name=human rebase "origin/$SB_TRUNK" >/dev/null 2>&1 && cf "(prereq) the hand rebase did not stop on a conflict"
+  printf 'resolved by hand\n' > "$wt/progress/todo/$f"
+  git -C "$wt" add "progress/todo/$f" >/dev/null 2>&1
+  [ -d "$(git -C "$wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "(prereq) no rebase is in progress"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id3" in_progress --role Dev --note "while a rebase is open" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "the op ran over a rebase in progress"
+  printf '%s\n' "$out" | grep -Ei 'rebase (is )?in progress' >/dev/null || cf "the refusal does not name the rebase in progress: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  [ -d "$(git -C "$wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "the op aborted the hand rebase"
+  [ "$(cat "$wt/progress/todo/$f" 2>/dev/null)" = "resolved by hand" ] || cf "the staged resolution is gone: $(cat "$wt/progress/todo/$f" 2>/dev/null | head -3 | tr '\n' '|')"
+  git -C "$wt" diff --cached --name-only 2>/dev/null | grep -F "$f" >/dev/null || cf "the resolution is no longer staged"
   finish "$L"
   teardown
 }
