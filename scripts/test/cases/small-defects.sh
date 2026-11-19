@@ -156,10 +156,12 @@ HY_ROWS
 
 # =============================================================================
 # CASE — THE STALENESS GREPS READ A CLAIM WHERE IT IS SAID.
-# A claim phrase counts only with the landed artifact in the same sentence of the same table cell,
-# and a phrase in backticks, double quotes (straight or curly) or *italics* is a mention, not a
-# claim. Each false row is suppressed by one of those rules alone; the true rows, a bold claim and
-# a real claim after a quoted one on the same line among them, are still reported.
+# A claim phrase counts only with the landed artifact in the same sentence of its line (a table
+# row is one sentence), and a phrase between a pair of double quotes (straight or curly) on its
+# line is a mention, not a claim. Each false row is suppressed by one of those rules alone; the
+# true rows are still reported: a claim in another table cell from its artifact, in backticks, in
+# italics or in bold, a real claim after a quoted one on the same line, and a claim after an
+# unpaired quote, on its line or on the line after it.
 # =============================================================================
 case_staleness_greps_read_a_claim_only_where_it_is_said() {
   cf_reset
@@ -168,7 +170,8 @@ case_staleness_greps_read_a_claim_only_where_it_is_said() {
   if [ ! -f "$hy" ]; then skp "the staleness greps read a claim where it is said" "scripts/hygiene/staleness_greps.py absent"; return; fi
   make_sandbox
   local root="$SB_TMP/stale" rc row shape n want got
-  mkdir -p "$root/scripts" "$root/progress/done" "$root/process"
+  mkdir -p "$root/scripts" "$root/progress/done" "$root/process" "$root/dev"
+  printf '# verdict\n' > "$root/dev/verdict.md"
   printf 'ISSUE_PREFIX="${ISSUE_PREFIX:-PFX}"\nPRD_PREFIX="${PRD_PREFIX:-PRD}"\n' > "$root/scripts/config.sh"
   printf '# x\n' > "$root/progress/done/PFX-001-x.md"
   printf '#!/bin/sh\n' > "$root/scripts/parse.sh"
@@ -186,6 +189,13 @@ case_staleness_greps_read_a_claim_only_where_it_is_said() {
     printf 'A row reads \342\200\234still open\342\200\235 while scripts/parse.sh runs.\n'
     printf 'The note is *still open* in tone; scripts/parse.sh runs.\n'
     printf 'The word "unmeasured" is old; scripts/parse.sh is unmeasured.\n'
+    printf '| PFX-001 | still open | |\n'
+    printf '| Q-5 | measure-first | dev/verdict.md |\n'
+    printf 'Status: `MEASURE-FIRST` until dev/verdict.md lands.\n'
+    printf '*not yet measured* (dev/verdict.md)\n'
+    printf 'He wrote "the fix; PFX-001 is still open.\n'
+    printf 'A quote opens "here and goes on\n'
+    printf 'to say scripts/parse.sh is still open" for now.\n'
   } > "$root/process/probe.md"
   rc=0; ( cd "$SB_TMP" && PYTHONDONTWRITEBYTECODE=1 python3 -I "$hy" --root "$root" >"$SB_TMP/sg.out" 2>&1 ) || rc=$?
   [ "$rc" -eq 0 ] || cf "staleness_greps.py exited $rc over the fixture: $(tr '\n' '|' < "$SB_TMP/sg.out" | cut -c1-200)"
@@ -205,16 +215,22 @@ bold@unmeasured-claim-now-measured@4@yes
 same-cell@superseded-conclusion@5@yes
 not-landed@superseded-conclusion@6@no
 other-sentence@superseded-conclusion@7@no
-other-cell@superseded-conclusion@8@no
+other-cell@superseded-conclusion@8@yes
 double-quote@superseded-conclusion@9@no
-backtick@unmeasured-claim-now-measured@10@no
+backtick@unmeasured-claim-now-measured@10@yes
 curly-quote@superseded-conclusion@11@no
-italics@superseded-conclusion@12@no
+italics@superseded-conclusion@12@yes
 claim-after-a-mention@unmeasured-claim-now-measured@13@yes
+issue-in-another-cell@superseded-conclusion@14@yes
+verdict-in-another-cell@unmeasured-claim-now-measured@15@yes
+status-in-backticks@unmeasured-claim-now-measured@16@yes
+verdict-after-italics@unmeasured-claim-now-measured@17@yes
+unbalanced-quote-before@superseded-conclusion@18@yes
+quote-opened-a-line-above@superseded-conclusion@20@yes
 SG_ROWS
   n="$(printf '%s\n' "$got" | grep -c .)"
-  [ "$n" -eq 5 ] || cf "the report holds $n suspicion line(s) for process/probe.md, not the 5 true rows: $(printf '%s' "$got" | tr '\n' '|')"
-  finish "the staleness greps report a claim with its landed artifact in the same sentence and table cell, bold included, and skip a phrase in another sentence or cell or inside backticks, quotes or italics"
+  [ "$n" -eq 14 ] || cf "the report holds $n suspicion line(s) for process/probe.md, not the 14 true rows: $(printf '%s' "$got" | tr '\n' '|')"
+  finish "the staleness greps report a claim with its landed artifact in the same sentence, in another table cell, in backticks, in italics or in bold, and skip a phrase in another sentence or inside a pair of double quotes on its line"
   teardown
 }
 

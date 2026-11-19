@@ -14,11 +14,14 @@
 #   SHAPE (ii) UNMEASURED-CLAIM-NOW-MEASURED — a MEASURE-FIRST / "not yet measured" /
 #              "does not exist yet" claim whose named verdict artifact or issue HAS since landed.
 #
-# WHAT IS READ AS A CLAIM: the phrase and the landed artifact in the SAME SENTENCE of the same
-# table cell. A phrase inside backticks, double quotes (straight or curly) or *single-asterisk
-# italics* is a MENTION of the phrase, not a claim, and is skipped; **bold** is still a claim.
-# The cost: a claim whose artifact is named only in an earlier sentence, or a real claim quoted
-# on purpose, is not reported, and an abbreviation such as "e.g. " ends a sentence early.
+# WHAT IS READ AS A CLAIM: the phrase and the landed artifact in the SAME SENTENCE of one line;
+# a table row is one sentence, whatever cells hold the two. A phrase between a pair of double
+# quotes (straight or curly) on its line is a MENTION of the phrase, not a claim, and is skipped;
+# backticks, *italics* and **bold** are still claims, since a status line writes its state that
+# way. The cost: a claim whose artifact is named only in an earlier sentence, or a real claim
+# quoted on purpose, is not reported; an abbreviation such as "e.g. " ends a sentence early; and
+# a stray " (an inch mark) pairs with the next " on its line, so a claim between the two is read
+# as a mention. A quote is never paired across lines, so an unclosed one hides nothing past it.
 #
 # NO BASE RATE SHIPS. How often these greps cry wolf depends on the tree, and a figure from
 # another project reads as a rate for this one. Adjudicate the first report, count the false
@@ -56,18 +59,16 @@ OPEN_CLAIM = re.compile(
 UNMEASURED_CLAIM = re.compile(
     r"\b(measure[- ]first|unmeasured|not yet measured|no measurement|"
     r"awaiting measurement|pending measurement)\b", re.I)
-# A sentence ends at . ! or ? followed by white space; a table cell ends at |.
-SEGMENT_END = re.compile(r"[.!?]\s|\|")
-# A phrase inside one of these spans is mentioned, not claimed. Bold (**x**) is not a span.
+# A sentence ends at . ! or ? followed by white space.
+SEGMENT_END = re.compile(r"[.!?]\s")
+# A phrase inside a pair of double quotes on its line is mentioned, not claimed.
 MENTION_SPAN = re.compile(
-    r"`[^`]*`"
-    r'|"[^"]*"'
-    r"|\u201c[^\u201d]*\u201d"
-    r"|(?<![*\w])\*(?![*\s])[^*]+?(?<![*\s])\*(?![*\w])")
+    r'"[^"]*"'
+    r"|\u201c[^\u201d]*\u201d")
 
 
 def _segment(line: str, starts: list, at: int) -> str:
-    """The sentence-and-cell segment of `line` that holds offset `at`."""
+    """The sentence of `line` that holds offset `at`."""
     i = bisect.bisect_right(starts, at) - 1
     end = starts[i + 1] if i + 1 < len(starts) else len(line)
     return line[starts[i]:end]
