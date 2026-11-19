@@ -524,6 +524,40 @@ EOF
 }
 
 # =============================================================================
+# CASE — THE POPULATION ROW COUNTS THE CASES THE SHELL DEFINES, NOT THE RUN'S LIST.
+#
+# A run cut to a few cases reassigns CASES after the case-list check, and every case_* is still
+# defined. A population row held to CASES reddens every census in such a run, and its message
+# leads the census's own rows. Held to the cases the shell defines, it judges the text a census
+# read the same in a cut run as in a full one, and a population that lost a file still reddens.
+# =============================================================================
+case_population_row_counts_the_defined_cases_not_the_run_list() {
+  cf_reset
+  make_sandbox
+  local L="the population row of a census of this harness counts the case_*() definitions in the text it read against the cases the shell defines: quiet on the whole text in a run whose CASES names two cases, and red on the text without one of its files"
+  local probe="$SB_TMP/popprobe.sh" part="$SB_TMP/poppart.sh" f got
+  _harness_probe_copy "$probe" \
+    || _fixture_die "case_population_row_counts_the_defined_cases_not_the_run_list: could not copy the harness's own source to census."
+
+  # (cut run) CASES names two cases; the whole population is quiet.
+  got="$(CASES=(case_isolation case_population_row_counts_the_defined_cases_not_the_run_list); _cf=""; _harness_population_is_whole "$probe"; printf '%s' "$_cf")"
+  [ -z "$got" ] || cf "(cut run) with CASES naming two cases, the population row reddened on the whole harness text: $got"
+
+  # (lost a file) the population without cases/harness.sh, which defines this case: red.
+  : > "$part"
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ ! "$f" -ef "$HARNESS_DIR/cases/harness.sh" ] && cat "$f" >> "$part"
+  done <<POP_PART_EOF
+$(_harness_sources)
+POP_PART_EOF
+  got="$(CASES=(case_isolation case_population_row_counts_the_defined_cases_not_the_run_list); _cf=""; _harness_population_is_whole "$part"; printf '%s' "$_cf")"
+  case "$got" in *"(population)"*) ;; *) cf "(lost a file) the harness text without cases/harness.sh left the population row quiet: ${got:-no row}" ;; esac
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE ROLE RESET TAKES ANY ADOPTED SET, INCLUDING A PREFIX OF THE SHIPPED ONE.
 #
 # _neu_roles runs every sandbox on an adopted tree. A narrowed set such as 'PM|Dev|QA' is a

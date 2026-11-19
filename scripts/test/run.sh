@@ -224,11 +224,14 @@ HARNESS_WHERE_EOF
 
 # _harness_population_is_whole <probe copy> — the instrument check a census of this harness owes.
 # Counted on the copy BEFORE any excision, so a case that cuts its own body out is still counted.
+# Held to the case_* functions this shell defines, not to CASES: the case-list check holds the two
+# equal before any case runs, and a run cut to fewer cases after that check still defines them all.
 _harness_population_is_whole() {
-  local n
+  local n d
   n="$(grep -c '^case_[a-z_0-9]*() {' "$1" || true)"
-  [ "${n:-0}" -eq "${#CASES[@]}" ] \
-    || cf "(population) the harness text this case read defines ${n:-0} case_*() function(s) and CASES lists ${#CASES[@]}. Either _harness_sources no longer names every file the entry point loads (this census has shrunk to part of the harness and would stay green about the rest), or a case_*() is defined in a shape this count does not read — it reads 'name() {' at column 0 — or text that is not a definition matches it"
+  d="$(declare -F | grep -c '^declare -f case_' || true)"
+  [ "${n:-0}" -eq "${d:-0}" ] \
+    || cf "(population) the harness text this case read defines ${n:-0} case_*() function(s) and the shell running it defines ${d:-0}. Either _harness_sources no longer names every file the entry point loads (this census has shrunk to part of the harness and would stay green about the rest), or a case_*() is defined in a shape this count does not read — it reads 'name() {' at column 0 — or text that is not a definition matches it"
 }
 
 # THE LOADER, over the same list.
@@ -943,6 +946,7 @@ CASES=(
   case_publish_after_a_board_op_commits_no_gitlink
   case_shipped_tree_is_citation_clean_after_kit_init
   case_fixture_append_has_one_authoring_site
+  case_population_row_counts_the_defined_cases_not_the_run_list
   case_role_reset_takes_a_narrowed_set
   case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
