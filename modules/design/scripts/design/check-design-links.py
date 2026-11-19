@@ -1107,23 +1107,110 @@ def parse_registry(text, label, canvas):
     return rows, problems
 
 
-FENCE_OPEN = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
+LIST_ITEM = re.compile(r'[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)')
+
+
+def fence_parse(ln, cols=(), iqs=(), maxq=None):
+    """-> (quote depth, the item level the last marker sits in, text past the '>' markers, its indent in columns), a tab
+    counting to the next multiple of four. A marker is read at most three columns past the item it sits in (`cols` and `iqs`:
+    each open item's text column and the quote depth it opened at). With `maxq` set, reading stops once that many markers are
+    read: past them a '>' is the text of a fence's line."""
+    s, d, j = ln.rstrip('\r'), 0, 0
+    while maxq is None or d < maxq:
+        ind = 0
+        for ch in s:
+            if ch == ' ':
+                ind += 1
+            elif ch == '\t':
+                ind += 4 - ind % 4
+            else:
+                break
+        jp = j
+        for c in range(j, len(cols)):
+            if iqs[c] != d or cols[c] > ind:
+                break
+            jp = c + 1
+        base = cols[jp - 1] if jp > j else 0
+        k = len(s) - len(s.lstrip(' \t'))
+        if ind - base > 3 or s[k:k + 1] != '>':
+            break
+        d, j, s = d + 1, jp, s[k + 1:]
+        if s[:1] == ' ':
+            s = s[1:]
+    ind = 0
+    for ch in s:
+        if ch == ' ':
+            ind += 1
+        elif ch == '\t':
+            ind += 4 - ind % 4
+        else:
+            break
+    return d, j, s, ind
 
 
 def fence_scan(text):
-    """-> ([(line_no, text)] outside code fences, the line of a fence never closed or None). A fence closes on a line of the same
-    character, at least as long as the opening one and nothing else, so a ``` line inside a ~~~ block is text."""
-    out, marker, opened = [], None, None
-    for n, ln in enumerate(text.splitlines(), 1):
-        m = FENCE_OPEN.match(ln)
-        if marker is None:
-            if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
-                marker, opened = m.group(1), n
+    """-> ([(line_no, text)] outside code fences, the line of a fence never closed or None). The rule is the core's (qa-gate.sh
+    `_QAV_FENCE_FN`): a fence opens on three or more backticks or tildes (a backtick fence's info string holds no backtick) at most three
+    columns past its container, and closes on a line of the same character, at least as long, with nothing else; a block quote
+    (`>` markers) and the list items, kept as the column their text starts at, are the containers: a line indented less than an
+    item's text ends the item, one with fewer markers ends the quote, and a fence its container ends first is never closed. YAML frontmatter
+    is no fence: its lines are returned as they are."""
+    out, icol, iq, fch, flen, fdepth, fq, qd, fopened, unclosed, infm = [], [], [], None, 0, 0, 0, 0, None, None, False
+    for n, raw in enumerate(text.splitlines(), 1):
+        if n == 1 and re.match(r'---[ \t\r]*$', raw):
+            infm = True
+            out.append((n, raw))
+            continue
+        if infm:
+            infm = not re.match(r'---[ \t\r]*$', raw)
+            out.append((n, raw))
+            continue
+        d, j, s, ind = fence_parse(raw, icol, iq, fq if fch else None)
+        if s.strip(' \t'):
+            keep = j
+            while keep < len(icol) and iq[keep] == d:
+                keep += 1
+            del icol[keep:], iq[keep:]
+            if d != qd:
+                if fch and fq > d:
+                    unclosed, fch = unclosed or fopened, None
+                qd = d
+            while icol and iq[-1] == d and ind < icol[-1]:
+                icol.pop()
+                iq.pop()
+            if fch and len(icol) < fdepth:
+                unclosed, fch = unclosed or fopened, None
+            if not fch and ind < (icol[-1] if icol and iq[-1] == d else 0) + 4:
+                m = LIST_ITEM.match(s)
+                if m:
+                    after = s[m.end(1):]
+                    sp = len(after) - len(after.lstrip(' \t'))
+                    icol.append(ind + len(m.group(1)) + (1 if not after.strip(' \t') or sp > 4 else sp))
+                    iq.append(d)
+        elif d > 0:
+            keep = j
+            while keep < len(icol) and iq[keep] == d:
+                keep += 1
+            del icol[keep:], iq[keep:]
+            if fch and len(icol) < fdepth:
+                unclosed, fch = unclosed or fopened, None
+        lim = ((icol[-1] if icol and iq[-1] == d else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
+        t = s.lstrip(' \t')
+        c, run = t[:1], 0
+        if ind <= lim and c in ('`', '~'):
+            while t[run:run + 1] == c:
+                run += 1
+        rest = t[run:]
+        if not fch:
+            if run >= 3 and not (c == '`' and '`' in rest):
+                fch, flen, fopened, fdepth, fq = c, run, n, len(icol), d
             else:
-                out.append((n, ln))
-        elif m and m.group(1)[0] == marker[0] and len(m.group(1)) >= len(marker) and not m.group(2).strip():
-            marker, opened = None, None
-    return out, opened
+                out.append((n, raw))
+        elif run >= 3 and c == fch and run >= flen and not rest.strip(' \t'):
+            fch = None
+    if fch:
+        unclosed = unclosed or fopened
+    return out, unclosed
 
 
 def prd_lines(path):

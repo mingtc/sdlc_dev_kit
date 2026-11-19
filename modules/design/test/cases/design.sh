@@ -716,7 +716,7 @@ _dm_links_fixture() {
   _dm_registry "$SB_WORK/requirements/design/app" 'UX-001|A.dc.html|default, empty|PRD-001-F1-S1|open|open' 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
   printf '# PRD-001 — App\n\n## Features\n\n### F1 — Lists\n\n#### Stories\n\n##### F1-S1 — See the list\n\n**UI:** default, empty\n\n**Acceptance Criteria**\n\n- [ ] AC1: (UI) the list shows. [design: UX-001#default]\n- [ ] AC2: (UI) an empty list shows a hint. [design: UX-001#empty]\n- [ ] AC3: the list is sorted.\n\n##### F1-S2 — Edit\n\n**UI:** default\n\n- [ ] AC1: (UI) the edit form shows. [design: UX-002#default]\n' > "$SB_WORK/requirements/PRD-001-app.md"
   printf '# PRD-002 — Api\n\n## Features\n\n### F1 — Endpoint\n\n##### F1-S1 — Serve\n\n- [ ] AC1: it serves.\n\n##### F1-S2 — Log\n\n- [ ] AC1: it logs.\n\n~~~\n```\ninside\n~~~\n\n```code```\n' > "$SB_WORK/requirements/PRD-002-api.md"
-  printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n\n    ```\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
+  printf '# PRD-003 — Mixed\n\n## Features\n\n### F1 — Bits\n\n##### F1-S1 — One\n\n**UI:** none\n\n- [ ] AC1: one.\n\n##### F1-S2 — Two\n\n- [ ] AC1: two.\n\nA line of prose, then an indented block that is code, not a fence.\n\n    ```\n' > "$SB_WORK/requirements/PRD-003-mixed.md"
   _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
   _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
   _dm_commit "the screens"; _DM_X="$_DM_SHA"
@@ -4961,13 +4961,18 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
   [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI), one that cites a screen and fenced example bullets: want 'AC1 AC2 AC3 B1'"
   [ "$mine" = "$core" ] || cf "(c) the module's AC reader ('$mine') and the core's ('$core') read different bullets"
   # (c2) the fence shapes of the core's fence-rule case: the module and the core read the same ids from each
-  local shp m_ids c_ids
+  local shp m_ids c_ids m_open c_open
   for shp in $_fence_shapes; do
     _fence_shape "$shp" > "$cf2"
     _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(' '.join(sorted(a for a, _ in m.card_facts(open('$cf2').read())[0])))"
     m_ids="$_dm_out"
     c_ids="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_ac_ids "$(cat "$1")"' _ "$cf2" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
     [ "$m_ids" = "$c_ids" ] || cf "(c2) fence shape '$shp': the module reads '$m_ids' and the core '$c_ids'"
+    # the line a fence opened on that nothing closes: the module's scan of the file (frontmatter included) and the core's of the body
+    _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.fence_scan(open('$cf2').read())[1] or '')"
+    m_open="$_dm_out"
+    c_open="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_unclosed_fence "$(cat "$1")"' _ "$cf2" 2>&1 | cut -d' ' -f1)"
+    [ "$m_open" = "$c_open" ] || cf "(c2) fence shape '$shp': the module finds the unclosed fence at '$m_open' and the core at '$c_open'"
   done
   finish "$L"
   teardown

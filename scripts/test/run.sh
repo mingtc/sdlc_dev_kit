@@ -546,6 +546,7 @@ CASES=(
   case_qa_gate_fence_rule_shapes
   case_qa_gate_ac_bullet_block_is_the_list_item
   case_finish_pr_qa_verdict_fence_in_an_ac_item
+  case_pre_commit_refuses_a_hand_move_with_an_unclosed_fence
   case_finish_pr_qa_verdict_shadow_check_required
   case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched
   case_finish_pr_qa_verdict_well_formed_lands

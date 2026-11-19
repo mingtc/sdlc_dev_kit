@@ -709,6 +709,10 @@ _forks_drift_land() {
   make_sandbox "$sb"
   [ -z "${_FDL_HOOK:-}" ] || "$_FDL_HOOK"
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  if [ -n "${_FDL_D02:-}" ]; then
+    perl -i -pe 's/^## Retired ids$/### D-02\n\n**Ruling.** Second text.\n\n## Retired ids/' "$SB_WORK/requirements/DECISIONS.md"
+    grep -q '^### D-02$' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "_forks_drift_land: the D-02 entry was not planted"
+  fi
   seed_issue todo "$id" "$slug" chore "AC rewritten after pickup" "feature/$id-work"
   f="$SB_WORK/progress/todo/$id-$slug.md"
   if [ -n "${_FDL_TODO_CONT:-}" ]; then
@@ -871,7 +875,24 @@ case_finish_pr_forks_ac_continuation_line_is_part_of_the_bullet() {
   [ "$_FDL_RC" -eq 0 ] || cf "(f, control) the same edit with forks: [D-01] — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
   teardown
 
-  finish "an indented continuation line is read as part of its AC bullet: one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, the citation on the checklist line (d) answers it, and an AC that already cites a ruling and gains a continuation line has changed, so the ruling is the card's fork: forks: none is refused (e), forks: [D-01] lands (f)"
+  # (g) a ruling the AC applies, its citation wrapped onto the item's second line, unchanged since todo/: not the card's fork
+  id="$SB_PREFIX-868"
+  _FDL_TODO_CONT="  and the ruling applies, per [decision: D-01]." _forks_drift_land work-g "$id" wrapcite 0 \
+    "$base" "" "none"
+  [ "$_FDL_RC" -eq 0 ] || cf "(g) a [decision: D-01] on the second line of an unchanged AC was counted as the card's own fork — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  teardown
+
+  # (h) the same wrapped citation on an AC whose item changed is the card's: the checklist line cites only D-02 (the answer to
+  # the drift check), so forks: [D-02] covers it and the second line's D-01 is the one left, refused
+  id="$SB_PREFIX-869"
+  _FDL_D02=1 _FDL_TODO_CONT="  and the ruling applies, per [decision: D-01]." _forks_drift_land work-h "$id" wrapchanged 0 \
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, now widened [decision: D-02]." "" "[D-02]"
+  [ "$_FDL_RC" -ne 0 ] || cf "(h) an AC that changed, its second line citing D-01, landed under forks: [D-02] — finish-pr.sh exited 0"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(h) the refusal is not forks-contradicted: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
+  teardown
+
+  finish "an indented continuation line is read as part of its AC bullet; a [decision: D-01] wrapped onto the second line of an unchanged AC is not the card's fork (g), and on an AC whose item changed it is (h); one added (a) or a second one added (c) after the card left todo/ is refused as uncited drift naming the AC, an untouched one (b) is not drift, the citation on the checklist line (d) answers it, and an AC that already cites a ruling and gains a continuation line has changed, so the ruling is the card's fork: forks: none is refused (e), forks: [D-01] lands (f)"
 }
 
 # =============================================================================

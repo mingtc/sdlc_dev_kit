@@ -225,15 +225,17 @@ KIT_AC_SEP='[[:space:]]*(—|-|:)'
 # carries an id is graded; one without is refused (_qav_ac_stray_bullets).
 KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 
-# THE FENCE RULE, once: a fence opens on a line of at most MAXIND columns of indent (a tab is up to the next
-# multiple of four) and three or more backticks or tildes, a backtick fence's info string holding no
-# backtick; it closes only on a line of the same character, at least as long as the opener, with nothing
-# else on it; one never closed runs to the end of the text. As awk source, so every reader that must skip a
-# fenced line pastes this one text. fence_skip(line, maxind) -> 1 for a delimiter or a line inside a fence,
-# 0 for any other line. fence_line(line) is what a reader that walks a whole card calls: it adds the list
-# item. Inside an item (the last unindented line began a list item) an opener may sit up to six columns in,
-# since the item's content starts at two; a fence opened there ends with its item, at the next unindented
-# non-blank line, and that is a fence never closed (fence_unclosed(): the line it opened on, else nothing).
+# THE FENCE RULE, once. A fence opens on a line of three or more backticks or tildes (a backtick fence's info
+# string holding no backtick) indented by at most three columns past the container it sits in, a tab counting
+# to the next multiple of four; it closes only on a line of the same character, at least as long as the opener,
+# with nothing else on it. As awk source, so every reader pastes this one text. fence_skip(line, maxind) -> 1
+# for a delimiter or a line inside a fence, 0 for any other line. fence_line(line) is what a reader that walks a
+# whole card calls; it adds the containers CommonMark gives a fence: the YAML frontmatter (its lines are no
+# fence and no body: isfm is set), a block quote (a run of '>' markers, each with one optional space after it)
+# and the list items, kept as a stack of the column their text starts at. A line indented less than an item's
+# text ends the item; a line with fewer '>' than a fence's quote ends the quote. A fence that its container ends
+# before it closes is a fence never closed, and so is one the text ends on: fence_unclosed() is the line it
+# opened on, fence_unclosed_end() the line its container ended on (0 when the text did).
 _QAV_FENCE_FN='
 function fence_skip(ln, maxind,    ind, k, ch, s, c, n, rest, res) {
   sub(/\r$/, "", ln)
@@ -256,34 +258,77 @@ function fence_skip(ln, maxind,    ind, k, ch, s, c, n, rest, res) {
   } else if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
   return res
 }
-function fence_line(ln,    blank, ind, k, ch, lim, was, res) {
+function fence_parse(ln,    k, ch, s, ind, c, jp, base) {
   sub(/\r$/, "", ln)
-  blank = (ln ~ /^[ \t]*$/)
-  ind = 0
-  for (k = 1; k <= length(ln); k++) {
-    ch = substr(ln, k, 1)
-    if (ch == " ") ind++
-    else if (ch == "\t") ind = ind + 4 - ind % 4
+  s = ln; pd = 0; pj = 0
+  while (fch == "" || pd < fq) {
+    ind = 0
+    for (k = 1; k <= length(s); k++) {
+      ch = substr(s, k, 1)
+      if (ch == " ") ind++
+      else if (ch == "\t") ind = ind + 4 - ind % 4
+      else break
+    }
+    jp = pj
+    for (c = pj + 1; c <= isp && iq[c] == pd; c++) { if (icol[c] <= ind) jp = c; else break }
+    base = (jp > pj ? icol[jp] : 0)
+    if (ind - base > 3 || substr(s, k, 1) != ">") break
+    pd++; pj = jp; s = substr(s, k + 1)
+    if (substr(s, 1, 1) == " ") s = substr(s, 2)
+  }
+  ps = s; pblank = (s ~ /^[ \t]*$/); pind = 0
+  for (k = 1; k <= length(s); k++) {
+    ch = substr(s, k, 1)
+    if (ch == " ") pind++
+    else if (ch == "\t") pind = pind + 4 - pind % 4
     else break
   }
-  if (!blank && ind < 2) {
-    if (fch != "" && fitem) { if (!uncl) { uncl = fopened; uend = NR }; fch = ""; flen = 0; fitem = 0 }
-    if (fch == "") initem = (ln ~ /^(>[ \t]*)?([-*+]|[0-9]+[.)])[ \t]/)
+}
+function fence_end() {
+  if (!uncl) { uncl = fopened; uend = NR }
+  fch = ""; flen = 0; fdepth = 0
+}
+function fence_line(ln,    lim, was, res, lead, rest2, mlen, after, sp, top) {
+  isfm = 0
+  if (NR == 1 && ln ~ /^---[ \t\r]*$/) { infm = 1; isfm = 1; return 0 }
+  if (infm) { isfm = 1; if (ln ~ /^---[ \t\r]*$/) infm = 0; return 0 }
+  fence_parse(ln)
+  if (!pblank) {
+    top = isp; isp = pj
+    while (isp < top && iq[isp + 1] == pd) isp++
+    if (pd != qd) {
+      if (fch != "" && fq > pd) fence_end()
+      qd = pd
+    }
+    while (isp > 0 && iq[isp] == pd && pind < icol[isp]) isp--
+    if (fch != "" && isp < fdepth) fence_end()
+    if (fch == "" && pind < (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 4 && match(ps, /^[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)/)) {
+      match(ps, /^[ \t]*/); rest2 = substr(ps, RLENGTH + 1)
+      match(rest2, /^([-*+]|[0-9]+[.)])/); mlen = RLENGTH
+      after = substr(rest2, mlen + 1)
+      match(after, /^[ \t]*/); sp = RLENGTH
+      if (after ~ /^[ \t]*$/ || sp > 4) sp = 1
+      isp++; icol[isp] = pind + mlen + sp; iq[isp] = pd; iser[isp] = ++iseq
+    }
+  } else if (pd > 0) {
+    top = isp; isp = pj
+    while (isp < top && iq[isp + 1] == pd) isp++
+    if (fch != "" && isp < fdepth) fence_end()
   }
-  lim = 3
-  if (fch == "" ? initem : fitem) lim = 6
+  if (fch == "") lim = (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 3
+  else lim = (fdepth > 0 ? icol[fdepth] : 0) + 3
   was = (fch != "")
-  res = fence_skip(ln, lim)
-  if (!was && fch != "") { fopened = NR; fitem = initem }
+  res = fence_skip(ps, lim)
+  if (!was && fch != "") { fopened = NR; fdepth = isp; fq = pd }
   return res
 }
 function fence_unclosed() { return uncl ? uncl : (fch != "" ? fopened : 0) }
 function fence_unclosed_end() { return uncl ? uend : 0 }'
 
-# _qav_unfenced — stdin without the lines of a fenced code block, delimiters included: an example in a fence is
-# text, never a heading or a checklist bullet.
+# _qav_unfenced — stdin without the lines of a fenced code block, delimiters included, and without the YAML
+# frontmatter: an example in a fence is text, never a heading or a checklist bullet, and frontmatter is no body.
 _qav_unfenced() {
-  LC_ALL=C awk "$_QAV_FENCE_FN"' { if (!fence_line($0)) print }'
+  LC_ALL=C awk "$_QAV_FENCE_FN"' { r = fence_line($0); if (!r && !isfm) print }'
 }
 
 # _qav_fence_flags — one line per stdin line: 1 when it is a fence delimiter or inside a fence, else 0. For a
@@ -395,35 +440,41 @@ _qav_ac_bullet_text() {
 }
 
 # _qav_ac_bullet_block <body> <id> — the NORMALISED text of AC <id>'s whole list item, which is what the freeze
-# compares: its checklist line, then every line that belongs to the item the way a Markdown list item holds
-# them: an indented line; a blank line followed by more indented content; an indented fenced block (its lines
-# whatever they hold, up to the closing fence or the first unindented line); a lazy line, an unindented line
-# straight after a paragraph line that opens no list item, heading, quote, comment block or fence. The next checklist line
-# ends it, as does a blank line followed by an unindented one. A carriage return is whitespace and an HTML
-# comment is text, so adding one is a change. Empty if <id> has no bullet.
-_qav_ac_bullet_block() {
-  local body="$1" id="$2"
-  printf '%s\n' "$body" | KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
+# compares: its checklist line, then every line that belongs to the item as CommonMark holds them. A line is in
+# the item while it is indented to the item's text, a blank line included when more such lines follow; nested
+# items (a '- [ ] step' under it) and fences (see _QAV_FENCE_FN, whatever their depth) belong to it; a quoted AC
+# keeps the lines under the same '>' markers. A lazy line, one that is not indented that far, still belongs when
+# it directly continues a paragraph and would not open anything on its own: a list item (a number other than 1
+# cannot interrupt a paragraph), a heading, a quote, a comment block or a fence. Whatever ends the item ends the
+# text: a line indented less, a sibling item, a blank line followed by such a line. A carriage return is
+# whitespace and an HTML comment is text, so adding one is a change. Empty if <id> has no bullet.
+_qav_ac_bullet_block() { _qav_ac_bullet_read "$1" "$2" text; }
+
+# _qav_ac_bullet_linenos <body> <id> — the line numbers of those lines, space-separated: the lines of <body> that
+# _qav_ac_bullet_block reads, the checklist line first. Nothing if <id> has no bullet.
+_qav_ac_bullet_linenos() { _qav_ac_bullet_read "$1" "$2" lines; }
+
+_qav_ac_bullet_read() {
+  local body="$1" id="$2" mode="$3"
+  printf '%s\n' "$body" | KAB_MODE="$mode" KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
     LC_ALL=C awk "$_QAV_FENCE_FN"'
-      BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; item = "^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\\[[ xX]\\]" }
+      BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"] }
       { line = $0; sub(/\r$/, "", line) }
-      !on { if (!fence_skip(line, 3) && line ~ start) { on = 1; t = line; sub(lead, "", t); para = 1 }; next }
-      fch != "" {                                  # inside an indented fence of the item
-        if (line !~ /^[ \t]*$/ && line !~ /^[ \t]/) exit
-        fence_skip(line, 6); t = t " " line
-        if (fch == "") para = 0
+      !on {
+        if (fence_line(line)) next
+        if (isfm) next
+        if (line ~ start) { on = 1; base = isp; aid = iser[isp]; t = line; sub(lead, "", t); ln = NR; para = 1 }
         next }
-      line ~ /^[ \t]*$/ { blank = 1; next }
-      line ~ item { exit }
-      line ~ /^[ \t]/ {
-        if (blank && line !~ /^(  |\t)/) exit
-        blank = 0
-        if (fence_skip(line, 6)) { t = t " " line; para = 0; next }
-        t = t " " line; para = 1; next }
-      { if (blank || !para) exit                    # an unindented line: lazy only straight after paragraph text
-        if (line ~ /^(#|>|<!--|[-*+][ \t]|[0-9]+[.)][ \t]|```|~~~)/) exit
-        t = t " " line; next }
-      END { if (on) print t }' \
+      {
+        fence_parse(line)
+        if (pblank) { fence_line(line); pend = 1; next }
+        if (fch == "" && !pend && para && pd <= qd && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || ps !~ /^[ \t]*(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/)) {
+          t = t " " line; ln = ln " " NR; next }
+        r = fence_line(line)
+        if (isp < base || iser[base] != aid) exit
+        t = t " " line; ln = ln " " NR
+        para = (r ? 0 : 1); pend = 0 }
+      END { if (on) print (mode == "lines" ? ln : t) }' \
     | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }
 
@@ -695,7 +746,7 @@ CELL_EOF
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
   local _qav_artifact_bad="" _qav_artifact_malformed="" _qav_name_bad="" _qav_dir_bad="" _qav_kinds
-  local _qav_body _qav_ac_ids _qav_rows
+  local _qav_body _qav_ac_ids _qav_rows _qav_unclosed
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0 _qav_unread=""
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
@@ -719,6 +770,9 @@ kit_qa_verdict_check() {
   fi
 
   _qav_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+  # A fence nothing closes hides what follows it from the id reader below: refused first, by its line.
+  _qav_unclosed="$(_qav_unclosed_fence "$_qav_body")"
+  [ -z "$_qav_unclosed" ] || _qav_refuse_unclosed_fence "$issue_id" "$_qav_unclosed"
   _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
 
   if ! grep -qE '^## QA Verdict[[:space:]]*$' "$src"; then
@@ -1224,6 +1278,22 @@ _forks_reads_end() {  # <what> — <what> names the check in the message
   rm -f "$f"
 }
 
+# _qav_refuse_unclosed_fence <card-id> <open[ end]> — refuse a card whose fence nothing closes, naming the line it opened
+# on (<open>) and, when its list item or quote ended it, the line that did (<end>): the Next differs, since a closer
+# added after that line opens a fence of its own. Both landing routes (kit_ac_drift_check, kit_qa_verdict_check) call it.
+_qav_refuse_unclosed_fence() {
+  local issue_id="$1" uc_open uc_end
+  read -r uc_open uc_end <<< "$2"
+  if [ -n "$uc_end" ]; then
+    kit_refuse 1 forks-ac-unclosed-fence \
+      "Error: ${issue_id} has a code fence that opens on line ${uc_open} inside a list item or quote that ends on line ${uc_end}, before the fence closes: the unindented (or unquoted) line ends the item and its fence, so the fence's remaining lines are outside it." \
+      "Next: indent every line of the fence, its content and its closing line, to the item's text (as far in as the opening line's text), or put them under the same '>' markers, so the whole fence sits inside the item; or close the fence on a line before line ${uc_end}. Then commit the card to the trunk with ./scripts/register-commit.sh and re-run the command that refused. NOTHING WAS CHANGED."
+  fi
+  kit_refuse 1 forks-ac-unclosed-fence \
+    "Error: ${issue_id} has a code fence that opens on line ${uc_open} and is never closed above its '## QA Verdict', so everything after it reads as code." \
+    "Next: close the fence on line ${uc_open}: add a line holding only its backticks or tildes (as many as it opened with) after its last line, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
+}
+
 # ── kit_ac_drift_check <card-file> <card-id> <repo> <leave-commit> <leave-path> ────────────────
 #   The AC-drift half of the forks check, callable on its own: move-issue.sh calls it at qa_complete
 #   so a direct-to-trunk card is held to the rule the landing holds. <leave-commit> and <leave-path>
@@ -1242,18 +1312,7 @@ kit_ac_drift_check() {
   new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
   # A fence that does not close leaves what follows it read as code, or outside its list item: refused first, by its line.
   unclosed="$(_qav_unclosed_fence "$new_body")"
-  if [ -n "$unclosed" ]; then
-    local uc_open uc_end
-    read -r uc_open uc_end <<< "$unclosed"
-    if [ -n "$uc_end" ]; then
-      kit_refuse 1 forks-ac-unclosed-fence \
-        "Error: ${issue_id} has a code fence that opens on line ${uc_open} inside a list item that ends on line ${uc_end}, before the fence closes: an unindented line ends the item and its fence, so the fence's remaining lines are outside it." \
-        "Next: indent every line of the fence, its content and its closing line, to the item's text (as far in as the opening line's text), so the whole fence sits inside the item; or close the fence on a line before line ${uc_end}. Then commit the card to the trunk with ./scripts/register-commit.sh and re-run the command that refused. NOTHING WAS CHANGED."
-    fi
-    kit_refuse 1 forks-ac-unclosed-fence \
-      "Error: ${issue_id} has a code fence that opens on line ${uc_open} and is never closed above its '## QA Verdict', so everything after it reads as code." \
-      "Next: close the fence on line ${uc_open}: add a line holding only its backticks or tildes (as many as it opened with) after its last line, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
-  fi
+  [ -z "$unclosed" ] || _qav_refuse_unclosed_fence "$issue_id" "$unclosed"
   # The population next, on every route: a checklist line the QA gate's reader would drop is never
   # graded, and a card with no AC has nothing to grade — whether or not the card ever sat in todo/.
   stray="$(_qav_ac_stray_bullets "$new_body")"
@@ -1343,7 +1402,7 @@ kit_ac_drift_check() {
 _forks_cited_ids() {
   local src="$1" repo="$2" leave_commit="$3" leave_path="$4" id_shape="$5" live="${6:-}"
   local _kit_reg_label="$src (a scratch copy of its text)"
-  local new_body old_body ac ac_old ac_new unchanged="" scratch line ids seen="" in_body=1
+  local new_body old_body ac ac_old ac_new skipnos="" scratch line in_body=1 lineno=0
   local sec_scratch="" in_sec=0 in_fence=0 rec hd sec_id core_ids sec_ids kept=""
   if [ -n "$leave_commit" ]; then
     new_body="$(LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
@@ -1353,13 +1412,13 @@ _forks_cited_ids() {
       [ -n "$ac" ] || continue
       ac_old="$(_qav_ac_bullet_block "$old_body" "$ac")"
       ac_new="$(_qav_ac_bullet_block "$new_body" "$ac")"
-      [ -z "$ac_old" ] || [ "$ac_old" != "$ac_new" ] || unchanged="${unchanged}${ac}"$'\n'
+      [ -z "$ac_old" ] || [ "$ac_old" != "$ac_new" ] || skipnos="${skipnos} $(_qav_ac_bullet_linenos "$new_body" "$ac")"
     done <<< "$(_qav_ac_ids "$new_body")"
   fi
   # A scratch copy it cannot make is a card read whole: every bullet counts, so the check refuses
   # more, never less.
   scratch=""
-  if [ -n "$unchanged" ] || [ -n "$live" ]; then
+  if [ -n "$skipnos" ] || [ -n "$live" ]; then
     scratch="$(mktemp "${TMPDIR:-/tmp}/forks-cited.XXXXXX")" || scratch=""
     sec_scratch="$(mktemp "${TMPDIR:-/tmp}/forks-cited-sec.XXXXXX")" || sec_scratch=""
   fi
@@ -1372,6 +1431,7 @@ _forks_cited_ids() {
   : > "$scratch"; : > "$sec_scratch"
   while IFS= read -r rec || [ -n "$rec" ]; do
     in_fence="${rec%%$'\t'*}"; line="${rec#*$'\t'}"
+    lineno=$((lineno + 1))
     case "$line" in "## QA Verdict"*) in_body=0 ;; esac
     # A heading counts outside a code fence (_qav_fence_flags, the one fence rule), and the two sections are named exactly (trailing blanks aside).
     if [ "$in_fence" = 0 ]; then
@@ -1391,12 +1451,9 @@ _forks_cited_ids() {
     if [ "$in_body" = 1 ] && grep -qE '\[[ xX]\][[:space:]]+~~([^~]|~[^~])*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' <<< "$line"; then
       printf '%s\n' "$line" >> "$sec_scratch"; continue
     fi
+    # An unchanged AC applies a ruling made elsewhere: the whole of its item is skipped, wherever it wraps its citation.
     if [ "$in_body" = 1 ]; then
-      ids="$(_qav_ac_ids "$line")"
-      if [ -n "$ids" ] && ! grep -qx -- "$ids" <<< "$seen"; then
-        seen="${seen}${ids}"$'\n'
-        if grep -qx -- "$ids" <<< "$unchanged"; then continue; fi
-      fi
+      case " $skipnos " in *" $lineno "*) continue ;; esac
     fi
     printf '%s\n' "$line" >> "$scratch"
   done < <(paste -d $'\t' <(_qav_fence_flags < "$src") "$src")
