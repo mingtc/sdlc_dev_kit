@@ -1166,6 +1166,13 @@ def fence_scan(text):
                     sp = len(after) - len(after.lstrip(' \t'))
                     icol.append(ind + len(m.group(1)) + (1 if not after.strip(' \t') or sp > 4 else sp))
                     iq.append(d)
+        elif d > 0:
+            keep = j
+            while keep < len(icol) and iq[keep] == d:
+                keep += 1
+            del icol[keep:], iq[keep:]
+            if fch and len(icol) < fdepth:
+                unclosed, fch = unclosed or fopened, None
         lim = ((icol[-1] if icol and iq[-1] == d else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
         t = s.lstrip(' \t')
         c, run = t[:1], 0

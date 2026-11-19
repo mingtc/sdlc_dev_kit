@@ -310,6 +310,10 @@ function fence_line(ln,    lim, was, res, lead, rest2, mlen, after, sp, top) {
       if (after ~ /^[ \t]*$/ || sp > 4) sp = 1
       isp++; icol[isp] = pind + mlen + sp; iq[isp] = pd; iser[isp] = ++iseq
     }
+  } else if (pd > 0) {
+    top = isp; isp = pj
+    while (isp < top && iq[isp + 1] == pd) isp++
+    if (fch != "" && isp < fdepth) fence_end()
   }
   if (fch == "") lim = (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 3
   else lim = (fdepth > 0 ? icol[fdepth] : 0) + 3
@@ -464,7 +468,7 @@ _qav_ac_bullet_read() {
       {
         fence_parse(line)
         if (pblank) { fence_line(line); pend = 1; next }
-        if (fch == "" && !pend && para && pd <= qd && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && ps !~ /^(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/) {
+        if (fch == "" && !pend && para && pd <= qd && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && ps !~ /^[ \t]*(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/) {
           t = t " " line; ln = ln " " NR; next }
         r = fence_line(line)
         if (isp < base || iser[base] != aid) exit
