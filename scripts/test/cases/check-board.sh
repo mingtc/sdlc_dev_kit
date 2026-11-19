@@ -4732,6 +4732,8 @@ case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_co
     # a complete repository has nothing to unshallow: the Next names a re-fetch or a check of the repository
     printf '%s\n' "$q" | grep -F 'unshallow' >/dev/null && cf "($mode) the Next offers git fetch --unshallow in a complete repository: $q"
     printf '%s\n' "$q" | grep -F 'git fsck' >/dev/null || cf "($mode) the Next does not name a check or a re-fetch that works on a complete repository: $q"
+    printf '%s\n' "$q" | grep -F 'with the remote reachable' >/dev/null || cf "($mode) the Next does not say to re-run with the remote reachable (a git fetch does not restore a partial clone's objects; reading them does): $q"
+    printf '%s\n' "$q" | grep -F 'git fetch to re-fetch' >/dev/null && cf "($mode) the Next still says git fetch re-fetches the missing objects: $q"
   done
   # (shallow) a clone cut at --depth 1 has a boundary commit with no parent to read: it is not a root, and the arm says so (DID NOT RUN) with the Next that fits
   rm -rf "$SB_TMP/shallow"
@@ -4741,6 +4743,26 @@ case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_co
   printf '%s\n' "$q" | grep -F 'DID NOT RUN' >/dev/null || cf "(shallow) the clone's history stops at a boundary commit and arm [q] does not say DID NOT RUN: $q"
   printf '%s\n' "$q" | grep -F "its ruling history is not read" >/dev/null || cf "(shallow) the arm does not say the ruling history is not read: $q"
   printf '%s\n' "$q" | grep -F 'git fetch --unshallow' >/dev/null || cf "(shallow) the Next does not name git fetch --unshallow: $q"
+  # (root) a depth clone that reaches the root lists the root in .git/shallow, but the root has no parent line: it is a root, not a boundary, so the history reads whole
+  local rr="$SB_TMP/rootrepo" rc2="$SB_TMP/rootclone" rshape rfail
+  rshape="$(printf '%s' "$registers" | awk -F'|' '{print $3}')"
+  rm -rf "$rr" "$rc2"; mkdir -p "$rr/$(dirname "$reg_path")"
+  git -C "$rr" init -q . >/dev/null 2>&1
+  printf '# DECISIONS\n## A. Bucket\n%sD-01 — first\n**Ruling.** Alpha holds.\n**Why.** Reasons.\n**Provenance.** PM.\n' "$reg_mark" > "$rr/$reg_path"
+  git -C "$rr" add -A >/dev/null 2>&1; git -C "$rr" -c user.email=t@t.invalid -c user.name=t commit -q -m "register v1" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* Alpha holds\./**Ruling.** Alpha holds, except for one case./' "$rr/$reg_path"; rm -f "$rr/$reg_path.bak"
+  git -C "$rr" add -A >/dev/null 2>&1; git -C "$rr" -c user.email=t@t.invalid -c user.name=t commit -q -m "D-01 gains an exception" >/dev/null 2>&1
+  git clone -q --depth 2 "file://$rr" "$rc2" >/dev/null 2>&1 || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: the root clone failed."
+  [ "$(git -C "$rc2" rev-parse --is-shallow-repository)" = true ] && [ -s "$rc2/.git/shallow" ] || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: the root clone is not shallow."
+  rfail="$SB_TMP/root-fail"; : > "$rfail"
+  ( set +e
+    . "$SB_WORK/scripts/lib/board-properties.sh" || exit 3
+    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" "$SB_WORK/scripts/config.sh" || exit 4
+    KIT_BP_FAIL_FILE="$rfail"; KIT_BP_HIST_REPO="$rc2"; KIT_BP_HIST_RANGE="HEAD"
+    _bp_ruling_history "$reg_path" "$reg_mark" "$rshape" > "$SB_TMP/root-out.txt" 2>&1 ) \
+    || _fixture_die "case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy: could not drive _bp_ruling_history on the root clone."
+  [ ! -s "$rfail" ] || cf "(root) a depth clone that reaches the root reads its root as a shallow boundary: $(head -2 "$rfail" | tr '\n' '|' | cut -c1-200)"
+  grep -F 'D-01 — its Ruling text changed' "$SB_TMP/root-out.txt" >/dev/null || cf "(root) control: the unstamped change in the root clone was not named, so the history was not read: $(cat "$SB_TMP/root-out.txt" | tr '\n' '|' | cut -c1-200)"
   finish "arm [q]: a register copy git cannot read (its blob, then its tree) in the ruling history is DID NOT RUN with the reason and a Next, where an absent one stays a skip"
   teardown
 }
