@@ -379,10 +379,15 @@ kwt_unlock() {
   if [ -n "$KWT_UNPUSHED" ] && [ "$_kwt_midrebase" = "false" ] && git -C "$KWT" merge-base --is-ancestor HEAD "refs/remotes/$KWT_REMOTE/${DEFAULT_BRANCH:-}" 2>/dev/null; then
     {
       echo "Note: this op was ended by a signal after its push to $KWT_REMOTE/${DEFAULT_BRANCH:-} returned success: $KWT_REMOTE/${DEFAULT_BRANCH:-}, as this clone last saw it, holds its commit ($(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || echo "$KWT_UNPUSHED")). The next board op re-reads it from the remote."
-      echo "      What the op did after its push did not run: finish-pr.sh's branch deletion and its move to qa_complete, or the main checkout catching up."
-      echo "Next: ./scripts/check-board.sh shows whether anything is left undone; bring the main checkout up to the trunk:"
+      echo "      What the op did after its push did not run: the read-back of the trunk and the main checkout's catch-up; then, per script, finish-pr.sh's branch deletion and its move to qa_complete; the progress record and the \"Published:\" line of move-issue.sh and register-commit.sh (register-commit.sh also its notes on your checkout's copies and its landed-hash log); archive.sh's \"Published:\" line and summary."
+      echo "Next: ./scripts/check-board.sh shows whether the board is left undone; the progress record lives outside the board, and one that never ran stays missing."
+      if [ "$(git -C "$MAIN_ROOT" symbolic-ref --short HEAD 2>/dev/null || true)" = "${DEFAULT_BRANCH:-}" ]; then
+        echo "      Bring the main checkout up to the trunk:"
+      else
+        echo "      The main checkout sits on another branch; once it is back on ${DEFAULT_BRANCH:-the trunk}, bring it up to the trunk:"
+      fi
       echo "         git -C '$MAIN_ROOT' pull --ff-only $KWT_REMOTE ${DEFAULT_BRANCH:-}"
-      echo "      For finish-pr.sh, do not run it again (nothing is left to merge): delete the landed branch and run move-issue.sh <id> qa_complete --landed-at <the sha above> --role <role> --note '<what the review found>'."
+      echo "      For finish-pr.sh, do not run it again (nothing is left to merge): delete the landed branch, locally and on the remote (git -C '$MAIN_ROOT' branch -D <branch>; git -C '$MAIN_ROOT' push $KWT_REMOTE --delete <branch>), then run move-issue.sh <id> qa_complete --landed-at <the sha above> --role <role> --note '<what the review found>'."
     } >&2
     KWT_UNPUSHED=""
   fi

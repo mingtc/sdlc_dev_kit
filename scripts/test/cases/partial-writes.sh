@@ -185,12 +185,12 @@ case_a_board_op_terminated_in_its_push_names_the_unpushed_commit_and_how_to_publ
 
 # =============================================================================
 # CASE — a TERM TO THE OP'S OWN PID, not its group, during a push that lands: the op waits for the push, and its exit text
-# says the remote already holds the commit. It neither hedges ("may or may not") nor says the commit is unpublished, prints
+# says the push returned success and what the local tracking ref shows. It neither hedges ("may or may not") nor says the commit is unpublished, prints
 # a next action for the steps it did not reach, and leaves no lock; the next op lands.
 # =============================================================================
 case_a_term_to_the_ops_pid_alone_does_not_report_a_landing_push_as_unpublished() {
   cf_reset
-  local L="a board op sent TERM to its own pid while its push lands says the remote already holds the commit, neither hedging nor calling it unpublished, names what did not run and what to do, leaves no lock, and the next op lands"
+  local L="a board op sent TERM to its own pid while its push lands says the push returned success and what the tracking ref holds, neither hedging nor calling it unpublished, names what did not run and what to do, leaves no lock, and the next op lands"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   local id="$SB_PREFIX-875" out rc=0 pid i hold="$SB_TMP/in-hook2" cmds
@@ -209,6 +209,8 @@ case_a_term_to_the_ops_pid_alone_does_not_report_a_landing_push_as_unpublished()
   printf '%s\n' "$out" | grep -F 'as this clone last saw it' >/dev/null || cf "the exit text does not say what the claim rests on: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "the exit text names no next action for the steps the op did not reach: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -F 'pull --ff-only' >/dev/null || cf "the exit text does not say how to bring the main checkout up to the trunk"
+  printf '%s\n' "$out" | grep -F 'progress record' >/dev/null || cf "the exit text does not name the progress record among what did not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F -e '--delete' >/dev/null || cf "the exit text does not say to delete the landed branch on the remote too: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   git -C "$SB_ORIGIN" log --format=%s -3 "$SB_TRUNK" 2>/dev/null | grep -F 'landed anyway' >/dev/null || cf "the push had not landed when the op ended"
   [ ! -d "$SB_WORK/.kanban-wt.lock" ] || cf "the lock is still there after the op ended"
   cmds="$(printf '%s\n' "$out" | sed -n 's/^ *\(git -C .*pull --ff-only.*\)$/\1/p')"
@@ -856,7 +858,7 @@ case_a_signal_during_a_conflicting_rebase_leaves_no_rebase_in_progress() {
     out="$(cat "$SB_TMP/term5.out")"
     [ "$rc" = 143 ] || cf "($v) the op ended with status $rc, not 143"
     [ ! -d "$lock" ] || cf "($v) the lock is still there after the op ended"
-    printf '%s\n' "$out" | grep -F 'already holds it' >/dev/null && cf "($v) the exit text says the remote holds the commit, which it does not: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$out" | grep -F 'as this clone last saw it' >/dev/null && cf "($v) the exit text says the tracking ref holds the commit, which it does not: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
     printf '%s\n' "$out" | grep -F 'may or may not' >/dev/null || cf "($v) the exit text does not hedge: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
     if [ "$v" != stuck ]; then
       [ ! -d "$(git -C "$wt" rev-parse --git-path rebase-merge 2>/dev/null)" ] || cf "($v) the kanban worktree is left in rebase-merge"
