@@ -86,7 +86,8 @@ _kit_mb_state() {
 
 # _kit_mb_commit <file> <new-copy> — replace <file> with <new-copy> only when it differs, keeping the
 # file's mode: the bytes go to a copy of the file made beside it (cp -p), and that copy is moved over
-# it, so a write that fails (a full disk) has not touched <file>, and a refused write removes <new-copy> too. Sets KIT_MB_CHANGED.
+# it, so a write that fails (a full disk) has not touched <file>. A refused write removes <new-copy>
+# too. Sets KIT_MB_CHANGED.
 _kit_mb_commit() {
   local side
   if cmp -s "$1" "$2"; then
