@@ -5488,3 +5488,85 @@ case_the_link_check_does_not_crash_on_a_dangling_or_looping_artboard_symlink() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE DESIGNER'S COMMITS REACH THE TRUNK WITH THEIR SHAS, AND A PULL OR A PUBLISH STOPS WHEN THEY DO NOT.
+#   Operand: scripts/design/trunk-sync.sh in a sandbox project with a bare remote, the two skills, the role and the manifest.
+#   `check` is 0 level and refuses ahead, behind and diverged with a Next; `push` fast-forwards the remote and leaves HEAD's
+#   sha as it was, and refuses diverged, a refused push, a remote that does not hold the tip afterwards, and a fetch that fails;
+#   both refuse off the trunk. The skills run `check` at their start and `push` after each commit step; the role's checklist
+#   names the route; the manifest places the script.
+# =============================================================================
+case_the_designers_commits_reach_the_trunk_with_their_shas_and_a_pull_or_publish_stops_when_they_do_not() {
+  cf_reset
+  local L="trunk-sync.sh check is 0 level with the remote and refuses ahead, behind and diverged with a Next, push fast-forwards the remote without changing HEAD's sha and refuses diverged, a refused push, a tip the remote does not hold and an unreachable remote, both refuse off the trunk; the skills run check first and push after each commit step, the role's checklist names the route, the manifest places the script"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _md_sandbox
+  local m="$REAL_REPO_ROOT/modules/design" s="$SB_WORK/scripts/design/trunk-sync.sh" o="$SB_TMP/ts-other" head0 head1 tip
+  mkdir -p "$SB_WORK/scripts/design"
+  if [ -f "$m/scripts/design/trunk-sync.sh" ]; then cp "$m/scripts/design/trunk-sync.sh" "$s"; fi
+  _ts() { _ts_rc=0; _ts_out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR bash scripts/design/trunk-sync.sh "$@" 2>&1 </dev/null )" || _ts_rc=$?; }
+  _ts_next() { printf '%s\n' "$_ts_out" | grep -c '^Next: .*'"$1" || true; }
+  _ts_brief() { printf '%s' "$_ts_out" | tr '\n' '|' | cut -c1-300; }
+  # (a) level with the remote
+  _ts check; [ "$_ts_rc" -eq 0 ] || cf "(a) check is not 0 on a trunk level with the remote (exit $_ts_rc): $(_ts_brief)"
+  # (b) a Designer commit only the local trunk holds: check refuses, names the commit and the push, and push is the way out
+  echo one > "$SB_WORK/take-in.txt"; git -C "$SB_WORK" add take-in.txt >/dev/null 2>&1; sbcommit -q -m "[$SB_ROLE] design: take in app" >/dev/null 2>&1
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  _ts check
+  { [ "$_ts_rc" -eq 1 ] && _dm_has "$_ts_out" "design: take in app" && [ "$(_ts_next 'trunk-sync.sh push')" -eq 1 ]; } || cf "(b) check over an unpushed Designer commit is not refused with the commit named and the push as its Next (exit $_ts_rc): $(_ts_brief)"
+  # (c) push: the remote holds the tip, HEAD is the sha it was, and check is level again
+  _ts push; tip="$(git -C "$SB_ORIGIN" rev-parse "refs/heads/$SB_TRUNK" 2>/dev/null)"
+  head1="$(git -C "$SB_WORK" rev-parse HEAD)"
+  { [ "$_ts_rc" -eq 0 ] && [ "$tip" = "$head0" ] && [ "$head1" = "$head0" ]; } || cf "(c) push does not leave the remote at the commit the Designer made, unchanged (exit $_ts_rc, remote $tip, head $head1, made $head0): $(_ts_brief)"
+  _ts check; [ "$_ts_rc" -eq 0 ] || cf "(c) check after a push is not 0 (exit $_ts_rc): $(_ts_brief)"
+  _ts push; { [ "$_ts_rc" -eq 0 ] && _dm_has "$_ts_out" "nothing to push"; } || cf "(c) push with nothing to push is not a quiet 0 (exit $_ts_rc): $(_ts_brief)"
+  # (d) the remote moved by another landing: behind refuses with the fast-forward
+  git clone -q "$SB_ORIGIN" "$o" >/dev/null 2>&1; git -C "$o" config user.email t@t; git -C "$o" config user.name t
+  echo two > "$o/other.txt"; git -C "$o" add other.txt >/dev/null 2>&1; git -C "$o" commit -qm "[PM] other landing" >/dev/null 2>&1; git -C "$o" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1
+  _ts check
+  { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'pull --ff-only')" -eq 1 ]; } || cf "(d) check on a trunk the remote has moved past is not refused with the fast-forward as its Next (exit $_ts_rc): $(_ts_brief)"
+  # (e) diverged: a Designer commit and the remote's; check and push refuse, the Next says merge and not rebase, nothing moves
+  echo three > "$SB_WORK/more.txt"; git -C "$SB_WORK" add more.txt >/dev/null 2>&1; sbcommit -q -m "[$SB_ROLE] design: log threads for app" >/dev/null 2>&1
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"; tip="$(git -C "$SB_ORIGIN" rev-parse "refs/heads/$SB_TRUNK")"
+  _ts check
+  { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'git merge')" -eq 1 ] && _dm_has "$_ts_out" "never rebase"; } || cf "(e) check on a diverged trunk is not refused with merge, never rebase, as its Next (exit $_ts_rc): $(_ts_brief)"
+  _ts push
+  { [ "$_ts_rc" -eq 1 ] && [ "$(git -C "$SB_ORIGIN" rev-parse "refs/heads/$SB_TRUNK")" = "$tip" ] && [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ]; } || cf "(e) push on a diverged trunk is not refused with the remote and HEAD left as they were (exit $_ts_rc): $(_ts_brief)"
+  # (f) the merge route keeps the Designer's sha, and push then lands it
+  git -C "$SB_WORK" fetch -q origin "$SB_TRUNK" >/dev/null 2>&1; git -C "$SB_WORK" merge -q --no-edit "origin/$SB_TRUNK" >/dev/null 2>&1
+  _ts push
+  { [ "$_ts_rc" -eq 0 ] && git -C "$SB_ORIGIN" merge-base --is-ancestor "$head0" "refs/heads/$SB_TRUNK" 2>/dev/null; } || cf "(f) after merging the remote in, push does not land a history that still holds the Designer's commit $head0 (exit $_ts_rc): $(_ts_brief)"
+  # (g) a remote that refuses the push: refused with a Next, HEAD unchanged
+  printf '#!/bin/sh\necho "denied by the test" >&2\nexit 1\n' > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  echo four > "$SB_WORK/refused.txt"; git -C "$SB_WORK" add refused.txt >/dev/null 2>&1; sbcommit -q -m "[$SB_ROLE] design: publish app" >/dev/null 2>&1
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  _ts push
+  { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'tell the human')" -eq 1 ] && [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ]; } || cf "(g) a push the remote refuses is not refused with a Next that reaches the human, HEAD unchanged (exit $_ts_rc): $(_ts_brief)"
+  # (h) a push the remote accepts and then does not hold: the read-back refuses
+  printf '#!/bin/sh\nwhile read old new ref; do git update-ref "$ref" "$old" 2>/dev/null || git update-ref -d "$ref"; done\n' > "$SB_ORIGIN/hooks/pre-receive"
+  mv "$SB_ORIGIN/hooks/pre-receive" "$SB_ORIGIN/hooks/post-receive"
+  _ts push
+  { [ "$_ts_rc" -eq 1 ] && _dm_has "$_ts_out" "returned success" && [ "$(_ts_next 'git fetch')" -ge 1 ]; } || cf "(h) a push the remote reverts is not refused by the read-back (exit $_ts_rc): $(_ts_brief)"
+  rm -f "$SB_ORIGIN/hooks/post-receive"
+  # (i) an unreachable remote: refused with a Next, not read as level
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git"
+  _ts check; { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'git fetch')" -ge 1 ]; } || cf "(i) check over a remote that cannot be read is not refused with a Next (exit $_ts_rc): $(_ts_brief)"
+  git -C "$SB_WORK" remote set-url origin "$SB_ORIGIN"
+  # (j) off the trunk, both modes refuse before fetching or pushing
+  git -C "$SB_WORK" checkout -q -b side >/dev/null 2>&1
+  _ts check; { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'check out')" -eq 1 ]; } || cf "(j) check off the trunk is not refused with a Next that says to check out the trunk (exit $_ts_rc): $(_ts_brief)"
+  _ts push;  { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'check out')" -eq 1 ]; } || cf "(j) push off the trunk is not refused with a Next that says to check out the trunk (exit $_ts_rc): $(_ts_brief)"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  # (k) the wiring: the skills and the role name the script where the commits are made, and the manifest places it
+  local p="$m/_claude/skills/design-pull/SKILL.md" b="$m/_claude/skills/design-publish/SKILL.md" r="$m/_claude/roles/designer.md"
+  [ "$(grep -c 'trunk-sync.sh check' "$p")" -ge 1 ] || cf "(k) /design-pull never runs trunk-sync.sh check"
+  [ "$(grep -c 'trunk-sync.sh check' "$b")" -ge 1 ] || cf "(k) /design-publish never runs trunk-sync.sh check"
+  [ "$(grep -c 'trunk-sync.sh push' "$p")" -ge 2 ] || cf "(k) /design-pull names trunk-sync.sh push fewer than twice (the take-in and the thread-logging commit)"
+  [ "$(grep -c 'trunk-sync.sh push' "$b")" -ge 3 ] || cf "(k) /design-publish names trunk-sync.sh push fewer than three times (the normalise commit, the pre-send commit, Last publish)"
+  grep -F -- 'prefix and pushed.' "$r" >/dev/null && cf "(k) the role's checklist still says only 'and pushed.'"
+  [ "$(grep -c 'trunk-sync.sh' "$r")" -ge 1 ] || cf "(k) the role never names trunk-sync.sh"
+  _dm_manifest_places "$m/module.manifest" file '^scripts/design/trunk-sync\.sh$' || cf "(k) the manifest does not place scripts/design/trunk-sync.sh"
+  finish "$L"
+  teardown
+}

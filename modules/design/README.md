@@ -15,6 +15,8 @@ It is **off until enabled** ([`process/MODULES.md`](../../process/MODULES.md)).
 
 Push the enabling commit before expecting `[Designer]` to be known to `check-board.sh`, which reads the trunk.
 
+The same holds for every Designer commit: the gates read `origin/<trunk>`, so the Designer pushes each one as it was made (`bash scripts/design/trunk-sync.sh push`, never a rebase), and `/design-pull` and `/design-publish` stop first when the trunk is ahead, behind or diverged.
+
 `disable` takes back the files, not the cards: a card in flight keeps its `design:` key and its pins, which nothing reads while the module is off, so a card pinned to a screen can reach `qa_complete/` and land with no design row. Land or park those cards first, or enable the module again.
 
 | Adds | Where |
@@ -31,7 +33,7 @@ Push the enabling commit before expecting `[Designer]` to be known to `check-boa
 | The QA design-cell check on each PASS row of kind `design` | `scripts/qa-cell.d/design/50-design-cell.sh`, with `scripts/design/check-design-cell.py` |
 | Gate row, CORPUS manifest and bucket rows | blocks in `PROJECT.md` and `requirements/CORPUS.md` |
 | Ignore lines for the pull's scratch folder and generated tokens | a block at the end of `.gitignore` |
-| The canvas commands: `/design-pull` and `/design-publish` (Claude Code 2.1.228 or later and a claude.ai login, optional), the normaliser for a page save's re-serialising and the comment-anchor resolver | `.claude/skills/design-pull/SKILL.md`, `.claude/skills/design-publish/SKILL.md`, `scripts/design/normalise-canvas.py`, `scripts/design/resolve-anchor.py` |
+| The canvas commands: `/design-pull` and `/design-publish` (Claude Code 2.1.228 or later and a claude.ai login, optional), the normaliser for a page save's re-serialising, the comment-anchor resolver and the trunk check and push | `.claude/skills/design-pull/SKILL.md`, `.claude/skills/design-publish/SKILL.md`, `scripts/design/normalise-canvas.py`, `scripts/design/resolve-anchor.py`, `scripts/design/trunk-sync.sh` |
 | The token generator (Node 22 or later, optional), the token converter, the renderer (Chrome and a design runtime you supply, optional) and the contrast and target audits | `scripts/design/m3-tokens.mjs`, `dtcg-convert.py`, `render.py`, `contrast-audit.py`, with `scripts/design/vendor/` (Apache-2.0, see its `NOTICE`) |
 
 ## What this version has

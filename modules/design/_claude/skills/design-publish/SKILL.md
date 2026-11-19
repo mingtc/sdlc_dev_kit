@@ -26,11 +26,13 @@ Name your surface in one line before anything else: look at your tools.
 Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Artifact` tool's `list` (B). If it is refused, stop with
 `Next: run /login in Claude Code, then run /design-publish again (modules/design/SETUP.md).` An empty list is a pass.
 
+Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again (the role's § Taking the canvas in says why).
+
 ## 1. The first publish
 
 `CANVAS.md` says `Last pull: none` and has no canvas URL: this is a new canvas. Read the Design type's instructions and `format.md` first (`list_types`,
 `describe_type`), `list_artifacts` with `type: "Design System"` for a system to use, then `create_from_type` **once**, record its URL and `version`
-in `CANVAS.md`, run step 3's `normalise` block over `project/`, commit what it rewrote, and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
+in `CANVAS.md`, run step 3's `normalise` block over `project/`, commit what it rewrote and push it (`bash scripts/design/trunk-sync.sh push`), and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
 publish each, with the `version` the last result gave. Then step 6. Every later publish starts at step 2.
 
 ## 2. List, once, and refuse a canvas that moved
@@ -54,7 +56,7 @@ A file it names `UNREAD` is not sent: show the human. Commit every file it rewro
 change) is committed too, so the next `/design-pull` finds a clean tree. Then the set is every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
 `canvas.json` only when the layout changed, plus a file the human named to restore. **Never `git diff` against the pull commit:** it misses a canvas edit the
 human rejected, which only they can name. A file the repo dropped goes in `remove`; a file the canvas dropped (the pull took the deletion in) is not repo-only and is not sent back.
-Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them.
+Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them, and push each commit (`bash scripts/design/trunk-sync.sh push`) before the send: if the push is refused, stop with its `Next:` and send nothing. Push as it is: a rebase or a re-landing changes the shas `CANVAS.md` records.
 
 ## 4. Send
 
@@ -90,7 +92,7 @@ the read-back is the only proof. A file whose sha differs, sent or unsent, was c
 and never re-send. **On B** the read-back is `read` of every `project/` file again.
 
 With every sha matched, or after that pull, write the new `version` and the manifest into `CANVAS.md`: `Last publish: <version> @ <repo commit>` (the commit that holds what you sent, made before the send),
-canvas sha and repo sha now equal for what you sent. Commit `CANVAS.md` (`[Designer] design: publish <canvas>`).
+canvas sha and repo sha now equal for what you sent. Commit `CANVAS.md` (`[Designer] design: publish <canvas>`) and push it (`bash scripts/design/trunk-sync.sh push`; if refused, stop with its `Next:`).
 If you changed one file with `edit_version` instead of step 4's `publish_files`, no local bytes exist: read the file back (`read_file`) and compare it with your change applied to the copy you pulled.
 
 ## 7. Answer the threads you addressed
@@ -98,7 +100,7 @@ If you changed one file with `edit_version` instead of step 4's `publish_files`,
 Only now, with the change published and read back. For each thread in `COMMENTS.md` the change answers: `reply_comment` saying what changed and where. On
 `summon_already_answered` an automatic reply stands: pass its `standing_reply.id` as `continues_reply_id`; an automatic reply is an acknowledgement, not the
 change. Then `resolve_comment`. Both work without asking only on an artifact nobody else can open; on a shared one use `reply_shared_comment` and the user resolves.
-Set the row `resolved` in `COMMENTS.md`. A plain comment never reached you (it is invisible on A); if the human mentions one, ask them to Send it to Claude.
+Set the row `resolved` in `COMMENTS.md`, commit it and push it (`bash scripts/design/trunk-sync.sh push`). A plain comment never reached you (it is invisible on A); if the human mentions one, ask them to Send it to Claude.
 **On B** the same comment tools are documented to exist; not observed.
 
 Tell the human what was sent, the new version, and what to look at on the canvas. Publishing starts a watch in a session that can be woken; the `watch` tool

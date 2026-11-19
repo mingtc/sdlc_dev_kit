@@ -32,6 +32,8 @@ Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Ar
 Then make sure the working tree holds nothing of the canvas that is not committed: `git status --porcelain requirements/design/<canvas>` must print nothing.
 If it prints something, **stop**: commit it if it is the Designer's own work, otherwise tell the human what it is and wait (with no human present, the role's rule 11 applies: end the pull here). A pull lays files over `project/`, and its undo would destroy an uncommitted file.
 
+Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when local `<trunk>` is ahead of, behind or diverged from `origin/<trunk>`: carry that out or hand it to the human, then run it again (the role's § Taking the canvas in says why).
+
 ## 1. Find the canvas and what you last took in
 
 Read `requirements/design/<canvas>/CANVAS.md`: the canvas URL (its last path segment is the slug), `Last pull`, `Last publish` and the **Manifest** (one line per
@@ -113,7 +115,7 @@ diff -u requirements/design/<canvas>/<path> .cache/design/pull/<path>
 On their go-ahead take the canvas's file in, then redo the repo's change on it with the role's order and publish it. On a "no", the pull is over.
 
 **To take one canvas edit and reject another**, answer yes to the pull, and when it is committed restore the rejected file from the base: `git checkout <base> -- requirements/design/<canvas>/<path>`,
-commit it (`[Designer] design: restore <path>`). The human has now named that file, so `/design-publish` sends the repo's bytes for it (its step 2) and every other file is left as it was taken in.
+commit it (`[Designer] design: restore <path>`) and push it (`bash scripts/design/trunk-sync.sh push`). The human has now named that file, so `/design-publish` sends the repo's bytes for it (its step 2) and every other file is left as it was taken in.
 
 A **new** board (a pulled `.dc.html` that no registry row names) is invisible to the link check until it has a row. Add its row to `CANVAS.md` before the check: the
 UX id and stories are its root's `data-ux` and `data-stories`, the states its `data-state` values; a board with no `data-ux` cannot be registered, so raise it to the human instead of pulling it.
@@ -185,7 +187,7 @@ It prints `<Board>.dc.html#<element id>` (or `UNRESOLVED`: log the thread agains
 Log each thread in `COMMENTS.md`, its thread id in the `thread` column (a `COMMENTS.md` made from an older template lacks the column: add it to the table by hand) (`open`, or `acknowledged` when an automatic reply stands: that reply is an acknowledgement, not the change). A thread
 already logged is updated, not logged twice. **Do not reply "done" or resolve here:** that is `/design-publish`, after the change is published and read back. An automatic reply stopped after the
 60th comment or activation in an hour (observed 2026-11); a watch can end after hours without activity, and the `watch` tool answered `not_armed` where this was observed, so
-do not rely on a comment waking you: you read threads when you pull. A pull that found no file change and only logged threads commits `COMMENTS.md` alone, `[Designer] design: log threads for <canvas>`.
+do not rely on a comment waking you: you read threads when you pull. A pull that found no file change and only logged threads commits `COMMENTS.md` alone, `[Designer] design: log threads for <canvas>`, and pushes it (`bash scripts/design/trunk-sync.sh push`).
 
 ## 8. Take it in
 
@@ -199,4 +201,4 @@ awk -v p='<path>' '{ q = $1; for (i = 2; i <= NF - 2; i++) q = q " " $i } q != p
 
 Then two commits under `[Designer]` (the role's § Taking the canvas in): the files already in `project/`, then `CANVAS.md` with
 `Last pull: <V> @ <that commit>` and the manifest, with `COMMENTS.md` and the registry in the same commit as the screens they describe.
-Subject: `[Designer] design: take in <canvas>`. Then tell the human what changed and what you will do next. **You publish nothing here.**
+Subject: `[Designer] design: take in <canvas>`. Then `bash scripts/design/trunk-sync.sh push`, and if it refuses stop with its `Next:` before you tell the human anything: the gate reads the trunk. Push the commits as they are; a rebase or a re-landing changes the shas that `Last pull` and the gate cells name. Then tell the human what changed and what you will do next. **You publish nothing here.**

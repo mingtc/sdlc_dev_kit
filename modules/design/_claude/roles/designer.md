@@ -269,6 +269,8 @@ in `CANVAS.md`, with the manifest: one line per file, `<path> <canvas sha> <repo
 they describe. Subject: `[Designer] design: take in <canvas>`. `Last publish: <canvas version> @ <repo commit>` records a send
 after its read-back.
 
+**Every Designer commit reaches the trunk as it was made.** The gates and every board tool read `origin/<trunk>`, so an approval, a take-in or a `Last pull` that only this clone holds is judged missing (a false `STALE-APPROVAL` or `PIN-ORDER`, whose `Next:` sends the human to approve again). Commit on the trunk, then `bash scripts/design/trunk-sync.sh push`: a fast-forward push, read back from the remote. Never `git pull --rebase`, and never land the commit again on the remote's tip (`register-commit.sh`): either gives it a new sha, and `Last pull`, `Last publish` and `approved@<sha>` name the old one. When the trunk has moved, `git merge origin/<trunk>` keeps every sha. `/design-pull` and `/design-publish` run `trunk-sync.sh check` first and stop on an unpushed, behind or diverged trunk.
+
 ## The two gates
 
 One artifact per screen, two reviews. A `wire` token theme renders the same source as a greyscale wireframe.
@@ -312,4 +314,4 @@ approval reads as a stale approval and goes back to `changes`; the Designer tell
 - [ ] `check-design-links.py` reports nothing for the screens touched (README § 3); each gap fixed or listed as a question.
 - [ ] Open questions are `ask.sh` files, committed, not left in the conversation.
 - [ ] `Pin-ready:` in `CANVAS.md` is current.
-- [ ] Committed under the `[Designer]` prefix and pushed.
+- [ ] Committed under the `[Designer]` prefix, and `bash scripts/design/trunk-sync.sh check` says the trunk equals `origin/<trunk>` (each commit pushed with `trunk-sync.sh push`, none rebased).

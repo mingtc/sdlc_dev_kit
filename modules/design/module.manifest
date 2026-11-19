@@ -27,6 +27,7 @@ file: scripts/design/dtcg-convert.py -> scripts/design/dtcg-convert.py
 file: scripts/design/m3-tokens.mjs -> scripts/design/m3-tokens.mjs
 file: scripts/design/normalise-canvas.py -> scripts/design/normalise-canvas.py
 file: scripts/design/resolve-anchor.py -> scripts/design/resolve-anchor.py
+file: scripts/design/trunk-sync.sh -> scripts/design/trunk-sync.sh
 file: _claude/skills/design-pull/SKILL.md -> .claude/skills/design-pull/SKILL.md
 file: _claude/skills/design-publish/SKILL.md -> .claude/skills/design-publish/SKILL.md
 file: scripts/design/vendor/LICENSE -> scripts/design/vendor/LICENSE
