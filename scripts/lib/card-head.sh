@@ -115,10 +115,10 @@ kit_fragment_fault() {
 
 # _kit_fragment_owner <process/MODULES> <template>/<file> — the module whose `module` or `pending` section
 # records the fragment as placed by it, or nothing (no record, or a `kept` row: a disable left it, so it is the
-# project's own).
+# project's own). A record with CRLF line ends reads the same.
 _kit_fragment_owner() {
   [ -f "$1" ] || return 0
-  awk -v p="process/fragments.d/$2" '$1 == "module" || $1 == "pending" { m = $2; next } $1 == "kept" { m = ""; next }
+  awk -v p="process/fragments.d/$2" '{ sub(/\r$/, "") } $1 == "module" || $1 == "pending" { m = $2; next } $1 == "kept" { m = ""; next }
     $1 == "file" && $3 == p && m != "" { print m; exit }' "$1"
 }
 

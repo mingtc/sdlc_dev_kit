@@ -2020,8 +2020,8 @@ case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enable
 #   A fragment carrying a slot line or a control byte is refused at the mint. Taking it out of the file is
 #   the whole fix only for the project's own fragment in the checkout: a slice reads the trunk's fragments,
 #   so the fix must be pushed; a fragment process/MODULES records a module as having placed comes from the
-#   module's source, so the fix goes there and the module places it again. A `kept` row (a disable left the
-#   file) makes it the project's own.
+#   module's source, so the fix goes there and the module places it again, also when process/MODULES has
+#   CRLF line ends. A `kept` row (a disable left the file) makes it the project's own.
 # =============================================================================
 case_a_fragment_refusals_next_names_where_the_fix_goes() {
   cf_reset
@@ -2077,6 +2077,8 @@ case_a_fragment_refusals_next_names_where_the_fix_goes() {
   _fn_put "$marker" "module probe 1.0.0"$'\n'"$row"
   _fn_mint issue; _fn_check "(b) a module's slot line, new-issue" fragment-content-markers module
   _fn_mint slice; _fn_check "(b) a module's slot line, slice" fragment-content-markers module-push
+  _fn_put "$marker" "module probe 1.0.0"$'\r\n'"$row"$'\r'
+  _fn_mint issue; _fn_check "(b) a module's slot line, process/MODULES with CRLF line ends, new-issue" fragment-content-markers module
   _fn_put "$ctl" "pending probe 1.0.0"$'\n'"$row"
   _fn_mint issue; _fn_check "(b) a pending module's control byte, new-issue" fragment-control-byte module
   # (c) KEPT BY A DISABLE: the project's own again, though another module's section comes first.
