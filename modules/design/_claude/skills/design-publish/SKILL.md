@@ -66,8 +66,7 @@ A: `publish_files <slug>` with `base_version: V` (the version from step 2, not a
 **On B:** `publish` takes a `root` and `files`, and refuses a repo path as `root`. Do the slow part first: stage a copy (`rsync -a --delete` the set into a temporary
 folder, `diff -r` it against the repo). Then, with nothing between it and the send, `read` every `project/` file again and set each sha beside the manifest's **canvas sha** and
 step 2's. A file that differs, is new or is gone: **stop**, send nothing, run `/design-pull`; a file the human told you to restore (step 2) may differ. Then `publish` from the staged folder at once.
-B's `publish` carries no base version, so **the server will not refuse a moved canvas**: it is documented to refuse a file you replace that changed since you read it (not observed), and
-it ignores every other file. The re-read narrows the window and does not close it; step 5's warning and step 6's read-back are the backstop.
+B's `publish` carries no base version. It may refuse a send when this session has not read the page since its last save, and it did not always: **the re-read above is what stops a moved canvas**, and it narrows the window without closing it; step 5's warning and step 6's read-back are the backstop.
 
 ## 5. Read the result: a warning stops you
 
@@ -81,6 +80,7 @@ it ignores every other file. The re-read narrows the window and does not close i
   - **A file the human named to restore (step 2):** that is what they asked for. Say that you replaced the canvas's edit of it as they said, restore nothing, and go to step 6.
   - **Any other file, or one the manifest lacks: stop.** You replaced an edit you never pulled. Tell the human which files. The tool will not copy an earlier version
     back: if `CANVAS.md`'s `Last pull` commit holds the bytes, restore them and say so; if not, ask the human.
+- **On B, "You haven't viewed the latest version of this artifact", nothing published:** `read` the page (`action: "read"`, `url`), then run again from step 2; never `force`.
 - A third refusal: tell the human and stop.
 
 ## 6. Read back, then record
