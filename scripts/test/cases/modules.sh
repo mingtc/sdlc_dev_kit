@@ -939,6 +939,36 @@ case_fixture_library_lists_follow_the_scripts_source_lines() {
   teardown
 }
 
+# =============================================================================
+# CASE — A REFUSAL INSIDE module.sh list's LOOP ENDS THE COMMAND WITH ITS CODE.
+#   Operand: module.sh list in a project whose lib/modules.sh is made to refuse while listing one
+#   module, in a call the loop makes itself (not inside a command substitution, whose exit is its
+#   own). The refusal is the command's exit status and nothing is listed after it; without the
+#   stand-in, the same project lists both modules and exits 0.
+# =============================================================================
+case_module_list_ends_with_a_refusal_made_inside_its_loop() {
+  cf_reset
+  local L="a refusal made while module.sh list reads its modules ends the command with the refusal's exit status, and nothing is listed after it"
+  [ -f "$REAL_SCRIPTS/module.sh" ] || { cf "scripts/module.sh is absent from the tree under test"; finish "$L"; return; }
+  make_sandbox
+  local P="$SB_TMP/ml"
+  _mx_proj "$P"
+  _mx_mod "$P" ma 0.1.0 'file: h.sh -> tools/ma.sh'; _mx_put "$P/modules/ma/h.sh" 'echo a'
+  _mx_mod "$P" mz 0.1.0 'file: h.sh -> tools/mz.sh'; _mx_put "$P/modules/mz/h.sh" 'echo z'
+  # (control) as shipped: both listed, exit 0.
+  _mx_run "$P" list
+  [ "$_mx_rc" -eq 0 ] || cf "(control) module.sh list exited $_mx_rc: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
+  case "$_mx_out" in *" ma "*" mz "*"Enable one with"*) ;; *) cf "(control) module.sh list did not list ma and mz: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  # (refusal) listing mz refuses: exit 3, the refusal printed, and the list stops there.
+  printf '%s\n' 'kit_mod_is_enabled() { [ "$1" != mz ] || kit_refuse 3 module-list-probe "Error: the probe refuses to list mz." "Next: none; this is the self-test'"'"'s stand-in."; return 1; }' >> "$P/scripts/lib/modules.sh"
+  _mx_run "$P" list
+  [ "$_mx_rc" -eq 3 ] || cf "(refusal) module.sh list exited $_mx_rc, not the refusal's 3: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
+  case "$_mx_out" in *"the probe refuses to list mz"*) ;; *) cf "(refusal) the refusal is not in the output: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  case "$_mx_out" in *"Enable one with"*) cf "(refusal) module.sh list went on past the refusal: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  finish "$L"
+  teardown
+}
+
 case_module_enable_takes_only_what_it_wrote_and_blocks_are_per_slot() {
   cf_reset
   local L="enable refuses a target that already exists even when byte-equal (so disable cannot delete a file the project or another module had), puts one block per slot of a file for one module and takes each back, refuses './' and '//' spellings, refuses a record row that leaves the project, and a disable that keeps an edited file leaves it recorded under 'kept' for status, list and a re-enable"

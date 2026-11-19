@@ -94,12 +94,12 @@ case "$CMD" in
     echo "modules this kit ships (modules/):"
     avail="$(kit_mod_available)"
     if [ -z "$avail" ]; then echo "  none"; else
-      printf '%s\n' "$avail" | while read -r n v p; do
+      while read -r n v p; do
         if kit_mod_is_enabled "$n"; then st="enabled "; elif kit_mod_is_pending "$n"; then st="UNFINISHED"; else st="disabled"; fi
         kept=""; [ -n "$(kit_mod_kept_version "$n")" ] && kept="  [files kept from an earlier disable: ./scripts/module.sh status $n]"
         printf '  %-16s %-8s %s  %s%s\n' "$n" "$v" "$st" "$p" "$kept"
         printf '  %-16s needs: %s\n' "" "$(kit_mod_needs "$n")"
-      done
+      done <<< "$avail"
     fi
     echo "Enable one with: ./scripts/module.sh enable <name>   (process/MODULES.md § The catalogue says what each does; enable checks what it needs)" ;;
   status)
