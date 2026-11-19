@@ -181,6 +181,20 @@ ${ac1_text}
 EOF
 }
 
+# no_machine_git_config <command> [args…] — run a command (a shell function too) with no global or
+# system git config in reach: HOME and XDG_CONFIG_HOME name an empty directory, and
+# GIT_CONFIG_NOSYSTEM=1 drops the system file. A case asserting what the trunk chain does when the
+# PROJECT sets nothing runs the call through it, so a key the machine sets (init.defaultBranch)
+# cannot answer in the project's place. GIT_CONFIG_GLOBAL would read better, and needs git 2.32,
+# newer than the 2.28 README.md's day one names. The sandbox's identity is repo-local, so commits still work.
+no_machine_git_config() {
+  local h rc=0
+  h="$(mktemp -d)" || return 1
+  ( export HOME="$h" XDG_CONFIG_HOME="$h" GIT_CONFIG_NOSYSTEM=1; "$@" ) || rc=$?
+  rm -rf "$h"
+  return "$rc"
+}
+
 # make_sandbox [work_subdir]
 # The optional arg names the work-repo subdirectory under the temp root (default
 # "work"). Pass a name CONTAINING A SPACE (e.g. "work dir") to reproduce a repo

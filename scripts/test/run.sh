@@ -925,6 +925,7 @@ CASES=(
   case_minting_cases_probe_for_the_template
   case_frontmatter_scan_cap_is_enforced
   case_trunk_chain_announces_every_fallback
+  case_trunk_cases_reach_step_3_under_a_global_default_branch
   case_probe_victim_selection_survives_pipefail
   case_shipped_membership_tests_do_not_pipe_a_list
   case_release_unmutated_names_the_cut
