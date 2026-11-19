@@ -69,7 +69,8 @@ Reports (each line starts with its class)
                 changed since; the row goes back to review. In a wireframe canvas: gate 1 only, and only when the structure differs
   SUPERSEDED    a citation of a superseded screen        DUPLICATE  one UX id on two rows
   ARTBOARD      an artboard's data-ux / data-stories disagrees with its row (only when the file exists); also a row with an
-                approved gate cell whose file is not there, or an open or changes one (a superseded row may lose its file). "Exists" follows the filesystem: a registry path that differs from a
+                approved gate cell whose file is not there, or an open or changes one whose file git once held (a screen briefed and not yet
+                drawn is no finding, nor is any when git cannot answer; a superseded row may lose its file); each says its Next. "Exists" follows the filesystem: a registry path that differs from a
                 tracked file only in case resolves on a case-insensitive one, so ARTBOARD stays silent there and STALE-APPROVAL
                 (which reads git) still reports a missing approved file
   FENCE         a PRD with a code fence never closed: everything after it is prose to this check
@@ -115,7 +116,7 @@ Report lines, not findings (shown; never counted, never an exit status):
                 lack it. A story with no `UI:` line reads as none declared
 Python 3 standard library only.
 """
-import argparse, html as htmllib, importlib.util, json, posixpath, re, subprocess, sys
+import argparse, html as htmllib, importlib.util, json, os, posixpath, re, subprocess, sys
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -224,6 +225,17 @@ def git_bytes(root, rev, path):
 def git_blob(root, rev, path):
     rc, out = git(root, 'show', f'{rev}:{path}')
     return out.decode('utf-8', 'replace') if rc == 0 else None
+
+
+def was_tracked(root, rel):
+    """True when the history behind HEAD holds `rel` (a screen that was drawn and is gone), False when it never did (a screen briefed and
+    not yet drawn), None when git cannot say (no repository, git missing, no commit yet). A shallow clone may lack the commit that held it, and
+    then reads False."""
+    try:
+        rc, out = git(root, 'rev-list', '-1', HEAD_REV, '--', rel)
+    except OSError:
+        return None
+    return bool(out.strip()) if rc == 0 else None
 
 
 def is_commit(root, rev):
@@ -1471,22 +1483,24 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
             if sc:
                 out.append(line('SCRIPT-COLOUR', f"{art.relative_to(root)}: {', '.join(sc[:4])}{' ...' if len(sc) > 4 else ''} in the component script (report only: a script cannot be read as CSS)"))
         elif any(v.startswith('approved') for v in r['gates'].values()):
-            out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there"))
-        elif not r['superseded']:
-            out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} is registered ({r['status']}) but {art.relative_to(root)} is not there"))
+            out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} has an approved gate cell but {art.relative_to(root)} is not there. Next: restore the file (from git, or by a pull), mark the row superseded, or delete the row"))
+        elif not r['superseded'] and was_tracked(root, art.relative_to(root).as_posix()):
+            out.append(line('ARTBOARD', f"{r['where']}: {r['ux']} is registered ({r['status']}) but {art.relative_to(root)} is not there. Next: restore the file (from git, or by a pull), mark the row superseded, or delete the row"))
 
     # an artboard no row names (a superseded row still names its file), which no screen with a row imports: said, never counted
-    named = set()
+    named, named_art = set(), []
     for r in rows:
+        named_art.append(r['canvas'] / PROJECT_SUBDIR / r['file'])
         try:
-            named.add((r['canvas'] / PROJECT_SUBDIR / r['file']).relative_to(root).as_posix())
+            named.add(named_art[-1].relative_to(root).as_posix())
         except ValueError:
             pass
     imported = {n for text_, loaded_ in rowtext.values() for n, _ in loaded_}
     for c in sorted(dsn.glob(f'*/{REGISTRY_NAME}')):
         for f in sorted((c.parent / PROJECT_SUBDIR).rglob('*.dc.html')):
             key = f.relative_to(root).as_posix()
-            if key not in named and key not in imported:
+            # a row's spelling is followed as the filesystem follows it: a file a row reaches under another letter case is named
+            if key not in named and key not in imported and not any(a.is_file() and os.path.samefile(a, f) for a in named_art):
                 out.append(line('UNROWED', f"{key}: no registry row names this artboard and no screen with a row imports it, so the check does not read it (info). Add its row to {c.relative_to(root).as_posix()}"))
 
     for label, uxs in content_only.values():

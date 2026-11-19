@@ -30,7 +30,7 @@ Then make the sign-in call once: `list_artifacts` with `limit: 1` (A) or the `Ar
 
 `CANVAS.md` says `Last pull: none` and has no canvas URL: this is a new canvas. Read the Design type's instructions and `format.md` first (`list_types`,
 `describe_type`), `list_artifacts` with `type: "Design System"` for a system to use, then `create_from_type` **once**, record its URL and `version`
-in `CANVAS.md`, and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
+in `CANVAS.md`, run step 3's `normalise` block over `project/`, and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
 publish each, with the `version` the last result gave. Then step 6. Every later publish starts at step 2.
 
 ## 2. List, once, and refuse a canvas that moved
@@ -50,7 +50,8 @@ First put the boards in the spelling a pull writes, so a `data-props` you wrote 
 python3 scripts/design/normalise-canvas.py requirements/design/<canvas>/project
 ```
 
-A file it names `UNREAD` is not sent: show the human. Then the set is every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
+A file it names `UNREAD` is not sent: show the human. Commit every file it rewrote: a file it rewrote that is not sent (`canvas.json` when the layout did not
+change) is committed too, so the next `/design-pull` finds a clean tree. Then the set is every `project/` file whose current repo sha differs from the manifest's **repo sha** (a file you edited), plus repo-only files, plus
 `canvas.json` only when the layout changed, plus a file the human named to restore. **Never `git diff` against the pull commit:** it misses a canvas edit the
 human rejected, which only they can name. A file the repo dropped goes in `remove`; a file the canvas dropped (the pull took the deletion in) is not repo-only and is not sent back.
 Send nothing else; an unchanged file is not resent. Commit the files you are about to send before the send, so `Last publish` can name a commit that holds them.
