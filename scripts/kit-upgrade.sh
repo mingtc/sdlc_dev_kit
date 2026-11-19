@@ -836,6 +836,7 @@ ITEMS_EOF
 # enabled; each leaves its findings in $MODTMP/up-<name>/ (lib/modules.sh says what they are).
 MOD_NAMES=""; MOD_LIVE=""; MOD_REC_NAMES=""; MOD_ACTION=(); MOD_N_WRITE=0; MOD_N_RECORD=0; MOD_N_MERGE=0; MOD_N_REMOVED=0; MOD_WRITE_PATHS=()
 MOD_NOTES=()   # "<module>|<notes file>" for each live module that declares release notes: staged for --finish's Verify: run
+MOD_FRAG_BAD=""; MOD_FRAG_NAMES=""   # the fragments it would write that every mint refuses, and their modules: refused below
 if mod_lib_need; then
   MOD_NAMES="$(kit_mod_enabled_names)"
   if [ -n "$MOD_NAMES" ] && ! kit_mod_have_sha; then
@@ -858,6 +859,10 @@ MODPEND_EOF
     fi
     MOD_LIVE="$MOD_LIVE$mn
 "
+    mfaults="$(kit_mod_upgrade_fragment_faults "$mn")" \
+      || kit_refuse 1 upgrade-write-failed "Error: could not write in the scratch directory." "Next: check the temp directory (TMPDIR), then run this again."
+    [ -z "$mfaults" ] || { MOD_FRAG_BAD="$MOD_FRAG_BAD$mfaults
+"; MOD_FRAG_NAMES="$MOD_FRAG_NAMES $mn"; }
     # The record is work too: it names another version than the kit holds, or an earlier run left its `pending` section.
     if [ "$KMU_OLD_VERSION" != "$KMU_VERSION" ] || kit_mod_is_pending "$mn"; then MOD_N_RECORD=$((MOD_N_RECORD + 1)); MOD_REC_NAMES="$MOD_REC_NAMES$mn
 "; fi
@@ -885,6 +890,12 @@ MODITEMS_EOF
 $MOD_NAMES
 MODNAMES_EOF
 fi
+# A fragment every mint of its template would refuse is refused here, as module enable refuses it, before anything is written.
+[ -z "$MOD_FRAG_BAD" ] || kit_refuse 1 module-fragment-bad \
+  "Error: the new kit's copy of enabled module(s)$MOD_FRAG_NAMES would place fragments that every mint of their template refuses:" \
+  "${MOD_FRAG_BAD%?}" \
+  "  NOTHING WAS CHANGED." \
+  "Next: fix each file named above under $SRC (take the line or the byte out), then run this again."
 
 total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} + ${#MOD_ACTION[@]} + MOD_N_MERGE + MOD_N_REMOVED ))
 if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ] && [ "$MOD_N_WRITE" -eq 0 ] && [ "$MOD_N_RECORD" -eq 0 ] \

@@ -103,8 +103,8 @@ kit_fill_card() {
 
 # kit_fragment_fault <file> — why a mint would refuse <file> as a fragment, as one word on stdout: `markers`
 # when it carries a KIT-MODULES slot line of its own, `control` when it holds a control byte (octal 035 to 037,
-# which the mint uses to carry slot text); nothing when neither. kit_card_fragments asks it of every fragment
-# and module enable (lib/modules.sh) of every fragment a module would place, so the two refuse by one rule.
+# which the mint uses to carry slot text); nothing when neither. kit_card_fragments asks it of every fragment,
+# and module enable and the kit upgrade (lib/modules.sh) of every fragment a module would place, so all refuse by one rule.
 kit_fragment_fault() {
   local text gs=$'\035' rs=$'\036' us=$'\037'
   if grep -qF 'KIT-MODULES' "$1"; then echo markers; return 0; fi

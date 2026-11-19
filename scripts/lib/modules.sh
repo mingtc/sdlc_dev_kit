@@ -1436,6 +1436,7 @@ kit_mod_status() {
 #   kit_mod_upgrade_stage_record <name> <dir>   leave the module's final record in <dir>, a work order
 #   kit_mod_upgrade_finish_record <name> <dir>  carry the work order out and remove it (run again after a kill)
 #   kit_mod_upgrade_own_work <path>             whether a file with uncommitted changes holds only blocks a killed run wrote
+#   kit_mod_upgrade_fragment_faults <name>      the fragments it would write that every mint refuses, asked before any write
 # The scan writes nothing in the project. It leaves its findings in $KMU_DIR (= $KIT_MOD_TMP/up-<name>):
 #   act    <action> TAB <kind> TAB <target> TAB <slot|-> TAB <rendered copy|-> TAB <x|-> TAB <why>
 #          write    the file or block is as enable wrote it (or is new in the module) and can be placed
@@ -1690,4 +1691,14 @@ kit_mod_upgrade_finish_record() {
 # upgrade has written its files: a reader the upgrade brings is then in place.
 kit_mod_upgrade_readers() {
   _kit_mod_reader_blockers "$KIT_MOD_TMP/up-$1/plan.needs"
+}
+# kit_mod_upgrade_fragment_faults <name> — after the scan: one line per fragment the upgrade would write, or stage for a
+# merge, that every mint would refuse (the lines enable's fragment check prints), or nothing. A fragment the tree already
+# holds as the new kit has it is not written, so it is not judged here. Status 1: no scratch file.
+kit_mod_upgrade_fragment_faults() {
+  local d="$KIT_MOD_TMP/up-$1"
+  [ -f "$d/plan.frags" ] || return 0
+  awk -F'\t' 'FILENAME == ARGV[1] { if ($1 == "write" || $1 == "merge") due[$3] = 1; next } ($1 in due)' \
+    "$d/act" "$d/plan.frags" > "$d/due.frags" || return 1   # return-class: relay
+  _kit_mod_fragment_faults "$d/due" "$1"
 }

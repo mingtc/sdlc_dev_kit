@@ -1186,6 +1186,66 @@ case_kit_upgrade_refuses_before_it_writes_when_an_enabled_module_cannot_be_judge
   teardown
 }
 
+# =============================================================================
+# CASE — kit-upgrade REFUSES A FRAGMENT EVERY MINT WOULD REFUSE, BEFORE IT WRITES, AS ENABLE DOES.
+#   The new kit's copy of the enabled module changes the fragment it places so that it carries a KIT-MODULES slot line
+#   or a control byte (octal 035 to 037). Written over the copy enable wrote, or staged for a merge over the project's
+#   edit, it would make every mint of its template refuse. With the fragment clean the same new version is carried.
+# =============================================================================
+case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse() {
+  cf_reset
+  local L="kit-upgrade.sh refuses, before it writes, an enabled module's new version whose fragment carries a KIT-MODULES slot line or a control byte (octal 035, 036 or 037), whether it would write the fragment or stage it for a merge: module-fragment-bad, the module's source and the place it would go named, NOTHING WAS CHANGED, a Next: line naming the new kit, the tree byte-equal; the same new version with the fragment clean is carried"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  _mu_pair
+  _mu_new_version
+  local s0="$SB_TMP/snap0" s1="$SB_TMP/snap1" src="$MU_NEW/modules/example/fragments/issue-sign-off.txt" placed="process/fragments.d/ISSUE/example.body-end" keep="$SB_TMP/frag.keep" b
+  [ -f "$src" ] && [ -f "$SB_WORK/$placed" ] \
+    || _fixture_die "case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse: the example module's ISSUE body-end fragment is not fragments/issue-sign-off.txt placed as $placed, so this case would change nothing."
+  cp "$src" "$keep"
+  # An upgrade that went through is undone, so the next row starts from the committed tree. A tree that does not come
+  # back is a fixture failure: every row after it would read another subject.
+  _uf_back() {  # <label>
+    git -C "$SB_WORK" checkout -q -- . && git -C "$SB_WORK" clean -fdq
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || _fixture_die "case_kit_upgrade_refuses_a_fragment_every_mint_would_refuse: the tree did not come back after the upgrade of row ($1): $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-240)"
+  }
+  _uf_bad() {  # <label> <line the new kit's fragment gains> <what the refusal must say>
+    { cat "$keep"; printf '%s\n' "$2"; } > "$src"; _mu_manifest "$MU_NEW"
+    _md_snap "$SB_WORK" > "$s0"
+    _mu_up "$SB_WORK"
+    [ "$_mu_rc" -eq 1 ] || cf "($1) the upgrade was not refused (exit $_mu_rc): $(_mu_flat)"
+    [ "$(_mu_recs module-fragment-bad)" -ge 1 ] || cf "($1) no refusal=module-fragment-bad record: $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F "modules/example/fragments/issue-sign-off.txt (placed as $placed) $3" >/dev/null \
+      || cf "($1) the refusal does not name the module's source, the place it would go and '$3': $(_mu_flat)"
+    printf '%s\n' "$_mu_out" | grep -F 'NOTHING WAS CHANGED' >/dev/null || cf "($1) the refusal does not say NOTHING WAS CHANGED"
+    printf '%s\n' "$_mu_out" | grep -F "Next: fix each file named above under $MU_NEW" >/dev/null || cf "($1) no Next: line naming the new kit: $(_mu_flat)"
+    [ ! -e "$SB_WORK/.kit-upgrade" ] && [ ! -e "$SB_WORK/process/UPGRADE-CHECKLIST.md" ] || cf "($1) the upgrade left staging or a checklist"
+    _md_snap "$SB_WORK" > "$s1"
+    cmp -s "$s0" "$s1" || { cf "($1) the upgrade changed the tree: $(diff "$s0" "$s1" | tr '\n' '|' | cut -c1-240)"; _uf_back "$1"; }
+  }
+  # (a) the fragment as enable wrote it: the upgrade would write the new copy over it.
+  _uf_bad markers '<!-- KIT-MODULES:body-end leaked -->' 'carries a KIT-MODULES slot line'
+  for b in 035 036 037; do _uf_bad "control $b" "one$(printf "\\$b")two" 'holds a control byte'; done
+
+  # (control) the same new version with the fragment clean is carried: the fragment is written. The tree is then put back.
+  { cat "$keep"; printf 'A clean line the new version adds.\n'; } > "$src"; _mu_manifest "$MU_NEW"
+  _md_snap "$SB_WORK" > "$s0"
+  _mu_up "$SB_WORK"
+  [ "$_mu_rc" -eq 0 ] || cf "(control) the upgrade with the fragment clean exited $_mu_rc: $(_mu_flat)"
+  [ "$(tail -1 "$SB_WORK/$placed")" = "A clean line the new version adds." ] || cf "(control) the clean fragment was not written"
+  _uf_back control
+
+  # (b) the project edited the fragment: the upgrade would stage the new copy for a merge.
+  printf 'the project own line\n' >> "$SB_WORK/$placed"; _mu_land "the project's edit to the fragment"
+  _uf_bad "staged for a merge" "one$(printf '\036')two" 'holds a control byte'
+  unset -f _uf_bad _uf_back
+
+  finish "$L"
+  teardown
+}
+
 # _mu_vf_setup — a project with the example module enabled, upgraded to a kit whose module notes carry a passing and a failing
 # Verify: line (and a second module, shipped and not enabled, whose notes would fail if read); the checklist marked and landed.
 _mu_vf_setup() {

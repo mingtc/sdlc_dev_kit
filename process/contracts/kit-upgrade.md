@@ -143,6 +143,7 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) Â
 | `upgrade-target-dirty` | a path it would write holds uncommitted changes of the project's; the message names those paths |
 | `upgrade-write-failed` | a write failed (a kit file, a module file, the record, the checklist, a scratch directory); the message says how many kit files were written and how to finish or undo |
 | `upgrade-modules-no-sha` | the tree has enabled modules and the machine has no sha256 tool, so their files cannot be told from the project's edits; nothing is written |
+| `module-fragment-bad` | an enabled module's new copy in the kit would write, or stage for a merge, a fragment that every mint of its template refuses (a `KIT-MODULES` slot line of its own, or a byte 035 to 037), as `module enable` refuses it; the message names the module's source in the new kit; nothing is written |
 | `upgrade-nothing-to-finish` | finishing was asked for and no upgrade is in progress |
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest, the staged notes (and history, when the manifest lists one) or the staged item list do not |
 | `upgrade-staging-edited` | finishing was asked for while a staged file it reads has uncommitted edits, a staged copy of the new kit's notes no longer hashes to the staged manifest's row for it, the item list differs from the one the staged notes give, or a module item has no entry in its staged notes |

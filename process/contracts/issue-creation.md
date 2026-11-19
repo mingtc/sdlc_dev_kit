@@ -216,8 +216,8 @@ which the mint uses to carry slot text (`fragment-control-byte`), and an unreada
 (`fragment-unreadable`). The `Next:` of those two content refusals names the fix that reaches the mint: the
 fragment itself; for a slice, a commit and a push as well, since `subtask.sh` reads the trunk; for a fragment that
 `process/MODULES` records a module as having placed, the module's source, placed again by a disable and an
-enable. `module enable` asks the same two questions of every fragment a module would place, and refuses before it
-writes (`module-fragment-bad`).
+enable. `module enable` asks the same two questions of every fragment a module would place, and so does a kit upgrade
+of every fragment an enabled module's new copy would write; each refuses before it writes (`module-fragment-bad`).
 
 ## 4. WHAT GREEN MEANS
 
