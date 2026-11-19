@@ -1702,6 +1702,10 @@ case_release_a_signalled_cut_stops() {
     esac
     teardown
   done
-  [ "$hup_skip" = 0 ] || skp "a HUP to release.sh's own pid ends the cut (the hup leg of case_release_a_signalled_cut_stops)" "HUP is ignored in this harness (it was started under nohup or a wrapper that ignores HUP), and a signal ignored on entry is inherited and cannot be trapped, so release.sh cannot see it; the other five legs ran"
-  finish "a signal to release.sh's own pid (TERM, and HUP) ends the cut non-zero with no tag on the remote: during the release commit (and the account says the commit exists), during a commit that fails (the bump is restored), while a version file is rewritten (every file is restored), during the first push, and during the distribution push (the account carries the publish command and no worktree is left)"
+  # One outcome per case: a case that ran every leg but one, and saw nothing fail, is a SKIP naming the leg it could not run; a failure is a FAIL either way.
+  if [ "$hup_skip" = 1 ] && [ -z "$_cf" ]; then
+    skp "a signal to release.sh's own pid (TERM) ends the cut non-zero with no tag on the remote, in five legs; the HUP leg was not run" "HUP is ignored in this harness (it was started under nohup or a wrapper that ignores HUP), and a signal ignored on entry is inherited and cannot be trapped, so release.sh cannot see it; the other five legs ran and passed"
+  else
+    finish "a signal to release.sh's own pid (TERM, and HUP unless it is ignored here) ends the cut non-zero with no tag on the remote: during the release commit (and the account says the commit exists), during a commit that fails (the bump is restored), while a version file is rewritten (every file is restored), during the first push, and during the distribution push (the account carries the publish command and no worktree is left)"
+  fi
 }

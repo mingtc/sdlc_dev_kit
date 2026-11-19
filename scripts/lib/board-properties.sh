@@ -729,17 +729,26 @@ _bp_strip_marker() {
 # Adds the commits read to _BP_HIST_N and prints each finding through _bp_note.
 _bp_ruling_history() {
   local rpath="$1" rmark="$2" rshape="$3" scratch sha par n=0 subj
-  local oldf newf id os oe ns ne added ospans nspans oid ostart oend
+  local oldf newf id os oe ns ne added ospans nspans oid ostart oend shf nx shallow=0
   scratch="$(mktemp -d 2>/dev/null)" || return 0
+  # A shallow clone ends its history at boundary commits that have no parent to read; they are not roots.
+  shf="$(git -C "$KIT_BP_HIST_REPO" rev-parse --git-path shallow 2>/dev/null)"
+  case "$shf" in /*|'') ;; *) shf="$KIT_BP_HIST_REPO/$shf" ;; esac
+  if [ -n "$shf" ] && [ -s "$shf" ]; then shallow=1; nx="git fetch --unshallow"; else nx="git fetch to re-fetch the missing objects, or git fsck to check the repository"; fi
   oldf="$scratch/old"; newf="$scratch/new"
   while read -r sha; do
     [ -n "$sha" ] || continue
-    par="$(git -C "$KIT_BP_HIST_REPO" rev-parse --verify --quiet "$sha^1" 2>/dev/null)" || continue
+    par="$(git -C "$KIT_BP_HIST_REPO" rev-parse --verify --quiet "$sha^1" 2>/dev/null)" || {
+      if [ "$shallow" = 1 ] && grep -qxF "$sha" "$shf"; then
+        _kit_reg_note "${sha:0:9} is the boundary of a shallow clone, so its ruling history is not read. Next: git fetch --unshallow, then re-run"
+      fi
+      continue
+    }
     # A register absent at a revision is a legitimate skip (nothing is echoed); one git cannot read is not: it is recorded, and the arm says DID NOT RUN.
     kit_register_read "$KIT_BP_HIST_REPO" "$par" "$rpath" > "$oldf" \
-      || { _kit_reg_note "git could not read ${par:0:9}:${rpath}, so its ruling history is not read (a partial or shallow clone, or a damaged object). Next: fetch the missing objects (git fetch --unshallow), then re-run"; continue; }
+      || { _kit_reg_note "git could not read ${par:0:9}:${rpath}, so its ruling history is not read (a partial clone used offline, or a damaged object). Next: $nx, then re-run"; continue; }
     kit_register_read "$KIT_BP_HIST_REPO" "$sha" "$rpath" > "$newf" \
-      || { _kit_reg_note "git could not read ${sha:0:9}:${rpath}, so its ruling history is not read (a partial or shallow clone, or a damaged object). Next: fetch the missing objects (git fetch --unshallow), then re-run"; continue; }
+      || { _kit_reg_note "git could not read ${sha:0:9}:${rpath}, so its ruling history is not read (a partial clone used offline, or a damaged object). Next: $nx, then re-run"; continue; }
     [ -s "$oldf" ] && [ -s "$newf" ] || continue
     n=$((n+1))
     ospans="$(_bp_entry_spans "$oldf" "$rmark" "$rshape")"
