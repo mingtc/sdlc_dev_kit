@@ -777,6 +777,7 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   _dm_has "$out" "GATE-CELL" && _dm_has "$out" "UX-004 gate1 is \`approved@" && _dm_has "$out" "UX-004 gate2 is \`approved (pending)\`" || cf "(d) no GATE-CELL line for a gate cell with words after the sha, or for 'approved (pending)'"
   _dm_has "$out" "APPROVAL-UNRESOLVED" || cf "(d) no APPROVAL-UNRESOLVED line for approved@<sha> whose sha is not a commit (a shallow clone reads this way too)"
   _dm_has "$out" "ARTBOARD      requirements/design/app/CANVAS.md" && _dm_has "$out" "Zmissing.dc.html is not there" || cf "(d) no ARTBOARD line for an approved row whose file is not there"
+  _dm_has "$out" "Zmissing.dc.html is not there. Next: " || cf "(d) the ARTBOARD line for an approved row whose file is not there names no next action"
   _dm_has "$out" "$SB_PREFIX-901-c.md: design: \`[ux-001#default]\` is not none" && _dm_has "$out" "$SB_PREFIX-902-c.md: design: \`TBD\`" || cf "(d) no DESIGN-KEY line for a design: value that is not none or a list of UX-NNN#state"
   _dm_has "$out" "$SB_PREFIX-903-c.md: pin @deadbee of UX-001#default is not a commit" || cf "(d) a pin that is not a commit, on a card past todo/, is not an UNRESOLVED finding under --strict"
   _dm_has "$out" "$SB_PREFIX-904-c.md" && cf "(d) the check read a declined card, whose pin is nobody's to keep"
@@ -5320,14 +5321,36 @@ case_the_link_check_says_an_unrowed_artboard_and_an_open_row_whose_file_is_gone(
   { _dm_line_has "$_dm_out" "UNROWED" "requirements/design/app/project/Z.dc.html"; } || cf "(b) no UNROWED line names Z.dc.html: $(_dm_brief 300)"
   _dm_line_has "$_dm_out" "UNROWED" "I.dc.html" && cf "(c) a screen only an importer reads is said to be unrowed: $(_dm_brief 300)"
   # (d) an open row, a changes row and a superseded row, each with no file
+  # an open row and a changes row whose screens were drawn, committed and deleted; a superseded row with no file; an open row briefed and never drawn
+  _dm_art "$D/Gone.dc.html" 007 '' '<h1 id="ux-007-t">Gone</h1>' PRD-001-F1-S2
+  _dm_art "$D/Gone2.dc.html" 008 '' '<h1 id="ux-008-t">Gone2</h1>' PRD-001-F1-S2
   printf '| UX-007 | Gone.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
   printf '| UX-008 | Gone2.dc.html | t | phone |  | default | PRD-001-F1-S2 | changes | open |\n' >> "$C"
   printf '| UX-010 | Gone3.dc.html | t | phone |  | default | PRD-001-F1-S2 | superseded | superseded |\n' >> "$C"
+  printf '| UX-011 | Never.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_commit "the screens are drawn"
+  git -C "$SB_WORK" rm -q -- requirements/design/app/project/Gone.dc.html requirements/design/app/project/Gone2.dc.html
   _dm_commit "rows whose files are gone"
   _dm_py scripts/design/check-design-links.py --strict
   [ "$_dm_rc" -eq 1 ] || cf "(d) rows whose files are gone exit $_dm_rc under --strict, not 1: $(_dm_brief 300)"
   { _dm_line_has "$_dm_out" "ARTBOARD" "Gone.dc.html is not there" && _dm_line_has "$_dm_out" "ARTBOARD" "Gone2.dc.html is not there"; } || cf "(d) no ARTBOARD line for an open row and a changes row whose files are not there: $(_dm_brief 400)"
   _dm_has "$_dm_out" "Gone3.dc.html" && cf "(d) a superseded row whose file is gone is reported: $(_dm_brief 400)"
+  _dm_has "$_dm_out" "Never.dc.html" && cf "(d) an open row whose screen was briefed and never drawn is reported: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "ARTBOARD" "Gone.dc.html is not there. Next: " || cf "(d) the ARTBOARD line names no next action: $(_dm_brief 400)"
+  # (d2) the notes' Verify line for it fails over a deleted screen's row and passes over a briefed, never-drawn one
+  local vl
+  vl="$(grep -m1 '^  Verify:.*is registered' "$SB_WORK/modules/design/RELEASE-NOTES.md" 2>/dev/null | sed 's/^  Verify: //')"
+  [ -n "$vl" ] || cf "(d2) the module's notes carry no Verify line for the ARTBOARD finding"
+  _dm_sh "$vl"
+  [ "$_dm_rc" -ne 0 ] || cf "(d2) the Verify line passes over a project with a deleted screen's row"
+  sed -i.bak -e '/| UX-007 |/d' -e '/| UX-008 |/d' "$C" && rm -f "$C.bak"
+  _dm_commit "the deleted screens' rows are removed"
+  _dm_sh "$vl"
+  [ "$_dm_rc" -eq 0 ] || cf "(d2) the Verify line fails over a project whose only open row is a briefed, never-drawn screen (exit $_dm_rc): $_dm_out"
+  # (e) the same project with no git history to ask: the missing files are not reported either way
+  rm -rf "${SB_TMP:?}/nogit"; mkdir -p "$SB_TMP/nogit"; cp -R "$SB_WORK/requirements" "$SB_TMP/nogit/"
+  _dm_py scripts/design/check-design-links.py --strict "$SB_TMP/nogit"
+  _dm_has "$_dm_out" " is registered (" && cf "(e) with no git to ask, an open row whose file is missing is reported: $(_dm_brief 400)"
   finish "$L"
   teardown
 }
@@ -5382,6 +5405,9 @@ case_the_publish_skill_normalises_data_props_to_the_form_a_pull_writes() {
   { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(b) a second run changes something (exit $_dm_rc): $_dm_out"
   _dm_py scripts/design/normalise-canvas.py --check requirements/design/steep/project
   { [ "$_dm_rc" -eq 0 ] && [ -z "$_dm_out" ]; } || cf "(c) the pull's normaliser would still rewrite a file the block normalised (exit $_dm_rc): $_dm_out"
+  local sk="$SB_WORK/.claude/skills/design-publish/SKILL.md"
+  awk '/^## 1\./ { f = 1; next } /^## 2\./ { f = 0 } f' "$sk" | grep -F 'normalise' >/dev/null || cf "(d) the first publish (step 1) does not run the normalise block"
+  grep -F 'a file it rewrote that is not sent' "$sk" >/dev/null || cf "(e) the skill does not say to commit a file the normaliser rewrote though it is not sent"
   finish "$L"
   teardown
 }
@@ -5403,6 +5429,32 @@ case_the_pull_skill_gives_the_two_steps_for_a_partial_acceptance() {
   _dm_has "$para" "answer yes to the pull" || cf "the account does not say to answer yes to the pull first"
   _dm_has "$para" 'git checkout <base> -- requirements/design/<canvas>/<path>' || cf "the account does not give the restore from the base"
   _dm_has "$para" 'restore <path>' || cf "the account does not say to commit the restore"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE LINK CHECK NEVER SAYS UNROWED OF A FILE IT READ THROUGH A ROW, WHATEVER THE CASE OF THE ROW'S SPELLING.
+#   Operand: a row that reads x.dc.html over a disk that holds X.dc.html, on a filesystem that reads the two as one file (skips on one that does not).
+# =============================================================================
+case_the_link_check_does_not_say_unrowed_of_a_file_a_row_names_in_another_case() {
+  cf_reset
+  local L="check-design-links.py does not say UNROWED of an artboard a registry row names in another letter case on a filesystem that reads the two as one file, and still says it of one no row names"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" C="$SB_WORK/requirements/design/app/CANVAS.md"
+  _dm_art "$D/Xcase.dc.html" 012 '' '<h1 id="ux-012-t">Case</h1>' PRD-001-F1-S2
+  if [ ! -e "$D/xcase.dc.html" ]; then
+    teardown; skp "$L" "this filesystem tells Xcase.dc.html from xcase.dc.html, so a row spelt in another case names no file here"; return
+  fi
+  printf '| UX-012 | xcase.dc.html | t | phone |  | default | PRD-001-F1-S2 | open | open |\n' >> "$C"
+  _dm_art "$D/Z.dc.html" 009 '' '<h1 id="ux-009-t">Nobody registered me</h1>'
+  _dm_commit "a row spelt in another case, and a screen no row names"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_line_has "$_dm_out" "UNROWED" "Xcase.dc.html" && cf "(a) a file a row names in another case is said to be unrowed: $(_dm_brief 300)"
+  _dm_line_has "$_dm_out" "UNROWED" "Z.dc.html" || cf "(b) (control) a screen no row names is not said to be unrowed: $(_dm_brief 300)"
   finish "$L"
   teardown
 }
