@@ -242,7 +242,9 @@ KWT_LANDED_SHA=""
 #   - same host + holder PID no longer exists; or
 #   - cross-host / unknown PID + lock older than KWT_LOCK_STALE.
 # Liveness is `kill -0` OR `ps -p`, so another user's live process (EPERM) is not taken for
-# dead. The `|| true` on the seds is load-bearing: a loser may poll between the winner's mkdir
+# dead; a holder `ps -o stat=` names with a Z has exited and only waits for its parent to reap
+# it, and both probes still answer for it, so it is dead. When ps cannot say, the probes stand.
+# The `|| true` on the seds is load-bearing: a loser may poll between the winner's mkdir
 # and its `info` write.
 kwt__lock_abandoned() {
   local p h e a my
@@ -251,11 +253,14 @@ kwt__lock_abandoned() {
   e="$(sed -n 's/^epoch=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
   my="$(hostname 2>/dev/null || echo '?')"
   if [ -n "$p" ] && [ -n "$h" ] && [ "$h" = "$my" ]; then
-    # Alive if the process EXISTS by either probe; only "truly gone" is abandoned.
+    # Alive if the process EXISTS by either probe and is not a zombie; only "gone" is abandoned.
     if kill -0 "$p" 2>/dev/null || ps -p "$p" >/dev/null 2>&1; then
-      return 0                                # exists (any user) → not abandoned
+      case "$(ps -o stat= -p "$p" 2>/dev/null | tr -d ' \t')" in
+        Z*) ;;                                # exited, not yet reaped → dead holder
+        *) return 0 ;;                        # exists (any user) → not abandoned
+      esac
     fi
-    echo yes                                  # truly gone → dead holder
+    echo yes                                  # gone → dead holder
     return 0
   fi
   # cross-host / unknown PID → age fallback. Guard the arithmetic against a

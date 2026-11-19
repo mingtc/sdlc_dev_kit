@@ -195,6 +195,35 @@ no_machine_git_config() {
   return "$rc"
 }
 
+# ps_stat <pid> — the process's state as `ps -o stat=` prints it (a Z first for a zombie), blanks
+# removed; nothing when there is no such process or ps cannot say.
+ps_stat() { ps -o stat= -p "$1" 2>/dev/null | tr -d ' \t'; }
+
+# zombie_start — leave a zombie for a liveness case: a parent that never waits (it execs sleep) and its
+# child, which exits after a second. Sets ZOMBIE_PID (the child) and ZOMBIE_PARENT; status 0 once ps
+# names the child with a Z, 1 when that has not happened within five seconds. zombie_stop kills the
+# parent, so the zombie is handed to init and reaped.
+zombie_start() {
+  local f i=0
+  ZOMBIE_PID=""; ZOMBIE_PARENT=""
+  f="$(mktemp)" || return 1
+  bash -c 'sleep 1 & echo "$!" > "$1"; exec sleep 300' _ "$f" &
+  ZOMBIE_PARENT=$!
+  while [ "$i" -lt 50 ]; do
+    [ -n "$ZOMBIE_PID" ] || ZOMBIE_PID="$(cat "$f" 2>/dev/null)"
+    case "$(ps_stat "${ZOMBIE_PID:-x}")" in Z*) rm -f "$f"; return 0 ;; esac
+    sleep 0.1; i=$((i + 1))
+  done
+  rm -f "$f"
+  return 1
+}
+zombie_stop() {
+  [ -n "${ZOMBIE_PARENT:-}" ] || return 0
+  kill "$ZOMBIE_PARENT" 2>/dev/null; wait "$ZOMBIE_PARENT" 2>/dev/null
+  ZOMBIE_PARENT=""
+  return 0
+}
+
 # make_sandbox [work_subdir]
 # The optional arg names the work-repo subdirectory under the temp root (default
 # "work"). Pass a name CONTAINING A SPACE (e.g. "work dir") to reproduce a repo
