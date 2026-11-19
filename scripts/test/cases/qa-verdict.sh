@@ -876,6 +876,7 @@ _fence_shape() {
     doctest)       tail="$(printf '%s\n' '  The REPL prints four:' "  ${f}python" '  >>> f(2)' '  4' "  $f" '- [ ] AC2 — (UI) b.')" ;;
     shell-continue) tail="$(printf '%s\n' "  ${f}sh" '  make \' '  > out.txt' "  $f" '- [ ] AC2 — (UI) b.')" ;;
     quote-item-open) tail="$(printf '%s\n' '  > a banner the page shows' '  The page then shows:' '' "     $f" '     make test' '- [ ] AC2 — (UI) b.')" ;;
+    quote-bare-end) tail="$(printf '%s\n' '' '>' '' "     $f" '     make test' '- [ ] AC2 — (UI) b.')" ;;
     gt-in-fence)   tail="$(printf '%s\n' "${f}text" '>>> f(2)' "> $f" 'still code' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-fence)   tail="$(printf '%s\n' '' "> $f" '> - [ ] AC9 — (UI) ex.' "> $f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-open)    tail="$(printf '%s\n' '' "> $f" '> make test' '' '- [ ] AC2 — (UI) b.')" ;;
@@ -899,12 +900,12 @@ _fence_shape_ids() {
     unclosed) echo "AC1" ;;
     item-four|item-five|item-tab|top-tab) echo "AC1 AC2" ;;
     item-unclosed) echo "AC1 AC3" ;;
-    quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter|doctest|shell-continue|gt-in-fence|quote-item-open) echo "AC1 AC2" ;;
+    quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter|doctest|shell-continue|gt-in-fence|quote-item-open|quote-bare-end) echo "AC1 AC2" ;;
     ten-item) echo "AC1 AC3 AC4" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter doctest shell-continue gt-in-fence quote-item-open"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter doctest shell-continue gt-in-fence quote-item-open quote-bare-end"
 
 # =============================================================================
 # CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
@@ -1001,6 +1002,8 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair diff "a fence nested in a quoted AC changed" "$(printf '%s\n%s\n%s\n%s\n%s' '> - [ ] AC1 — one' ">   $f" '>   code one' ">   $f" '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s\n%s\n%s' '> - [ ] AC1 — one' ">   $f" '>   code two' ">   $f" '- [ ] AC2 — x')"
   _pair same "the bullet after a nested quote changed" "$(printf '%s\n%s\n%s' "$line" '  > a banner' '- [ ] AC2 — one')" "$(printf '%s\n%s\n%s' "$line" '  > a banner' '- [ ] AC2 — two')"
   _pair diff "a doctest line in the item's fence changed" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" "  ${f}python" '  >>> f(2)' '  4' "  $f")" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" "  ${f}python" '  >>> f(2)' '  5' "  $f")"
+  _pair same "a line under the closing fence of an item that holds a quote changed" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' '- [ ] AC1 — the banner reads:' '  > Your session expired.' "  $f" '  GET /session -> 401' "  $f" 'Trailing note.')" "$(printf '%s\n%s\n%s\n%s\n%s\n%s' '- [ ] AC1 — the banner reads:' '  > Your session expired.' "  $f" '  GET /session -> 401' "  $f" 'Trailing note, edited.')"
+  _pair same "a line of bare quote markers ends the item" "$line" "$(printf '%s\n%s\n%s' "$line" '>' '  > y')"
   _pair diff "a nested sub-item changed" "$(printf '%s\n%s\n%s' "$line" '  - [ ] step one' '- [ ] AC2 — x')" "$(printf '%s\n%s\n%s' "$line" '  - [ ] step two' '- [ ] AC2 — x')"
   _pair diff "a lazy line starting with a number other than 1 changed" "$(printf '%s\n%s' "$line" '14. only when beta.')" "$(printf '%s\n%s' "$line" '14. only when NOT beta.')"
   _pair same "a line starting 1. after the item changed (it opens a list)" "$(printf '%s\n%s' "$line" '1. note one')" "$(printf '%s\n%s' "$line" '1. note two')"
