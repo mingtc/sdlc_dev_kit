@@ -46,6 +46,117 @@ case_register_commit_refuses_a_path_spelled_non_canonically() {
 }
 
 # =============================================================================
+# CASE — register-commit.sh REFUSES A PATH THAT DIFFERS IN LETTER CASE FROM WHAT THE TRUNK TRACKS. On a
+# filesystem that folds case `Progress/…` reaches the same file as `progress/…`, and the guards compare as
+# typed. The refusal does not depend on the filesystem. Rows: the card under a mis-cased directory; a new card under one; a mis-cased
+# file name; a mis-cased directory over a tracked file; a non-ASCII name (`CAFÉ/` against `Café/`, under a
+# UTF-8 locale, skipped where the system's awk folds ASCII only; NFC against NFD is not judged); a name with a quote; then two new paths of one call that differ
+# only in case; a control character in a path; a trunk file list that cannot be read; then the controls (the
+# tracked spelling lands, a path under a new directory lands, two clean paths land). A trunk that tracks both
+# spellings of a directory is judged by the exact one in the case after this one.
+# =============================================================================
+case_register_commit_refuses_a_path_whose_letter_case_differs_from_the_trunks() {
+  cf_reset
+  local L="register-commit.sh refuses a path whose directory or file name differs only in letter case from a path the trunk tracks, naming the trunk's spelling and writing nothing, while the tracked spelling and a new directory still land"
+  make_sandbox
+  local pid="$SB_PREFIX-851" out rc sp want
+  seed_issue todo "$pid" first chore "First card"
+  mkdir -p "$SB_WORK/docs" "$SB_WORK/Café"; printf 'one\n' > "$SB_WORK/docs/note.md"; printf 'one\n' > "$SB_WORK/Café/x.md"; printf 'one\n' > "$SB_WORK/q\"t.md"
+  publish_sandbox
+  local l utf8="" utf8why="no UTF-8 locale on this machine"
+  for l in en_US.UTF-8 C.UTF-8; do
+    [ "$(LC_ALL=$l locale charmap 2>/dev/null)" = UTF-8 ] || continue
+    if [ "$(LC_ALL=$l awk 'BEGIN{print tolower("É")}' 2>/dev/null)" = "é" ]; then utf8=1; break; fi
+    utf8why="this awk folds ASCII letters only, even under $l"
+  done
+  # (a) rows: the spelling, and what the Next must name.
+  for sp in "Progress/in_progress/$pid-first.md|progress/in_progress/$pid-first.md" "Progress/todo/$SB_PREFIX-852-new.md|progress/todo/$SB_PREFIX-852-new.md" "docs/Note.md|docs/note.md" "Docs/note.md|docs/note.md" 'CAFÉ/x.md|Café/x.md' 'Q"T.md|q"t.md'; do
+    want="${sp#*|}"; sp="${sp%%|*}"
+    case "$sp" in CAFÉ*) [ -n "$utf8" ] || { skp "register-commit.sh refuses CAFÉ/ against a tracked Café/" "$utf8why"; continue; } ;; esac
+    mkdir -p "$SB_WORK/$(dirname "$sp")"
+    case "$sp" in Progress/in_progress/*) cp "$SB_WORK/progress/todo/$pid-first.md" "$SB_WORK/$sp" ;; *) printf 'two\n' > "$SB_WORK/$sp" ;; esac
+    rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK -u LC_ALL ./scripts/register-commit.sh --role PM --message "spelled" "$sp" 2>&1 )" || rc=$?
+    [ "$rc" -eq 1 ] || cf "(a) '$sp' was not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(a) '$sp': no Next line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    printf '%s\n' "$out" | grep -F "Next:" | grep -F "'$want'" >/dev/null || cf "(a) '$sp': the Next does not name the trunk's spelling '$want': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+    [ "$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" | grep -ic "^$sp\$")" -le 1 ] || cf "(a) '$sp' reached the trunk beside the tracked spelling"
+    [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain --untracked-files=no 2>/dev/null)" ] || cf "(a) '$sp' left the kanban worktree dirty"
+  done
+  # (b) controls: the tracked spelling lands; so does a path under a directory the trunk does not track.
+  printf 'three\n' > "$SB_WORK/docs/note.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "plain" docs/note.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) control: the tracked spelling was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  mkdir -p "$SB_WORK/fresh"; printf 'x\n' > "$SB_WORK/fresh/a.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "new dir" fresh/a.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) control: a path under a new directory was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # (b) control: several paths in one call are all judged (awk of some systems refuses a newline in a -v value).
+  printf 'p\n' > "$SB_WORK/docs/p.md"; printf 'q\n' > "$SB_WORK/docs/q.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "two paths" docs/p.md docs/q.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) control: two clean paths in one call were refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf 'r\n' > "$SB_WORK/docs/r.md"; printf 'two\n' > "$SB_WORK/docs/Note.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "second path clashes" docs/r.md docs/Note.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(b) the second of two paths was not judged (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "Next:" | grep -F "'docs/note.md'" >/dev/null || cf "(b) the second of two paths was refused, but not for its letter case: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # (c) two NEW paths of one call that differ only in case are refused as a pair.
+  mkdir -p "$SB_WORK/NEW" "$SB_WORK/new"; printf 'x\n' > "$SB_WORK/NEW/x"; printf 'y\n' > "$SB_WORK/new/y"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "pair" NEW/x new/y 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(c) two new paths differing only in case were not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "another path of this call" >/dev/null || cf "(c) the pair was refused, but not for each other: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "Next:" | grep -F "'NEW/y'" >/dev/null || cf "(c) the Next does not name the one spelling 'NEW/y': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # (d) a control character in a path is refused before anything is judged, with a Next.
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "newline" $'zz\nDocs/x' 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(d) a path with a newline was not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "control character" >/dev/null || cf "(d) the refusal does not name a control character: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "Next:" >/dev/null || cf "(d) no Next line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # (e) a trunk file list that cannot be read refuses with a Next rather than exiting silently.
+  mkdir -p "$SB_TMP/shim"; printf '#!/bin/bash\nfor a in "$@"; do [ "$a" = ls-tree ] && { echo "git: simulated ls-tree failure" >&2; exit 128; }; done\nexec %s "$@"\n' "$(command -v git)" > "$SB_TMP/shim/git"; chmod +x "$SB_TMP/shim/git"
+  printf 's\n' > "$SB_WORK/docs/s.md"
+  rc=0; out="$( cd "$SB_WORK" && PATH="$SB_TMP/shim:$PATH" env -u MSG_OK ./scripts/register-commit.sh --role PM --message "unreadable" docs/s.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(e) a failed trunk read did not refuse with 1 (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "could not read the trunk's file list" >/dev/null || cf "(e) the refusal does not say the trunk could not be read: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "Next:" >/dev/null || cf "(e) no Next line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # (f) a case-only rename gets its route in the Next.
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "rename" docs/Note.md 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -F "git mv" >/dev/null || cf "(f) the Next does not name git mv for a case-only rename: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A TRUNK THAT TRACKS TWO SPELLINGS OF A DIRECTORY IS JUDGED BY THE EXACT ONE. `docs/a.md` and `Docs/b.md`
+# are both tracked (built with git plumbing, so no filesystem has to hold both): a prefix the trunk tracks in
+# exactly the spelling given is not a clash, and a third spelling (`DOCS/c.md`) is, naming a tracked one.
+# =============================================================================
+case_register_commit_judges_a_trunk_that_tracks_two_spellings_by_the_exact_one() {
+  cf_reset
+  local L="register-commit.sh refuses a third spelling of a directory the trunk tracks in two spellings, naming a tracked one, and does not refuse the two exact spellings for their case"
+  make_sandbox
+  local out rc blob gd tree commit
+  mkdir -p "$SB_WORK/docs"; printf 'a\n' > "$SB_WORK/docs/a.md"
+  publish_sandbox
+  gd="$(git -C "$SB_WORK" rev-parse --absolute-git-dir)"
+  blob="$(printf 'b\n' | git -C "$SB_WORK" hash-object -w --stdin)"
+  GIT_INDEX_FILE="$gd/idx851" git -C "$SB_WORK" read-tree "$SB_TRUNK"
+  GIT_INDEX_FILE="$gd/idx851" git -C "$SB_WORK" update-index --add --cacheinfo "100644,$blob,Docs/b.md"
+  tree="$(GIT_INDEX_FILE="$gd/idx851" git -C "$SB_WORK" write-tree)"
+  commit="$(git -C "$SB_WORK" commit-tree "$tree" -p "$SB_TRUNK" -m "seed a second spelling")"
+  git -C "$SB_WORK" push -q origin "$commit:refs/heads/$SB_TRUNK" >/dev/null 2>&1
+  [ "$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" | grep -c '^[Dd]ocs/')" -eq 2 ] || cf "(setup) the trunk does not track docs/a.md and Docs/b.md"
+  mkdir -p "$SB_WORK/DOCS"; printf 'c\n' > "$SB_WORK/DOCS/c.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "third" DOCS/c.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(a) DOCS/c.md was not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$out" | grep -F "Next:" | grep -E "'[Dd]ocs/c.md'" >/dev/null || cf "(a) the Next does not name a tracked spelling: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  # The exact spellings are not a clash: whatever else the call does, it is not refused for letter case (the refusal
+  # comes before any write, so this holds on a filesystem that cannot hold `docs` and `Docs` side by side too).
+  mkdir -p "$SB_WORK/Docs"; printf 'bb\n' > "$SB_WORK/Docs/b.md"; printf 'aa\n' >> "$SB_WORK/docs/a.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "exact" docs/a.md Docs/b.md 2>&1 )" || rc=$?
+  ! printf '%s\n' "$out" | grep -F "letter case" >/dev/null || cf "(b) an exact tracked spelling was refused for its letter case: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE MOVERS TAKE A FULL ISSUE ID, NEVER A PREFIX. A bare prefix matched the first card
 # `find -name "<id>-*.md"` listed, so finish-pr.sh gated another card's history and subtask.sh minted
 # a slice under whichever card came first. Each refuses a malformed id with a Next before reading the

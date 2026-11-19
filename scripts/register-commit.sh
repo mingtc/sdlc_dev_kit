@@ -136,9 +136,14 @@ done
 # out (a `..` part) or starts at `/` would be copied to a place outside the kanban worktree before git
 # refused it; one with a `.` part or a `//` names a file the guards below compare as typed, so
 # `./progress/…` or `progress//…` would pass a check the plain spelling fails. Refused, not rewritten.
-# Not covered: a spelling that differs in letter case, which reaches the same file on a filesystem that
-# folds case.
+# A spelling that differs in letter case is judged against the trunk's tree, after the sync (below).
 for rel in "${PATHS[@]}"; do
+  case "$rel" in
+    *[[:cntrl:]]*)
+      kit_refuse 1 register-path-control-character \
+        "Error: a path of this call has a control character (a newline or tab, say) in its name, which the checks below cannot compare. Nothing was changed." \
+        "Next: name board paths without control characters (rename the file, or leave it out of the call) and re-run." ;;
+  esac
   case "/${rel%/}/" in
     //*|*/../*)
       kit_refuse 1 register-path-outside-project \
@@ -210,6 +215,50 @@ kwt_lock
 # lands ON TOP OF the current trunk tip, not some stale snapshot.
 kwt_bootstrap
 kwt_sync
+
+# A PATH IS ITS TRUNK SPELLING. Every guard below compares paths as typed, and a filesystem that folds case lets
+# `Progress/…` reach the file `progress/…` names, so a spelling that differs only in letter case from a directory or
+# file the trunk tracks would skip them or put a second path beside the first. Two new paths in one call that differ
+# only in case would do the same to each other. Refused whatever the filesystem, not rewritten; a prefix the trunk
+# tracks in exactly that spelling is fine, even if another spelling is tracked too. ASCII letters always fold.
+# Others fold only where the system's awk folds them under a UTF-8 locale (that locale picked when one exists, the
+# caller's LC_ALL kept): macOS awk and gawk do, so `CAFÉ/` meets `Café/`; mawk and busybox awk fold ASCII only, and
+# there `CAFÉ/` is not judged. A different Unicode normalisation of the same letters (NFC against NFD) is not
+# folded and not judged. The trunk's names are read NUL-separated, so none is quoted, but a tracked name that itself
+# holds a newline is read back as pieces (not handled). A control character in an argument is refused first, where
+# a newline or tab would split the answer.
+_rc_lc="${LC_ALL:-}"
+[ -n "$_rc_lc" ] || for _l in en_US.UTF-8 C.UTF-8; do [ "$(LC_ALL=$_l locale charmap 2>/dev/null)" = UTF-8 ] && { _rc_lc=$_l; break; }; done
+_rc_case_clash() {   # <rel>… — the tree on stdin; prints "<rel> US <other spelling> US <rel in that spelling> US <trunk|call>" (US = \037) for the first path that clashes
+  env ${_rc_lc:+LC_ALL=$_rc_lc} RC_RELS="$(printf '%s\n' "$@")" awk '
+    { m = split($0, P, "/"); acc = ""
+      for (k = 1; k <= m; k++) { acc = (k == 1 ? "" : acc "/") P[k]; ex[acc] = 1; if (!(tolower(acc) in sp)) sp[tolower(acc)] = acc } }
+    END { n = split(ENVIRON["RC_RELS"], R, "\n")
+      for (i = 1; i <= n; i++) { m = split(R[i], P, "/"); acc = ""
+        for (k = 1; k <= m; k++) { acc = (k == 1 ? "" : acc "/") P[k]; lc = tolower(acc)
+          if (acc in ex) continue
+          kind = "trunk"; o = ""
+          if (lc in sp) o = sp[lc]
+          else if ((lc in cs) && cs[lc] != acc) { o = cs[lc]; kind = "call" }
+          else { cs[lc] = acc; continue }
+          t = o; for (j = k + 1; j <= m; j++) t = t "/" P[j]
+          printf "%s\037%s\037%s\037%s\n", R[i], o, t, kind; exit } } }'
+}
+_rc_tree="$(git -C "$KWT" ls-tree -r -z --name-only HEAD | tr '\0' '\n')" || kit_refuse 1 register-trunk-unreadable \
+  "Error: could not read the trunk's file list from the kanban worktree ('$KWT'), so no path could be checked against it. Nothing was changed." \
+  "Next: run ./scripts/check-board.sh to see the state of the kanban worktree, repair it (or remove it so the next run recreates it), and re-run."
+_rc_clash="$(_rc_case_clash "${PATHS[@]}" <<<"$_rc_tree")"
+if [ -n "$_rc_clash" ]; then
+  IFS=$'\037' read -r _rc_bad _rc_part _rc_fix _rc_kind <<<"$_rc_clash"
+  if [ "$_rc_kind" = call ]; then
+    kit_refuse 1 register-path-case-differs \
+      "Error: '$_rc_bad' differs only in letter case from '$_rc_part', another path of this call, and a filesystem that folds case would put the two in one place. Nothing was changed." \
+      "Next: spell the directory or file name the same way in both paths ('$_rc_fix') and re-run."
+  fi
+  kit_refuse 1 register-path-case-differs \
+    "Error: '$_rc_bad' differs only in letter case from '$_rc_part' on the trunk, and the checks below compare paths as typed, so on a filesystem that folds case it would skip them or add a second path beside the first. Nothing was changed." \
+    "Next: name the path as the trunk spells it ('$_rc_fix') and re-run. A rename that only changes case is not a register write: make it with git mv on a branch and land it through your normal route."
+fi
 
 # STALE-CHECKOUT GUARD: the overlay below lands your WHOLE file, so a checkout cut before the trunk
 # changed a path would silently delete what the trunk gained. It is stale when some line the trunk
