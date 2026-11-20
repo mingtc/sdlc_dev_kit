@@ -3,7 +3,7 @@
 # QA's PASS ritual in one command — FORGE-AGNOSTIC, pure git (no forge CLI, no forge API).
 #
 # Squash-merges the issue's feature branch into the TRUNK locally, pushes the trunk, deletes the
-# branch (local + remote), and advances the issue file from progress/dev_complete/ →
+# branch (local unless a worktree holds it, and remote), and advances the issue file from progress/dev_complete/ →
 # progress/qa_complete/. QA's verdict and per-AC evidence live in the issue file's `## QA Verdict` table, not in a
 # PR/MR, so this works against any remote, including a bare repo with no forge
 # (see process/GIT-HOSTING.md).
@@ -606,7 +606,7 @@ fi
 echo "Plan:"
 echo "  1. Squash-merge '${BRANCH}' → '${DEFAULT_BRANCH}' (in .kanban-wt), commit: \"${SQUASH_MSG}\""
 echo "  2. Push HEAD → ${KWT_REMOTE}/${DEFAULT_BRANCH}"
-echo "  3. Delete branch '${BRANCH}' (local + remote if present)"
+echo "  3. Delete branch '${BRANCH}' (remote if present; local unless a worktree holds it)"
 if [ "$NOTE_GIVEN" = "true" ]; then
   echo "  4. Move ${ISSUE_ID}: dev_complete/ → qa_complete/ (Activity: \"${NOTE}\")"
 else
@@ -789,7 +789,7 @@ fi
 # Release our lock so the move-issue.sh sub-invocation can acquire it (not reentrant).
 kwt_unlock
 
-# ── Delete the branch (local + remote). If the operator's main checkout is sitting
+# ── Delete the branch (local unless a worktree holds it, and remote). If the operator's main checkout is sitting
 #    ON the branch (the common "board moves from a feature branch" case), switch it
 #    to the trunk first — the work has landed, so returning to the trunk is correct.
 MAIN_HEAD="$(git -C "$MAIN_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo "")"

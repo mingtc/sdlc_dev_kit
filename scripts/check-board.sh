@@ -1773,7 +1773,7 @@ else
           if ls "$CB_TREE/progress/$col"/${id}-*.md >/dev/null 2>&1; then landed="$col"; fi
         done
         [ -n "$landed" ] || continue
-        echo "      – $id claims an OPEN row, but its card is in progress/$landed/ — strike the row or say why it is still open"
+        echo "      ⚠ $id claims an OPEN row, but its card is in progress/$landed/ — strike the row or say why it is still open"
       done
   )"
   if [ -n "$j_out" ]; then

@@ -293,6 +293,39 @@ DQEOF
 }
 
 # =============================================================================
+# CASE — [j]'s finding carries the ⚠ the default report folds on
+#
+#   The default report folds an arm that holds no ⚠, so a finding line without one is hidden from the
+#   report a session reads: (a) a landed claim stays in view, names the row, and [j] is not among the
+#   arms folded as clean; (b) ablation — with only a live claim the arm folds and the report says clean,
+#   so (a) is not a report that never folds [j]. Neither changes the verdict.
+# =============================================================================
+case_check_board_arm_j_finding_is_not_folded() {
+  cf_reset
+  make_sandbox
+  local out fold
+  mkdir -p "$SB_WORK/dev"
+  printf '%s\n' '| Item | Origin | Size | Why deferred | Wake condition | Status |' '|---|---|---|---|---|---|' \
+    '| Landed already | audit | S | — | now | open (claimed by ZZQ-301) |' > "$SB_WORK/dev/downtime-queue.md"
+  : > "$SB_WORK/progress/done/ZZQ-301-a.md"
+  out="$(cb_run_default)"
+  printf '%s' "$out" | grep 'ZZQ-301 claims an OPEN row' >/dev/null \
+    || cf "(a) the default report hides a landed claim [j] found: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  fold="$(printf '%s\n' "$out" | grep '^── no findings, folded' || true)"
+  case "$fold" in *'[j'*) cf "(a) the default report folds [j] as clean over its finding: $fold" ;; esac
+
+  printf '%s\n' '| Item | Origin | Size | Why deferred | Wake condition | Status |' '|---|---|---|---|---|---|' \
+    '| Still live | audit | S | — | now | open (claimed by ZZQ-302) |' > "$SB_WORK/dev/downtime-queue.md"
+  : > "$SB_WORK/progress/todo/ZZQ-302-b.md"
+  out="$(cb_run_default)"
+  fold="$(printf '%s\n' "$out" | grep '^── no findings, folded' || true)"
+  case "$fold" in *'[j'*) : ;; *) cf "(b) ablation: a queue with only a live claim was not folded, so (a) proves nothing: $fold" ;; esac
+
+  finish "check-board [j]: a landed claim's finding line carries the ⚠ the default report folds on, so the folded report shows it; a queue with only live claims still folds"
+  teardown
+}
+
+# =============================================================================
 # CASE — [j] reads the tree the report names, from any directory
 #
 #   (a) run from dev/ (the SessionStart hook does not cd), the queue is still found;

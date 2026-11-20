@@ -1653,7 +1653,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
       kit_refuse 1 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
-        "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
+        "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it. That check reads only what the branch adds: an entry already on the trunk is reported by check-board.sh [r], never refused." \
         "Next: fix the id on the card (the check reads the register on the branch and on the trunk, so a ruling that landed on the trunk after the branch was cut needs no merge of the trunk), or add the ruling it names to the register in this same change. If the entry exists but its heading puts a character straight after the id ('### D-NN: …'), the id is not read: put a space after it. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
         "       NOTHING WAS CHANGED."
     fi
@@ -1993,7 +1993,7 @@ kit_board_property_check() {
       "${msg[@]}" \
       "       check-board.sh reports the same property; only a finding this landing introduces is refused," \
       "       and one already on ${old_rev} is not." \
-      "Next: correct each finding above in the branch's change (the card, register or PRD it names), commit and push, then re-run the command that refused. A finding that is a ruling nobody has made is not yours to invent: ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
+      "Next: correct each finding above (the card, register or PRD it names): the Dev amends the branch's change, and QA hands the branch back rather than rewriting it; a register or PRD fix may instead land on the trunk with ./scripts/register-commit.sh --role <role> --message \"<message>\" <path>. Then re-run the command that refused. A finding that is a ruling nobody has made is not yours to invent: ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
       "       NOTHING WAS CHANGED."
   fi
   if [ -n "$_BPC_DEAD" ]; then _bpc_refuse_dead new; fi
