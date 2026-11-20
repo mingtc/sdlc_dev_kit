@@ -150,7 +150,7 @@ Quote what it prints. Then diff against the last base: `git diff <base> -- requi
 - **Purely visual:** propose to accept it.
 - **A token broken:** a colour literal, or a size or a font where a `var(--<token>)` or a `{{hole}}` was. Ask. The cure is the Designer's: correct the
   screen with the artifact tools after this pull.
-- **Requirement-affecting** (a screen, state or copy a story's AC rests on): raise the question to the PM with `scripts/ask.sh --role Designer`.
+- **Requirement-affecting** (a screen, state or copy a story's AC rests on): raise the question to the PM with `scripts/ask.sh --role Designer "<question>" --default "<working default>"`.
 - **Touches a pinned state** (a card cites it): a `D-NN` through `ask.sh`; a pinned card is never re-targeted.
 - **Changed since you last published:** flag it. It is a person's edit on top of yours.
 

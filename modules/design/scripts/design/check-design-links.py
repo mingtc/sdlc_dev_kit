@@ -152,9 +152,9 @@ STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
 # unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it
 TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
-META_B = re.compile(rb' data-stories="[^"]*"')
-
-META = re.compile(r' data-stories="[^"]*"')
+# the root's data-stories with the whitespace before it, as TAG_ANY reads attributes: any whitespace, either quote
+META_B = re.compile(rb'\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
+META = re.compile(r'\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
 # A file an artboard loads that neither revision holds cannot have changed, so it is no gap in a comparison: `support.js` is supplied by the
 # host and is in no project, `/_blob/<hash>` is content-addressed, a `{{template}}` href is a value. Setting this True makes each such file
 # `uncompared`. The ruling on `support.js` waits on a real export from the design tool (whether a human's copy carries it).
@@ -1537,15 +1537,17 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         art = r['canvas'] / PROJECT_SUBDIR / r['file']
         if art.is_file():
             html = read(art)
-            mu, ms = re.search(r'data-ux="([^"]*)"', html), re.search(r'data-stories="([^"]*)"', html)
+            mu, ms = re.search(r'data-ux="([^"]*)"', html), re.search(r'data-stories=(?:"([^"]*)"|\'([^\']*)\')', html)
             if not mu:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-ux (registry says {r['ux']})"))
             elif mu.group(1) != r['ux']:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-ux={mu.group(1)}, registry says {r['ux']}"))
             if not ms:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-stories"))
-            elif set(ms.group(1).split()) != set(r['stories']):
-                out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(ms.group(1).split())} != registry {sorted(r['stories'])}"))
+            else:
+                have = (ms.group(1) if ms.group(1) is not None else ms.group(2)).split()
+                if set(have) != set(r['stories']):
+                    out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(have)} != registry {sorted(r['stories'])}"))
             loaded, unread = loaded_files(root, art, html)
             own_row = [(n, t) for n, t in loaded if n.lower().endswith('.html') and n in rowfiles]
             loaded = [(n, t) for n, t in loaded if (n, t) not in own_row]   # a screen with a row of its own is reported there

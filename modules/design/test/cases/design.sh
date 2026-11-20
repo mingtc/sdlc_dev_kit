@@ -1125,6 +1125,9 @@ case_an_approval_covers_what_the_approved_screen_loads_and_the_tokens_it_uses() 
     _dm_commit "${what%%|*} changes"
     _dm_py scripts/design/check-design-links.py --strict
     { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "${what%%|*}"; } || cf "(c) a change to ${what%%|*} after the approval does not stale it, naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+    _dm_card 850 todo "design: [UX-001#default@$_DM_SHA]"
+    _dm_leaving 850
+    { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "${what%%|*}"; } || cf "(c) --leaving over a card pinned after a change to ${what%%|*} does not stale the approval, naming it (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
     git -C "$SB_WORK" checkout -q "$Y" -- "requirements/design/app/project/${what%%|*}" >/dev/null 2>&1
     _dm_commit "${what%%|*} is back"
   done
@@ -1138,7 +1141,7 @@ case_an_approval_covers_what_the_approved_screen_loads_and_the_tokens_it_uses() 
   # --leaving for a card pinned at the changed state
   _dm_card 851 todo "design: [UX-001#default@$_DM_SHA]"
   _dm_leaving 851
-  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(e) --leaving lets a card pinned after an unapproved token change through (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "STALE-APPROVAL" && _dm_has "$_dm_out" "color-primary"; } || cf "(e) --leaving lets a card pinned after an unapproved token change through, or does not name the token (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-240)"
   finish "$L"
   teardown
 }
@@ -1462,13 +1465,15 @@ case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
 # =============================================================================
 case_the_card_gate_passes_a_pin_to_a_content_only_row_and_reads_the_report_classes_from_the_checker() {
   cf_reset
-  local L="the board mover lets a card pinned to a wireframe row whose text changed since its approval into in_progress/ (the link check prints a CONTENT-ONLY report line for the pin), and the card gate takes its report classes from check-design-links.py --report-classes, which lists MODE, CONTENT-ONLY, UNCOVERED-WIRE and STALE-PENDING-WIRE"
+  local L="the board mover lets a card pinned to a wireframe row whose text changed since its approval into in_progress/ (the link check prints a CONTENT-ONLY report line for the pin), and the card gate takes its report classes from check-design-links.py --report-classes, which lists MODE, CONTENT-ONLY, UNCOVERED-WIRE and STALE-PENDING-WIRE, and the gate's own text names none of the classes it lists"
   _dm_wire_guards "$L" || return
   _dm_wire_fixture || { finish "$L"; teardown; return; }
   local D="$SB_WORK/requirements/design/app/project" id
   _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'
   _dm_land "a text edit after the approval"
   _dm_seed 841 "design: [UX-001#default@$_DM_V]"; id="$_DM_CARD"
+  _dm_py scripts/design/check-design-links.py --leaving "progress/todo/$id-gate.md"
+  { [ "$_dm_rc" -eq 0 ] && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(a0) --leaving over a card pinned to that row prints no CONTENT-ONLY line for UX-001, or counts it as a finding (exit $_dm_rc): $(_dm_brief 300)"
   _dm_gate_move "$id" PM
   [ "$_dm_rc" -eq 0 ] || cf "(a) a card pinned to a wireframe row whose text changed since its approval is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/in_progress/$id-gate.md" || cf "(a) the card did not reach in_progress/ on the trunk"
@@ -1477,7 +1482,9 @@ case_the_card_gate_passes_a_pin_to_a_content_only_row_and_reads_the_report_class
   for c in MODE CONTENT-ONLY UNCOVERED-WIRE STALE-PENDING-WIRE UNCITED DESIGN-STORY; do
     _dm_has "|$_dm_out|" "|$c|" || cf "(b) --report-classes does not list $c: $_dm_out"
   done
-  _dm_has "$(cat "$REAL_REPO_ROOT/modules/design/move-check.d/50-design-pin.sh")" "DESIGN-STORY" && cf "(c) the card gate holds a list of report classes of its own"
+  for c in $(printf '%s' "$_dm_out" | tr '|' ' '); do
+    _dm_has "$(cat "$REAL_REPO_ROOT/modules/design/move-check.d/50-design-pin.sh")" "$c" && cf "(c) the card gate names the report class $c, so it holds a list of its own"
+  done
   finish "$L"
   teardown
 }
@@ -5552,6 +5559,8 @@ case_the_designers_commits_reach_the_trunk_with_their_shas_and_a_pull_or_publish
   # (i) an unreachable remote: refused with a Next, not read as level
   git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git"
   _ts check; { [ "$_ts_rc" -eq 1 ] && [ "$(_ts_next 'git fetch')" -ge 1 ]; } || cf "(i) check over a remote that cannot be read is not refused with a Next (exit $_ts_rc): $(_ts_brief)"
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  _ts push; { [ "$_ts_rc" -eq 1 ] && _dm_has "$_ts_out" "could not read" && [ "$(_ts_next 'git fetch')" -ge 1 ] && [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ]; } || cf "(i) push over a remote that cannot be read is not refused with a Next, HEAD unchanged (exit $_ts_rc): $(_ts_brief)"
   git -C "$SB_WORK" remote set-url origin "$SB_ORIGIN"
   # (j) off the trunk, both modes refuse before fetching or pushing
   git -C "$SB_WORK" checkout -q -b side >/dev/null 2>&1
@@ -5629,7 +5638,7 @@ EOF
   chmod +x "$d/chrome"
   # (a) --timeout 2: FAIL, exit 1, back within the bound
   _dm_rl_start "$d" 2; _dm_rl_wait 20
-  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt" && /usr/bin/grep -q 'did not finish' "$d/out.txt"; } || cf "(a) a timed-out board is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc): $(tr '\n' '|' < "$d/out.txt" | cut -c1-200)"
+  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt" && /usr/bin/grep -qx 'Chrome did not finish in 2 s' "$d/out.txt"; } || cf "(a) a timed-out board is not FAIL with exit 1 within 20 s, or its reason is not a line of its own (exit $_dm_rl_rc): $(tr '\n' '|' < "$d/out.txt" | cut -c1-200)"
   # (b) after it returned, the stand-in and both its helpers are gone
   [ -f "$d/fake.pid" ] || cf "(b) the stand-in never ran (no pidfile), so nothing was measured"
   _dm_rl_gone "$d" 5 || cf "(b) after a timed-out board render.py returned and Chrome's processes still run (pids$_dm_rl_left)"
@@ -5657,6 +5666,107 @@ EOF
   { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt"; } || cf "(d) a timed-out board over a Chrome that ignores TERM is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc)"
   _dm_rl_gone "$d" 5 || cf "(d) a Chrome that ignores TERM still runs after render.py returned (pids$_dm_rl_left)"
   _dm_rl_reap
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A `>` IN A PROPS VALUE AND A ROOT'S data-stories IN ANY LAYOUT MOVE NO APPROVAL AND NO PIN.
+#   Operand: normalise-canvas.py over boards whose data-props holds a raw `>`; then check-design-links.py --strict and pin-drift.py over
+#   an approved, pinned screen whose props are re-spelled with a raw `>` in them, and whose root's data-stories is rewritten with its
+#   attributes on their own lines and then single-quoted.
+# =============================================================================
+_dm_gt_art() {  # <path> <root attributes as written> <data-props attribute as written> — screen UX-001 with a component script
+  mkdir -p "$(dirname "$1")"
+  printf '<!doctype html><html><body><x-dc>\n<style>:root { --color-primary: #485d92; }</style>\n<div id="ux-001-root"%s>\n<h1 id="ux-001-title" style="color: var(--color-primary)"><a href="B.dc.html#top">List</a></h1>\n</div></x-dc>\n<script type="text/x-dc" data-dc-script %s>\nclass Component extends DCLogic {}\n</script></body></html>\n' "$2" "$3" > "$1"
+}
+case_a_gt_in_a_props_value_and_a_roots_data_stories_in_any_layout_move_no_approval_and_no_pin() {
+  cf_reset
+  local L="normalise-canvas.py rewrites a data-props whose value holds a raw > as it does any other (--check says so, a second run finds nothing, a non-x-dc script is left alone), a board re-spelled around a raw > in its props keeps its approval and its pin, and a change to only the root's data-stories keeps both whether the root's attributes sit on their own lines or the value is single-quoted, the single-quoted value being the one the ARTBOARD line reads"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" n="$SB_TMP/gt" D="$SB_WORK/requirements/design/app/project" P V0 V1 V2 R
+  # (a) the normaliser over a raw > in props
+  mkdir -p "$n/project"
+  printf '{}\n' > "$n/project/canvas.json"
+  _dm_gt_art "$n/project/gt.dc.html" ' data-ux="UX-001"' 'data-props="{&quot;a&quot;:&quot;Next >&quot;}"'
+  printf '<script type="text/javascript" data-props="{&quot;a&quot;:&quot;Next >&quot;}">x</script>\n' > "$n/project/js.dc.html"
+  cp "$n/project/js.dc.html" "$n/js.before"
+  _dm_py "$m/normalise-canvas.py" "$n/project" --check
+  { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "would normalise gt.dc.html"; } || cf "(a) --check over a props value holding a raw > does not say it would normalise the board (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_has "$_dm_out" "js.dc.html" && cf "(a) a script that is not text/x-dc is rewritten: $(_dm_brief 300)"
+  _dm_py "$m/normalise-canvas.py" "$n/project"
+  /usr/bin/grep -qF "data-props='{\"a\":\"Next >\"}'" "$n/project/gt.dc.html" || cf "(a) a props value holding a raw > is not written in the single-quoted form: $(/usr/bin/grep -c data-props "$n/project/gt.dc.html")"
+  cmp -s "$n/project/js.dc.html" "$n/js.before" || cf "(a) a script that is not text/x-dc was changed"
+  _dm_py "$m/normalise-canvas.py" "$n/project" --check
+  [ "$_dm_rc" -eq 0 ] || cf "(a) a second run finds more to normalise (exit $_dm_rc): $(_dm_brief 300)"
+  # (b) an approval and a pin over a raw > re-spelled by a page save
+  R=' data-ux="UX-001" data-stories="PRD-001-F1-S1"'
+  V0="data-props='{\"a\":\"Next >\"}'"
+  _dm_gt_art "$D/A.dc.html" "$R" "$V0"
+  _dm_commit "the screen carries a raw > in its props"; P="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$P|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_card 852 in_progress "design: [UX-001#default@$P]"
+  _dm_commit "approve UX-001 and pin a card to it"
+  _dm_py scripts/design/check-design-links.py --strict
+  [ "$_dm_rc" -eq 0 ] || cf "(b0) the approval is not good straight after it is given (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_gt_art "$D/A.dc.html" "$R" 'data-props="{&quot;a&quot;:&quot;Next >&quot;}"'
+  _dm_commit "a page save re-spells the props around the raw >"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b) a re-spelling around a raw > in props stales the approval (exit $_dm_rc): $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-852" "UX-001#default@${P:0:7}")" = clean ] || cf "(b) a re-spelling around a raw > in props reads as drift: $(_dm_brief 300)"
+  # (c) the root's attributes on their own lines, then only data-stories changes
+  V1="$(printf '\ndata-ux="UX-001"\ndata-stories="PRD-001-F1-S1"')"
+  _dm_gt_art "$D/A.dc.html" "$V1" "$V0"
+  _dm_commit "the root's attributes on their own lines"; P="$_DM_SHA"
+  _dm_registry "$SB_WORK/requirements/design/app" "UX-001|A.dc.html|default, empty|PRD-001-F1-S1|approved@$P|open" 'UX-002|B.dc.html|default|PRD-001-F1-S2|open|open'
+  _dm_card 853 in_progress "design: [UX-001#default@$P]"
+  _dm_commit "approve it in that layout and pin a card to it"
+  V2="$(printf '\ndata-ux="UX-001"\ndata-stories="PRD-001-F1-S1 PRD-002-F1-S1"')"
+  _dm_gt_art "$D/A.dc.html" "$V2" "$V0"
+  _dm_commit "a PRD adds a story to the screen"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "STALE-APPROVAL" && cf "(c) a change to only data-stories stales the approval when the root's attributes sit on their own lines: $(_dm_brief 300)"
+  _dm_has "$_dm_out" "data-stories ['PRD-001-F1-S1', 'PRD-002-F1-S1'] != registry" || cf "(c) the root's data-stories is not compared with the registry: $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-853" "UX-001#default@${P:0:7}")" = clean ] || cf "(c) a change to only data-stories reads as drift when the root's attributes sit on their own lines: $(_dm_brief 300)"
+  # (d) the same change, single-quoted
+  _dm_gt_art "$D/A.dc.html" "$(printf "\ndata-ux=\"UX-001\"\ndata-stories='PRD-001-F1-S1 PRD-002-F1-S1'")" "$V0"
+  _dm_commit "the root's data-stories single-quoted"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "STALE-APPROVAL" && cf "(d) a single-quoted data-stories stales the approval: $(_dm_brief 300)"
+  _dm_has "$_dm_out" "A.dc.html: no data-stories" && cf "(d) a single-quoted data-stories reads as absent: $(_dm_brief 300)"
+  _dm_has "$_dm_out" "data-stories ['PRD-001-F1-S1', 'PRD-002-F1-S1'] != registry" || cf "(d) a single-quoted data-stories is not the value the ARTBOARD line reads: $(_dm_brief 300)"
+  _dm_py scripts/design/pin-drift.py
+  [ "$(_dm_verdict "$_dm_out" "$SB_PREFIX-853" "UX-001#default@${P:0:7}")" = clean ] || cf "(d) a single-quoted data-stories reads as drift: $(_dm_brief 300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A CANVAS STARTED FROM THE TEMPLATES AND NOT YET FILLED IN READS CLEAN UNDER --strict.
+#   Operand: check-design-links.py --strict over the clean link fixture and then over the same project with CANVAS.template.md and
+#   COMMENTS.template.md copied as a second canvas's records (SETUP.md step 2), its example rows left as shipped.
+# =============================================================================
+case_a_canvas_copied_from_the_templates_and_not_yet_filled_in_reads_clean_under_strict() {
+  cf_reset
+  local L="check-design-links.py --strict exits 0 with no finding over a second canvas whose CANVAS.md and COMMENTS.md are the shipped templates, the example rows of the screen registry being skipped as placeholders"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local t="$SB_WORK/.claude/templates/design"
+  [ -f "$t/CANVAS.template.md" ] && [ -f "$t/COMMENTS.template.md" ] || { cf "the sandbox holds no canvas templates under .claude/templates/design"; finish "$L"; teardown; return; }
+  mkdir -p "$SB_WORK/requirements/design/shop"
+  cp "$t/CANVAS.template.md" "$SB_WORK/requirements/design/shop/CANVAS.md"
+  cp "$t/COMMENTS.template.md" "$SB_WORK/requirements/design/shop/COMMENTS.md"
+  _dm_commit "a canvas started from the templates"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a) the unfilled templates are a finding under --strict (exit $_dm_rc): $(_dm_brief 400)"
+  _dm_has "$_dm_out" "shop/CANVAS.md" && cf "(a) a line names the unfilled template canvas: $(_dm_brief 400)"
   finish "$L"
   teardown
 }

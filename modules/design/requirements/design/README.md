@@ -62,7 +62,8 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 - The marker is `[design: UX-NNN#state]`, **on the AC line**, one per state, and one per width where a screen has a pair. A
   range is not a citation. A marker in a code span or fenced block is prose. Cite by UX-id and state, never by path.
 - A feature with UI and no screens yet carries `**Design:** pending — UX states needed: <state>, <state>`: the Designer's
-  input. Replace it in the commit that lands the first marker.
+  input. Replace it in the commit that lands the first marker. From the Designer's registering the row until then `--strict` reads
+  `UNCOVERED` and `STALE-PENDING`: the PM lands the markers straight after the row.
 - The Designer proposes markers in `CANVAS.md` and never edits PRD text; the PM adds them.
 - **PRDs stay evergreen.** An enhancement to a screen another PRD owns edits the sentences it makes untrue and appends
   **delta stories** (new ids after the last, marked *(delta, PRD-NNN)*) under a `## Deltas` section of the owning PRD.

@@ -308,7 +308,7 @@ def main(argv):
                 rc = 1
                 if os.path.exists(out):
                     os.remove(out)
-                sys.stderr.write(err)
+                sys.stderr.write(err if err.endswith('\n') else err + '\n')
         return rc
     finally:
         if srv:

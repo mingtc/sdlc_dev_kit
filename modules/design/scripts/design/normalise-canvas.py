@@ -23,7 +23,9 @@ Python 3 standard library only.
 import html, html.entities, json, re, sys
 from pathlib import Path
 
-TAG = re.compile(r'''<script\b[^>]*\btype=["']text/x-dc["'][^>]*>''')
+# quote-aware: a `>` inside a quoted attribute value (a props value holding `Next >`) does not end the tag; the three branches start with
+# distinct characters, so a tag is read one way only
+TAG = re.compile(r'''<script\b(?=(?:"[^"]*"|'[^']*'|[^>"'])*?\btype=["']text/x-dc["'])(?:"[^"]*"|'[^']*'|[^>"'])*>''')
 ATTR = re.compile(r'''(\bdata-props=)(?:"([^"]*)"|'([^']*)')''')
 
 

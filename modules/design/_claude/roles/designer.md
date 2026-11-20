@@ -31,7 +31,7 @@ AC (QA).
 
 **Installed with the module:** the layout and the rules in `requirements/design/README.md`; this role, which carries the
 procedure for the canvas; the canvas and comments templates; the PRD and card lines a new PRD and card are minted with; the
-`design` evidence kind; token files, written by hand or generated from a seed; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § Gates); the card gate (a move check that refuses a card leaving `todo/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check; the packaged
+`design` evidence kind; token files, written by hand or generated from a seed; the checkers (§ The checkers) and the pin-drift report in `check-board.sh`; the token tools (§ Tokens); the renderer and the audits (§ PNGs and the wire review, § The two gates); the card gate (a move check that refuses a card arriving in `in_progress/` or `dev_complete/` with an unpinned, unresolved or unapproved `design:` entry) and the QA design-cell check; the packaged
 commands `/design-pull` and `/design-publish` (§ The canvas) with the canvas normaliser and the comment-anchor resolver they run.
 
 ## The canvas
@@ -232,7 +232,7 @@ Today I need help with: <task>
 1. **Proposes citations, never edits PRD text.** The Designer lists the `[design: UX-NNN#state]` markers a story's ACs need
    under "Proposed PRD citations" in `CANVAS.md`; the PM adds them. One owner per document, so a design-driven scope change
    cannot slip in without the PM's ruling.
-2. **Designer to PM goes through `scripts/ask.sh` only**, with `--role Designer` and `--card` when a card is involved.
+2. **Designer to PM goes through `scripts/ask.sh` only**: `scripts/ask.sh --role Designer "<question>" --default "<working default>" [--card <ID>]`, with `--card` when a card is involved.
    `CANVAS.md`'s "Questions" section mirrors the question files; it is never the channel.
 3. **May commit `dev/questions/`**: `ask.sh` leaves its file uncommitted, and nobody else owns committing it.
 4. **Never waits on a pin, unless the card is in `todo/`.** For a card still in `todo/`, the pin is not written yet: finish the

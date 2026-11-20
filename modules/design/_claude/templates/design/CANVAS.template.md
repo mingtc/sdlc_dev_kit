@@ -22,14 +22,14 @@ Written by `/design-pull` and `/design-publish`, one line per `project/` file: `
 
 `platform`: `phone` or `web-desktop`. `pair` names the other width of the same screen (symmetric). `gate1` and `gate2` are
 `open`, `changes` or `approved@<sha>`, `<sha>` being the commit that took in the approved version; `gate2` reads `build` in a wireframe canvas. One table per product area, the
-same header each time.
+same header each time. The checks skip a row whose id is the placeholder `UX-NNN`: give each real screen the next free `UX-<number>`.
 
 ### <product area>
 
 | UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |
 |---|---|---|---|---|---|---|---|---|
-| UX-001 | <Screen>.dc.html | <title (phone)> | phone | UX-002 | default, <state> | <PRD-NNN-F1-S1> | open | open |
-| UX-002 | <ScreenDesktop>.dc.html | <title (desktop)> | web-desktop | UX-001 | default, <state> | <PRD-NNN-F1-S1> | open | open |
+| UX-NNN | <Screen>.dc.html | <title (phone)> | phone | UX-NNN | default, <state> | <PRD-NNN-F1-S1> | open | open |
+| UX-NNN | <ScreenDesktop>.dc.html | <title (desktop)> | web-desktop | UX-NNN | default, <state> | <PRD-NNN-F1-S1> | open | open |
 
 ## Brief
 
