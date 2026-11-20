@@ -87,7 +87,7 @@ the only reliable way to notice is a guard that fails.
 | `docs/` | `<bucket — reference material this project did not write. A vendor's API guide may genuinely be an input to rebuilding and belong in `corpus`; a stakeholder artifact produced to leave the project is neither. Decide per what you actually keep there, and say why>` |
 | `process/` | `<bucket>` |
 | `README.md`, `PROJECT.md`, `AGENTS.md` | `<bucket>` each |
-| `.claude/`, `scripts/`, `consumers/`, `setup.sh`, `.env.example`, `.gitignore`, `LICENSE`, `LICENSE-CONTENT` | `<bucket>` each |
+| `.claude/`, `scripts/`, `consumers/`, `modules/`, `setup.sh`, `.env.example`, `.gitignore`, `LICENSE`, `LICENSE-CONTENT` | `<bucket>` each |
 | `<your file or dir>` | `<bucket>` |
 
 <!-- KIT-MODULES:corpus-buckets — an add-on's own path-to-bucket rows go above this line, in a table of their own between its KIT-MODULE BEGIN and END marker lines. Leave this line. -->

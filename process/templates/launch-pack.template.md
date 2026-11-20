@@ -6,7 +6,7 @@
      of it is the worst of both: it passes a link check here and is broken for every adopter. -->
 
 > **GUIDANCE — how to use this file.** Copy it to `dev/launch/<YYYY-MM-DD>-<run-name>-pack.md`,
-> fill every `<slot>`, and **delete every blockquote that opens `> **GUIDANCE`**, the line-1 marker, and the `LINKS IN THIS FILE` comment, before you launch.
+> fill every `<slot>`, and **delete every blockquote that opens `> **GUIDANCE`**, the line-1 marker, the `LINKS IN THIS FILE` comment and this file's own `# Launch pack template` title, before you launch.
 > The STATUS banner stays, in one form only: paste the **Authored form** below as the first block,
 > without its code fence, and delete the **Closed form**, this section's heading and the form labels; at close you replace it with the Closed
 > form, likewise unfenced.
@@ -238,7 +238,7 @@ derivation; before/after measurements for the shrink issues; each expensive-arti
 regeneration cited by commit; the escalation route actually used>.
 
 **Close conditions:** this pack stamped **SPENT** against the report by name; the board clean
-(`./scripts/check-board.sh` exit 0); the full gate script's summary block quoted verbatim with
+(`./scripts/check-board.sh` ends on `── board-drift: clean`; its exit status is 0 whatever it finds); the full gate script's summary block quoted verbatim with
 its exit code read; residue named. **Parking well is success; a silent stop and improvising are
 the two failure modes.**
 

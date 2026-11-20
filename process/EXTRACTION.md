@@ -59,7 +59,7 @@ belongs in the body, where removing the classification cannot remove it.
 case below them is a third way a file can lack a `KIT-CLASS:` comment, which is why no count is
 written here: *the list is the list.*
 
-- **A vendored third-party directory inside a module is classified by its own `NOTICE`, not in-file.** `modules/design/scripts/design/vendor/` holds Apache-2.0 code and data (`material-color-utilities`, material-web's token values), the kit's only non-MIT shipped code; `LICENSE` is the Apache text, `NOTICE` lists every change, and the files keep their upstream headers and carry no `KIT-CLASS:` marker (an upstream re-copy would erase one). It is deletable with the module.
+- **A vendored third-party directory inside a module carries no in-file class; it travels and is deletable with its module.** `modules/design/scripts/design/vendor/` holds Apache-2.0 code and data (`material-color-utilities`, material-web's token values), the kit's only non-MIT shipped code; `LICENSE` is the Apache text, `NOTICE` lists every change (it records licence and changes, not a class), and the files keep their upstream headers and carry no `KIT-CLASS:` marker (an upstream re-copy would erase one).
 - **Vendored skill directories are classified by the `Class` column of
   `.claude/skills/README.md`'s provenance table, not in-file.** *Why:* updating a skill from upstream is a **re-fetch and copy the folder over**, which
   **erases an in-file marker** — so a marker there would be a classification that silently disappears
@@ -143,6 +143,8 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
 | `KIT-DISPOSITION:` | What must HAPPEN to a file before day one is done — one of the disposition rows | § The second axis: DISPOSITION, below | in that section's own text |
 
 <!-- VALUE-KIND-MARKERS:END -->
+
+`KIT-MODULES:<slot>` lines are outside this register on purpose: they mark a position in a file, not what a value is.
 
 **THE OBLIGATION, and it is the whole of the convention: a new marker is added to this table in the
 same change that mints it.** One marker at a time, each earning its place from a real defect — this
@@ -673,6 +675,7 @@ left to open by hand.
 | `scripts/lib/modules.sh` | the declaration, **read** from `lib/status-folders.sh` as text (`_kit_mod_status_folders`) — **and `qa_complete` as a literal**, compared where it decides which landing script a module's move check needs | a renamed `qa_complete` leaves that comparison answering about the old name while the read beside it is correct |
 | `scripts/lib/board-properties.sh` | `STATUS_FOLDERS` as the trunk's declaration holds it (`kit_bp_load_declarations`) — **and the landed columns, `done` and `qa_complete`, by name** in its `for pcol in …` loop (arm `[p]`'s landed subset) | the arm answers about the old landed set: a card in a new landed column is not counted as landed |
 | `scripts/kit-upgrade.sh` | `in_progress`, `dev_complete` and `blocked` **by name** in the loop that re-checks open cards, and `todo` for the cards it only counts | a renamed or added open column is never re-checked, and the upgrade reports the cards it did not read as fine |
+| `scripts/githooks/pre-commit` | `qa_complete` **by name**, in executing code: the staged-add pathspec `progress/qa_complete/*.md` that finds a card entering the column, and the `progress/qa_complete/*/*` case that skips a slice's tree | a renamed or added terminal column is never checked at its first commit, while the constant beside it reads correctly |
 | `scripts/read-verdict.sh` | `dev_complete` **by name**, in the comparison that decides whether a REFUSE is expected because the landing has not merged | the note that explains an expected REFUSE stops appearing |
 | `scripts/hygiene/staleness_greps.py` (optional, Python) | `progress/done/` as a path literal, in the test for "this card has landed" | a landed card is not recognised, and a stale claim about it goes unflagged |
 | `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, derived by exclusion: ``ls $(ls -d progress/*/ \| grep -v -e /done/ -e /declined/ -e /history/)`` lists every column but the terminal ones. The exclusion is **written in the command and in prose** (a terminal column is not runnable), so the next reader meets a decision rather than a silence | a new terminal column is LISTED as if it were runnable, and a reader is told work is waiting where none is. **The cost of the other direction:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
@@ -691,7 +694,7 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
 - **They mention one column in a comment or an example string.** `scripts/verify.sh` names
   `dev_complete` in a comment and an echo; `scripts/githooks/commit-msg` names `qa_complete` inside
   an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
-  command; `scripts/read-verdict.sh` names both in its header comment (it also compares `dev_complete` in code — its row above). **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
+  command; `scripts/lib/progress-record.sh` and `scripts/register-commit.sh` name a column in a header example; `scripts/read-verdict.sh` names both in its header comment (it also compares `dev_complete` in code — its row above). **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
   class here and the easiest to leave for years.
 - **THE AGENT-FACING TREE UNDER `.claude/` NAMES COLUMNS TOO, AND IT IS THE LARGEST CARRIER OF THEM.**
   The workflow runners emit `move-issue.sh <id> <column>` invocations and describe the board in the

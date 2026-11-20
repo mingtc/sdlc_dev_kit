@@ -6,7 +6,7 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/pack.md`, fill every `<slot>`, and **delete every blockquote
-> that opens `> **GUIDANCE`**, the line-1 marker and the `LINKS IN THIS FILE` comment under it (the STATUS banner stays, unfenced: delete its code fence and this section's heading). The doctrine is
+> that opens `> **GUIDANCE`**, the line-1 marker, the `LINKS IN THIS FILE` comment under it and this file's own `# Round pack template` title (the STATUS banner stays, unfenced: delete its code fence and this section's heading). The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
 > to* before it runs.
 >

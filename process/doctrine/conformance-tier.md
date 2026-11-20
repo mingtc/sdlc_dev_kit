@@ -218,7 +218,7 @@ measurement that produced it.
 - A test pinning a **migration scaffold** that exists because of the order *this* implementation was
   built in. A rewrite from the corpus has no such history.
 
-**The worked instance of per-assertion marking.** A regeneration spike's own recommendation was
+**The worked instance of marking individual tests.** A regeneration spike's own recommendation was
 *"mark the individual tests, not the file"*, because address-parsing modules mix the two tiers inside one
 file. What earned the mark there: the grammars and their field values, the accepted-shape
 vocabulary, the negatives. What did not: **parameter names**, **docstring prose**, the **exact

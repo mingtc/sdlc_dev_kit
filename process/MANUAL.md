@@ -635,8 +635,8 @@ worktree).
 **A path the suite reads is code, whatever it holds.** A test that reads a board file, a spec or a design
 canvas runs against what the trunk holds, and a metadata commit runs no gate, so one can turn the trunk
 red unseen. List every such path in `CODE_GLOBS`: a change to it is then made on a card's branch and
-gated. Declaring it locks nothing: the pre-commit hook refuses only a metadata-only commit made off the
-trunk, and no script refuses a code path committed on it.
+gated. Declaring it locks nothing: the pre-commit hook refuses a metadata-only commit made off the
+trunk and a change to a `dev/evidence/` file the trunk already holds, and no script refuses a code path committed on it.
 
 **A linked worktree on a branch of its own — not the trunk ref — is a different shape, and needs
 a route rather than a detach.** Tooling that creates a linked worktree commonly puts it on a
@@ -701,7 +701,7 @@ your own** rather than a `git switch` in the shared root, and keep the multi-ses
 
 **And know what your detector cannot see.** A commit dropped by somebody's rebase is reachable from
 no ref, which is **outside the span `check-board.sh` prints** — `check-board.sh --full` says so on every
-run, in the line quoted above (the default report folds an arm with no finding into one named line). So a displaced commit is not something the drift report will surface for you; if a leg
+run, in its span line (the default report folds an arm with no finding into one named line). So a displaced commit is not something the drift report will surface for you; if a leg
 rebases the trunk under you, the reflog is the only witness.
 
 ### Role-attribution commit prefixes
@@ -729,7 +729,7 @@ Two attribution rules are the kit's:
 ### Landing code — `./scripts/finish-pr.sh <ID>`
 
 Forge-agnostic, pure version control; **no forge CLI**. It squash-merges the issue's work branch
-into the trunk locally, pushes, deletes the branch (local + remote), and advances the issue
+into the trunk locally, pushes, deletes the remote branch (and the local one unless a worktree holds it), and advances the issue
 `dev_complete → qa_complete`. QA's verdict and per-AC evidence live in the **issue file's `## QA Verdict` table —
 committed on the trunk**, not on the branch (§ The Dev → QA handoff step 3) —
 there is no PR/MR object to open, approve or comment on. (A forge-PR flavor can be added later if

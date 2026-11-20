@@ -111,7 +111,9 @@ guard can see a commit the operator makes by hand.
   create a second copy of a card the trunk holds elsewhere), `register-checkout-stale` (the caller's
   copy lacks a line the trunk gained, so landing it would delete that work), `register-cites-unlanded-answer`
   (a register path's landing adds a line naming a question file whose `**Answer` is in the caller's
-  checkout and not on the trunk, and the file is not among the paths) and `nothing-to-commit`
+  checkout and not on the trunk, and the file is not among the paths), the path-shape family `register-path-*`
+  (a named path that is outside the project, not canonical, has a control character, differs only in letter case from another or from the trunk's spelling, is a directory, is unreadable, is ignored, or passes through a link),
+  `register-stage-failed` (git could not stage a path in the kanban worktree), `register-trunk-unreadable` (the trunk's file list could not be read) and `nothing-to-commit`
   (every named path already matches the trunk's tip).
 - **The code-vs-metadata rule**, raised by `scripts/githooks/pre-commit` as
   `pre-commit-metadata-off-trunk`: a commit made off the trunk that stages no path the project

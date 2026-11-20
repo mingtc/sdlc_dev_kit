@@ -6,7 +6,7 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, **delete every blockquote
-> that opens `> **GUIDANCE`**, the line-1 marker and the `LINKS IN THIS FILE` comment under it — and **index it in `dev/README.md` in the same commit**. The doctrine is
+> that opens `> **GUIDANCE`**, the line-1 marker, the `LINKS IN THIS FILE` comment under it and this file's own `# Round report template` title — and **index it in `dev/README.md` in the same commit**. The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); the pack it grades against is
 > `pack.md` beside it.
 >

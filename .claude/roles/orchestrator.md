@@ -263,7 +263,7 @@ testimony** — a self-report and a review can both miss what a hash check catch
    condition under which this check was invented.
 2. **The tree**: `git status -sb` + `git status --porcelain` on the run worktree — clean, on
    the expected branch.
-3. **The board**: `./scripts/check-board.sh` exit 0.
+3. **The board**: `./scripts/check-board.sh` ends on `── board-drift: clean`. Its exit status is 0 whatever it finds, so read the verdict line, not the status.
 4. **The remote**: `git ls-remote <remote> <trunk>` — monotonic, no unexplained regression.
 5. **Leg liveness and honesty**: a returned leg's report must carry its own gate transcript
    (summary block + exit code); a claim without its transcript is treated as unverified and
@@ -386,7 +386,7 @@ rests on judgment rather than evidence**:
   frontmatter, or the Dev's worktree when one holds it — `qa.md` step 2), run the project's gate runner, walk the AC, and run any **binding extra gate**
   the project declares for this change class (§ Project duties). On PASS run
   `./scripts/finish-pr.sh <PREFIX>-NNN` (with `--worktree` when reviewing in one) — forge-agnostic pure git: it squash-merges the branch
-  into `<trunk>` locally, pushes, deletes the branch, and advances the issue to `qa_complete/`.
+  into `<trunk>` locally, pushes, deletes the remote branch (the local one too, unless a worktree holds it), and advances the issue to `qa_complete/`.
   **No forge approve/merge ceremony, no `git switch <trunk>` + pull.** Then proceed to the next
   issue.
 - **Clear FAIL** → `move-issue.sh … in_progress` (AC unmet) and/or `new-bug.sh` (regression),
@@ -623,9 +623,10 @@ commands with — the procedure, the operator's before-launch route and the chec
 Inherited from Dev: **code lives on the worktree/work branch; kanban state and metadata live
 on the trunk.** `move-issue.sh` / `finish-pr.sh` enforce this with a **standing detached kanban
 worktree**: they resolve the real repo root via `git rev-parse --git-common-dir` and do the
-move + commit + push there, never switching the operator's checkout. The scripts are therefore
-safe to run **from anywhere** (the primary checkout, a feature worktree, or the kanban worktree
-itself), with any working-tree state.
+move + commit + push there, never switching the operator's checkout. The scripts
+therefore run from any checkout (the primary, a feature worktree, or the kanban worktree itself)
+in any working-tree state, **provided the scripts they run and the libraries those source are the
+trunk's committed copy**; otherwise they refuse, naming the files (`dev.md` step 13 says what to do).
 
 Two things a worktree still costs you, and the rule that follows:
 

@@ -236,7 +236,7 @@ author, none of § A binds. Filling it in is what makes § A enforceable here ra
 ## C. This sheet's own evidence base — stated, because it is thin
 
 **Written from a small body of observation on the question it is actually about, and it says so here
-rather than reading as settled.** Two halves, and they are not equally supported:
+rather than reading as settled.** The counts below are those of the observation it was written from, not a running tally; re-count them before leaning on one. Two halves, and they are not equally supported:
 
 - **The SHAPE half is affirmative at n=2.** Two independent consumers, on different products in
   different languages, neither ever shown the process being measured, converged on substantially the

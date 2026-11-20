@@ -17,7 +17,7 @@ every file reads as executable, a new script is committed without its exec bit, 
 are one file. Native Windows (Git Bash, PowerShell) is not supported.
 Run the self-test (`./scripts/test/run.sh`) as an ordinary user, not root: the cases that make a file unreadable cannot prove
 anything as root and say so. In a container, start the container with an init (`docker run --init`): without one nothing reaps an
-orphaned process that exits, and a full self-test run leaves thousands of these zombies behind. Built with
+orphaned process that exits, and a full self-test run leaves many of these zombies behind. Built with
 [Claude Code](https://claude.com/claude-code) in
 mind — that's where the skills, agent definitions and hooks under `.claude/` actually run (the hooks stay
 inactive until you copy `.claude/settings.json.example` to `.claude/settings.json`; `process/MANUAL.md` § The

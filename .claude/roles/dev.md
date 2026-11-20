@@ -382,7 +382,7 @@ Starts from a `type: refactor` issue in `progress/todo/` (created by the Refacto
 
 The Refactorer's plan is a starting position. If on reading it you see a better move sequence, a missed target, or an ill-advised migration, you have two options:
 
-- **(a) Discuss with the Refactorer.** Append a note to the issue's Activity log explaining the disagreement, then `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Refactor plan disputed: <one-sentence reason>."` Refactorer reads, decides, and either updates the plan or proceeds; the issue moves back to `in_progress/` after the discussion resolves.
+- **(a) Discuss with the Refactorer.** Append a note to the issue's Activity log explaining the disagreement, then `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Refactor plan disputed: <one-sentence reason>."` Refactorer reads, decides, and either updates the plan or proceeds, recording the decision in the Activity log; the PM, who triages `blocked/`, then moves the issue back: `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role PM --note "Plan decided: <outcome>."`
 - **(b) Proceed with your judgment and document the deviation.** Append a `progress.md` line and a note in the issue Activity. This is the existing Dev practice for plan deviations — same standard applies. QA will see the deviation in the issue's Activity log / Handoff-to-QA notes.
 
 The second opinion is the point of the Dev role being a separate hat from Refactorer. Use it.

@@ -166,7 +166,7 @@ What Dev sees picking up a `type: refactor` issue from `progress/todo/`:
 
 Dev follows the **Refactor variation** in [.claude/roles/dev.md](dev.md#refactor-variation) for the execution flow — same kanban transitions, same QA handoff, different first-step discipline (verify safety-net claims, no new failing test, TDD loop is Green → Move → Green per Fowler primitive).
 
-**Dev is encouraged to push back** — on a better move sequence, a missed target, an ill-advised migration, or a hidden semantic change masquerading as a refactor. *When that happens*, Dev either disputes the plan (the issue arrives in `blocked/` for you to decide on) or proceeds on its own judgment with the deviation documented; the two paths are [dev.md § Disagreeing with the plan](dev.md#disagreeing-with-the-plan). The second opinion is the point: **the Refactorer's plan is a starting position, not a contract.**
+**Dev is encouraged to push back** — on a better move sequence, a missed target, an ill-advised migration, or a hidden semantic change masquerading as a refactor. *When that happens*, Dev either disputes the plan (the issue arrives in `blocked/` for you to decide on; record the decision in its Activity log, and the PM moves it back) or proceeds on its own judgment with the deviation documented; the two paths are [dev.md § Disagreeing with the plan](dev.md#disagreeing-with-the-plan). The second opinion is the point: **the Refactorer's plan is a starting position, not a contract.**
 
 ## What does NOT belong in a refactor pass
 

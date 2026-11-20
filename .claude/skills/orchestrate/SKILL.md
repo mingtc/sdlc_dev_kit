@@ -179,7 +179,7 @@ viewer fails this test and does not belong here.**
 
 ### 1. Every dispatch carries a label, `<verb>:<subject>`
 
-**The verb names the seat and the round** — `dev`, `qa`, `dev-fix`, `qa2`, `park-qa` are what the
+**The verb names the seat and the round** — `dev`, `qa`, `dev-fix`, `qa2`, `park-qa`, `dev-park-fix`, `park-qa2` are what the
 shipped runners in [`.claude/workflows/`](../../workflows/) already pass, and that is the
 convention: the round is part of the verb because *a second QA pass after a fix* and *a first QA
 pass* are different facts about where the run stands. Do not flatten them into a generic verb; the

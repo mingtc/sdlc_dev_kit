@@ -120,8 +120,9 @@ Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
 ## Kit note: when nobody is watching
 
-Some skills end a step on a person's reply: `brainstorming`'s design approval, and the "raise it with
-your human partner" steps of `executing-plans` and `systematic-debugging`. With `KIT_UNATTENDED=1`
+Some skills end a step on a person's reply: `brainstorming`'s design approval and spec-review gate,
+`writing-plans`' choice of how to execute, and the "raise it with your human partner" steps of
+`executing-plans` and `systematic-debugging`. Any other step that waits on a reply is treated the same. With `KIT_UNATTENDED=1`
 nobody will answer, so do not wait and do not end the session. Ask through `./scripts/ask.sh`, take
 the working default it records, write the choice into the design, plan or `progress.md`, and carry on.
 Attended, wait for the reply as the skill says.
