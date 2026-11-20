@@ -8,6 +8,12 @@
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
 
+## [0.12.4] — 2026-11-01
+
+### Changed
+
+- **The `design` module now ships its card gate, a design-rows check and a QA design-cell check.** A card arriving in `in_progress/` or `dev_complete/` is refused, with a `Next:` line and nothing changed, unless its `design:` entries are pinned to commits that resolve, of screens approved at a commit that is an ancestor of the pin and still true on the trunk (or waived by a recorded decision), and a `design:` of `none` or one that lacks a screen the card's ACs cite is refused when an AC is tagged `(UI)` (a story's `UI:` line alone is only a report line); the module's own notes carry the Action required entry for cards already in flight; a card that was in progress and is back from `blocked/` is checked only for being pinned, since drift is reported, not blocked. A card cannot reach `qa_complete/` while an AC tagged `(UI)` or citing a screen has no verdict row of kind `design` with an entry for each state it cites. The QA gate refuses a PASS row of kind `design` whose cell is not `identical`, cites a pin the card lacks, names PNGs the **trunk** does not hold (QA commits them there with `register-commit.sh`), has an image that is no PNG or a build image equal to the pin image, or a pin image that is not the render the pin commit holds for that screen. Slices are covered. A card cannot leave `todo/` pinned to a commit that holds no render of the state. The landing gate's one-observed-row rule now counts a PASS row whose evidence kind has a `qa-cell` check that ran and passed, so a card or slice whose every AC is of such a kind can land (no module is named). Each check is the module's own file read from the trunk; a check that cannot run (no Python, no answer from the tool) refuses as broken; a project that does not enable the module changes no behaviour.
+
 ## [0.12.3] — 2026-11-01
 
 ### Changed
