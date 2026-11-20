@@ -12,7 +12,8 @@
 # scripts/lib/kanban-worktree.sh. Every git op (create / git mv / Activity append /
 # commit / push) happens inside the standing detached `.kanban-wt/` worktree pinned
 # to the trunk — the operator's checkout is NEVER switched and any working-tree
-# state is irrelevant.
+# state is irrelevant, except that its scripts/ must be the trunk's committed copy
+# (it refuses naming the files otherwise).
 #
 # Usage:
 #   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
@@ -122,10 +123,17 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that judges it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
+    _held_local="$(git -C "$SCRIPT_DIR/.." status --porcelain -- $_held_off 2>/dev/null | sed -n 's/^.. //p' | tr '\n' ' ')"
+    _held_edit=""
+    if [ -n "$_held_local" ]; then
+      _held_edit="
+       Uncommitted edits here (${_held_local%% }): to drop them, git checkout -- ${_held_local%% }
+       to keep them, commit and land them through the trunk's copy, then re-run."
+    fi
     _held_next="Next: bring the scripts here to the trunk's. A branch that is only behind them (it changed none of
        them) is brought up to date in place:  git fetch ${_held_rem} && git rebase ${_held_rem}/${_held_trunk}
        Otherwise run the trunk's copy of this command, from the main checkout on ${_held_trunk}, freshly pulled:
-         git switch ${_held_trunk} && git pull --ff-only && ./scripts/subtask.sh <the same arguments>
+         git switch ${_held_trunk} && git pull --ff-only && ./scripts/subtask.sh <the same arguments>${_held_edit}
        If the trunk's copy cannot do this, ask the human: there is no override."
   fi
   # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison

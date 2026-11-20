@@ -19,7 +19,7 @@
 #   3  RED, UNKNOWN: nothing failed, and at least one gate COULD NOT RUN
 # Anything non-zero is red, so a caller that asks only "green or not" is unaffected.
 #
-# --scope needs a gate declared with class `select` in the GATES table (below) and the always-on
+# --scope needs a gate declared with class `select` in the GATES array at the top of this script and the always-on
 # floor in GUARD_SET; with no `select` gate it refuses (exit 2). A gate record written by
 # kit-init is class `core`, so declare a `select` gate before using it.
 #

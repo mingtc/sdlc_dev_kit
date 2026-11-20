@@ -81,7 +81,7 @@
 # The gate checkout (the main one, or --worktree's) must be at the branch's tip; a decomposed
 # issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/ or declined/; and this
 # script, the mover it runs and every library either sources must be byte-identical to <trunk>'s
-# committed copy (the list is `_held_files` below), with no override (a branch that changes one, or
+# committed copy (the list is `_held_files` in this script), with no override (a branch that changes one, or
 # was forked before <trunk>'s copy last changed, lands from the main checkout on <trunk>, with
 # --worktree). Otherwise this refuses before anything moves.
 #
@@ -166,10 +166,17 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that lands it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
+    _held_local="$(git -C "$SCRIPT_DIR/.." status --porcelain -- $_held_off 2>/dev/null | sed -n 's/^.. //p' | tr '\n' ' ')"
+    _held_edit=""
+    if [ -n "$_held_local" ]; then
+      _held_edit="
+       Uncommitted edits here (${_held_local%% }): to drop them, git checkout -- ${_held_local%% }
+       to keep them, commit and land them through the trunk's copy, then re-run."
+    fi
     _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
        branch's checkout with --worktree (a branch cut before the trunk's last change to one of these needs
        no rebase for that; it is rebased only to run this tool from its own checkout):
-         git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>
+         git switch ${_held_trunk} && git pull --ff-only && ./scripts/finish-pr.sh <ID> --worktree <branch checkout>${_held_edit}
        If the trunk's copy cannot land this change, ask the human: there is no override."
   fi
   # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison

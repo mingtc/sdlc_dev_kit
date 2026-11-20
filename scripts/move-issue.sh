@@ -17,7 +17,9 @@
 #
 # There is no dirty-tree refusal and no detached-HEAD refusal — the kanban
 # worktree is a separate working surface, so the current checkout's state is
-# irrelevant. Run this from anywhere (the trunk, a feature worktree, or .kanban-wt).
+# irrelevant, except that its scripts/ must be the trunk's committed copy (it refuses
+# naming the files otherwise). Run this from anywhere else (the trunk, a feature
+# worktree, or .kanban-wt).
 #
 # Usage:
 #   ./scripts/move-issue.sh <ID> <target> --role <R> [--note "..."] [--discard-dirty] [--set-pr <val>] [--landed-at <sha>]
@@ -192,10 +194,17 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that judges a move. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
+    _held_local="$(git -C "$SCRIPT_DIR/.." status --porcelain -- $_held_off 2>/dev/null | sed -n 's/^.. //p' | tr '\n' ' ')"
+    _held_edit=""
+    if [ -n "$_held_local" ]; then
+      _held_edit="
+       Uncommitted edits here (${_held_local%% }): to drop them, git checkout -- ${_held_local%% }
+       to keep them, commit and land them through the trunk's copy, then re-run."
+    fi
     _held_next="Next: bring the scripts here to the trunk's. A branch that is only behind them (it changed none of
        them) is brought up to date in place:  git fetch ${_held_rem} && git rebase ${_held_rem}/${_held_trunk}
        Otherwise run the trunk's copy of this command, from the main checkout on ${_held_trunk}, freshly pulled:
-         git switch ${_held_trunk} && git pull --ff-only && ./scripts/move-issue.sh <the same arguments>
+         git switch ${_held_trunk} && git pull --ff-only && ./scripts/move-issue.sh <the same arguments>${_held_edit}
        If the trunk's copy cannot do this, ask the human: there is no override."
   fi
   # NOTHING IS SOURCED HERE, not even the refusal helper: a library that has just failed the comparison

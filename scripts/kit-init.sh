@@ -784,7 +784,7 @@ if [ ${#PF[@]} -gt 0 ]; then
     [ "$DROP_ENABLE_HOOKS" = "true" ] && [ "$_a" = "--enable-hooks" ] && continue
     _pf_args="${_pf_args}$(printf ' %q' "$_a")"
   done
-  _pf_next="Next: fix the above, then re-run (adding any option a line above names):
+  _pf_next="Next: fix the above (change any value it refuses), then re-run (adding any option a line above names):
     ./scripts/kit-init.sh${_pf_args}"
   if [ "$PF_TOPOLOGY" -eq 1 ]; then
     # Quoted for the shell: the directory's name may carry a space or an apostrophe.
