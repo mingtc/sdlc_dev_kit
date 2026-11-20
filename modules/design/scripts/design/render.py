@@ -24,7 +24,7 @@ usage: render.py PROJECT_DIR OUT_DIR --runtime PATH [--theme ID] [--scheme light
   --scheme     the colour scheme Chrome is forced to (default light), so a sheet that follows prefers-color-scheme draws the same on
                every machine (Blink's preferredColorScheme: 0 is dark, 1 is light)
   --wait       virtual milliseconds the page may run before the shot (default 8000; below 50 is refused, `BAD-WAIT`: 0 and 1 hang Chrome)
-  --timeout    seconds Chrome may take per board (default 90)
+  --timeout    seconds Chrome may take per board (default 90); a timeout, or a TERM, HUP or INT to this tool, stops Chrome's helper processes too
   --scale      device scale factor (default 1; the page's Copy as PNG is 2, and a 2x render matched a real copy to 0.043% of pixels)
   --props      JSON prop overrides for every board (what the Tweaks panel sets)
 Exit codes: 0 every board rendered; 1 a board failed (Chrome failed, timed out, or the page never showed the runtime ran: RUNTIME-DID-NOT-RUN);
@@ -41,7 +41,7 @@ code is unchanged, and content clipped by an `overflow: hidden` ancestor is not 
 An OK line can carry notes, each from what the page did: `NOTE-404` (a file the page asked for is not in the project: a sheet or a
 screen the board links, say), `NOTE-LOGIC` (the page called console.error, which is how the runtime reports a board whose logic throws; that board draws a red label and is still OK, the picture says it and so does this; the runtime's warnings and info lines are not reported), `NO-THEME-RULE`, and a board's own `:root` that keeps its values over a theme sheet.
 """
-import argparse, functools, http.server, json, os, re, shutil, subprocess, sys, tempfile, threading, urllib.parse
+import argparse, functools, http.server, json, os, re, shutil, signal, subprocess, sys, tempfile, threading, time, urllib.parse
 
 MAC = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
@@ -62,6 +62,31 @@ POSTLUDE = r"""
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(go,0)}); else setTimeout(go,0);
 }catch(e){console.error('render.py postlude',e)}})();
 """
+
+
+class Signalled(BaseException):
+    """A TERM, HUP or INT reached render.py: raised so the finally blocks run (Chrome stopped, server shut down, temp dir removed)."""
+    def __init__(self, n):
+        self.n = n
+
+
+def on_signal(n, frame):
+    for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):      # the clean-up is not itself interrupted
+        signal.signal(s, signal.SIG_IGN)
+    raise Signalled(n)
+
+
+def kill_group(proc):
+    """Stop Chrome and the helpers it started: they are separate processes, reached through the process group Popen made for it."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+        for _ in range(20):
+            proc.poll()
+            os.killpg(proc.pid, 0)      # raises once the group is empty
+            time.sleep(0.1)
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def find_chrome(given):
@@ -249,12 +274,21 @@ def main(argv):
                 os.remove(out)      # a failed run must not leave the last render to pass for this one
             del missing[:], errs[:]
             heights.pop(n, None)
-            try:
-                r = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout)
-                ok = r.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0
-                err = r.stderr[-500:]
-            except subprocess.TimeoutExpired:
-                ok, err = False, 'Chrome did not finish in %d s' % a.timeout
+            with open(os.path.join(tmp, 'chrome.err'), 'w+b') as errf:
+                proc = None
+                try:
+                    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=errf, start_new_session=True)
+                    try:
+                        rcode = proc.wait(timeout=a.timeout)
+                        errf.seek(0)
+                        ok = rcode == 0 and os.path.exists(out) and os.path.getsize(out) > 0
+                        err = errf.read().decode('utf-8', 'replace')[-500:]
+                    except subprocess.TimeoutExpired:
+                        ok, err = False, 'Chrome did not finish in %d s' % a.timeout
+                finally:
+                    if proc:
+                        kill_group(proc)
+                        proc.wait()
             if ok and n not in ran:
                 ok, err = False, 'RUNTIME-DID-NOT-RUN: the page never reported the runtime\'s hooks (__dcSetProps, __dcRootName), so %s is not a working design runtime (truncated, empty, or another file?); the PNG was not kept\n' % rt
             note = ''
@@ -283,4 +317,9 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    for sg in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(sg, on_signal)
+    try:
+        sys.exit(main(sys.argv))
+    except Signalled as e:
+        sys.exit(128 + e.n)

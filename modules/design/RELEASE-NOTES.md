@@ -20,6 +20,7 @@ any other heading are not read. Nothing here is read while the module is disable
 
 ### Changed
 
+- **`render.py` stops all of Chrome when a board times out or `render.py` itself is signalled.** Chrome's helper processes (renderer, GPU) are separate processes, and a `--timeout` used to stop only the main one, leaving the helpers spinning on a core each; `render.py` now starts Chrome in its own process group and ends the group (TERM, then KILL after two seconds) on a timeout, on a TERM, HUP or INT sent to `render.py` (which then exits 143, 129 or 130), and after each board. Output and other exit codes are unchanged.
 - **A `/design-pull` entered from `/design-publish` step 6 still shows the diff and waits for your go-ahead**; a go given before the diff existed is not one.
 - **On the built-in `Artifact` tool, `/design-publish` re-reads every `project/` file just before the send** and stops with `/design-pull` if any sha moved from the manifest, and, if the tool refuses the send as unviewed, reads the page and runs again; step 6 runs `/design-pull` before `Last publish` is written when a read-back sha differs, sent or unsent.
 - **The link check says `UNROWED <file>`** for an artboard no registry row names and no screen with a row imports (a report line, never counted), and the `ARTBOARD` lines it prints for a row whose file is not there end in a `Next:`.

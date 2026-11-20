@@ -5570,3 +5570,93 @@ case_the_designers_commits_reach_the_trunk_with_their_shas_and_a_pull_or_publish
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A BOARD CHROME CANNOT FINISH, OR A RENDER.PY THAT IS SIGNALLED, LEAVES NO CHROME PROCESS RUNNING.
+#   Operand: scripts/design/render.py with a stand-in for Chrome that starts two long sleeps of its own (as Chrome starts its helpers)
+#   and then waits without writing the screenshot. No real Chrome; the sleeps use `sleep`, so a red run burns no CPU.
+# =============================================================================
+_dm_rl_alive() { local s; s="$(ps -o stat= -p "$1" 2>/dev/null | tr -d ' ')"; [ -n "$s" ] && [ "${s#Z}" = "$s" ]; }   # <pid> — running (a zombie is not)
+_dm_rl_pids() { cat "$1/fake.pid" "$1/child.pid" "$1/helper.pid" 2>/dev/null; }
+_dm_rl_reap() { local p; [ -n "${_DM_RL_DIR:-}" ] || return 0; for p in $(_dm_rl_pids "$_DM_RL_DIR"); do kill -KILL "$p" 2>/dev/null; done; return 0; }
+_dm_rl_left=""
+_dm_rl_gone() {  # <dir> <seconds> — 0 once none of the stand-in's processes is running, 1 (the survivors in _dm_rl_left) after the bound
+  local n=$(( $2 * 10 )) p
+  while :; do
+    _dm_rl_left=""
+    for p in $(_dm_rl_pids "$1"); do if _dm_rl_alive "$p"; then _dm_rl_left="$_dm_rl_left $p"; fi; done
+    [ -z "$_dm_rl_left" ] && return 0
+    [ "$n" -le 0 ] && return 1
+    n=$((n - 1)); sleep 0.1
+  done
+}
+_dm_rl_pid=""; _dm_rl_rc=0
+_dm_rl_start() {  # <dir> <timeout> — render.py in the background over the stand-in, its output in <dir>/out.txt
+  rm -f "$1/fake.pid" "$1/child.pid" "$1/helper.pid" "$1/out.txt"
+  ( cd "$SB_WORK" && exec env PYTHONDONTWRITEBYTECODE=1 python3 "$REAL_REPO_ROOT/modules/design/scripts/design/render.py" "$1/project" "$1/png" \
+      --runtime "$1/rt.js" --chrome "$1/chrome" --only A.dc.html --timeout "$2" > "$1/out.txt" 2>&1 < /dev/null ) &
+  _dm_rl_pid=$!
+}
+_dm_rl_wait() {  # <seconds> — the status of the background render.py in _dm_rl_rc, or 99 after the bound (it is then killed)
+  local n=$(( $1 * 10 ))
+  while _dm_rl_alive "$_dm_rl_pid"; do
+    [ "$n" -le 0 ] && { kill -KILL "$_dm_rl_pid" 2>/dev/null; wait "$_dm_rl_pid" 2>/dev/null; _dm_rl_rc=99; return 0; }
+    n=$((n - 1)); sleep 0.1
+  done
+  _dm_rl_rc=0; wait "$_dm_rl_pid" 2>/dev/null || _dm_rl_rc=$?
+}
+case_a_board_chrome_cannot_finish_or_a_signalled_render_py_leaves_no_chrome_process_running() {
+  cf_reset
+  local L="render.py over a Chrome that starts helper processes and never finishes: a --timeout says FAIL, exits 1 within a bound and leaves none of Chrome's processes running; a TERM or HUP to render.py ends it with 128 plus the signal and leaves none of them running; a Chrome that ignores TERM is killed outright"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  _md_sandbox
+  local d="$SB_TMP/rl" i w want n
+  _DM_RL_DIR="$d"
+  trap '_dm_rl_reap; trap - RETURN' RETURN
+  mkdir -p "$d/project" "$d/png"
+  printf '<!doctype html><html><body><x-dc></x-dc></body></html>\n' > "$d/project/A.dc.html"
+  printf 'window.__dcSetProps = function(){};\nwindow.__dcRootName = function(){ return "r"; };\n' > "$d/rt.js"
+  cat > "$d/chrome" <<EOF
+#!/bin/bash
+sleep 314159 &
+echo \$! > '$d/child.pid'
+sleep 314158 &
+echo \$! > '$d/helper.pid'
+echo \$\$ > '$d/fake.pid'
+wait
+EOF
+  chmod +x "$d/chrome"
+  # (a) --timeout 2: FAIL, exit 1, back within the bound
+  _dm_rl_start "$d" 2; _dm_rl_wait 20
+  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt" && /usr/bin/grep -q 'did not finish' "$d/out.txt"; } || cf "(a) a timed-out board is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc): $(tr '\n' '|' < "$d/out.txt" | cut -c1-200)"
+  # (b) after it returned, the stand-in and both its helpers are gone
+  [ -f "$d/fake.pid" ] || cf "(b) the stand-in never ran (no pidfile), so nothing was measured"
+  _dm_rl_gone "$d" 5 || cf "(b) after a timed-out board render.py returned and Chrome's processes still run (pids$_dm_rl_left)"
+  _dm_rl_reap
+  # (c) a signal to render.py while Chrome runs: it ends with 128+n and leaves none of them running
+  for i in TERM:143 HUP:129; do
+    w="${i%:*}"; want="${i#*:}"
+    _dm_rl_start "$d" 120
+    n=100; while [ ! -f "$d/fake.pid" ] && [ "$n" -gt 0 ]; do n=$((n - 1)); sleep 0.1; done
+    sleep 0.3
+    if [ -f "$d/fake.pid" ]; then
+      kill -"$w" "$_dm_rl_pid" 2>/dev/null
+      _dm_rl_wait 20
+      [ "$_dm_rl_rc" -eq "$want" ] || cf "(c) render.py sent $w ends with exit $_dm_rl_rc, not $want"
+      _dm_rl_gone "$d" 5 || cf "(c) render.py sent $w ended and Chrome's processes still run (pids$_dm_rl_left)"
+    else
+      kill -KILL "$_dm_rl_pid" 2>/dev/null; wait "$_dm_rl_pid" 2>/dev/null
+      cf "(c) the stand-in never started under render.py ($w), so nothing was measured"
+    fi
+    _dm_rl_reap
+  done
+  # (d) a Chrome that ignores TERM (its helpers inherit that): the group is killed outright after a short wait
+  { printf '#!/bin/bash\ntrap "" TERM\n'; sed 1d "$d/chrome"; } > "$d/chrome-deaf"; chmod +x "$d/chrome-deaf"; mv "$d/chrome-deaf" "$d/chrome"
+  _dm_rl_start "$d" 2; _dm_rl_wait 20
+  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt"; } || cf "(d) a timed-out board over a Chrome that ignores TERM is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc)"
+  _dm_rl_gone "$d" 5 || cf "(d) a Chrome that ignores TERM still runs after render.py returned (pids$_dm_rl_left)"
+  _dm_rl_reap
+  finish "$L"
+  teardown
+}
