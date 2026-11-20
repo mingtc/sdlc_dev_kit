@@ -194,7 +194,7 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that judges a move. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
-    _held_local="$(git -C "$SCRIPT_DIR/.." diff --name-only --no-renames --diff-filter=MTD HEAD -- $_held_off 2>/dev/null | tr '\n' ' ')"
+    _held_local="$( { git -C "$SCRIPT_DIR/.." diff --name-only --no-renames --diff-filter=MTD HEAD -- $_held_off 2>/dev/null || true; } | tr '\n' ' ')"
     _held_edit=""
     if [ -n "$_held_local" ]; then
       _held_edit="
