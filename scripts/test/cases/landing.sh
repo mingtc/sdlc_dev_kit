@@ -1389,6 +1389,65 @@ case_finish_pr_runs_only_the_trunks_copy() {
 }
 
 # =============================================================================
+# THE REFUSAL'S "DROP THEM" ROUTE WORKS, OR IT IS NOT PRINTED. The three tools that refuse a copy that
+# is not the trunk's name the uncommitted edits and the command that drops them. `git checkout --`
+# restores from the index, so a STAGED edit survived it and the refusal repeated: the route is run
+# here exactly as printed. A held file that is untracked is not an edit `git checkout` can restore, so
+# it is not named in the hint.
+# =============================================================================
+case_lander_refusal_drop_route_clears_a_staged_edit() {
+  cf_reset
+  local out rc s cmd line args
+  make_sandbox
+  publish_sandbox
+  for s in finish-pr move-issue subtask; do
+    case "$s" in
+      finish-pr)  args="$SB_PREFIX-785" ;;
+      move-issue) args="$SB_PREFIX-785 in_progress --role Dev" ;;
+      subtask)    args="move $SB_PREFIX-785-s1 qa_complete" ;;
+    esac
+    # (a) a staged edit: the printed drop route, run as printed, clears the refusal.
+    printf '\n# a staged local edit\n' >> "$SB_WORK/scripts/$s.sh" \
+      && git -C "$SB_WORK" add "scripts/$s.sh" >/dev/null 2>&1 \
+      || _fixture_die "case_lander_refusal_drop_route_clears_a_staged_edit: could not stage an edit to $s.sh."
+    rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s.sh" $args 2>&1 )" || rc=$?
+    printf '%s\n' "$out" | grep -F "committed copy" >/dev/null \
+      || cf "(a) $s.sh: the staged edit was not refused as a changed tool: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+    line="$(printf '%s\n' "$out" | grep -F 'to drop them, ' | head -1)"
+    cmd="${line#*to drop them, }"
+    [ -n "$line" ] && [ "$cmd" != "$line" ] || cf "(a) $s.sh: the refusal prints no drop route for a staged edit"
+    case "$cmd" in "git checkout "*) ;; *) cf "(a) $s.sh: the drop route is not a git checkout: $cmd" ;; esac
+    ( cd "$SB_WORK" && eval "$cmd" ) >/dev/null 2>&1 || cf "(a) $s.sh: the printed drop route failed: $cmd"
+    out="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s.sh" $args 2>&1 )" || true
+    printf '%s\n' "$out" | grep -F "committed copy" >/dev/null \
+      && cf "(a) $s.sh: after the printed drop route the refusal repeats: $(printf '%s' "$out" | grep -F 'to drop them' | head -1)"
+  done
+  # (b) a held file that is untracked, beside a staged edit: only the edit is named.
+  git -C "$SB_WORK" rm -q --cached scripts/lib/usage.sh >/dev/null 2>&1 \
+    && sbcommit -q -m "[PM] $SB_PREFIX-785: usage.sh leaves the trunk" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_lander_refusal_drop_route_clears_a_staged_edit: could not make lib/usage.sh untracked."
+  [ -e "$SB_WORK/scripts/lib/usage.sh" ] || _fixture_die "case_lander_refusal_drop_route_clears_a_staged_edit: lib/usage.sh left the disk."
+  for s in finish-pr move-issue subtask; do
+    case "$s" in
+      finish-pr)  args="$SB_PREFIX-785" ;;
+      move-issue) args="$SB_PREFIX-785 in_progress --role Dev" ;;
+      subtask)    args="move $SB_PREFIX-785-s1 qa_complete" ;;
+    esac
+    printf '\n# a staged local edit\n' >> "$SB_WORK/scripts/$s.sh" \
+      && git -C "$SB_WORK" add "scripts/$s.sh" >/dev/null 2>&1 \
+      || _fixture_die "case_lander_refusal_drop_route_clears_a_staged_edit: could not stage an edit to $s.sh (b)."
+    out="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s.sh" $args 2>&1 )" || true
+    line="$(printf '%s\n' "$out" | grep -F 'Uncommitted edits here (' | head -1)"
+    printf '%s\n' "$line" | grep -F "scripts/$s.sh" >/dev/null || cf "(b) $s.sh: the staged edit is not named: $line"
+    printf '%s\n' "$line" | grep -F 'lib/usage.sh' >/dev/null && cf "(b) $s.sh: the untracked lib/usage.sh is named, and git checkout cannot restore it: $line"
+    git -C "$SB_WORK" checkout HEAD -- "scripts/$s.sh" >/dev/null 2>&1
+  done
+  finish "the lander refusal's drop route clears a staged edit when run as printed, and names no untracked held file"
+  teardown
+}
+
+# =============================================================================
 # THE LANDING TOOL IS THE TRUNK'S COMMITTED COPY, LIBRARIES INCLUDED. A branch, or a local edit,
 # that rewrites a library finish-pr.sh sources judges its own landing, so the comparison against
 # the trunk runs before any library is sourced and covers every file the tool runs.

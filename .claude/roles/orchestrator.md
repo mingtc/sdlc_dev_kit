@@ -263,7 +263,7 @@ testimony** — a self-report and a review can both miss what a hash check catch
    condition under which this check was invented.
 2. **The tree**: `git status -sb` + `git status --porcelain` on the run worktree — clean, on
    the expected branch.
-3. **The board**: `./scripts/check-board.sh` ends on `── board-drift: clean`. Its exit status is 0 whatever it finds, so read the verdict line, not the status.
+3. **The board**: `./scripts/check-board.sh` ends on `── board-drift: clean`. Read the verdict line, not the exit status.
 4. **The remote**: `git ls-remote <remote> <trunk>` — monotonic, no unexplained regression.
 5. **Leg liveness and honesty**: a returned leg's report must carry its own gate transcript
    (summary block + exit code); a claim without its transcript is treated as unverified and

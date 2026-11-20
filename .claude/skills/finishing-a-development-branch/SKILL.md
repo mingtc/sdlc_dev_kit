@@ -15,7 +15,7 @@ Guide completion of development work by presenting clear options and handling ch
 
 **Ending a branch and LANDING it are two different acts here, and only one of them is yours.**
 A code landing goes through the project's landing script (`./scripts/finish-pr.sh`), run by **QA**,
-which squash-merges, deletes the branch and advances the issue as one transaction. This skill takes
+which squash-merges, deletes the remote branch (and the local one unless a worktree holds it) and advances the issue as one transaction. This skill takes
 the work to the point where QA can land it, and stops.
 
 **So there is no "merge it locally" option, and its absence is deliberate.** A local merge into the

@@ -123,11 +123,11 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        ${_held_rem}/${_held_trunk} (changed on this branch or locally, or older than the trunk's):
       ${_held_off}
        A branch or a local edit may not change the tool that judges it. NOTHING WAS CHANGED. (lander-not-trunk-copy)"
-    _held_local="$(git -C "$SCRIPT_DIR/.." status --porcelain -- $_held_off 2>/dev/null | sed -n 's/^.. //p' | tr '\n' ' ')"
+    _held_local="$(git -C "$SCRIPT_DIR/.." diff --name-only --no-renames --diff-filter=MTD HEAD -- $_held_off 2>/dev/null | tr '\n' ' ')"
     _held_edit=""
     if [ -n "$_held_local" ]; then
       _held_edit="
-       Uncommitted edits here (${_held_local%% }): to drop them, git checkout -- ${_held_local%% }
+       Uncommitted edits here (${_held_local%% }): to drop them, git checkout HEAD -- ${_held_local%% }
        to keep them, commit and land them through the trunk's copy, then re-run."
     fi
     _held_next="Next: bring the scripts here to the trunk's. A branch that is only behind them (it changed none of

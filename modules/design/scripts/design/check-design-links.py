@@ -153,8 +153,8 @@ STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
 TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 # the root's data-stories with the whitespace before it, as TAG_ANY reads attributes: any whitespace, either quote
-META_B = re.compile(rb'\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
-META = re.compile(r'\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
+META_B = re.compile(rb'(?<!\s)\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
+META = re.compile(r'(?<!\s)\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
 # A file an artboard loads that neither revision holds cannot have changed, so it is no gap in a comparison: `support.js` is supplied by the
 # host and is in no project, `/_blob/<hash>` is content-addressed, a `{{template}}` href is a value. Setting this True makes each such file
 # `uncompared`. The ruling on `support.js` waits on a real export from the design tool (whether a human's copy carries it).

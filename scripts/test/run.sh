@@ -596,6 +596,7 @@ CASES=(
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_relative_worktree
   case_finish_pr_runs_only_the_trunks_copy
+  case_lander_refusal_drop_route_clears_a_staged_edit
   case_finish_pr_control_fail_row_refuses_on_an_unchanged_tool
   case_finish_pr_refuses_a_library_gutted_on_the_branch
   case_finish_pr_refuses_a_library_gutted_uncommitted

@@ -5638,7 +5638,7 @@ EOF
   chmod +x "$d/chrome"
   # (a) --timeout 2: FAIL, exit 1, back within the bound
   _dm_rl_start "$d" 2; _dm_rl_wait 20
-  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt" && /usr/bin/grep -qx 'Chrome did not finish in 2 s' "$d/out.txt"; } || cf "(a) a timed-out board is not FAIL with exit 1 within 20 s, or its reason is not a line of its own (exit $_dm_rl_rc): $(tr '\n' '|' < "$d/out.txt" | cut -c1-200)"
+  { [ "$_dm_rl_rc" -eq 1 ] && grep -q 'FAIL A.dc.html' "$d/out.txt" && grep -qx 'Chrome did not finish in 2 s' "$d/out.txt"; } || cf "(a) a timed-out board is not FAIL with exit 1 within 20 s, or its reason is not a line of its own (exit $_dm_rl_rc): $(tr '\n' '|' < "$d/out.txt" | cut -c1-200)"
   # (b) after it returned, the stand-in and both its helpers are gone
   [ -f "$d/fake.pid" ] || cf "(b) the stand-in never ran (no pidfile), so nothing was measured"
   _dm_rl_gone "$d" 5 || cf "(b) after a timed-out board render.py returned and Chrome's processes still run (pids$_dm_rl_left)"
@@ -5663,7 +5663,7 @@ EOF
   # (d) a Chrome that ignores TERM (its helpers inherit that): the group is killed outright after a short wait
   { printf '#!/bin/bash\ntrap "" TERM\n'; sed 1d "$d/chrome"; } > "$d/chrome-deaf"; chmod +x "$d/chrome-deaf"; mv "$d/chrome-deaf" "$d/chrome"
   _dm_rl_start "$d" 2; _dm_rl_wait 20
-  { [ "$_dm_rl_rc" -eq 1 ] && /usr/bin/grep -q 'FAIL A.dc.html' "$d/out.txt"; } || cf "(d) a timed-out board over a Chrome that ignores TERM is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc)"
+  { [ "$_dm_rl_rc" -eq 1 ] && grep -q 'FAIL A.dc.html' "$d/out.txt"; } || cf "(d) a timed-out board over a Chrome that ignores TERM is not FAIL with exit 1 within 20 s (exit $_dm_rl_rc)"
   _dm_rl_gone "$d" 5 || cf "(d) a Chrome that ignores TERM still runs after render.py returned (pids$_dm_rl_left)"
   _dm_rl_reap
   finish "$L"
@@ -5698,7 +5698,7 @@ case_a_gt_in_a_props_value_and_a_roots_data_stories_in_any_layout_move_no_approv
   { [ "$_dm_rc" -eq 1 ] && _dm_has "$_dm_out" "would normalise gt.dc.html"; } || cf "(a) --check over a props value holding a raw > does not say it would normalise the board (exit $_dm_rc): $(_dm_brief 300)"
   _dm_has "$_dm_out" "js.dc.html" && cf "(a) a script that is not text/x-dc is rewritten: $(_dm_brief 300)"
   _dm_py "$m/normalise-canvas.py" "$n/project"
-  /usr/bin/grep -qF "data-props='{\"a\":\"Next >\"}'" "$n/project/gt.dc.html" || cf "(a) a props value holding a raw > is not written in the single-quoted form: $(/usr/bin/grep -c data-props "$n/project/gt.dc.html")"
+  grep -qF "data-props='{\"a\":\"Next >\"}'" "$n/project/gt.dc.html" || cf "(a) a props value holding a raw > is not written in the single-quoted form: $(grep -c data-props "$n/project/gt.dc.html")"
   cmp -s "$n/project/js.dc.html" "$n/js.before" || cf "(a) a script that is not text/x-dc was changed"
   _dm_py "$m/normalise-canvas.py" "$n/project" --check
   [ "$_dm_rc" -eq 0 ] || cf "(a) a second run finds more to normalise (exit $_dm_rc): $(_dm_brief 300)"

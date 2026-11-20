@@ -130,12 +130,12 @@ kit_agent_landing_check() {
 
   tip="$(git -C "$repo" rev-parse --short=9 "$branch" 2>/dev/null || printf '%s' "$branch")"
   if [ "$n_rec" -eq 0 ]; then
-    echo "AGENT_CHECK: UNRUNNABLE — none of the ${n_code} code commit(s) on branch tip $tip has a single recorded identity, so the verdict's ($v_agents) has nothing to be compared with."
+    echo "AGENT_CHECK: UNRUNNABLE — none of the ${n_code} code commit(s) on the branch (tip $tip) has a single recorded identity, so the verdict's ($v_agents) has nothing to be compared with."
     return 0
   fi
   case $'\n'"$code_agents" in *$'\n'"$v_agents"$'\n'*)
     kit_refuse 1 qa-verdict-same-agent \
-      "Error: ${id}'s QA verdict (commit ${verdict:0:9}) was committed by the same agent, in the same session, that committed code on branch tip $tip: $v_agents." \
+      "Error: ${id}'s QA verdict (commit ${verdict:0:9}) was committed by the same agent, in the same session, that committed code on the branch (tip $tip): $v_agents." \
       "       The checker must not be the author." \
       "Next: have a different agent — a dispatched QA agent, or a fresh session — re-walk the AC on the branch and commit a changed ## QA Verdict table on the trunk (the check reads the NEWEST commit that changed that section), then re-run the command that refused." \
       "      Re-committing this table under the same agent and session changes nothing; if no other agent is available, stop and hand off." \

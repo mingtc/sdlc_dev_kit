@@ -417,7 +417,8 @@ is the Dev's act.
      trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works (a `Major`/`Minor`
      break there is filed, not failed — next bullet but one). Action:
      `./scripts/finish-pr.sh <ID>` (squash-merges the branch into the trunk locally, deletes the
-     branch, advances `dev_complete → qa_complete`). **`finish-pr.sh` also refuses a branch that
+     remote branch (and the local one unless a worktree holds it), advances
+     `dev_complete → qa_complete`). **`finish-pr.sh` also refuses a branch that
      touches a declared `TEST_GLOBS` path with no well-formed `## Ablation` section** (what was
      broken, and the red line it produced — `.claude/roles/dev.md`, `doctrine/instruments.md` §
      A.2); fill it before this step, not after the refusal. Its other refusals (a board-property

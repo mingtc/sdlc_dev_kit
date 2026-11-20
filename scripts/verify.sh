@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: MIXED — kit FRAME (one gate runner, uniform invocation, fixed order, one summary); PROJECT GATES (the table below, shipped EMPTY). See process/EXTRACTION.md.
-# KIT-DISPOSITION: FILL — the GATES table ships empty and is not done until it holds your gates.
+# KIT-DISPOSITION: FILL — the GATES array ships empty and is not done until it holds your gates.
 # scripts/verify.sh — the one-shot quality-gate runner.
 #
 # THE SINGLE INVOCATION. Every role and every agent runs THIS, never a command re-derived from
@@ -30,7 +30,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # UNTIL THE GATES TABLE HOLDS A RECORD, THIS RUNNER REFUSES TO RUN. It ships with the table empty:
 # finish-pr.sh treats a green `verify.sh --quick` as a landing precondition, so an empty-but-green
-# runner would authorise every landing. Declare your gates in the GATES table in this file, or, ON
+# runner would authorise every landing. Declare your gates in the GATES array in this file, or, ON
 # A FRESH REPO ONLY, let the initializer write the first record (it fills that table while it is
 # empty):
 #   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
