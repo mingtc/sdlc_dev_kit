@@ -610,7 +610,9 @@ else
   # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal
   # prose, and a refusal on valid input trains the operator to ignore it (instruments.md § A.8).
   if [ "$TARGET" = "dev_complete" ]; then
-    ph="$(grep -nE '<[a-z][a-z0-9 _|/-]*>' "$SRC" 2>/dev/null | head -5 || true)"
+    # Skipped: `## QA Verdict` and `## Ablation` (the QA fills the first; the second is the Dev's template block and the
+    # QA's to check) and angle text inside code spans (prose). A line is cut at 100 bytes.
+    ph="$(awk '/^## /{ skip = ($0 ~ /^## (QA Verdict|Ablation)/) } !skip { l = $0; gsub(/`[^`]*`/, "", l) } !skip && l ~ /<[a-z][a-z0-9 _|\/-]*>/ { print NR ":" substr($0, 1, 100) }' "$SRC" 2>/dev/null | head -5 || true)"
     if [ -n "$ph" ]; then
       {
         echo "Warning: ${ISSUE_ID} still carries unfilled <angle-bracket> template text:"

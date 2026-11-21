@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **The template-text warning at a `dev_complete` move no longer fires on text the Dev must leave.** `move-issue.sh` skips the `## QA Verdict` and `## Ablation` sections and angle-bracket text inside code spans, and cuts each printed line at 100 bytes, so the warning lists only placeholders left in the Dev's own sections. It still warns, never refuses.
 
 ## [0.13.0] — 2026-11-20
 
