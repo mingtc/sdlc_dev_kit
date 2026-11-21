@@ -5890,3 +5890,44 @@ case_a_wireframe_canvas_reads_the_wording_of_copy_attributes_as_content_and_thei
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE FIRST PUBLISH AND THE ROLE'S CREATING A CANVAS ARE WRITTEN FOR BOTH SURFACES, AND THE RUNTIME ROUTE ON B IS NOT CALLED UNTRIED.
+#   The expected answer is fixed here, in the placed files: the role's Creating a canvas and design-publish § 1 carry surface B's start (the
+#   `quickstart` action with intent design, then a publish with `type_url` and a `title`); the role's runtime paragraph and render.py's --runtime
+#   text carry the `read` of `artifact-type/dc-runtime.js` and no longer say "not tried here"; design-pull's On B note carries the transcript cost
+#   of a `read` with `paths` and the cut sha of `list`.
+# =============================================================================
+case_the_first_publish_and_creating_a_canvas_name_surface_b_s_start_and_its_runtime_route() {
+  cf_reset
+  local L="the placed role's Creating a canvas and design-publish § 1 name surface B's start (quickstart with intent design, a publish with type_url and a title), the role and render.py carry the runtime read on B and not 'not tried here', and design-pull's On B note carries the transcript cost of read with paths and the cut sha of list"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" role pub pull rp tok sect
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  pub="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-publish/SKILL.md" | tr -s ' ')"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  rp="$(tr '\n' ' ' <"$m/scripts/design/render.py" | tr -s ' ')"
+  sect="$(awk '/^### Creating a canvas$/ { f = 1; next } /^###? / { f = 0 } f' "$SB_WORK/.claude/roles/designer.md" | tr '\n' ' ' | tr -s ' ')"
+  for tok in 'quickstart' 'intent: "design"' 'type_url' 'title' 'file_path'; do
+    _dm_has "$sect" "$tok" || cf "(a) the role's Creating a canvas does not carry '$tok'"
+  done
+  for tok in 'quickstart' 'intent: "design"' 'type_url' 'title' 'no files'; do
+    _dm_has "$pub" "$tok" || cf "(b) design-publish does not carry '$tok'"
+  done
+  for tok in 'artifact-type/dc-runtime.js' 'seen 2026-11'; do
+    _dm_has "$role" "$tok" || cf "(c) the placed role does not carry '$tok'"
+  done
+  _dm_has "$role" "not tried here" && cf "(c) the placed role still calls the runtime read on surface B not tried"
+  _dm_has "$rp" "not tried here" && cf "(c) render.py still calls the runtime read on surface B not tried"
+  _dm_has "$rp" "artifact-type/dc-runtime.js" || cf "(c) render.py's --runtime text does not name the runtime read on surface B"
+  for tok in 'every file'"'"'s text into the transcript' 'cut to a prefix'; do
+    _dm_has "$pull" "$tok" || cf "(d) design-pull's On B note does not carry '$tok'"
+  done
+  finish "$L"
+  teardown
+}

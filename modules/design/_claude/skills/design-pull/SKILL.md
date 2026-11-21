@@ -21,8 +21,8 @@ step. Nothing passes through the human: they look at the diff, answer what you a
 Name your surface in one line before anything else: look at your tools.
 
 - **A: the `claude-artifacts` server.** `list_files`, `read_file` and `publish_files` are among them. This skill is written for A.
-- **B: the built-in `Artifact` tool.** `Artifact` is among them. Its steps differ in the notes marked **On B**. They come from the documentation,
-  not from a run.
+- **B: the built-in `Artifact` tool.** `Artifact` is among them. Its steps differ in the notes marked **On B**. They come from the documentation
+  and one short run (2026-11), not from many.
 - **Both:** use A. **Neither:** do not improvise and write no local stand-in. Say: "No artifact tools in this session, so nothing was pulled."
   End with `Next: run the Designer in a Claude Code session signed in with /login (modules/design/SETUP.md).`
 
@@ -67,7 +67,7 @@ For each changed or new file, A: `read_file <slug> <path>` (one path a call; a b
 transcript; **write it to the pull folder exactly**, at the listing's path (`project/Timer.dc.html` goes to `.cache/design/pull/project/Timer.dc.html`),
 then take its sha256 (`shasum -a 256`, or `sha256sum`). It must equal the list's. A mismatch means you mistyped it: read the file again. After three, stop and tell the
 human which file. A file whose sha differs is never committed. A file that is not text cannot be read this way: tell the human, and do not pull it.
-**On B:** the files are already on disk with their shas verified by `read`.
+**On B:** the files are already on disk with their shas verified by `read`; `read` with `paths` also prints every file's text into the transcript (about 10k tokens for four small files), so read a large set a few files at a time. `list` with `scope: files` shows each sha cut to a prefix: the full sha comes from `read`.
 
 If the version id moved while you read, run step 2 again and redo what changed. Do not carry on from an old list.
 

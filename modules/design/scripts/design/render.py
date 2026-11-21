@@ -10,8 +10,8 @@ usage: render.py PROJECT_DIR OUT_DIR --runtime PATH [--theme ID] [--scheme light
   --runtime    THE DESIGN RUNTIME (dc-runtime.js; $DC_RUNTIME works too). Required, because this module does not ship it: it is the
                design tool's own code. A copy that matches the canvas is best (one older copy drew a newer canvas to within 0.043% of
                a real PNG, so the need for an exact match is unobserved). Routes: a copy kept earlier from the design type's folder
-               (`artifact-type/dc-runtime.js`, about 188 KB), the only one seen to work; a Claude Code session with the built-in Artifact
-               tool (its `read` with `paths` is documented to save the type's files, not tried here); an exported canvas (untested whether
+               (`artifact-type/dc-runtime.js`, about 188 KB), seen to work; a Claude Code session with the built-in Artifact
+               tool (its `read` with `path` `artifact-type/dc-runtime.js` saves the file to disk and prints only its path and sha, seen once); an exported canvas (untested whether
                it contains one). On the claude-artifacts server the file is readable (`read_file` serves it) but only into the
                transcript; no tool there writes it to disk, and retyping a file that size is not a route. A copy that is truncated, empty
                or another file is not accepted: the page must report the runtime's hooks, or the board is a FAIL. Without a runtime this tool

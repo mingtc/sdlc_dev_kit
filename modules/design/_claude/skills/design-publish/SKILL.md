@@ -19,7 +19,7 @@ Wear the Designer hat first (`.claude/roles/designer.md`); its § Conflicts has 
 Name your surface in one line before anything else: look at your tools.
 
 - **A: the `claude-artifacts` server.** `list_files`, `read_file` and `publish_files` are among them. This skill is written for A.
-- **B: the built-in `Artifact` tool.** `Artifact` is among them. Its steps differ in the notes marked **On B**, which come from the documentation and not from a run.
+- **B: the built-in `Artifact` tool.** `Artifact` is among them. Its steps differ in the notes marked **On B**, which come from the documentation and one short run (2026-11), not from many.
 - **Both:** use A. **Neither:** do not improvise and write no local stand-in. Say: "No artifact tools in this session, so nothing was sent to the canvas."
   End with `Next: run the Designer in a Claude Code session signed in with /login (modules/design/SETUP.md).`
 
@@ -32,7 +32,7 @@ Then `bash scripts/design/trunk-sync.sh check`. It stops, with a `Next:`, when l
 
 `CANVAS.md` says `Last pull: none` and has no canvas URL: this is a new canvas. Read the Design type's instructions and `format.md` first (`list_types`,
 `describe_type`), `list_artifacts` with `type: "Design System"` for a system to use, then `create_from_type` **once**, record its URL and `version`
-in `CANVAS.md`, run step 3's `normalise` block over `project/`, commit what it rewrote and push it (`bash scripts/design/trunk-sync.sh push`), and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
+in `CANVAS.md` (**on B:** `Artifact` with `action: "quickstart"` and `intent: "design"` gives the type and its design systems, and `publish` with the type's `type_url` and a `title` and no files creates the canvas, once; the first files then go by `publish` with `root`, `file_path` and `files`), run step 3's `normalise` block over `project/`, commit what it rewrote and push it (`bash scripts/design/trunk-sync.sh push`), and send `project/canvas.json` and `project/Main.dc.html` first (the first board is always `Main.dc.html`), then each other file, one
 publish each, with the `version` the last result gave. Then step 6. Every later publish starts at step 2.
 
 ## 2. List, once, and refuse a canvas that moved
