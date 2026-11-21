@@ -860,6 +860,40 @@ case_kit_init_lived_refusal_off_the_trunk_and_on_a_diverged_checkout_prints_no_m
 }
 
 # =============================================================================
+# CASE — A REBASE A PERSON STARTED BY HAND IN THE BOARD WORKTREE SURVIVES THE OP'S ENDING.
+# The op holds the lock with its push held at the hook; a person opens a rebase over an older commit (one the op did
+# not make) and stops it with `edit`; TERM goes to the op's pid alone. The exit aborts only a rebase of the op's own
+# commit, so the person's rebase is still open afterwards, and the op still exits 143 with the lock gone.
+# =============================================================================
+case_a_rebase_started_by_hand_in_the_board_worktree_survives_the_ops_exit() {
+  cf_reset
+  local L="a board op sent TERM to its own pid leaves a rebase a person opened by hand over another commit in the board worktree open, ends 143 and releases the lock"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-964" rc=0 pid i hold="$SB_TMP/in-hook6" lock="$SB_WORK/.kanban-wt.lock" wt="$SB_WORK/.kanban-wt" rmd rad
+  seed_issue todo "$id" handrebase chore "A card whose op ends while a person rebases by hand in the board worktree"
+  publish_sandbox
+  printf '#!/bin/sh\ntouch "%s"\nsleep 6\nexit 0\n' "$hold" > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "ended over a hand rebase" ) > "$SB_TMP/term6.out" 2>&1 &
+  pid=$!
+  for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
+  [ -e "$hold" ] || cf "(prereq) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term6.out" | cut -c1-200)"
+  # the person's rebase: over the commit before the op's, stopped by `edit`
+  git -C "$wt" checkout -q --detach HEAD~1 >/dev/null 2>&1 || cf "(prereq) the board worktree could not be moved to the commit before the op's"
+  GIT_SEQUENCE_EDITOR='sed -i.bak s/^pick/edit/' git -C "$wt" -c user.email=p@kit.invalid -c user.name=person -c commit.gpgsign=false rebase -q -i --root > "$SB_TMP/handrebase.out" 2>&1 || true
+  rmd="$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null)"; rad="$rmd/rebase-apply"; rmd="$rmd/rebase-merge"
+  { [ -d "$rmd" ] || [ -d "$rad" ]; } || cf "(prereq) the hand rebase did not stop open: $(tr '\n' '|' < "$SB_TMP/handrebase.out" | cut -c1-300)"
+  kill -TERM "$pid" 2>/dev/null
+  _tw_reap "$pid"; rc="$TW_RC"
+  [ "$rc" = 143 ] || cf "the op ended with status $rc, not 143"
+  [ ! -d "$lock" ] || cf "the lock is still there after the op ended"
+  { [ -d "$rmd" ] || [ -d "$rad" ]; } || cf "the rebase the person started by hand was aborted at the op's exit"
+  rm -f "$SB_ORIGIN/hooks/pre-receive"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A SIGNAL DURING A REBASE THAT CONFLICTS LEAVES NO REBASE IN PROGRESS, AND SAYS NOTHING FALSE.
 # The first push is rejected because another clone moved the same card to another column, so the retry's rebase hits a
 # rename conflict; a pre-rebase hook holds it. TERM goes to the op's pid alone. The op waits for the rebase to stop, then

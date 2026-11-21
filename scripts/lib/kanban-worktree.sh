@@ -225,8 +225,8 @@ KWT_SYNCED=false
 # Set by kwt_commit to the commit it made; cleared by kwt_finalize once that commit is pushed (or reported).
 # Still set when kwt_unlock runs means the op ended between the two. A report, not a knob.
 KWT_UNPUSHED=""
-# True once kwt_sync has found no rebase in progress in the kanban worktree: a rebase seen at the exit is then this
-# op's own (the retry's), and only that one is aborted. A report for kwt_unlock, not a knob.
+# True once kwt_sync has found no rebase in progress in the kanban worktree: a rebase seen at the exit that is rebasing
+# this op's own commit (kwt__rebase_is_ours) is then the retry's, and only that one is aborted. A report for kwt_unlock, not a knob.
 KWT_REBASE_OURS=false
 
 # The commands that publish a commit left in $KWT; kwt_finalize's push failure and kwt_unlock each print them
@@ -359,6 +359,22 @@ kwt_lock() {
   done
 }
 
+# kwt__rebase_is_ours <git dir> — a rebase is open in $KWT and it is rebasing this op's own commit: the commit it started
+# from is KWT_UNPUSHED, descends from it, or carries the same change (a retry that already rebased it once). A rebase a
+# person started by hand over something else is not. Limit: a person's hand rebase of this op's own commit, opened
+# between its commit and its push, has the same orig-head as the retry's and is aborted with it.
+kwt__rebase_is_ours() {
+  local gd="$1" f orig="" mine
+  for f in "$gd/rebase-merge/orig-head" "$gd/rebase-apply/orig-head"; do
+    [ -f "$f" ] && { orig="$(cat "$f" 2>/dev/null || true)"; break; }
+  done
+  [ -n "$orig" ] && [ -n "${KWT_UNPUSHED:-}" ] || return 1
+  [ "$orig" = "$KWT_UNPUSHED" ] && return 0
+  git -C "$KWT" merge-base --is-ancestor "$KWT_UNPUSHED" "$orig" 2>/dev/null && return 0
+  mine="$(git -C "$KWT" show "$KWT_UNPUSHED" 2>/dev/null | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)"
+  [ -n "$mine" ] && [ "$mine" = "$(git -C "$KWT" show "$orig" 2>/dev/null | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)" ]
+}
+
 kwt_unlock() {
   # Local git only below, so ignoring signals here cannot hang: a second one must not skip the text or the lock removal.
   # Put back at the end when this op still runs on (finish-pr.sh unlocks, then goes on).
@@ -367,11 +383,11 @@ kwt_unlock() {
   trap '' TERM HUP INT
   # A signal runs its trap as soon as the git command it interrupted returns, which can be before the retry's own
   # `git rebase --abort`: a rebase this op started is aborted here, so the Next below can run. Never one that was
-  # already open when the op began (KWT_REBASE_OURS): a person may be resolving it.
+  # already open when the op began (KWT_REBASE_OURS), nor one a person started by hand over another commit: they may be resolving it.
   local _kwt_gd="" _kwt_midrebase=false
   if [ "$KWT_LOCK_HELD" = "true" ] && [ -n "${KWT:-}" ]; then
     _kwt_gd="$(git -C "$KWT" rev-parse --absolute-git-dir 2>/dev/null || true)"
-    if [ "$KWT_REBASE_OURS" = "true" ] && [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then
+    if [ "$KWT_REBASE_OURS" = "true" ] && [ -n "$_kwt_gd" ] && kwt__rebase_is_ours "$_kwt_gd"; then
       git -C "$KWT" rebase --abort >/dev/null 2>&1 || true
     fi
     if [ -n "$_kwt_gd" ] && { [ -d "$_kwt_gd/rebase-merge" ] || [ -d "$_kwt_gd/rebase-apply" ]; }; then _kwt_midrebase=true; fi
