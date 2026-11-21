@@ -152,8 +152,10 @@ STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
 # structure (one added or removed moves it).
 STRUCT_COPY = ('placeholder', 'aria-label', 'alt', 'title')
 # quote-aware: a `>` inside a quoted attribute value does not end the tag, and a quote opens a value only after `=` (an apostrophe in an
-# unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it
-TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
+# unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it. A `=` is a bare character only
+# when no complete quoted value follows it, so each attribute is read one way and a start tag never closed before the next `<` is rejected in
+# linear time, not exponential.
+TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|=(?!\s*(?:"[^"]*"|\'[^\']*\'))|[^<>=])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 # the root's data-stories with the whitespace before it, as TAG_ANY reads attributes: any whitespace, either quote
 META_B = re.compile(rb'(?<!\s)\s+data-stories=(?:"[^"]*"|\'[^\']*\')')

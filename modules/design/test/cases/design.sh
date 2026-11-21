@@ -6031,3 +6031,82 @@ case_the_role_says_elevation_is_left_out_of_tokens_css_and_the_converter_does_so
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A START TAG NEVER CLOSED, WITH MANY QUOTED ATTRIBUTES, IS READ IN BOUNDED TIME BY THE LINK CHECK'S TAG READER AND THE NORMALISER'S.
+#   Operand: check-design-links.py's TAG_ANY and normalise-canvas.py's TAG, each run in a child python with a 20 s limit (macOS has no timeout(1), and the
+#   exponential read would not end). The expected answers are fixed here: 30 quoted attributes and no `>` before the next `<` match nothing in time and the
+#   next tag is read; 9000 `<script ` and no `>` match nothing in time; a fixed set of tags reads the text given beside it; a `<script` never closed ends at
+#   the next `<`, so the second, well-formed script tag is the one read.
+# =============================================================================
+case_a_start_tag_never_closed_with_many_quoted_attributes_is_read_in_bounded_time() {
+  cf_reset
+  local L="check-design-links.py's TAG_ANY reads '<div ' + 30 quoted attributes + ' <p>' in under 20 s and finds the <p> tag, reads a fixed set of tags (a quoted >, an apostrophe in an unquoted value, a bare attribute, a closing tag, a spaced =, an unclosed quote, ==, a quoted > before a < ) as written, and normalise-canvas.py's TAG reads 9000 unclosed '<script ' in under 20 s and a well-formed text/x-dc tag after an unclosed one"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design"
+  _md_sandbox
+  mkdir -p "$SB_TMP/p955"
+  cat > "$SB_TMP/p955/drive.py" <<'PYEOF'
+import subprocess, sys
+M = sys.argv[1]
+CHILD = r'''
+import importlib.util, sys
+def load(path):
+    spec = importlib.util.spec_from_file_location("m", path)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
+links = load(sys.argv[1] + "/check-design-links.py"); norm = load(sys.argv[1] + "/normalise-canvas.py")
+row = sys.argv[2]
+if row == "attrs":
+    m = links.TAG_ANY.search("<div " + " ".join('a%d="x"' % i for i in range(30)) + " <p>")
+    print(m.group(0) if m else "None")
+elif row == "scripts":
+    m = norm.TAG.search("<script " * 9000 + "x" * 50000)
+    print(m.group(0) if m else "None")
+elif row == "second":
+    s = '<script type="x-dc"<script type="text/x-dc" data-p=\'{"a":"<b>"}\'>X</script>'
+    print("|".join(m.group(0) for m in norm.TAG.finditer(s)))
+else:
+    m = links.TAG_ANY.search(row)
+    print(m.group(0) if m else "None")
+'''
+def run(row):
+    try:
+        r = subprocess.run([sys.executable, "-I", "-c", CHILD, M, row], capture_output=True, text=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT"
+    return r.stdout.rstrip("\n") if r.returncode == 0 else "ERROR " + r.stderr.strip()[-200:]
+def check(tag, row, want):
+    got = run(row)
+    print("%s\t%s\t%s" % ("ok" if got == want else "BAD", tag, "" if got == want else "got [%s] want [%s]" % (got[:120], want)))
+check("attrs", "attrs", "<p>")
+check("scripts", "scripts", "None")
+check("second", "second", '<script type="text/x-dc" data-p=\'{"a":"<b>"}\'>')
+for s, w in [
+    ('<a title="x>y" href="z">t', '<a title="x>y" href="z">'),
+    ("<a b=it's c=d>", "<a b=it's c=d>"),
+    ("<input disabled value=1>", "<input disabled value=1>"),
+    ("</div >", "</div >"),
+    ('<a b = "x" c = \'y\'>', '<a b = "x" c = \'y\'>'),
+    ('<a b="x c=d>', '<a b="x c=d>'),
+    ("<a b=c==d>", "<a b=c==d>"),
+    ('<a b= "x">', '<a b= "x">'),
+    ('<a b="x>y" <p>', "<p>"),
+]:
+    check("sample " + s, s, w)
+PYEOF
+  local out line
+  out="$(python3 -I "$SB_TMP/p955/drive.py" "$m" 2>&1)"
+  while IFS= read -r line; do
+    case "$line" in
+      ok$'\t'*) ;;
+      '') ;;
+      *) cf "(a) ${line//$'\t'/ — }" ;;
+    esac
+  done <<DRIVE_EOF
+$out
+DRIVE_EOF
+  _dm_has "$out" "sample " || cf "(prereq) the driver printed no sample row: $out"
+  finish "$L"
+  teardown
+}

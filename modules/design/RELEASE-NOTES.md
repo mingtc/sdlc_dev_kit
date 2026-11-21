@@ -18,6 +18,10 @@ any other heading are not read. Nothing here is read while the module is disable
 - **`/design-pull`'s link check before the go-ahead now reads approvals against the pulled files**, so a `STALE-APPROVAL` or `CONTENT-ONLY` line shows before you say go, not after the take-in. The check checks out nothing and moves no branch or index.
 - **The role now says elevation tokens are left out of `tokens.css`** (the converter writes colours, spacing and radius; an elevation is a level in dp), so a screen cannot read one as `var()`; the converter already named each on stderr. Token names are unchanged.
 
+### Fixed
+
+- **The link check no longer hangs on a start tag that is never closed and carries many quoted attributes** (about 18 or more; the gate and the `in_progress/` and `dev_complete/` move check waited with no output); the tag is rejected at once and the next tag is read. `normalise-canvas.py` no longer reads past an unclosed `<script` into the next tag.
+
 ## [0.6.1]
 
 ### Action required
