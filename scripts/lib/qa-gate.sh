@@ -444,8 +444,10 @@ _qav_ac_bullet_text() {
 # the item while it is indented to the item's text, a blank line included when more such lines follow; nested
 # items (a '- [ ] step' under it) and fences (see _QAV_FENCE_FN, whatever their depth) belong to it; a quoted AC
 # keeps the lines under the same '>' markers. A lazy line, one that is not indented that far, still belongs when
-# it directly continues a paragraph and would not open anything on its own: a list item (a number other than 1
-# cannot interrupt a paragraph), a heading, a quote, a comment block or a fence. Whatever ends the item ends the
+# it directly continues a paragraph and would not open anything on its own: a list item, a heading, a quote, a
+# comment block or a fence. A list item that interrupts is a bullet, a '1.' or '1)', or, under an ordered AC, a
+# sibling of its own list (same delimiter, any number: it is the list's next item); any other numbered line is read
+# as text of the item, so a change to it is a change to the AC. Whatever ends the item ends the
 # text: a line indented less, a sibling item, a blank line followed by such a line. A carriage return is
 # whitespace and an HTML comment is text, so adding one is a change. Empty if <id> has no bullet.
 _qav_ac_bullet_block() { _qav_ac_bullet_read "$1" "$2" text; }
@@ -458,17 +460,22 @@ _qav_ac_bullet_read() {
   local body="$1" id="$2" mode="$3"
   printf '%s\n' "$body" | KAB_MODE="$mode" KAB_START="^${KIT_AC_LEAD}${id}${KIT_AC_SEP}" KAB_LEAD="^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*" \
     LC_ALL=C awk "$_QAV_FENCE_FN"'
+      function ordsib(s, d) {
+        if (!match(s, /^[ \t]*[0-9]+[.)]/) || substr(s, RSTART + RLENGTH - 1, 1) != d) return 0
+        return substr(s, RSTART + RLENGTH) ~ /^([ \t]|$)/
+      }
       BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"] }
       { line = $0; sub(/\r$/, "", line) }
       !on {
         if (fence_line(line)) next
         if (isfm) next
-        if (line ~ start) { on = 1; base = isp; aid = iser[isp]; t = line; sub(lead, "", t); ln = NR; para = 1 }
+        if (line ~ start) { on = 1; base = isp; aid = iser[isp]; t = line; sub(lead, "", t); ln = NR; para = 1; adel = ""
+          if (match(ps, /^[ \t]*[0-9]+[.)]/)) adel = substr(ps, RSTART + RLENGTH - 1, 1) }
         next }
       {
         fence_parse(line)
         if (pblank) { fence_line(line); pend = 1; next }
-        if (fch == "" && !pend && para && pd <= qd && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || ps !~ /^[ \t]*(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/)) {
+        if (fch == "" && !pend && para && pd <= qd && !(adel != "" && pd == qd && ordsib(ps, adel)) && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || ps !~ /^[ \t]*(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/)) {
           t = t " " line; ln = ln " " NR; next }
         r = fence_line(line)
         if (isp < base || iser[base] != aid) exit

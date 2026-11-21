@@ -1015,6 +1015,20 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair diff "a lazy line added" "$line" "$(printf '%s\n%s' "$line" "Only when beta.")"
   _pair diff "a blank-separated indented paragraph added" "$line" "$(printf '%s\n\n%s' "$line" "  Another paragraph.")"
   _pair diff "an HTML comment added" "$(printf '%s\n%s' "$line" "  only when beta.")" "$(printf '%s\n%s' "$line" "  only when beta. <!-- x -->")"
+  # An ordered AC list: a sibling of the AC's own list ends the item whatever its number; a line that is no sibling stays in it.
+  local n1='1. [ ] AC1 — x'
+  _pair same "a numbered sibling after a numbered AC changed" "$(printf '%s\n%s' "$n1" '2. [ ] AC2 — one')" "$(printf '%s\n%s' "$n1" '2. [ ] AC2 — two')"
+  _pair same "the third item of a numbered list changed" "$(printf '%s\n%s\n%s' "$n1" '2. [ ] AC2 — two' '3. [ ] AC3 — one')" "$(printf '%s\n%s\n%s' "$n1" '2. [ ] AC2 — two' '3. [ ] AC3 — two')"
+  _pair same "a numbered sibling added after a numbered AC" "$n1" "$(printf '%s\n%s' "$n1" '2. [ ] AC2 — y')"
+  _pair same "a sibling of a ')' list changed" "$(printf '%s\n%s' '1) [ ] AC1 — x' '2) [ ] AC2 — one')" "$(printf '%s\n%s' '1) [ ] AC1 — x' '2) [ ] AC2 — two')"
+  _pair same "a numbered line that is no checklist item, after a numbered AC, changed" "$(printf '%s\n%s' "$n1" '2. note one')" "$(printf '%s\n%s' "$n1" '2. note two')"
+  _pair same "a numbered sibling of a quoted numbered AC changed" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '> 2. [ ] AC2 — one')" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '> 2. [ ] AC2 — two')"
+  _pair same "a numbered sibling after a continuation line of a numbered AC changed" "$(printf '%s\n%s\n%s' "$n1" '   the first condition.' '2. [ ] AC2 — one')" "$(printf '%s\n%s\n%s' "$n1" '   the first condition.' '2. [ ] AC2 — two')"
+  _pair diff "a continuation line of a numbered AC changed" "$(printf '%s\n%s\n%s' "$n1" '   the first condition.' '2. [ ] AC2 — y')" "$(printf '%s\n%s\n%s' "$n1" '   the first condition, widened.' '2. [ ] AC2 — y')"
+  _pair diff "a numbered line indented to a numbered AC's text, after a nested item, changed" "$(printf '%s\n%s\n%s' "$n1" '   - [ ] step' '   2. note one')" "$(printf '%s\n%s\n%s' "$n1" '   - [ ] step' '   2. note two')"
+  _pair diff "a lazy line opening with a year, under a bullet AC, changed" "$(printf '%s\n%s' "$line" '2024. was the year')" "$(printf '%s\n%s' "$line" '2025. was the year')"
+  _pair diff "a lazy line with the other delimiter, under a numbered AC, changed" "$(printf '%s\n%s' "$n1" '14) only when beta.')" "$(printf '%s\n%s' "$n1" '14) only when NOT beta.')"
+  _pair diff "an unquoted numbered line after a quoted numbered AC is a lazy line, and it changed" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '2. only when beta.')" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '2. only when NOT beta.')"
   finish "an AC's bullet text is its list item: equal for a blank line inserted inside it, a re-wrap, a dedent into a lazy line, a CRLF file with a whitespace-only line, a paragraph after it and the next bullet; different for a changed word, a changed fenced body, an added lazy line, an added blank-separated paragraph and an added HTML comment"
 }
 

@@ -1946,6 +1946,47 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   teardown
 }
 
+# =============================================================================
+# CASE — A NUMBERED AC LIST IS COMPARED ITEM BY ITEM. Operand: kit_ac_drift_check over a scratch repository whose
+# history leaves the todo copy, one fixed answer per row. Three numbered ACs; a numbered sibling of the AC's own list
+# ends its item whatever its number, so an edit to one AC names that AC alone:
+#   (a) AC3 edited: refused naming AC3 only;  (b) AC2 edited: AC2 only;  (c) an AC4 added: lands;
+#   (d) AC3 edited and cited on its line: lands;  (e) the same with '1)' markers;
+#   (f) a bullet AC's lazy line that opens with a year, edited: refused naming AC1 (it is the item's text);
+#   (g) a numbered AC's lazy line with the other delimiter, edited: refused naming AC1.
+# RED FIRST: (a), (b), (c), (d), (e) fail while a later sibling is read as the item's text.
+# =============================================================================
+case_a_numbered_ac_list_is_compared_item_by_item() {
+  cf_reset
+  make_sandbox
+  local num par out
+  num="$(printf -- '1. [ ] AC1 — one.\n2. [ ] AC2 — two.\n3. [ ] AC3 — three.')"
+  par="$(printf -- '1) [ ] AC1 — one.\n2) [ ] AC2 — two.\n3) [ ] AC3 — three.')"
+  _n942_names() {  # <label> <out> <named> <not named>… — refused, naming only the first id
+    local lbl="$1" o="$2" want="$3" id; shift 3
+    _ac808_want "$lbl" "$o" 1 "of its own: $want"
+    for id in "$@"; do
+      case "$o" in *"$id"*) cf "($lbl) the refusal names $id, which was not edited: $(printf '%s' "$o" | tr '\n' '|' | cut -c1-260)" ;; esac
+    done
+  }
+  out="$(_ac808_run "$num" "$(printf -- '1. [ ] AC1 — one.\n2. [ ] AC2 — two.\n3. [ ] AC3 — three, widened.')" - yes)"
+  _n942_names a "$out" AC3 AC1 AC2
+  out="$(_ac808_run "$num" "$(printf -- '1. [ ] AC1 — one.\n2. [ ] AC2 — two, widened.\n3. [ ] AC3 — three.')" - yes)"
+  _n942_names b "$out" AC2 AC1 AC3
+  out="$(_ac808_run "$num" "$(printf -- '1. [ ] AC1 — one.\n2. [ ] AC2 — two.\n3. [ ] AC3 — three.\n4. [ ] AC4 — four.')" - yes)"
+  _ac808_want c "$out" 0
+  out="$(_ac808_run "$num" "$(printf -- '1. [ ] AC1 — one.\n2. [ ] AC2 — two.\n3. [ ] AC3 — three, widened. [decision: D-01]')" - yes)"
+  _ac808_want d "$out" 0
+  out="$(_ac808_run "$par" "$(printf -- '1) [ ] AC1 — one.\n2) [ ] AC2 — two.\n3) [ ] AC3 — three, widened. [decision: D-01]')" - yes)"
+  _ac808_want e "$out" 0
+  out="$(_ac808_run "$(printf -- '- [ ] AC1 — one.\n2024. was the year.')" "$(printf -- '- [ ] AC1 — one.\n2025. was the year.')" - yes)"
+  _n942_names f "$out" AC1
+  out="$(_ac808_run "$(printf -- '1. [ ] AC1 — one.\n14) only when beta.')" "$(printf -- '1. [ ] AC1 — one.\n14) only when NOT beta.')" - yes)"
+  _n942_names g "$out" AC1
+  finish "a numbered AC list is compared item by item: an edit to one AC refuses that AC alone, an added AC lands, a cited edit lands (with '.' and ')' markers), and a lazy line that is no sibling of the AC's list stays part of its item"
+  teardown
+}
+
 
 # _forks_midwork_entry <id> <slug> <entry-id> <forks-value> — the card is picked up, its branch is cut,
 # and only then does a ruling naming the card land on the trunk, published; the card's trunk copy gets
