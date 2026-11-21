@@ -111,6 +111,13 @@ case_notify_refuses_the_watchdog_as_a_backend() {
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=stall ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null && cf "(send) the watchdog was run as an adapter and dumped its usage"
   printf '%s\n' "$out" | grep -F 'delivery FAILED' >/dev/null && cf "(send) a send through the watchdog reported a delivery failure instead of no adapter"
+  # Another case of the name: on a case-folding volume Stall.sh is stall.sh, so this row can only go red there.
+  local nm
+  for nm in Stall STALL; do
+    rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND="$nm" ./scripts/notify.sh test 2>&1 )" || rc=$?
+    [ "$rc" -eq 1 ] || cf "(case) NOTIFY_BACKEND=$nm exited $rc, not the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null && cf "(case) NOTIFY_BACKEND=$nm ran the watchdog as an adapter and dumped its usage"
+  done
   printf '#!/usr/bin/env bash\ncase "$1" in send|test) echo "DELIVERED $NOTIFY_TEXT" ;; esac\n' > "$SB_WORK/scripts/notify/mine.sh"
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=mine NOTIFY_WITH_MSG_AND_ALERT=done ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -F 'DELIVERED' >/dev/null || cf "(adapter) an adapter whose case arm is send|test) was not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"

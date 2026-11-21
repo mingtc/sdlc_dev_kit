@@ -135,14 +135,17 @@ if [ "$NOTIFY_BACKEND" = "none" ]; then
   exit 0   # silent no-op for sends
 fi
 
-# stall.sh, the watchdog beside the adapters, is not one: run as a backend it would dump its usage.
-if [ ! -f "$ADAPTER" ] || [ "$NOTIFY_BACKEND" = stall ]; then
+# stall.sh, the watchdog beside the adapters, is not one: run as a backend it would dump its usage. Compared
+# without case, because a case-folding volume finds stall.sh under Stall and STALL as well.
+_is_stall=false
+[ "$(printf '%s' "$NOTIFY_BACKEND" | tr 'A-Z' 'a-z')" != stall ] || _is_stall=true
+if [ ! -f "$ADAPTER" ] || [ "$_is_stall" = true ]; then
   avail="$( { ls "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | grep -vx stall | paste -sd, -)"
   _na_what="no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
-  [ "$NOTIFY_BACKEND" != stall ] || _na_what="NOTIFY_BACKEND='stall' names the stall watchdog (scripts/notify/stall.sh), which is not an adapter. Available: ${avail:-none}"
+  [ "$_is_stall" = false ] || _na_what="NOTIFY_BACKEND='$NOTIFY_BACKEND' names the stall watchdog (scripts/notify/stall.sh), which is not an adapter. Available: ${avail:-none}"
   [ "$MODE" != "test" ] || kit_refuse 1 notify-no-adapter \
     "notify: $_na_what" \
-    "Next: set NOTIFY_BACKEND in your environment file to an available backend (or none)$([ "$NOTIFY_BACKEND" = stall ] || printf ', or add scripts/notify/%s.sh' "$NOTIFY_BACKEND")."
+    "Next: set NOTIFY_BACKEND in your environment file to an available backend (or none)$([ "$_is_stall" = true ] || printf ', or add scripts/notify/%s.sh' "$NOTIFY_BACKEND")."
   warn "$_na_what"
   exit 0
 fi
