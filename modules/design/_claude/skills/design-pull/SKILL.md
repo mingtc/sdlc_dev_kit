@@ -141,10 +141,13 @@ rm requirements/design/<canvas>/<path>
 ```
 
 ```sh check
-python3 scripts/design/check-design-links.py
+idx=$(mktemp -u) && GIT_INDEX_FILE=$idx git read-tree HEAD && GIT_INDEX_FILE=$idx git add -A -- requirements/design &&
+  tip=$(GIT_INDEX_FILE=$idx git -c user.name=pull -c user.email=pull@localhost commit-tree "$(GIT_INDEX_FILE=$idx git write-tree)" -p HEAD -m 'the pull, uncommitted'); rm -f "$idx"
+[ -n "$tip" ] || { echo 'NO-TIP: could not read the pulled tree'; exit 1; }
+python3 scripts/design/check-design-links.py --head "$tip"
 ```
 
-Quote what it prints. Then diff against the last base: `git diff <base> -- requirements/design/<canvas>/project`, where `<base>` is the commit `Last pull` or
+The block commits the pulled files from a temporary index to a commit no branch names, so the check judges each approval against the pulled tree; no branch, index or file of yours moves. Quote what it prints. An "at HEAD" in its lines means the pulled tree: they are what the check prints once the pull is committed. Then diff against the last base: `git diff <base> -- requirements/design/<canvas>/project`, where `<base>` is the commit `Last pull` or
 `Last publish` names, whichever is newer (your own send is not a canvas change); with neither, every file is new. For each change say which it is:
 
 - **Purely visual:** propose to accept it.

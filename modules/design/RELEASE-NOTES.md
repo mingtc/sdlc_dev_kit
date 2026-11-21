@@ -15,6 +15,7 @@ any other heading are not read. Nothing here is read while the module is disable
 - **In a wireframe canvas an edit to the wording of `placeholder`, `aria-label`, `alt` or `title` no longer sends an approved row back to review:** the link check lists the row on a `CONTENT-ONLY` line, as it does for text. An attribute added or removed, and every other attribute, still counts as structure.
 - **The role and `/design-publish` now say how a canvas is started on the built-in `Artifact` tool** (`quickstart` with intent `design`, a `publish` with the type's `type_url` and a `title`, then the files), that `read` of `artifact-type/dc-runtime.js` saves the runtime `render.py` needs, and what `read` with `paths` and `list` cost on that surface.
 - **`/design-pull`'s diff step tells the Designer to state a moved element's old and new parent from the two files**, and to say when it crossed a `data-state` boundary (an editor's drag can paste an element outside its state's container).
+- **`/design-pull`'s link check before the go-ahead now reads approvals against the pulled files**, so a `STALE-APPROVAL` or `CONTENT-ONLY` line shows before you say go, not after the take-in. The check checks out nothing and moves no branch or index.
 
 ## [0.6.1]
 

@@ -5953,3 +5953,51 @@ case_the_pull_skill_names_a_moved_elements_old_and_new_parent_and_a_state_bounda
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE PULL SKILL'S CHECK, RUN BEFORE THE GO-AHEAD, READS AN APPROVAL AGAINST THE PULLED FILES AND LEAVES THE REPOSITORY ALONE.
+#   Operand: the skill's own `check` block, run in a wireframe canvas whose UX-001 gate 1 is approved, over a pull laid on project/ uncommitted, in the
+#   order of the real pull. The expected answers are fixed here: clean before any edit; an edit of text names UX-001 on a CONTENT-ONLY line; a reorder
+#   and a deleted board name it on a STALE-APPROVAL line (saying structure, and missing); the block moves no branch, index entry or stash and leaves
+#   only the pulled file changed; and once the pull is committed the plain check prints the same STALE-APPROVAL line the block printed before.
+# =============================================================================
+case_the_pull_skills_check_reads_an_approval_against_the_pulled_tree_before_the_go_ahead() {
+  cf_reset
+  local L="the design-pull skill's check block, over a pull laid uncommitted on a wireframe canvas whose UX-001 is approved, is clean before an edit, prints CONTENT-ONLY for a text edit and STALE-APPROVAL for a reorder and for a deleted board, moves no branch, index entry or stash, and prints the line the plain check prints once the pull is committed"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" sk="$SB_WORK/.claude/skills/design-pull/SKILL.md" head0 stale0 stale1 st
+  chk() { _dm_sh "$(_dm_fence "$sk" check | sed 's|<canvas>|app|g')"; }
+  [ -n "$(_dm_fence "$sk" check)" ] || cf "(prereq) design-pull has no fenced \`\`\`sh check block"
+  chk
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "CONTENT-ONLY" && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(a) the check block is not clean before any edit (exit $_dm_rc): $(_dm_brief)"
+  # (b) a text edit, uncommitted
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'
+  chk
+  { _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001" && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b) an uncommitted text edit does not print a CONTENT-ONLY line for UX-001 (exit $_dm_rc): $(_dm_brief)"
+  git -C "$SB_WORK" checkout -q -- requirements
+  # (c) a reorder, uncommitted
+  _dm_edit "$D/A.dc.html" 's@</b></div><i id="ux-001-i1">y</i>@</b><i id="ux-001-i1">y</i></div>@'
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  chk
+  { _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_has "$_dm_out" "structure"; } || cf "(c) an uncommitted reorder does not print STALE-APPROVAL saying structure for UX-001 (exit $_dm_rc): $(_dm_brief)"
+  stale0="$(printf '%s\n' "$_dm_out" | awk '/^STALE-APPROVAL/')"
+  # (d) the block leaves the repository alone: HEAD, the index, the stash, and the work tree but for the pulled file
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(d) the check block moved HEAD"
+  git -C "$SB_WORK" diff --cached --quiet || cf "(d) the check block staged something"
+  [ -z "$(git -C "$SB_WORK" stash list)" ] || cf "(d) the check block made a stash"
+  st="$(git -C "$SB_WORK" status --porcelain)"
+  [ "$st" = " M requirements/design/app/project/A.dc.html" ] || cf "(d) the work tree holds more than the pulled file after the check block: $(printf '%s' "$st" | tr '\n' '|')"
+  # (e) the pull committed: the plain check prints the same STALE-APPROVAL line
+  _dm_commit "the pull, committed"
+  _dm_py scripts/design/check-design-links.py
+  stale1="$(printf '%s\n' "$_dm_out" | awk '/^STALE-APPROVAL/')"
+  { [ -n "$stale0" ] && [ "$stale0" = "$stale1" ]; } || cf "(e) the check block before the take-in and the plain check after it print different STALE-APPROVAL lines: before [$stale0] after [$stale1]"
+  # (f) a board the pull deletes, uncommitted
+  git -C "$SB_WORK" checkout -q "$_DM_V" -- requirements
+  rm "$D/A.dc.html"
+  chk
+  { _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001" && _dm_has "$_dm_out" "is missing at"; } || cf "(f) an uncommitted deletion of the approved board does not print STALE-APPROVAL saying it is missing (exit $_dm_rc): $(_dm_brief)"
+  finish "$L"
+  teardown
+}
