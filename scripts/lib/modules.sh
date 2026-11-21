@@ -826,9 +826,13 @@ _kit_mod_put_block() {
 }
 
 # _kit_mod_place_file <rendered copy> <destination> <x|-> — write the file beside its path and move it in, so
-# a kill never leaves a half-written file at the path; <x> sets the executable bit. Status 1 when a step fails.
+# a kill never leaves a half-written file at the path; <x> sets the executable bit. Status 1 when a step fails; a file or
+# link among the directories above <destination> is a refusal.
 _kit_mod_place_file() {
-  local rend="$1" dst="$2" mode="$3"
+  local rend="$1" dst="$2" mode="$3" prob
+  # a link on the way takes the copy to wherever it points: the scans refuse it first; this is the write's own guard
+  prob="$(_kit_mod_ancestor_problem "${dst#"$KIT_MOD_ROOT"/}")"
+  [ -z "$prob" ] || kit_refuse 1 module-path-through-link "Error: $prob. Nothing was written there." "Next: replace the link with a directory (or remove it), commit that, then run the command again."
   mkdir -p "$(dirname "$dst")" && cp "$rend" "$dst.kit-mod-new" && { [ "$mode" != x ] || chmod +x "$dst.kit-mod-new"; } && mv "$dst.kit-mod-new" "$dst" \
     || return 1   # return-class: internal
 }

@@ -1266,3 +1266,31 @@ case_the_module_less_skip_reason_names_a_file_that_is_absent_and_the_shape_test_
   rm -rf "$root"
   finish "$L"
 }
+
+# =============================================================================
+# CASE — THE MODULE FILE WRITER REFUSES A DIRECTORY ABOVE ITS DESTINATION THAT IS A LINK, AND WRITES NOTHING THROUGH IT.
+#   Operand: _kit_mod_place_file called directly (the scans refuse such a path first, so no command reaches it) with a
+#   destination under a directory that is a link to one outside the project, and under a plain directory. The link: exit 1,
+#   the rule's record, a Next line, nothing outside. The plain one: the file is placed.
+# =============================================================================
+case_the_module_file_writer_refuses_a_linked_directory_above_its_destination() {
+  cf_reset
+  local L="the module file writer refuses a destination whose parent directory is a symbolic link (exit 1, a record, a Next line, nothing written where the link points) and places a file under a plain directory"
+  [ -f "$REAL_SCRIPTS/lib/modules.sh" ] || { cf "scripts/lib/modules.sh is absent from the tree under test"; finish "$L"; return; }
+  make_sandbox
+  local P="$SB_TMP/pf" o="$SB_TMP/pf-out" out rc
+  mkdir -p "$P/scripts/lib" "$P/plain" "$o"
+  cp "$REAL_SCRIPTS"/lib/*.sh "$P/scripts/lib/"
+  printf 'new\n' > "$SB_TMP/pf-rend"
+  ln -s "$o" "$P/linked" 2>/dev/null || { skp "$L" "this filesystem takes no symbolic link"; teardown; return; }
+  _pf() { ( cd "$P" && . ./scripts/lib/modules.sh && KIT_MOD_ROOT="$P" KIT_PROGRESS_DIR="$SB_TMP/pf-records" _kit_mod_place_file "$SB_TMP/pf-rend" "$P/$1" - ) 2>&1; }
+  out="$(_pf linked/sub/f.txt)"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(link) the writer exited $rc, not 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *"Next:"*) ;; *) cf "(link) the refusal has no Next line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  [ -z "$(ls -A "$o")" ] || cf "(link) something was written where the link points: $(ls -A "$o" | tr '\n' ' ')"
+  [ "$(cat "$SB_TMP"/pf-records/*.tsv 2>/dev/null | grep -c 'refusal=module-path-through-link')" -eq 1 ] || cf "(link) no single refusal=module-path-through-link record"
+  out="$(_pf plain/sub/f.txt)"; rc=$?
+  { [ "$rc" -eq 0 ] && [ "$(cat "$P/plain/sub/f.txt" 2>/dev/null)" = new ]; } || cf "(control) the writer did not place a file under a plain directory: rc $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "$L"
+  teardown
+}
