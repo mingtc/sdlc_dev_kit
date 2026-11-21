@@ -5803,3 +5803,36 @@ case_a_sent_comment_is_the_go_ahead_unless_one_of_five_asks_applies() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A COMMENT SENT TO CLAUDE IS ANSWERED ONLY WHILE A SESSION WATCHES, AND THE DOCUMENTS SAY SO AND TELL THE DESIGNER TO READ THE WAITING THREADS.
+#   The expected answer is fixed here, in the placed files: the README says a sent comment waits with no watcher, is not replayed by a watch
+#   armed later, and that the page gives no notice; the role carries the act (read the threads awaiting reply on every pull and after every
+#   publish); design-publish's step 7 names that read. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_a_comment_sent_while_no_session_watches_waits_and_the_designer_reads_the_waiting_threads() {
+  cf_reset
+  local L="the module README says a sent comment is answered only while a session watches, is not replayed by a watch armed later and shows no notice on the page; the placed role says to read the threads awaiting reply on every pull and after every publish; design-publish step 7 and design-pull step 7 name that read"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" rdme role pub pull tok
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  rdme="$(tr '\n' ' ' <"$m/README.md" | tr -s ' ')"
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  pub="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-publish/SKILL.md" | tr -s ' ')"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  for tok in 'answered only while a session watches the canvas' 'does not replay it' 'awaiting reply' 'does not say why'; do
+    _dm_has "$rdme" "$tok" || cf "(a) the module README does not carry '$tok'"
+  done
+  for tok in 'only while a session watches the canvas' 'a watch armed later does not replay it' 'every pull and after every publish'; do
+    _dm_has "$role" "$tok" || cf "(b) the placed role does not carry '$tok'"
+  done
+  _dm_has "$pub" "does not replay earlier comments" || cf "(c) design-publish does not say a publish's watch does not replay earlier comments"
+  _dm_has "$pub" "threads awaiting reply" || cf "(c) design-publish does not tell the Designer to read the threads awaiting reply after a publish"
+  _dm_has "$pull" "after each publish" || cf "(d) design-pull's comments step does not say to read threads after each publish"
+  finish "$L"
+  teardown
+}

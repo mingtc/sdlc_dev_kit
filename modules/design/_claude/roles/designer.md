@@ -179,6 +179,9 @@ in a scratch directory: the next round regenerates from it, not from memory. Not
   recorded decision or a pinned state (a pinned state also needs a `D-NN`, rule 6); (4) deletes a board or replaces an edit not yet
   pulled; (5) could reasonably mean two designs (put both). Do only what the commenter's own words ask. With no human to answer, change
   nothing, leave the tree as it was and reply on the thread which of the five applies.
+- **A comment is answered only while a session watches the canvas** (one that has published, or ran `watch`). With none, the thread stays
+  open and awaiting reply, and a watch armed later does not replay it. So on every pull and after every publish read the threads
+  awaiting reply (`/design-pull` step 7) and answer them by the bullet above; say in your report which had waited.
 
 ### What the human still does
 

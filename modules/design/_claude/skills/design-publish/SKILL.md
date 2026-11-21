@@ -104,5 +104,6 @@ change. Then `resolve_comment`. Both work without asking only on an artifact nob
 Set the row `resolved` in `COMMENTS.md`, commit it and push it (`bash scripts/design/trunk-sync.sh push`). A plain comment never reached you (it is invisible on A); if the human mentions one, ask them to Send it to Claude.
 **On B** the same comment tools are documented to exist; not observed.
 
-Tell the human what was sent, the new version, and what to look at on the canvas. Publishing starts a watch in a session that can be woken; the `watch` tool
-answered `not_armed` where this was observed, so do not promise the human a wake-up.
+Tell the human what was sent, the new version, and what to look at on the canvas. Publishing starts a watch in a session that can be woken (the `watch` tool
+answered `not_armed` where this was observed) and does not replay earlier comments: run `/design-pull` step 7's read of the threads awaiting reply now, and answer
+each by the role's § Comments. Do not promise the human a wake-up.

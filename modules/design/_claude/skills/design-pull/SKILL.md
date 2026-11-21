@@ -187,7 +187,7 @@ It prints `<Board>.dc.html#<element id>` (or `UNRESOLVED`: log the thread agains
 Log each thread in `COMMENTS.md`, its thread id in the `thread` column (a `COMMENTS.md` made from an older template lacks the column: add it to the table by hand) (`open`, or `acknowledged` when an automatic reply stands: that reply is an acknowledgement, not the change). A thread
 already logged is updated, not logged twice. **Do not reply "done" or resolve here:** that is `/design-publish`, after the change is published and read back. An automatic reply stopped after the
 60th comment or activation in an hour (observed 2026-11); a watch can end after hours without activity, and the `watch` tool answered `not_armed` where this was observed, so
-do not rely on a comment waking you: you read threads when you pull. A pull that found no file change and only logged threads commits `COMMENTS.md` alone, `[Designer] design: log threads for <canvas>`, and pushes it (`bash scripts/design/trunk-sync.sh push`).
+do not rely on a comment waking you: you read threads when you pull and after each publish (the README says why). A pull that found no file change and only logged threads commits `COMMENTS.md` alone, `[Designer] design: log threads for <canvas>`, and pushes it (`bash scripts/design/trunk-sync.sh push`).
 
 ## 8. Take it in
 

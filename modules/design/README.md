@@ -48,3 +48,9 @@ pin-drift report that `check-board.sh` prints.
 An owner's comment sent to Claude is the go-ahead for the change it asks: the Designer pulls, edits, publishes, reads back, replies and
 resolves without asking in the terminal, and asks first only when the change needs a decision (the role's § Comments lists the five
 cases). The page's automatic first reply ("On it ...") is the platform's text; the Designer keeps that promise unless one of those cases holds.
+
+A comment sent to Claude is answered only while a session watches the canvas: one that has published, or ran `watch`; a watch can end
+after hours idle. With none it waits: the thread stays open and awaiting reply, and the page shows "working", then "taking a while",
+and does not say why (the page is the platform's, so the module cannot add a notice). A watch armed later does not replay it; the
+Designer reads the threads awaiting reply on every pull and after every publish. Seen once with two sessions watching: one woke and
+replied and the other did not; which one is not known, so do not rely on it.
