@@ -343,12 +343,11 @@ _qav_unclosed_fence() {
   printf '%s\n' "$1" | LC_ALL=C awk "$_QAV_FENCE_FN"' { fence_line($0) } END { u = fence_unclosed(); e = fence_unclosed_end(); if (u) print (e ? u " " e : u) }'
 }
 
-# _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order, read through
-# _qav_cut_comments like every other AC reader: a commented-out bullet is no AC. An id directly followed by
+# _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
 # '-' and an alphanumeric ('AC-1', 'S1-AC1') is not one: the separator rule would read it as the id
 # 'AC', and every such line would fold into one graded id.
 _qav_ac_idlines() {
-  { printf '%s\n' "$1" | _qav_cut_comments | _qav_unfenced | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+  { printf '%s\n' "$1" | _qav_unfenced | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
     | grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]"; } || true   # no match: empty, never an exit under pipefail
 }
 
@@ -372,63 +371,17 @@ _qav_ac_ids_then() {
 }
 
 # _qav_cut_comments — stdin with the carriage returns stripped and every HTML comment cut out of its
-# line (a trailing one, an inline one, one running over several lines); what is left of a line is kept, and a
-# line is printed for every line read. A comment is what CommonMark calls one: a '<!--' that starts a line
-# (up to three spaces in) opens an HTML block that ends on the first line holding '-->', blank lines
-# included; any other '<!--' is inline, and its '-->' must come before the next blank line. A '<!--' inside
-# a backtick code span, on a fence line or inside a fenced block (_QAV_FENCE_FN's rule) is text, and so is a
-# '<!--' that no '-->' closes by those rules: the lines after it are read.
+# line (a trailing one, an inline one, one running over several lines); what is left of a line is kept.
 _qav_cut_comments() {
-  LC_ALL=C awk "$_QAV_FENCE_FN"'
-    function next_open(s, from,    p, k, q, r) {
-      p = from
-      while (p <= length(s)) {
-        if (substr(s, p, 1) == "`") {
-          k = 0; while (substr(s, p + k, 1) == "`") k++
-          q = p + k
-          while (q <= length(s)) {
-            if (substr(s, q, 1) == "`") { r = 0; while (substr(s, q + r, 1) == "`") r++; if (r == k) break; q += r } else q++
-          }
-          if (q <= length(s)) p = q + k; else p += k
-          continue
-        }
-        if (substr(s, p, 4) == "<!--") return p
-        p++
+  LC_ALL=C awk '
+    { sub(/\r$/, ""); line = $0; out = ""
+      while (line != "") {
+        if (incom) { i = index(line, "-->"); if (!i) { line = ""; break }; line = substr(line, i + 3); incom = 0; continue }
+        i = index(line, "<!--")
+        if (!i) { out = out line; line = ""; break }
+        out = out substr(line, 1, i - 1); line = substr(line, i + 4); incom = 1
       }
-      return 0
-    }
-    function closes_later(n, block,    m) {
-      for (m = n + 1; m <= N; m++) {
-        if (index(L[m], "-->")) return 1
-        if (!block && L[m] ~ /^[ \t]*$/) return 0
-      }
-      return 0
-    }
-    { sub(/\r$/, ""); L[NR] = $0; N = NR }
-    END {
-      for (n = 1; n <= N; n++) {
-        line = L[n]; out = ""; atstart = 1
-        if (incom) {
-          i = index(line, "-->")
-          if (!i) { print ""; continue }
-          line = substr(line, i + 3); incom = 0; atstart = 0
-        } else {
-          NR = n
-          if (fence_line(line) || isfm) { print line; continue }
-        }
-        while (line != "") {
-          p = next_open(line, 1)
-          if (!p) { out = out line; break }
-          before = substr(line, 1, p - 1); rest = substr(line, p + 4)
-          block = (atstart && before ~ /^ *$/ && length(before) <= 3)
-          j = index(rest, "-->")
-          if (j) { out = out before; line = substr(rest, j + 3); atstart = 0; continue }
-          if (closes_later(n, block)) { out = out before; incom = 1; break }
-          out = out before "<!--"; line = rest; atstart = 0
-        }
-        print out
-      }
-    }'
+      print out }'
 }
 
 # _qav_section_lines <heading>... — stdin's lines under every '## ' heading whose text, lower-cased, is

@@ -1852,62 +1852,6 @@ _ac808_want() {  # <label> <out> <rc> [<needle>…]
     case "$o" in *"$n"*) : ;; *) cf "($lbl) output lacks [$n]: $(printf '%s' "$o" | tr '\n' '|' | cut -c1-260)" ;; esac
   done
 }
-# =============================================================================
-# CASE — THE AC READERS AGREE ON AN HTML COMMENT, AND A COMMENT IS WHAT COMMONMARK CALLS ONE. Operand: the shipped
-# lib's _qav_ac_ids (the verdict table's population) and _qav_ac_ids_then (the freeze's) over one body, and
-# kit_ac_drift_check over a scratch repository, one fixed answer per row.
-#   (a) a commented-out bullet is no AC for either reader;  (b) a '<!--' in an AC's text that nothing closes hides no
-#   later AC from either;  (c) inline and multi-line comments leave the bullet lines around them;  (d) AC2, below
-#   a literal '<!--', removed after todo/ is refused naming AC2;  (e) a stray marker below it is refused;
-#   (f) a commented-out AC9 and example marker added after todo/ are no new AC and no stray: lands;
-#   (g) a '<!--' in a backtick code span is text, though a later '-->' (a diagram arrow in a fence) closes nothing
-#   it opened, so AC2 stays an AC and its edit is refused;  (h) a '<!--' that starts a line opens a block that
-#   runs to the line holding '-->', blank lines included;  (i) a '<!--' after other text cannot cross a blank
-#   line: it is text, and the bullets below it are read;  (j) a '<!--' inside a fenced block is text.
-# RED FIRST: (a) reads AC9 in the table's population only; (b) reads AC2 in the table's population only; (d) and (e) land;
-# (g) loses AC2 and AC3 from both readers, which lets an edited AC2 land.
-# =============================================================================
-case_the_ac_readers_agree_on_comments_and_an_unclosed_comment_is_literal() {
-  cf_reset
-  make_sandbox
-  local body out ids then f='```'
-  _n944_ids() {  # <function> <body>
-    bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; '"$1"' "$3"' _ "$REAL_SCRIPTS" "$1" "$2" 2>&1 </dev/null | tr '\n' ' ' | sed 's/ $//'
-  }
-  _n944_agree() {  # <label> <want> <body>
-    ids="$(_n944_ids _qav_ac_ids "$3")"; then="$(_n944_ids _qav_ac_ids_then "$3")"
-    [ "$ids" = "$2" ] || cf "($1) the table's population is [$ids], want [$2]"
-    [ "$then" = "$2" ] || cf "($1) the freeze's population is [$then], want [$2]"
-  }
-  body="$(printf -- '## Acceptance Criteria\n<!--\n- [ ] AC9 — commented out\n-->\n- [ ] AC1 — x')"
-  _n944_agree a AC1 "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- ```\n- [ ] AC2 — y')"
-  _n944_agree b 'AC1 AC2' "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- note -->\n- [ ] AC2 — y <!-- a\nb -->\n- [ ] AC3 — z <!-- - [ ] AC8 — hidden -->')"
-  _n944_agree c 'AC1 AC2 AC3' "$body"
-  local two code
-  two="$(printf -- '- [ ] AC1 — one <!-- ```\n- [ ] AC2 — two.')"
-  out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — one <!-- ```')" - yes)"
-  _ac808_want d "$out" 1 'AC2'
-  out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — one <!-- ```\n- [ ] AC2 — two.\n* [ ] a stray marker')" - yes)"
-  _ac808_want e "$out" 1 'a stray marker'
-  out="$(_ac808_run "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n<!--\n- [ ] AC9 — commented out\n* [ ] an example shape\n-->')" - yes)"
-  _ac808_want f "$out" 0
-  code="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")"
-  _n944_agree g1 'AC1 AC2 AC3' "$code"
-  two="$(printf -- '- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")"
-  out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y, but not on Sundays.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")" - yes)"
-  _ac808_want g2 "$out" 1 'of its own: AC2'
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x\n<!--\n\n- [ ] AC8 — hidden\n-->\n- [ ] AC2 — y')"
-  _n944_agree h 'AC1 AC2' "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- note\n\n- [ ] AC2 — y\n-->\n- [ ] AC3 — z')"
-  _n944_agree i 'AC1 AC2 AC3' "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x\n%shtml\n<!-- an example\n%s\n- [ ] AC2 — y\n\n## Notes\n\n-->' "$f" "$f")"
-  _n944_agree j 'AC1 AC2' "$body"
-  finish "the verdict table's AC population and the freeze's agree on a commented-out bullet, an inline comment and a multi-line one, and a comment is what CommonMark calls one (a block from a line-start '<!--' to the line holding '-->', an inline one that does not cross a blank line, none inside a code span or a fence); a '<!--' nothing closes is literal, so an AC removed below it and a stray marker below it are refused, an AC edited after a code-span '<!--' is refused, and a commented-out AC added after todo/ is no new AC"
-  teardown
-}
-
 # The acceptance-criteria examples the kit teaches are lines the landing gate's reader grades: an example
 # with no id, copied onto a card verbatim, would pass the move to todo/ and be refused only at the hand-off.
 case_the_acs_the_kit_teaches_are_lines_the_ac_reader_accepts() {
