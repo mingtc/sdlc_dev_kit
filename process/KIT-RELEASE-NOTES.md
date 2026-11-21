@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **A commented-out checklist line is no AC id for the landing, and a `<!--` is a comment only where Markdown makes it one.** The QA Verdict table's id list now reads past HTML comments as the AC freeze comparison does, so a commented-out `- [ ] AC9 — …` needs no verdict row, and a row QA wrote for it is now an extra row (`qa-verdict-ac-mismatch`; delete the row). A comment is a `<!--` that starts a line, which runs to the line holding `-->`, or one after other text, which must close before the next blank line; a `<!--` inside a backtick code span or a fenced block, or one nothing closes, is plain text. An AC removed below such a `<!--`, or a checklist line it used to hide, is now refused like any other.
 
 ## [0.13.0] — 2026-11-20
 
