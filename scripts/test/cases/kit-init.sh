@@ -2625,6 +2625,12 @@ case_creation_link_options_are_shape_checked() {
   [ "$rc" -eq 0 ] || cf "(control) new-issue.sh with well-formed --prd and --stories exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh okbug --id "$SB_PREFIX-932" --prd n/a --discovered-in "$SB_PREFIX-931" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) new-bug.sh with --prd n/a and a well-formed --discovered-in exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh slicebug --id "$SB_PREFIX-977" --prd n/a --discovered-in "$SB_PREFIX-931-s1" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "new-bug.sh --discovered-in a slice id exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  grep -F "discovered_in: $SB_PREFIX-931-s1 " "$SB_WORK/progress/todo/$SB_PREFIX-977-slicebug.md" >/dev/null 2>&1 \
+    || cf "new-bug.sh --discovered-in a slice id did not write it to discovered_in:"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh badslice --id "$SB_PREFIX-978" --prd n/a --discovered-in "$SB_PREFIX-931-sx" 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "(control) new-bug.sh --discovered-in a malformed slice id exited $rc, want 2"
   finish "$L"
   teardown
 }

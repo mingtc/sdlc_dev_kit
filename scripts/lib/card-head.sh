@@ -308,8 +308,8 @@ validate_card_links() {
       fi
     done
   fi
-  if [ -n "$disc" ] && ! grep -qE "^${ISSUE_PREFIX}-[0-9]+$" <<< "$disc"; then
-    echo "Error: --discovered-in '$disc' must look like ${ISSUE_PREFIX}-NNN." >&2
+  if [ -n "$disc" ] && ! grep -qE "^${ISSUE_PREFIX}-[0-9]+(-s[0-9]+)?$" <<< "$disc"; then
+    echo "Error: --discovered-in '$disc' must look like ${ISSUE_PREFIX}-NNN, or ${ISSUE_PREFIX}-NNN-sM for a slice." >&2
     return 1   # return-class: usage
   fi
   return 0

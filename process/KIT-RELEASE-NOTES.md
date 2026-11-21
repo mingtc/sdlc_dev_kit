@@ -341,6 +341,7 @@ columns and never the cards.*
 - **`AGENT_CHECK: UNRUNNABLE` for a missing identity record now says what to do.** `finish-pr.sh` and `subtask.sh` print `Next: wire the harness hooks (copy .claude/settings.json.example to .claude/settings.json) …` under the line; until the hooks are wired the same-agent check does not run and does not stop the landing.
 - **The publish-the-card step names `register-commit.sh`.** `new-bug.sh`, `new-issue.sh` and the mover's "no file matching" error print `./scripts/register-commit.sh --role <Role> --message "<id>: mint" <path>` instead of `git add … && git commit … && git push`, and `archive.sh`'s recipe for a missing `done/` column does the same; the pre-commit hook refuses the plain commit off the trunk.
 - **The rebase a stacked branch needs after its base squash-lands is in the Dev role doc, and QA reviews a branch that is only behind the trunk as it is.** `dev.md` § Handoff to QA gives `git rebase --onto <remote>/<trunk> <old-base-tip>` then `git push --force-with-lease` (the `stacked-branch-squashed-base` refusal names the commit and prints the command); `qa.md` step 2 no longer asks for the trunk tip in the branch and says QA takes the Dev hat for that one rebase when no Dev seat runs.
+- **`new-bug.sh --discovered-in` accepts a slice id.** `<PREFIX>-NNN-sM` is now valid beside `<PREFIX>-NNN` (it was refused as not looking like `<PREFIX>-NNN`), so a bug found while reviewing a slice can cite the slice; `qa.md` § Bug filing and the usage text say so.
 
 ## [0.13.0] — 2026-11-20
 
