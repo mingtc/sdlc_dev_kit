@@ -975,16 +975,19 @@ _kit_mod_fragment_faults() {
 # a no-op with a message; an interrupted enable is finished. Sets KIT_MOD_TOUCHED (the paths written, one
 # per line, plus the record).
 kit_mod_enable() {
-  local name="$1" plan="$KIT_MOD_TMP/plan" rows="$KIT_MOD_TMP/rows" placed_f="$KIT_MOD_TMP/placed" conflicts blockers kind tgt rend extra dst placed=0 blocks=0 bid out resuming=0 sha has next_text unfilled=""
+  local name="$1" plan="$KIT_MOD_TMP/plan" rows="$KIT_MOD_TMP/rows" placed_f="$KIT_MOD_TMP/placed" conflicts blockers kind tgt rend extra dst placed=0 blocks=0 bid out resuming=0 sha has next_text unfilled="" hint
   KIT_MOD_TOUCHED=""; KIT_MOD_STATE_NOTE=""
   _kit_mod_clean_strays "$KIT_MOD_STATE_REL"   # before any refusal, as disable does: a killed run's side file of the record
   kit_mod_plan "$name" "$plan"
   if kit_mod_is_enabled "$name"; then
-    echo "module: $name is already enabled (version $(kit_mod_enabled_version "$name")); nothing to do."
+    # the one reader status uses; an enabled module with something missing is not "nothing to do"
+    hint="$(_kit_mod_missing_hint "$name" "$plan")"
+    if [ -n "$hint" ]; then echo "module: $name is already enabled (version $(kit_mod_enabled_version "$name")), but it is not whole."
+    else echo "module: $name is already enabled (version $(kit_mod_enabled_version "$name")); nothing to do."; fi
     if [ "$(kit_mod_enabled_version "$name")" != "$KIT_MOD_VERSION" ]; then
       echo "  This kit holds version $KIT_MOD_VERSION of it: placed files change through the kit upgrade, not through enable."
     fi
-    _kit_mod_missing_hint "$name" "$plan"
+    [ -z "$hint" ] || printf '%s\n' "$hint"
     return 0
   fi
   kit_mod_have_sha || kit_refuse 1 module-no-sha-tool \
@@ -1359,7 +1362,7 @@ _kit_mod_missing_hint() {
     _kit_mod_removal_committed "$name" "$kind" "$tgt" "$slot" "$hr" || n=$((n + 1))
   done < "$rf"
   rm -f "$rf" "$hr"
-  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it)."
+  [ "$n" -eq 0 ] || echo "  $n of $m recorded things are missing, and their removal is not committed: removed here (commit the removal if it is on purpose; git restores one), or left by a disable that stopped part-way (./scripts/module.sh disable $name finishes it). To put them back: ./scripts/module.sh disable $name, then ./scripts/module.sh enable $name, which places the module again at the version this kit holds; disable keeps a file you edited and enable then names it and stops, so merge that one by hand first."
   return 0
 }
 

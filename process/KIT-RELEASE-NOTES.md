@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`module.sh enable` over an enabled module that has a recorded file or block missing says the module is not whole.** It used to say "already enabled; nothing to do". It now prints the same missing-things line as `status` and names the route back: `module.sh disable <m>`, then `module.sh enable <m>`.
 
 ## [0.13.0] — 2026-11-20
 
