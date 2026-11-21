@@ -220,18 +220,24 @@ ${ac1_text}
 EOF
 }
 
-# no_machine_git_config <command> [args…] — run a command (a shell function too) with no global or
-# system git config in reach: HOME and XDG_CONFIG_HOME name an empty directory, and
-# GIT_CONFIG_NOSYSTEM=1 drops the system file, and the GIT_CONFIG_GLOBAL, _SYSTEM, _COUNT and
-# _PARAMETERS variables are unset. A case asserting what the trunk chain does when the
-# PROJECT sets nothing runs the call through it, so a key the machine sets (init.defaultBranch)
-# cannot answer in the project's place. GIT_CONFIG_GLOBAL would read better, and needs git 2.32,
+# machine_git_config_off <empty-dir> — in THIS shell, leave no global or system git config in reach:
+# HOME and XDG_CONFIG_HOME name the empty directory, GIT_CONFIG_NOSYSTEM=1 drops the system file, and
+# the GIT_CONFIG_GLOBAL, _SYSTEM, _COUNT and _PARAMETERS variables are unset. run.sh calls it once for
+# the whole run, so a key the machine sets (init.defaultBranch, commit.gpgsign, core.hooksPath) cannot
+# answer in the project's place in any case. GIT_CONFIG_GLOBAL would read better, and needs git 2.32,
 # newer than the 2.28 README.md's day one names. The sandbox's identity is repo-local, so commits still work.
+machine_git_config_off() {
+  unset GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+  export HOME="$1" XDG_CONFIG_HOME="$1" GIT_CONFIG_NOSYSTEM=1
+}
+
+# no_machine_git_config <command> [args…] — run a command (a shell function too) with
+# machine_git_config_off applied in a subshell, for a row that must hold whatever the run's own
+# environment carries (a case that plants a key in HOME or GIT_CONFIG_GLOBAL and asserts it is shut out).
 no_machine_git_config() {
   local h rc=0
   h="$(mktemp -d)" || return 1
-  ( unset GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
-    export HOME="$h" XDG_CONFIG_HOME="$h" GIT_CONFIG_NOSYSTEM=1; "$@" ) || rc=$?
+  ( machine_git_config_off "$h"; "$@" ) || rc=$?
   rm -rf "$h"
   return "$rc"
 }

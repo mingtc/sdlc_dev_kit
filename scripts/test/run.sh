@@ -255,6 +255,10 @@ echo "real repo: $REAL_REPO_ROOT"
 echo "sandbox seams: prefix=$SB_PREFIX (kit neutral)  trunk=$SB_TRUNK (derived)  first role=$SB_ROLE (kit neutral)"
 echo "consumer seam: ${CONSUMER_SCRIPT:-(unset — that family will SKIP)}"
 echo
+# Before the snapshot: it and case_isolation read `git status`, which must see the same ignore files both times.
+# No global or system git config in reach for any case: a key the machine sets must not decide a result.
+RUN_GIT_HOME="$(mktemp -d)" || { echo "run.sh: REFUSING — could not create an empty home for the run's git config." >&2; exit 2; }
+machine_git_config_off "$RUN_GIT_HOME"
 isolation_snapshot
 
 # The run's own progress-record directory. Every refusal a fixture provokes is recorded
@@ -263,7 +267,7 @@ isolation_snapshot
 # record unsets or overrides it.
 RUN_PROGRESS_SCRATCH="$(mktemp -d)" || { echo "run.sh: REFUSING — could not create a scratch directory for the run's progress records." >&2; exit 2; }
 export KIT_PROGRESS_DIR="$RUN_PROGRESS_SCRATCH"
-trap 'teardown; rm -rf "$RUN_PROGRESS_SCRATCH"' EXIT
+trap 'teardown; rm -rf "$RUN_PROGRESS_SCRATCH" "$RUN_GIT_HOME"' EXIT
 
 # ── THE CASE LIST. Explicit for ORDER, derived for COMPLETENESS. ─────────────
 # The order cannot be generated: case_isolation must run last (it compares the real
@@ -992,6 +996,7 @@ CASES=(
   case_an_issue_id_is_its_integer_not_its_spelling
   case_a_heading_id_ends_at_the_same_place_in_every_reader
   case_ship_state
+  case_isolation_is_read_with_the_machines_git_config_shut_out
   case_isolation
 )
 
