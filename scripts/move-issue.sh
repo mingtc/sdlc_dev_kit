@@ -201,6 +201,11 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        Uncommitted edits here (${_held_local%% }): to drop them, git checkout HEAD -- ${_held_local%% }
        to keep them, commit and land them through the trunk's copy, then re-run."
     fi
+    _held_untr="$( { git -C "$SCRIPT_DIR/.." ls-files --others --exclude-standard -- $_held_off 2>/dev/null || true; } | tr '\n' ' ')"
+    if [ -n "$_held_untr" ]; then
+      _held_edit="${_held_edit}
+       Untracked here (${_held_untr%% }): not part of the trunk's copy; delete it, or commit and land it through the trunk's copy, then re-run."
+    fi
     _held_next="Next: bring the scripts here to the trunk's. A branch that is only behind them (it changed none of
        them) is brought up to date in place:  git fetch ${_held_rem} && git rebase ${_held_rem}/${_held_trunk}
        Otherwise run the trunk's copy of this command, from the main checkout on ${_held_trunk}, freshly pulled:

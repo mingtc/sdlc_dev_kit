@@ -173,6 +173,11 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        Uncommitted edits here (${_held_local%% }): to drop them, git checkout HEAD -- ${_held_local%% }
        to keep them, commit and land them through the trunk's copy, then re-run."
     fi
+    _held_untr="$( { git -C "$SCRIPT_DIR/.." ls-files --others --exclude-standard -- $_held_off 2>/dev/null || true; } | tr '\n' ' ')"
+    if [ -n "$_held_untr" ]; then
+      _held_edit="${_held_edit}
+       Untracked here (${_held_untr%% }): not part of the trunk's copy; delete it, or commit and land it through the trunk's copy, then re-run."
+    fi
     _held_next="Next: run the trunk's copy, from the main checkout on ${_held_trunk}, freshly pulled; gate the
        branch's checkout with --worktree (a branch cut before the trunk's last change to one of these needs
        no rebase for that; it is rebased only to run this tool from its own checkout):

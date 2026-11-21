@@ -1441,6 +1441,11 @@ case_lander_refusal_drop_route_clears_a_staged_edit() {
     line="$(printf '%s\n' "$out" | grep -F 'Uncommitted edits here (' | head -1)"
     printf '%s\n' "$line" | grep -F "scripts/$s.sh" >/dev/null || cf "(b) $s.sh: the staged edit is not named: $line"
     printf '%s\n' "$line" | grep -F 'lib/usage.sh' >/dev/null && cf "(b) $s.sh: the untracked lib/usage.sh is named, and git checkout cannot restore it: $line"
+    case "$s" in
+      subtask) ;;
+      *) printf '%s\n' "$out" | grep -F 'Untracked here (' | grep -F 'scripts/lib/usage.sh' >/dev/null \
+           || cf "(b) $s.sh: the untracked lib/usage.sh has no route of its own (delete it, or commit and land it): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;;
+    esac
     git -C "$SB_WORK" checkout HEAD -- "scripts/$s.sh" >/dev/null 2>&1
   done
   finish "the lander refusal's drop route clears a staged edit when run as printed, and names no untracked held file"
