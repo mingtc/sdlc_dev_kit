@@ -11,6 +11,7 @@ any other heading are not read. Nothing here is read while the module is disable
 
 - **A comment sent to Claude is the go-ahead for the change it asks.** The Designer pulls, edits, publishes, reads back, replies and resolves without asking in the terminal, and asks first only when the change would send an approved row back to review, goes beyond the comment or touches a board it does not name, contradicts a recorded decision or a pinned state, deletes a board or replaces an edit not yet pulled, or could mean two designs. A pull no sent comment started still ends at the go-ahead with no human present.
 - **A comment sent to Claude is answered only while a session watches the canvas.** With none the thread stays open and awaiting reply, a watch armed later does not replay it, and the page gives no notice; the Designer now reads the threads awaiting reply on every pull and after every publish and answers them (README, role § Comments, `/design-publish` step 7).
+- **The mode is per canvas, and the README now says what that means for a mixed need:** a rough board beside a finished one is a second canvas. Nothing in the checker changed.
 
 ## [0.6.1]
 

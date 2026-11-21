@@ -1437,7 +1437,7 @@ case_switching_a_canvas_mode_rejudges_its_approvals_and_rewrites_none() {
 # =============================================================================
 case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
   cf_reset
-  local L="the design module's README names the Mode line and every attribute the checker's STRUCT_IGNORED leaves out of a wireframe canvas's structure, and the Designer role, the QA fragment and the canvas template name the wireframe mode"
+  local L="the design module's README names the Mode line and every attribute the checker's STRUCT_IGNORED leaves out of a wireframe canvas's structure, and says the mode is per canvas (a rough board beside a finished one needs a second canvas), and the Designer role, the QA fragment and the canvas template name the wireframe mode"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   local M="$REAL_REPO_ROOT/modules/design" ign a f text
   ign="$(sed -n "s/^STRUCT_IGNORED = (\(.*\))\$/\1/p" "$M/scripts/design/check-design-links.py" | tr -d "' ")"
@@ -1445,6 +1445,7 @@ case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
   text="$(cat "$M/requirements/design/README.md")"
   _dm_has "$text" "### Wireframe mode" || cf "(a) the README has no Wireframe mode section"
   _dm_has "$text" '`- **Mode:** wireframe [decision: D-NN]`' || cf "(a) the README does not give the Mode line"
+  _dm_has "$(printf '%s' "$text" | tr '\n' ' ' | tr -s ' ')" "The mode is per canvas: a rough board beside a finished one needs a second canvas." || cf "(e) the README does not say the mode is per canvas and that a mixed need uses a second canvas"
   local IFS=,
   for a in $ign; do
     _dm_has "$text" "\`$a\`" || cf "(b) the README does not name \`$a\`, which the checker leaves out of structure"

@@ -167,7 +167,7 @@ A canvas that is a wireframe of flow and content, kept current as part of the PR
 header: `- **Mode:** wireframe [decision: D-NN]`. Without the mode such a canvas is either frozen, to keep its approvals, or its
 approvals reset at every sync until they mean nothing. The decision is an entry of `requirements/DECISIONS.md` whose Ruling is not
 WITHDRAWN (the check a waiver gets); without one the mode is not in effect and the link check reports `WAIVER`. No line, or `none`, is the
-default model above; any other value is a `REGISTRY` finding. The mode is per canvas.
+default model above; any other value is a `REGISTRY` finding. The mode is per canvas: a rough board beside a finished one needs a second canvas.
 
 - **Gate 1 is structure and flow**: the screens, their states, every element (its ids, states and links among its attributes), and the flow. It is approved per
   **round**. A round is one Designer take-in commit; the human approves once for the rows that read `STALE-APPROVAL` or `open` after it,
