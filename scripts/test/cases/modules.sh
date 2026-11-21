@@ -943,8 +943,9 @@ case_fixture_library_lists_follow_the_scripts_source_lines() {
 # CASE — A REFUSAL INSIDE module.sh list's LOOP ENDS THE COMMAND WITH ITS CODE.
 #   Operand: module.sh list in a project whose lib/modules.sh is made to refuse while listing one
 #   module, in a call the loop makes itself (not inside a command substitution, whose exit is its
-#   own). The refusal is the command's exit status and nothing is listed after it; without the
-#   stand-in, the same project lists both modules and exits 0.
+#   own), and again in each helper it reads through a command substitution. The refusal is the
+#   command's exit status and nothing is listed after it; without the stand-in, the same project lists
+#   both modules and exits 0.
 # =============================================================================
 case_module_list_ends_with_a_refusal_made_inside_its_loop() {
   cf_reset
@@ -959,12 +960,22 @@ case_module_list_ends_with_a_refusal_made_inside_its_loop() {
   _mx_run "$P" list
   [ "$_mx_rc" -eq 0 ] || cf "(control) module.sh list exited $_mx_rc: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
   case "$_mx_out" in *" ma "*" mz "*"Enable one with"*) ;; *) cf "(control) module.sh list did not list ma and mz: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  cp "$P/scripts/lib/modules.sh" "$P/scripts/lib/modules.sh.orig"
   # (refusal) listing mz refuses: exit 3, the refusal printed, and the list stops there.
   printf '%s\n' 'kit_mod_is_enabled() { [ "$1" != mz ] || kit_refuse 3 module-list-probe "Error: the probe refuses to list mz." "Next: none; this is the self-test'"'"'s stand-in."; return 1; }' >> "$P/scripts/lib/modules.sh"
   _mx_run "$P" list
   [ "$_mx_rc" -eq 3 ] || cf "(refusal) module.sh list exited $_mx_rc, not the refusal's 3: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
   case "$_mx_out" in *"the probe refuses to list mz"*) ;; *) cf "(refusal) the refusal is not in the output: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
   case "$_mx_out" in *"Enable one with"*) cf "(refusal) module.sh list went on past the refusal: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  # (substitution) a refusal inside a helper the loop reads through a command substitution ends the command too.
+  local h
+  for h in kit_mod_kept_version kit_mod_needs; do
+    cp "$P/scripts/lib/modules.sh.orig" "$P/scripts/lib/modules.sh"
+    printf '%s\n' "$h() { [ \"\$1\" != mz ] || kit_refuse 3 module-list-probe \"Error: the probe refuses $h for mz.\" \"Next: none; this is the self-test's stand-in.\"; return 0; }" >> "$P/scripts/lib/modules.sh"
+    _mx_run "$P" list
+    [ "$_mx_rc" -eq 3 ] || cf "(substitution $h) module.sh list exited $_mx_rc, not the refusal's 3: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
+    case "$_mx_out" in *"Enable one with"*) cf "(substitution $h) module.sh list went on past the refusal: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  done
   finish "$L"
   teardown
 }
