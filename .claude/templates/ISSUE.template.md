@@ -4,7 +4,7 @@
      header that names them literally is rewritten by the very substitution it is explaining, and
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
-     issue. If your initializer has not wired a key, substitute it by hand before first use.
+     issue; no script refuses a card for them (the move to dev_complete only warns). If your initializer has not wired a key, substitute it by hand before first use.
      RULE-COPIES:BEGIN — deliberate copies of the Acceptance Criteria's test-or-justify rule; the self-test holds them.
      key: has a passing test, or a documented justification in progress.md for why it cannot be automated
      copies: .claude/roles/dev.md .claude/workflows/wave-runner.js .claude/workflows/tranche-runner.js
