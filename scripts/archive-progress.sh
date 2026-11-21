@@ -361,6 +361,9 @@ if [ -f "$INDEX" ]; then
     [ -n "$_uc" ] || continue
     _un="${_uc##*/}"
     grep -F "($_un)" "$INDEX" >/dev/null && continue
+    # A chunk is a file with the header this script writes first; a note or a child index sharing the directory is not one.
+    # The header is staged and renamed whole, so any chunk carries it; a file without it is left alone.
+    [ "$(sed -n '1p' "$_uc" | tr -d '\r')" = "---" ] && sed -n '2,6p' "$_uc" | grep -E '^(archived_at|cutoff):' >/dev/null || continue
     # The entries are what follows the chunk's frontmatter: the span and the count are read from them alone,
     # the way the row of a real rotation is, never from the dates in the frontmatter.
     _ubody="$(awk 'c >= 2 { print } /^---$/ { c++ }' "$_uc")"

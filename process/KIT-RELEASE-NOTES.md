@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- A note, README or child index in `progress/history/` is no longer refused by `archive-progress.sh` as a rotation cut off before its index row: only a file that opens with the header the rotation writes (`archived_at:` or `cutoff:`) counts as a chunk. A half-written chunk is still found. No action.
 
 ## [0.13.0] — 2026-11-20
 

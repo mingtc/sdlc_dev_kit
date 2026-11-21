@@ -646,6 +646,13 @@ case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_wri
   [ "$rc" -ne 0 ] || cf "(c) a rotation ran over a chunk whose entries are still in the log"
   printf '%s\n' "$out" | grep -F "rm 'progress/history/q3.md'" >/dev/null || cf "(c) no delete command: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   [ ! -e "$R3/progress/history/other.md" ] || cf "(c) a duplicate chunk was written"
+  # a file the tool did not write (a note, a README, a child index) has no chunk header: it is not a chunk and is left alone
+  printf '# my notes\n' > "$R3/progress/history/NOTES.md"
+  printf -- '---\ntitle: readme\n---\n\n## 2026-08-01 [Dev] e1\n' > "$R3/progress/history/README.md"
+  rm -f "$R3/progress/history/q3.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R3" --milestone other --keep-last 2 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -E 'NOTES\.md|README\.md' >/dev/null && cf "(e) a file with no chunk header was refused as a cut-off chunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$rc" -eq 0 ] || cf "(e) the dry run over a history directory holding notes failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }
