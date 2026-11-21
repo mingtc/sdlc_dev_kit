@@ -153,6 +153,7 @@ Quote what it prints. Then diff against the last base: `git diff <base> -- requi
 - **Requirement-affecting** (a screen, state or copy a story's AC rests on): raise the question to the PM with `scripts/ask.sh --role Designer "<question>" --default "<working default>"`.
 - **Touches a pinned state** (a card cites it): a `D-NN` through `ask.sh`; a pinned card is never re-targeted.
 - **Changed since you last published:** flag it. It is a person's edit on top of yours.
+- **An element that moved:** state its old and new parent from the two files, not from the impression of a reorder, and say when it crossed a `data-state` boundary: an editor's drag is a cut and paste, and an element pasted outside its state's container no longer belongs to that state.
 
 A colour a person picked from the picker's **Theme** list arrives as `background-color: var(--<token>, #hex)`, which is a token, not a literal;
 one from **Custom** is a literal.

@@ -5931,3 +5931,25 @@ case_the_first_publish_and_creating_a_canvas_name_surface_b_s_start_and_its_runt
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE PULL SKILL TELLS THE DESIGNER TO STATE A MOVED ELEMENT'S OLD AND NEW PARENT FROM THE TWO FILES AND SAY WHEN IT CROSSED A STATE BOUNDARY.
+#   The expected answer is fixed here, in the placed skill's diff step: the three phrases. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_the_pull_skill_names_a_moved_elements_old_and_new_parent_and_a_state_boundary() {
+  cf_reset
+  local L="the placed design-pull skill's diff step says to state a moved element's old and new parent from the two files and to say when it crossed a data-state boundary"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local pull tok
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  for tok in 'old and new parent from the two files' 'crossed a `data-state` boundary'; do
+    _dm_has "$pull" "$tok" || cf "(a) design-pull does not carry '$tok'"
+  done
+  finish "$L"
+  teardown
+}
