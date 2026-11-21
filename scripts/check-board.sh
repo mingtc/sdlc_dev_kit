@@ -1493,7 +1493,7 @@ else
           if [ "$g_st_n" -eq 0 ]; then
             echo "      FILL (TEST_GLOBS vs scripts/test/**): no file under scripts/test/ in this source  (nothing to cover) — $(cb_src)"
           elif [ "$g_st_miss" -gt 0 ]; then
-            echo "      FILL (TEST_GLOBS vs scripts/test/**): $g_st_miss of $g_st_n file(s) under scripts/test/ are covered by no declared entry  ⚠ e.g. $g_st_first — the kit's own self-test is never ablation-checked; add \"scripts/test/*\" (globs match from the repository root) — $(cb_src)"
+            echo "      FILL (TEST_GLOBS vs scripts/test/**): $g_st_miss of $g_st_n file(s) under scripts/test/ are covered by no declared entry  ⚠ e.g. $g_st_first — the kit's own self-test, not your tests: edits to it are not ablation-checked. Next: add \"scripts/test/*\" to TEST_GLOBS (globs match from the repository root) to check it, or leave this line; it never changes the verdict — $(cb_src)"
           else
             echo "      FILL (TEST_GLOBS vs scripts/test/**): all $g_st_n file(s) under scripts/test/ are covered by a declared entry  ✓ — $(cb_src)"
           fi

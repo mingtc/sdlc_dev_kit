@@ -5409,6 +5409,11 @@ case_check_board_fill_arm_reports_test_globs_missing_the_kits_own_tests() {
   printf '%s\n' "$line" | grep -F "$n_shipped of $n_shipped file(s) under scripts/test/ are covered by no declared entry" >/dev/null \
     && printf '%s\n' "$line" | grep -F '⚠' >/dev/null \
     || cf "(a) test/* was not reported as missing scripts/test/** with its population ($n_shipped): ${line:-no coverage line}"
+  printf '%s\n' "$line" | grep -F "the kit's own self-test, not your tests" >/dev/null \
+    && printf '%s\n' "$line" | grep -F 'Next: add "scripts/test/*"' >/dev/null \
+    || cf "(a) the coverage line does not say what it means and what to do next: ${line:-no coverage line}"
+  printf '%s\n' "$out" | grep '^── board-drift: clean ✓' >/dev/null \
+    || cf "(a) the report moved the verdict: $(printf '%s\n' "$out" | grep '^── board-drift:')"
   teardown
 
   # (b) the same fill plus "scripts/test/*": covered, ✓.

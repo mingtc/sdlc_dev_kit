@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`check-board.sh`'s `TEST_GLOBS vs scripts/test/**` line now says what it is.** It names the kit's own self-test, not your tests, and ends with a `Next:` (add `"scripts/test/*"` to `TEST_GLOBS` to have edits to it ablation-checked, or leave the line). It is still a report and never moves the verdict; `scripts/config.sh`'s `TEST_GLOBS` comment says the same.
 
 ## [0.13.0] — 2026-11-20
 
