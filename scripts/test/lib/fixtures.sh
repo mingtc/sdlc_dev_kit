@@ -103,23 +103,42 @@ cf_reset() { _cf=""; }
 finish() { if [ -z "$_cf" ]; then ok "$1"; else bad "$1" "$_cf"; fi; }
 
 # script_libs <script>… — the file names of the libraries the scripts source, and those the libraries
-# source in turn, once each: every `. "$SCRIPT_DIR/lib/<f>"` and `. "$(dirname "${BASH_SOURCE[0]}")/<f>"`
-# line, conditional or not. A fixture that copies a script's libraries, or checks they ship, takes the
-# list from here, so a library a script gains is in it. A library the tree lacks is still named.
+# source in turn, once each: every dot-source line, whether it starts with the dot or follows `&&`, `||`
+# or `!`, spelled `. "$SCRIPT_DIR/lib/<f>"`, `. "$SCRIPT_DIR/../lib/<f>"`, `. "$ROOT/scripts/lib/<f>"`,
+# `. "$<NAME>_LIB_DIR/<f>"` (`${…}` braces allowed) or `. "$(dirname "${BASH_SOURCE[0]}")/<f>"`. A fixture
+# that copies a script's libraries, or checks they ship, takes the list from here, so a library a script
+# gains is in it. A library the tree lacks is still named. Any other dot-source line that names `/lib/`,
+# a `LIB_DIR` or BASH_SOURCE comes out as `UNPARSED: <line>`, a name no tree holds, so a new spelling
+# turns the fixture red and is never skipped.
 _script_libs_seen=" "
 script_libs() { _script_libs_seen=" "; local f; for f in "$@"; do _script_libs_of "$f"; done; }
 _script_libs_of() {
-  local dir l
+  local dir l found kind name
   [ -f "$1" ] || return 0
-  case "${1%/*}" in */lib) dir="${1%/*}" ;; *) dir="${1%/*}/lib" ;; esac
-  for l in $(sed -n -e '/^[[:space:]]*#/d' \
-      -e 's/.*\. "\$SCRIPT_DIR\/lib\/\([^"]*\)".*/\1/p' \
-      -e 's/.*\. "\$(dirname "\${BASH_SOURCE\[0\]}")\/\([^"]*\)".*/\1/p' "$1"); do
-    case "$_script_libs_seen" in *" $l "*) continue ;; esac
-    _script_libs_seen="$_script_libs_seen$l "
-    printf '%s\n' "$l"
-    _script_libs_of "$dir/$l"
-  done
+  # Each hit is `<kind> <name>`: L sits beside the script's lib/ (or is it), U in ../lib, R in the tree's scripts/lib.
+  found="$(sed -n -E -e '/^[[:space:]]*#/d' \
+      -e 's/^(.*[[:space:];&|!(])?\. "\$\{?SCRIPT_DIR\}?\/\.\.\/lib\/([^"]*)".*/U \2/p;t' \
+      -e 's/^(.*[[:space:];&|!(])?\. "\$\{?SCRIPT_DIR\}?\/lib\/([^"]*)".*/L \2/p;t' \
+      -e 's/^(.*[[:space:];&|!(])?\. "\$\{?ROOT\}?\/scripts\/lib\/([^"]*)".*/R \2/p;t' \
+      -e 's/^(.*[[:space:];&|!(])?\. "\$\{?[A-Z_]*LIB_DIR\}?\/([^"]*)".*/L \2/p;t' \
+      -e 's/^(.*[[:space:];&|!(])?\. "\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)\/([^"]*)".*/L \2/p;t' \
+      -e '/(^|[[:space:];&|!(])(\.|source)[[:space:]]+".*(\/lib\/|LIB_DIR|BASH_SOURCE)/s/^[[:space:]]*/X UNPARSED: /p' "$1")"
+  [ -n "$found" ] || return 0
+  while IFS= read -r l; do
+    kind="${l%% *}"; name="${l#* }"
+    case "$_script_libs_seen" in *" $name "*) continue ;; esac
+    _script_libs_seen="$_script_libs_seen$name "
+    printf '%s\n' "$name"
+    case "$kind" in
+      X) continue ;;
+      U) dir="${1%/*}/../lib" ;;
+      R) case "$1" in */scripts/*) dir="${1%%/scripts/*}/scripts/lib" ;; *) dir="${1%/*}/lib" ;; esac ;;
+      *) case "${1%/*}" in */lib) dir="${1%/*}" ;; *) dir="${1%/*}/lib" ;; esac ;;
+    esac
+    _script_libs_of "$dir/$name"
+  done <<EOF_LIBS
+$found
+EOF_LIBS
 }
 
 # --- Sandbox construction ----------------------------------------------------

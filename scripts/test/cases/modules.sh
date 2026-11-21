@@ -932,6 +932,27 @@ case_fixture_library_lists_follow_the_scripts_source_lines() {
   case "$got" in *scripts/lib/fl-probe.sh*) ;; *) cf "(_mq_subject_ok) did not name scripts/lib/fl-probe.sh: '$got'" ;; esac
   got="$( REAL_REPO_ROOT="$K"; REAL_SCRIPTS="$K/scripts"; _cf=""; _mu_subject_ok; printf '%s' "$_cf" )"
   case "$got" in *scripts/lib/fl-probe.sh*) ;; *) cf "(_mu_subject_ok) did not name scripts/lib/fl-probe.sh: '$got'" ;; esac
+  # (spellings) script_libs reads each way a script sources a library, and names a line it cannot read.
+  printf '%s\n' '. "$SCRIPT_DIR/lib/a-one.sh"' '. "${SCRIPT_DIR}/lib/a-two.sh"' '. "$SCRIPT_DIR/../lib/a-three.sh"' \
+    '. "$ROOT/scripts/lib/a-four.sh"' '. "${ROOT}/scripts/lib/a-five.sh" || exit 1' \
+    '. "$(dirname "${BASH_SOURCE[0]}")/a-six.sh" || return 1' '# . "$SCRIPT_DIR/lib/a-commented.sh"' \
+    '[ -f "$X_LIB_DIR/a-seven.sh" ] && . "$X_LIB_DIR/a-seven.sh" 2>/dev/null || true' \
+    '. "$ROOT/scripts/config.sh"' > "$SB_TMP/fl-spell.sh"
+  got="$(script_libs "$SB_TMP/fl-spell.sh" | tr '\n' ' ')"
+  [ "$got" = "a-one.sh a-two.sh a-three.sh a-four.sh a-five.sh a-six.sh a-seven.sh " ] || cf "(script_libs spellings) read '$got', not the seven spelled libraries in order"
+  printf '%s\n' '. "$SB_ROOT/scripts/lib/a-odd.sh"' > "$SB_TMP/fl-odd.sh"
+  got="$(script_libs "$SB_TMP/fl-odd.sh")"
+  [ "$got" = 'UNPARSED: . "$SB_ROOT/scripts/lib/a-odd.sh"' ] || cf "(script_libs unparsed) a source line in an unlisted spelling came out as '$got', not UNPARSED: <line>"
+  # (nested) a library found through `../lib` is read in turn, from the directory that spelling names.
+  mkdir -p "$SB_TMP/fl-n/notify" "$SB_TMP/fl-n/lib"
+  printf '%s\n' '. "$SCRIPT_DIR/../lib/n-one.sh"' > "$SB_TMP/fl-n/notify/t.sh"
+  printf '%s\n' '. "$(dirname "${BASH_SOURCE[0]}")/n-two.sh"' > "$SB_TMP/fl-n/lib/n-one.sh"
+  got="$(script_libs "$SB_TMP/fl-n/notify/t.sh" | tr '\n' ' ')"
+  [ "$got" = "n-one.sh n-two.sh " ] || cf "(script_libs nested) a ../lib library's own library was dropped: '$got'"
+  # (lib dir variable) a library sourced through a lib-dir variable on a guarded line is named, and an unlisted spelling on such a line is UNPARSED.
+  printf '%s\n' '[ -f "$Y_LIB_DIR/b.sh" ] && ! . "$Y_LIB_DIR/b.sh"' '[ -f "$Z_LIB_DIR/c.sh" ] && source "$Z_LIB_DIR/c.sh"' > "$SB_TMP/fl-g.sh"
+  got="$(script_libs "$SB_TMP/fl-g.sh" | tr '\n' ' ')"
+  case "$got" in "b.sh UNPARSED: "*) ;; *) cf "(script_libs guarded) read '$got', not b.sh then an UNPARSED line for the source form" ;; esac
   # (control) the real tree: every check is quiet.
   got="$(_md_missing_program)"; [ -z "$got" ] || cf "(control) _md_missing_program names $got on the real tree"
   got="$( _cf=""; _mq_subject_ok; _mu_subject_ok; printf '%s' "$_cf" )"; [ -z "$got" ] || cf "(control) a prerequisite check fails on the real tree: $got"
