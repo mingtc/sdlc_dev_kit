@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — the design module's QA cell check: a design row must hold identical entries whose pins, images and renders the trunk backs. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — the design module's QA cell check: a design row must hold identical entries, each naming its comparison, whose pins, images and renders the trunk backs. See process/EXTRACTION.md.
 # Run by scripts/lib/qa-gate.sh on each PASS row of the design kind; process/contracts/landing-gate.md § 3 is the contract.
 # Arguments: <id> <ac id> <pointer cell> <repo> <landed-commit> <trunk-commit>. Status 0 passes, 3 refuses, any other status is a check that could not run.
 #
@@ -26,7 +26,12 @@ case "$rc" in
      broken "scripts/design/check-design-cell.py exited 0 without saying design-cell: ok." "read what it printed above, fix the tool, then land again." ;;
   1) printf '%s\n' "$out" | grep -q 'the design cell is refused' || { printf '%s\n' "$out" | tail -3; broken "scripts/design/check-design-cell.py exited 1 without a refusal." "read what it printed above, fix the tool, then land again."; }
      printf '%s\n' "$out"
-     echo "Next: write the row as UX-NNN#state@<pin>: identical; dev/evidence/$id/UX-NNN-state-pin.png, dev/evidence/$id/UX-NNN-state-build.png, Dev or the project tooling commits both PNGs to the trunk (./scripts/register-commit.sh --role <role>; the pin image is the render the pin commit holds, the build image a screenshot of the build), then land again; or mark the row FAIL_AC with the differing element ids (.claude/templates/design/QA-verdict-design.fragment.md)."
+     next=""
+     case "$out" in *"names no comparison"*|*"a PASS row says \`identical (image)\`"*) next="$next write each entry as UX-NNN#state@<pin>: identical (image) after comparing the pin PNG with the build PNG, or identical (structure) after reading the pinned .dc.html against the source (a wireframe-mode canvas only); a seat that did neither writes diffs: <element ids> or asks (requirements/design/README.md § 5);" ;; esac
+     case "$out" in *"wireframe canvas in effect"*) next="$next write identical (image) after comparing the pin PNG with the build PNG, or diffs: <element ids> or ask: identical (structure) needs a wireframe canvas in effect at the pin (its CANVAS.md Mode line wireframe [decision: D-NN] and a current ruling in requirements/DECISIONS.md);" ;; esac
+     case "$out" in *"does not name"*|*"is not committed on the trunk"*|*"that the pin commit holds"*|*"is not a PNG"*|*"is the pin image"*) next="$next Dev makes both images at handoff: git show <pin>:requirements/design/<canvas>/renders/<Screen>-state.png > dev/evidence/$id/UX-NNN-state-pin.png, and a screenshot of the build at the same width as dev/evidence/$id/UX-NNN-state-build.png; commit both to the trunk (./scripts/register-commit.sh --role Dev) and name both in the cell;" ;; esac
+     [ -n "$next" ] || next=" read each reason above and correct the row or the evidence it names (requirements/design/README.md § 5);"
+     echo "Next:${next} then land again; or mark the row FAIL_AC with the differing element ids (.claude/templates/design/QA-verdict-design.fragment.md)."
      exit 3   # exit-class: internal — the check contract's refusal status; the gate turns it into its own refusal
      ;;
   *) printf '%s\n' "$out" | tail -3

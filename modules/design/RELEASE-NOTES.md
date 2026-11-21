@@ -5,6 +5,13 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.2]
+
+### Action required
+
+- **A design row says which comparison made it `identical`: `identical (image)` or `identical (structure)`.** The QA cell check refuses a bare `identical` (`names no comparison`), with a `Next:` saying what to write. `identical (image)` is for a seat that opened the pin PNG and the build PNG and compared them; `identical (structure)` is for a seat that read the pinned `.dc.html` against the source, and the check refuses it unless the pin's canvas is a wireframe canvas in effect at the pin; a seat that can do neither writes `diffs: <element ids>` or asks (`requirements/design/README.md` § 5 is the one statement). **Dev now makes both images at handoff**, `UX-NNN-<state>-pin.png` (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png > dev/evidence/<card-id>/UX-NNN-<state>-pin.png`) and `UX-NNN-<state>-build.png`, committed to the trunk, so QA has none to make; `dev/evidence/README.md` exempts these two fixed names from naming a file for its AC. A card already holding a PASS design row with a bare `identical` is refused at landing: rewrite the row, with the word for the comparison made. Run the line below first; it names each such card.
+  Verify: bad=0; for c in progress/{in_progress,blocked,dev_complete,qa_complete}/*.md progress/subtasks/*/{in_progress,blocked,dev_complete,qa_complete}/*.md; do [ -f "$c" ] || continue; awk -F'|' '$3 ~ /PASS/ && $4 ~ /design/ { p = $5; gsub(/"[^"]*"/, "", p); gsub(/`/, "", p); if (p ~ /@[0-9a-fA-F]+: *identical *([;,]|dev\/|UX-|$)/) f = 1 } END { exit !f }' "$c" && { echo "$c: a design row says a bare identical"; bad=1; }; done; [ "$bad" = 0 ]
+
 ## [0.6.1]
 
 ### Action required

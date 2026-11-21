@@ -335,7 +335,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Action required
+
+- **A design row says which comparison made it `identical`, and Dev makes both design images at handoff (design module 0.6.2).** The design module's QA cell check refuses a bare `identical` and takes `identical (image)` (the pin PNG and the build PNG compared) or `identical (structure)` (the pinned `.dc.html` read against the source; refused unless the pin's canvas is a wireframe canvas in effect at the pin); a seat that can do neither writes `diffs: <element ids>` or asks. Dev commits `dev/evidence/<card-id>/UX-NNN-<state>-pin.png` (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png > …`) and `…-build.png` to the trunk at handoff; `dev/evidence/README.md` exempts these fixed names from naming a file for its AC. A card already holding a PASS design row with a bare `identical` is refused at landing: rewrite the row. The line below names each such card; it does nothing in a project without the module.
+  Verify: bad=0; for c in progress/{in_progress,blocked,dev_complete,qa_complete}/*.md progress/subtasks/*/{in_progress,blocked,dev_complete,qa_complete}/*.md; do [ -f "$c" ] || continue; awk -F'|' '$3 ~ /PASS/ && $4 ~ /design/ { p = $5; gsub(/"[^"]*"/, "", p); gsub(/`/, "", p); if (p ~ /@[0-9a-fA-F]+: *identical *([;,]|dev\/|UX-|$)/) f = 1 } END { exit !f }' "$c" && { echo "$c: a design row says a bare identical"; bad=1; }; done; [ "$bad" = 0 ]
 
 ## [0.13.0] — 2026-11-20
 

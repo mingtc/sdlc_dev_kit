@@ -25,3 +25,4 @@ to it, needs no verdict row, and a row QA writes for it is refused as extra.
 - `design-scope:` lists element ids drawn in the pinned render that this card does not build (dimmed, inert, titled in the
   design). Everything else in the render must match the build.
 - A path in a card is qualified with the commit it was true at (`<path> at <sha>`); cite screens by `UX-NNN#state`.
+- **At handoff to QA, Dev makes the card's two design-cell images per pinned state**, `UX-NNN-<state>-pin.png` and `UX-NNN-<state>-build.png` under `dev/evidence/<PREFIX>-NNN/`, and commits them to the trunk: `requirements/design/README.md` § 5 has the recipe, and `dev/evidence/README.md` where they go.

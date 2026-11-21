@@ -6,7 +6,7 @@ code: a screenshot, a render, a diff image, probe output. A `## QA Verdict` row 
 kind (`.claude/roles/qa.md` step 4) as `<path> <full blob sha>`.
 
 **Who commits what, and when — stated here once.** QA cites an image by its blob sha and never takes or reads one
-(`.claude/agents/qa-worker.md`). A human or the orchestrator compares the images, and QA records their result on the row.
+(`.claude/agents/qa-worker.md`). A human or the orchestrator compares the images, and QA records their result on the row, unless the cell check that reads the row states otherwise.
 A file is committed in one place, by Dev or the project's tooling, and which place depends on whether a QA row will cite it:
 
 - **A file an `artifact` row will cite** (a build screenshot included) goes to the trunk, below.
@@ -25,6 +25,8 @@ A file is committed in one place, by Dev or the project's tooling, and which pla
 - **The sha is the whole blob sha**, copied from `git rev-parse <remote>/<trunk>:<path>` (all of it;
   a prefix is refused). It ties the row to the bytes it cites.
 - **Name each file for the AC it shows** (`AC2-login-error.png`); a row citing several files lists
-  each `<path> <sha>` pair.
+  each `<path> <sha>` pair. **A file a cell check names itself is the exception:** Dev makes it at handoff under the name
+  the check's `Next:` gives, not the AC's, and commits it to the trunk as above. A copy of a render a commit holds is
+  `git show <commit>:<path to the render> > dev/evidence/<card-id>/<the check's name for it>`.
 - **A file is never edited after a verdict cites it.** A changed render is a new file, cited from that AC's row.
 - The table still needs one row the gate re-reads a line for: a `test` or `file:line` row with a quote, or an `artifact` row whose pointer cell ends `; <path>:<line> "<quote>"` (the gate re-reads that line); a passing `qa-cell` check does not stand in for it.

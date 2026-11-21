@@ -295,7 +295,7 @@ approval reads as a stale approval and goes back to `changes`; the Designer tell
 - **To the PM:** the questions, the rows now `approved`, `Pin-ready: <sha>`, the proposed citations. The card gate runs `check-design-links.py --leaving <card file>` when the PM moves the card out of `todo/`; the PM can run it first.
 - **To Dev:** nothing directly. Dev reads the pin on the card, builds from that commit's files and tokens, and never edits
   `requirements/design/`.
-- **To QA:** nothing to read. The pin's PNGs are committed under `dev/evidence/` ([`dev/evidence/README.md`](../../dev/evidence/README.md) says by whom and who compares them), and QA cites them by sha.
+- **To QA:** nothing to read. The pin's PNGs are committed under `dev/evidence/` by Dev, at handoff, and QA cites them by sha (`requirements/design/README.md` § 5 says who compares, and how).
 
 ## Project duties: the adapter fills this
 
