@@ -373,11 +373,12 @@ _qav_ac_ids_then() {
 
 # _qav_cut_comments — stdin with the carriage returns stripped and every HTML comment cut out of its
 # line (a trailing one, an inline one, one running over several lines); what is left of a line is kept, and a
-# line is printed for every line read. A comment is what CommonMark calls one: a '<!--' that starts a line
-# (up to three spaces in) opens an HTML block that ends on the first line holding '-->', blank lines
-# included; any other '<!--' is inline, and its '-->' must come before the next blank line. A '<!--' inside
-# a backtick code span, on a fence line or inside a fenced block (_QAV_FENCE_FN's rule) is text, and so is a
-# '<!--' that no '-->' closes by those rules: the lines after it are read.
+# line is printed for every line read. When unsure a '<!--' is text and nothing is hidden. A '<!--' at the start
+# of a line opens an HTML block that ends on the first line holding '-->', blank lines included. Any other
+# '<!--' (after text, or indented, as under a list item) is inline: its '-->' must come before a blank line and
+# before any line that can start a block (a list marker, '#', '>', a fence, a '<!--'), else it is text. A '<!--'
+# inside a backtick code span (read within one line), on a fence line or inside a fenced block
+# (_QAV_FENCE_FN's rule), and one no '-->' closes by those rules, is text: the lines after it are read.
 _qav_cut_comments() {
   LC_ALL=C awk "$_QAV_FENCE_FN"'
     function next_open(s, from,    p, k, q, r) {
@@ -399,8 +400,8 @@ _qav_cut_comments() {
     }
     function closes_later(n, block,    m) {
       for (m = n + 1; m <= N; m++) {
+        if (!block && (L[m] ~ /^[ \t]*$/ || L[m] ~ /^[ \t]*([-*+]|[0-9]+[.)])([ \t]|$)/ || L[m] ~ /^[ \t]*(#|>|<!--|```|~~~)/)) return 0
         if (index(L[m], "-->")) return 1
-        if (!block && L[m] ~ /^[ \t]*$/) return 0
       }
       return 0
     }
@@ -420,7 +421,7 @@ _qav_cut_comments() {
           p = next_open(line, 1)
           if (!p) { out = out line; break }
           before = substr(line, 1, p - 1); rest = substr(line, p + 4)
-          block = (atstart && before ~ /^ *$/ && length(before) <= 3)
+          block = (atstart && before == "")
           j = index(rest, "-->")
           if (j) { out = out before; line = substr(rest, j + 3); atstart = 0; continue }
           if (closes_later(n, block)) { out = out before; incom = 1; break }
