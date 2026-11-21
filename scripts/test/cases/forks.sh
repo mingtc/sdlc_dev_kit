@@ -1715,6 +1715,47 @@ case_script_wordings_blocked_by_help_and_stacked_routing() {
 }
 
 # =============================================================================
+# CASE — A REFACTOR CARD'S '## Behaviors Preserved' IS READ AS ITS ACCEPTANCE CRITERIA. Operand: kit_ac_drift_check over
+# a scratch repository whose history leaves the todo copy, one fixed answer per row.
+#   (a) a B-id removed after todo/: refused naming it;  (b) a B-id's marker changed to '*': refused as ungraded;
+#   (c) control: unchanged lands;  (d) the removal cited in the Activity lands;  (e) the plain bullets of
+#   'Intentionally unconstrained' under the heading are no checklist line: lands;  (f) a '- [ ]' line with no id,
+#   as a notes-deliverable line without one, is refused naming it;  (g) a section whose heading only begins with the
+#   name is another section: lands;  (h) a card with no checklist line under the heading is refused as having no AC, the
+#   refusal naming the heading.
+# RED FIRST: (a), (b) and (f) land while the section readers read '## Acceptance Criteria' only; (h) names no heading but that one.
+# =============================================================================
+case_a_refactor_cards_behaviors_preserved_is_read_as_its_acceptance_criteria() {
+  cf_reset
+  make_sandbox
+  local three out un
+  three="$(printf -- '- [ ] B1 — one: verified by `t::one`.\n- [ ] B2 — two: verified by `t::two`.\n- [ ] B3 — three: verified by `t::three`.')"
+  un="$(printf -- '\n**Intentionally unconstrained (refactor may change):**\n\n- log line format\n- internal field ordering')"
+  _AC808_HEAD='Behaviors Preserved'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] B1 — one: verified by `t::one`.\n- [ ] B3 — three: verified by `t::three`.')" - yes)"
+  _ac808_want a "$out" 1 'B2' 'citation covers the removal'
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] B1 — one: verified by `t::one`.\n- [ ] B2 — two: verified by `t::two`.\n* [ ] B3 — three (stray marker)')" - yes)"
+  _ac808_want b "$out" 1 "refactor card's" 'B3 — three (stray marker)' 'Next:'
+  out="$(_ac808_run "$three" "$three" - yes)"
+  _ac808_want c "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] B1 — one: verified by `t::one`.\n- [ ] B3 — three: verified by `t::three`.')" '- dropped B2 [decision: D-01]' yes)"
+  _ac808_want d "$out" 0
+  out="$(_ac808_run "$three$un" "$three$un" - yes)"
+  _ac808_want e "$out" 0
+  out="$(_ac808_run "$three" "$(printf -- '%s\n- [ ] the notes deliverable: none, no shipped surface changed' "$three")" - yes)"
+  _ac808_want f "$out" 1 'the notes deliverable' 'Next:'
+  _AC808_HEAD='Behaviors Preserved notes'
+  out="$(_ac808_run "$three" "$(printf -- '%s\n* [ ] a note, not a criterion' "$three")" - yes)"
+  _ac808_want g "$out" 0
+  _AC808_HEAD='Behaviors Preserved'
+  out="$(_ac808_run "$three" "$(printf -- 'no behaviors listed here.')" - yes)"
+  _ac808_want h "$out" 1 "a refactor card's '## Behaviors Preserved'" 'Next:'
+  unset _AC808_HEAD
+  finish "a refactor card's '## Behaviors Preserved' is read as its AC: a B-id removed after todo/ or a stray marker is refused, a cited removal and the 'Intentionally unconstrained' bullets land, and a line with no id is refused naming it"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE AC POPULATION: kit_ac_drift_check READS EVERY CHECKLIST LINE OF '## Acceptance Criteria',
 # REFUSES A CARD WITH NO AC OR A BULLET THE QA GATE'S READER WOULD DROP, AND ASKS A RULING FOR AN AC
 # REMOVED OR RENAMED AFTER todo/. Operand: the shipped lib run over a scratch repository whose commit

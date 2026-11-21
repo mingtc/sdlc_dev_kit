@@ -69,7 +69,7 @@
 #     now (removed or renamed) is drift too, covered by a '[decision: D-NN]' on an '## Activity' line
 #     that names it or on a struck bullet ('- [ ] ~~AC3 — …~~ [decision: D-NN]'). The population is read
 #     first, on every route, even when the history shows no todo/ departure: a checklist line of
-#     '## Acceptance Criteria' that '_qav_ac_ids' would not read (another marker, an indent, an id with a
+#     '## Acceptance Criteria' (a refactor card's '## Behaviors Preserved') that '_qav_ac_ids' would not read (another marker, an indent, an id with a
 #     dot, no id) is refused by name (forks-ac-ungraded), and a card with no AC is refused (forks-ac-none).
 #     A card whose
 #     history never shows it leaving a 'todo/' column (minted straight into another one) makes
@@ -359,13 +359,13 @@ _qav_ac_ids() {
     | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}\$//" | sort -u; } || true
 }
 
-# _qav_ac_ids_then <body> — the ids <body>'s '## Acceptance Criteria' section declares, read for the
+# _qav_ac_ids_then <body> — the ids <body>'s acceptance-criteria section declares (_qav_ac_section_lines), read for the
 # freeze: the same bullet shapes as _qav_ac_ids, but the id is the leading token with any '-alphanumeric'
 # runs in it ('AC-1'), and a token counts only when the separator follows it ('Re-enable login' has no
 # id; 'E-mail is sent' has none). The old copy and the new one are both read by this, so a hyphenated
 # id still on the card is never read as removed, and one the card no longer lists is.
 _qav_ac_ids_then() {
-  { printf '%s\n' "$1" | _qav_section_lines 'acceptance criteria' \
+  { printf '%s\n' "$1" | _qav_ac_section_lines \
     | { grep -E "^${KIT_AC_LEAD}" || true; } | sed -E "s/^${KIT_AC_LEAD}//" \
     | LC_ALL=C awk '{ if (match($0, /^[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)*/)) { t = substr($0, 1, RLENGTH); r = substr($0, RLENGTH + 1); if (r ~ /^[ \t]*(—|-|:)/) print t } }' \
     | sort -u; } || true
@@ -431,24 +431,33 @@ _qav_cut_comments() {
     }'
 }
 
-# _qav_section_lines <heading> — stdin's lines under every '## ' heading whose text, lower-cased, is
-# <heading> or <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
+# _qav_section_lines <heading>... — stdin's lines under every '## ' heading whose text, lower-cased, is
+# a <heading> or a <heading> then a space and '(' ('acceptance criteria' also reads a subtask card's
 # 'Acceptance Criteria (sliced from the parent)', and not 'Acceptance Criteria notes'), read through
 # _qav_cut_comments; a fenced block (_QAV_FENCE_FN's rule) is skipped.
 _qav_section_lines() {
-  _qav_cut_comments | _qav_unfenced | LC_ALL=C awk -v want="$1" '
-    /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = (h == want || index(h, want " (") == 1); next }
+  local wants
+  wants="$(printf '%s|' "$@")"
+  _qav_cut_comments | _qav_unfenced | LC_ALL=C awk -v wants="$wants" '
+    BEGIN { nw = split(wants, W, "|") - 1 }
+    /^##[ \t]/ { h = tolower($0); sub(/^##[ \t]+/, "", h); sub(/[ \t]+$/, "", h); sect = 0
+      for (i = 1; i <= nw; i++) if (h == W[i] || index(h, W[i] " (") == 1) sect = 1
+      next }
     sect { print }'
 }
 
-# _qav_ac_stray_bullets <body> — what in '## Acceptance Criteria' the QA gate cannot grade one for one,
+# _qav_ac_section_lines — stdin's lines under the card's acceptance criteria: '## Acceptance Criteria', and a
+# refactor card's '## Behaviors Preserved', which that card's QA Verdict grades as its AC.
+_qav_ac_section_lines() { _qav_section_lines 'acceptance criteria' 'behaviors preserved'; }
+
+# _qav_ac_stray_bullets <body> — what in the acceptance-criteria section (_qav_ac_section_lines) the QA gate cannot grade one for one,
 # one per line, trimmed: a checklist line (any marker, any indent) that is not id-shaped, an id directly
 # followed by '-' and an alphanumeric, and an id two lines share ('<id> (on more than one line)').
 # A bullet struck through completely ('- [ ] ~~AC3 — …~~', optionally ending '[decision: D-NN]') is a
 # recorded removal, not a stray.
 _qav_ac_stray_bullets() {
   local cand dup
-  cand="$(printf '%s\n' "$1" | _qav_section_lines 'acceptance criteria' \
+  cand="$(printf '%s\n' "$1" | _qav_ac_section_lines \
     | { grep -E '^[[:space:]]*(>[[:space:]]*)*([-*+]|[0-9]+[.)])[[:space:]]+\[[ xX]\]' || true; } \
     | { grep -vE '\[[ xX]\][[:space:]]+~~([^~]|~[^~])*~~[[:space:]]*(\[decision:[^]]*\][[:space:]]*)?$' || true; })"
   dup="$(_qav_ac_idlines "$1" | sed -E "s/^${KIT_AC_LEAD}//; s/${KIT_AC_SEP}.*\$//" | sort | uniq -d)"
@@ -1357,7 +1366,7 @@ _qav_refuse_unclosed_fence() {
 #   cannot see it; the only trace is the AC TEXT itself changing after the card was underway, and
 #   "underway" is the card's own file history, never a commit subject a hand edit could spoof.
 #   Refuses through kit_refuse with forks-ac-unclosed-fence (a fence nothing closes, first), forks-ac-changed-uncited, forks-ac-ungraded (a checklist line of
-#   '## Acceptance Criteria' the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
+#   '## Acceptance Criteria', or a refactor card's '## Behaviors Preserved', the QA gate cannot grade one for one) and forks-ac-none (no AC at all).
 kit_ac_drift_check() {
   local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
   local new_body old_body ac_ids old_ids new_then_ids ac ac_old ac_new scratch old_card drift="" removed="" stray id_shape='D-[0-9]+' _forks_reads_own unclosed
@@ -1372,16 +1381,16 @@ kit_ac_drift_check() {
   stray="$(_qav_ac_stray_bullets "$new_body")"
   if [ -n "$stray" ]; then
     kit_refuse 1 forks-ac-ungraded \
-      "Error: ${issue_id}'s '## Acceptance Criteria' holds lines the QA gate cannot grade one for one, so no verdict row would ever cover them:" \
+      "Error: ${issue_id}'s '## Acceptance Criteria' (a refactor card's '## Behaviors Preserved') holds lines the QA gate cannot grade one for one, so no verdict row would ever cover them:" \
       "$(printf '%s\n' "$stray" | sed 's/^/         /')" \
       "       An AC is a line that starts '- [ ] <id> — ' (or '1. [ ] <id> — '): an id of letters and digits that is not followed by '-' and a letter or digit, then a dash, em-dash or colon. One id, one line." \
-      "Next: rewrite each line above as '- [ ] AC<n> — <text>', one distinct id per line (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~AC<n> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
+      "Next: rewrite each line above as '- [ ] <id> — <text>' (AC<n>; B<n> on a refactor card), one distinct id per line (or, if it is not a criterion, make it plain prose — not a checklist line), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. A criterion you are dropping stays on the card as '- [ ] ~~<id> — <text>~~ [decision: D-NN]'. NOTHING WAS CHANGED."
   fi
   if [ -z "$(_qav_ac_ids "$new_body")" ]; then
     kit_refuse 1 forks-ac-none \
       "Error: ${issue_id} has no acceptance criterion: no '- [ ] <id> — <text>' line before its QA Verdict, so there is nothing for QA to grade." \
-      "       (the card template's '## Acceptance Criteria' section.)" \
-      "Next: add the card's acceptance criteria to '## Acceptance Criteria' as '- [ ] AC1 — <text>' lines, commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
+      "       (the card template's '## Acceptance Criteria' section; a refactor card's '## Behaviors Preserved'.)" \
+      "Next: add the card's acceptance criteria to '## Acceptance Criteria' (a refactor card's '## Behaviors Preserved') as '- [ ] AC1 — <text>' lines (B1 there), commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused. NOTHING WAS CHANGED."
   fi
   if [ -z "$leave_commit" ]; then
     echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
