@@ -338,6 +338,7 @@ columns and never the cards.*
 ### Changed
 
 - **The template-text warning at a `dev_complete` move no longer fires on text the Dev must leave.** `move-issue.sh` skips the `## QA Verdict` and `## Ablation` sections and angle-bracket text inside code spans, and cuts each printed line at 100 bytes, so the warning lists only placeholders left in the Dev's own sections. It still warns, never refuses.
+- **`AGENT_CHECK: UNRUNNABLE` for a missing identity record now says what to do.** `finish-pr.sh` and `subtask.sh` print `Next: wire the harness hooks (copy .claude/settings.json.example to .claude/settings.json) …` under the line; until the hooks are wired the same-agent check does not run and does not stop the landing.
 
 ## [0.13.0] — 2026-11-20
 

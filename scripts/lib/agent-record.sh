@@ -95,6 +95,7 @@ _kit_agent_verdict_section() {
 }
 
 kit_agent_landing_check() {
+  local _ar_wire_next="Next: wire the harness hooks (copy .claude/settings.json.example to .claude/settings.json) so the commits carry an identity record; until then the same-agent check does not run and it does not stop the landing."
   local repo="$1" trunk="$2" id="$3" branch="$4" root="${5:-progress}"
   local c verdict="" new old v_agents code_agents="" a sha n_code=0 n_rec=0 tip
 
@@ -114,7 +115,7 @@ kit_agent_landing_check() {
   fi
   v_agents="$(kit_agent_of "$repo" "$verdict")"
   case "$(printf '%s' "$v_agents" | LC_ALL=C awk 'END { print NR }')" in
-    0) echo "AGENT_CHECK: UNRUNNABLE — the QA verdict commit ${verdict:0:9} has no identity record (written outside the harness hooks, or the hooks are not wired)."; return 0 ;;
+    0) echo "AGENT_CHECK: UNRUNNABLE — the QA verdict commit ${verdict:0:9} has no identity record (written outside the harness hooks, or the hooks are not wired)."; echo "$_ar_wire_next"; return 0 ;;
     1) : ;;
     *) echo "AGENT_CHECK: UNRUNNABLE — the QA verdict commit ${verdict:0:9} is claimed by more than one identity ($(printf '%s' "$v_agents" | tr '\n' ';')), so it is not attributable."; return 0 ;;
   esac
@@ -131,6 +132,7 @@ kit_agent_landing_check() {
   tip="$(git -C "$repo" rev-parse --short=9 "$branch" 2>/dev/null || printf '%s' "$branch")"
   if [ "$n_rec" -eq 0 ]; then
     echo "AGENT_CHECK: UNRUNNABLE — none of the ${n_code} code commit(s) on the branch (tip $tip) has a single recorded identity, so the verdict's ($v_agents) has nothing to be compared with."
+    echo "$_ar_wire_next"
     return 0
   fi
   case $'\n'"$code_agents" in *$'\n'"$v_agents"$'\n'*)
