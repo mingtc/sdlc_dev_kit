@@ -5837,3 +5837,56 @@ case_a_comment_sent_while_no_session_watches_waits_and_the_designer_reads_the_wa
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — IN A WIREFRAME CANVAS THE WORDING OF PLACEHOLDER, ARIA-LABEL, ALT AND TITLE IS CONTENT, THEIR PRESENCE IS STRUCTURE.
+#   Operand: scripts/design/check-design-links.py --strict over the wireframe fixture, its approved screen given one input and one image that carry
+#   the four attributes, approved again, then one edit at a time (restored between). Each attribute's value edited leaves the approval good on a
+#   CONTENT-ONLY line; one attribute removed, one added and an id renamed read STALE-APPROVAL saying structure. The README names each attribute the
+#   checker's STRUCT_COPY holds.
+# =============================================================================
+case_a_wireframe_canvas_reads_the_wording_of_copy_attributes_as_content_and_their_presence_as_structure() {
+  cf_reset
+  local L="in a wireframe canvas check-design-links.py --strict keeps UX-001's gate 1 approval through an edit of the value of placeholder, aria-label, alt or title (a CONTENT-ONLY line, exit 0), and reads a copy attribute removed, one added and an id renamed as STALE-APPROVAL saying structure; the README names every attribute STRUCT_COPY holds"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" M="$REAL_REPO_ROOT/modules/design" e name expr cp a text
+  _dm_edit "$D/A.dc.html" 's@</h1>@</h1><input id="ux-001-q" placeholder="Search" aria-label="Find" title="Tip"><img id="ux-001-img" alt="Logo">@'
+  _dm_commit "the screen gains an input and an image that carry copy attributes"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" "s/approved@$_DM_W/approved@${_DM_SHA}/"
+  _dm_commit "approve the screen as it is"; _DM_V="$_DM_SHA"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "CONTENT-ONLY"; } || cf "(a) the approved screen is not clean before any edit (exit $_dm_rc): $(_dm_brief)"
+  for e in \
+    'placeholder::s@placeholder="Search"@placeholder="Look something up"@' \
+    'aria-label::s@aria-label="Find"@aria-label="Locate"@' \
+    'alt::s@alt="Logo"@alt="Our mark"@' \
+    'title::s@title="Tip"@title="A hint"@'; do
+    name="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/A.dc.html" "$expr"; _dm_commit "wording: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(b) a change of the wording of $name does not leave the approval good with a CONTENT-ONLY line (exit $_dm_rc): $(_dm_brief)"
+    _dm_has "$_dm_out" "STALE-APPROVAL" && cf "(b) a change of the wording of $name reads STALE-APPROVAL in a wireframe canvas"
+    _dm_wire_restore
+  done
+  for e in \
+    'a removed aria-label::s@ aria-label="Find"@@' \
+    'an added alt::s@<input id="ux-001-q"@<input alt="Box" id="ux-001-q"@' \
+    'a renamed id::s@ux-001-q@ux-001-search@'; do
+    name="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/A.dc.html" "$expr"; _dm_commit "structure: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_has "$_dm_out" "structure"; } || cf "(c) $name does not read STALE-APPROVAL saying structure (exit $_dm_rc): $(_dm_brief)"
+    _dm_wire_restore
+  done
+  cp="$(sed -n "s/^STRUCT_COPY = (\(.*\))\$/\1/p" "$M/scripts/design/check-design-links.py" | tr -d "' ")"
+  [ -n "$cp" ] || cf "(prereq) the checker has no STRUCT_COPY list this case can read"
+  text="$(cat "$M/requirements/design/README.md")"
+  local IFS=,
+  for a in $cp; do
+    _dm_has "$text" "\`$a\`" || cf "(d) the README does not name \`$a\`, whose value the checker leaves out of structure"
+  done
+  IFS=$' \t\n'
+  finish "$L"
+  teardown
+}

@@ -33,8 +33,8 @@ A marker inside a code span or a fenced block is prose and is ignored.
 
 Mode. A canvas whose Mode line says `wireframe` and cites a [decision: D-NN] the register confirms (not WITHDRAWN) is a wireframe
 canvas: its gate 1 approvals are judged by STRUCTURE, not bytes (the ordered start and end tags of the artboard and of the screens it
-imports, each start tag with its attributes except class, style, data-props and data-stories; text, numbers, sheets, scripts,
-images and tokens are not compared), so a row whose bytes moved and whose structure did not stays approved and is listed on one
+imports, each start tag with its attributes except class, style, data-props and data-stories, and with the values of placeholder,
+aria-label, alt and title left out; text, numbers, sheets, scripts, images and tokens are not compared), so a row whose bytes moved and whose structure did not stays approved and is listed on one
 CONTENT-ONLY line; its gate 2 is not judged and may read `build`; and an UNCOVERED or STALE-PENDING finding that reaches only
 wireframe rows is shown as UNCOVERED-WIRE or STALE-PENDING-WIRE and not counted. Without the ruling the mode is not in effect (WAIVER).
 A Mode value other than none or wireframe is a REGISTRY finding and the canvas is read by the default model.
@@ -148,6 +148,9 @@ MODES = ('', 'none', 'wireframe')
 # The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
 # attribute nobody listed here moves the structure and sends the row back to review.
 STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
+# The attributes that carry copy: their value is read as text (a wording edit leaves the approval standing), their presence counts as
+# structure (one added or removed moves it).
+STRUCT_COPY = ('placeholder', 'aria-label', 'alt', 'title')
 # quote-aware: a `>` inside a quoted attribute value does not end the tag, and a quote opens a value only after `=` (an apostrophe in an
 # unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it
 TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
@@ -396,8 +399,8 @@ def tags_of(markup):
 
 def structure(markup):
     """The structure a wireframe canvas's gate 1 approves: the ordered start and end tags of markup (comments and script bodies left
-    out), each start tag with its attributes except STRUCT_IGNORED, in sorted order. Text is dropped, so a change of wording, a number
-    or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
+    out), each start tag with its attributes except STRUCT_IGNORED and, for STRUCT_COPY, without the value, in sorted order. Text is dropped,
+    so a change of wording (in the text or in a copy attribute), a number or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
     h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
     out, end = [], 0
     for o in TAG_OPEN.finditer(h):
@@ -412,7 +415,7 @@ def structure(markup):
             out.append(('/', m.group(2).lower()))
         else:
             at = {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(3))}
-            out.append((m.group(2).lower(), tuple(sorted((k, v) for k, v in at.items() if k not in STRUCT_IGNORED))))
+            out.append((m.group(2).lower(), tuple(sorted((k, '' if k in STRUCT_COPY else v) for k, v in at.items() if k not in STRUCT_IGNORED))))
     return tuple(out)
 
 

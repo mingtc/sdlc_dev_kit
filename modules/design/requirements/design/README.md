@@ -174,8 +174,9 @@ default model above; any other value is a `REGISTRY` finding. The mode is per ca
   and the Designer writes that commit's sha as `approved@<sha>` into those rows only. A row whose structure did not move stays
   approved at its older sha.
 - **Structure** is the ordered start and end tags of the artboard and of each screen it imports, each start tag with its attributes
-  except `class`, `style`, `data-props` and `data-stories`; text is not read. An element added, removed, moved or renamed, a
-  `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy), classes, styles, a sheet, a
+  except `class`, `style`, `data-props` and `data-stories`, and with the values of `placeholder`, `aria-label`, `alt` and `title` left out (the
+  attribute counts, its wording does not); text is not read. An element added, removed, moved or renamed, a
+  `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy, including the wording of those four attributes), classes, styles, a sheet, a
   token, an image, the component script and its props are content: the approval stands, and the link check lists the row on one
   `CONTENT-ONLY` line. An attribute not named above counts as structure. Script or props logic that changes which branch shows is
   the build's, not gate 1's; a board whose elements its component script builds has little structure to compare, so its gate 1 is in effect the build's.
