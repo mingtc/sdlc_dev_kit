@@ -73,7 +73,7 @@ Reports (each line starts with its class)
                 drawn is no finding, nor is any when git cannot answer; a superseded row may lose its file); each says its Next. "Exists" follows the filesystem: a registry path that differs from a
                 tracked file only in case resolves on a case-insensitive one, so ARTBOARD stays silent there and STALE-APPROVAL
                 (which reads git) still reports a missing approved file
-  FENCE         a PRD with a code fence never closed: everything after it is prose to this check
+  FENCE         a PRD with a code fence never closed, or whose list item or quote ended before it closed: everything after it is prose to this check
   LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style block, a style attribute, a
                 presentation attribute, or in a local stylesheet or imported artboard it loads (comments, strings and url() left out),
                 except a custom property whose name is a token's (where a screen, a :root rule or a token sheet holds a token's value), unless the screen's registry row carries a
@@ -1484,7 +1484,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         rel = p.relative_to(root)
         fence = unclosed_fence(p)
         if fence:
-            out.append(line('FENCE', f'{rel}:{fence}: a code fence is never closed; everything after it is read as prose'))
+            out.append(line('FENCE', f'{rel}:{fence}: the code fence opened on this line is never closed (a list item or quote that ends before the closing line leaves it open too); everything after it is read as prose. Next: close the fence, or indent every line of it to the item\'s text'))
         for story, n, ref in sc['markers']:
             check_ref(f'{rel}:{n}', ref)
         pending_story = {s for s, v in sc['stories'].items() if any(a <= v['head'] <= b for _, a, b in sc['pending'])}

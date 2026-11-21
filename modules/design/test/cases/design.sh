@@ -782,6 +782,7 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   _dm_has "$out" "$SB_PREFIX-903-c.md: pin @deadbee of UX-001#default is not a commit" || cf "(d) a pin that is not a commit, on a card past todo/, is not an UNRESOLVED finding under --strict"
   _dm_has "$out" "$SB_PREFIX-904-c.md" && cf "(d) the check read a declined card, whose pin is nobody's to keep"
   _dm_has "$out" "FENCE" && _dm_has "$out" "never closed" || cf "(d) no FENCE line for a PRD whose code fence is never closed"
+  _dm_line_has "$out" "FENCE" "Next: close the fence" || cf "(d) the FENCE line names no next action"
   _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(d) no LITERAL-COLOUR line for a colour literal in a style outside the :root block"
   _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/A.dc.html" && cf "(d) a colour literal inside a :root block was reported"
   # the approval of UX-001 was recorded against the commit that took in the artboard, which has not changed since
@@ -6157,6 +6158,27 @@ case_the_link_check_reads_root_attributes_table_rows_and_design_comments_as_the_
   _dm_has "$_dm_out" "DESIGN-KEY" && cf "(e) 'design: none #no screen' is not read as none: $(_dm_brief 400)"
   _dm_py scripts/design/pin-drift.py
   _dm_has "$_dm_out" "uncompared" && cf "(f) pin-drift.py calls a card with 'design: none #no screen' uncompared: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A FENCE THAT A LIST ITEM ENDED BEFORE IT CLOSED IS REPORTED WITH THE LINE IT OPENED ON, THE LIST-ITEM CAUSE AND A NEXT.
+#   Operand: scripts/design/check-design-links.py over the clean link fixture plus a PRD whose list item opens a fence on line 5 and ends (a line at
+#   column 0) before any closer. The expected answer is fixed here: a FENCE line naming requirements/PRD-004-lists.md:5:, the list item, and a Next:
+#   that says to close the fence or indent its lines to the item's text.
+# =============================================================================
+case_a_fence_a_list_item_ended_before_it_closed_is_reported_with_its_cause_and_a_next() {
+  cf_reset
+  local L="check-design-links.py reports a fence opened in a list item that ends before the fence closes as a FENCE line naming the PRD and the line it opened on, the list item as a cause, and a Next to close the fence or indent its lines to the item's text"
+  _dm_wire_guards "$L" || return
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  printf '# PRD-004 — Lists\n\n- an item\n\n  ```\n  code\n\nafter the item\n' > "$SB_WORK/requirements/PRD-004-lists.md"
+  _dm_commit "a PRD whose list item ends before its fence does"
+  _dm_py scripts/design/check-design-links.py
+  _dm_line_has "$_dm_out" "FENCE" "requirements/PRD-004-lists.md:5: " || cf "(a) no FENCE line names the PRD and the line the fence opened on: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "FENCE" "list item" || cf "(b) the FENCE line does not name a list item that ends first as a cause: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "FENCE" "Next: close the fence, or indent every line of it to the item" || cf "(c) the FENCE line names no next action: $(_dm_brief 400)"
   finish "$L"
   teardown
 }
