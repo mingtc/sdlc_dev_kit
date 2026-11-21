@@ -180,7 +180,13 @@ read_version() {  # <file> — its one line, or nothing
 # mod_lib_load — source the modules library when the project records enabled modules (process/MODULES) and point it at the
 # project. Status 1 when the project has none. The library comes from the copy of the kit this script sits in; a copy that
 # lacks it is refused by the caller that needs it, before it writes.
-MODTMP=""; FINISHED_N=0
+MODTMP=""; UNDO_DIR=""; FINISHED_N=0
+# scratch_on_exit — remove the run's scratch directories (the modules library's, and --finish's undo copy) when the script
+# ends, however it ends: a refusal, or a TERM, HUP or INT. One trap owns both, so registering one never drops the other.
+scratch_on_exit() {
+  command -v kit_on_exit >/dev/null 2>&1 || { [ -f "$SCRIPT_DIR/lib/exit-trap.sh" ] && . "$SCRIPT_DIR/lib/exit-trap.sh"; } || return 0   # return-class: internal
+  kit_on_exit 'rm -rf "${MODTMP:-}" "${UNDO_DIR:-}"'
+}
 mod_lib_load() {
   [ -f "$TGT/process/MODULES" ] || return 1   # return-class: predicate
   if [ -z "$MODTMP" ]; then
@@ -190,7 +196,7 @@ mod_lib_load() {
     # shellcheck source=lib/modules.sh
     . "$SCRIPT_DIR/lib/modules.sh"
     MODTMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-modules.XXXXXX")" || { MODTMP=""; return 3; }   # return-class: predicate
-    kit_on_exit 'rm -rf "$MODTMP"'
+    scratch_on_exit
     KIT_MOD_ROOT="$TGT"; KIT_MOD_SRC="${SRC:-$TGT}"; KIT_MOD_TMP="$MODTMP"; KIT_MOD_FAIL_RETURNS=1
   fi
   return 0
@@ -619,6 +625,7 @@ if [ "$FINISH" = true ]; then
   fi
   # What the stamp writes is saved first, before anything is written: a copy that fails refuses here, with nothing changed.
   UNDO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-undo.XXXXXX" 2>/dev/null)" || UNDO_DIR=""
+  scratch_on_exit
   backed=1
   [ -n "$UNDO_DIR" ] || backed=""
   for f in KIT-VERSION KIT-MANIFEST; do

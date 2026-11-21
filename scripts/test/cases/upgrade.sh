@@ -1443,6 +1443,54 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
 }
 
 # =============================================================================
+# CASE — A REFUSED OR SIGNALLED --finish LEAVES NO SCRATCH DIRECTORY BEHIND.
+#
+# --finish keeps a copy of what the stamp writes in a directory under TMPDIR (kit-upgrade-undo.*). Every way the run
+# can end removes it: (a) the refusal made while it carries out a module's staged record, which no earlier row reached,
+# and (b) a TERM that arrives while the copy is being made. TMPDIR is private to the case, so "empty" is exact.
+# =============================================================================
+case_kit_upgrade_finish_leaves_no_scratch_directory_after_a_refusal_or_a_signal() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh --finish removes its scratch copy of KIT-VERSION and KIT-MANIFEST when it ends in the refusal that finishing a module's staged record makes, and when it is terminated by a signal after the copy is made"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  local tmp="$SB_TMP/undo-tmp" rc left
+  mkdir -p "$tmp" "$SB_TMP/cpshim"
+
+  # (b) a TERM, sent by the copy of KIT-MANIFEST into the scratch directory, to the script that runs it.
+  _ku_judge_stage s; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  printf '#!/bin/sh\nfor a in "$@"; do last="$a"; done\ncase "$last" in */kit-upgrade-undo.*/KIT-MANIFEST) : > "$SHIM_FIRED"; kill -TERM $PPID; sleep 2; exit 1 ;; esac\nexec /bin/cp "$@"\n' > "$SB_TMP/cpshim/cp"; chmod +x "$SB_TMP/cpshim/cp"
+  rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" TMPDIR="$tmp" SHIM_FIRED="$SB_TMP/shim-fired" PATH="$SB_TMP/cpshim:$PATH" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/s-fin.out" 2>&1 || rc=$?
+  [ -e "$SB_TMP/shim-fired" ] || cf "(b) (premise) --finish never copied KIT-MANIFEST into its scratch directory, so no signal was sent: $(tr '\n' '|' < "$SB_TMP/s-fin.out" | cut -c1-300)"
+  [ "$rc" != 0 ] || cf "(b) --finish exited 0 though it was terminated: $(tr '\n' '|' < "$SB_TMP/s-fin.out" | cut -c1-300)"
+  left="$(ls "$tmp" 2>/dev/null)"
+  [ -z "$left" ] || cf "(b) a terminated --finish left in TMPDIR: $(printf '%s' "$left" | tr '\n' ' ')"
+  [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "(b) (premise) the terminated run had written the archive"
+
+  # (a) the staged record of an enabled module cannot be carried out: process/ is read-only.
+  if [ "$(id -u)" = 0 ]; then
+    skp "$L" "row (a) cannot run as root, where a read-only directory is still writable"
+    teardown; return
+  fi
+  _ku_judge_stage m; printf 'x\n' > "$KU_T/DONE-MARKER"
+  { printf 'module example 0.1.0\nfile %064d x.txt\n' 0 > "$KU_T/process/MODULES"
+    mkdir -p "$KU_T/.kit-upgrade/module-records"
+    printf 'file %064d x.txt\n' 1 > "$KU_T/.kit-upgrade/module-records/example.rows"
+    printf '0.1.0 0.2.0\n' > "$KU_T/.kit-upgrade/module-records/example.version"; }
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker and a staged module record" >/dev/null 2>&1
+  chmod 555 "$KU_T/process"
+  rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" TMPDIR="$tmp" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/m-fin.out" 2>&1 || rc=$?
+  chmod 755 "$KU_T/process"
+  [ "$rc" != 0 ] || cf "(a) (premise) --finish exited 0 though process/ was read-only: $(tr '\n' '|' < "$SB_TMP/m-fin.out" | cut -c1-300)"
+  grep -F 'to finish the record of module example' "$SB_TMP/m-fin.out" >/dev/null || cf "(a) (premise) the refusal is not the module record's: $(tr '\n' '|' < "$SB_TMP/m-fin.out" | cut -c1-300)"
+  left="$(ls "$tmp" 2>/dev/null)"
+  [ -z "$left" ] || cf "(a) a refused --finish left in TMPDIR: $(printf '%s' "$left" | tr '\n' ' ')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE OLDER RELEASES' ACTION REQUIRED ENTRIES LIVE IN KIT-RELEASE-HISTORY.md, AND ARE STILL READ.
 #
 # A project on 0.1.0 upgrades to 0.3.0. The new kit's notes hold only 0.3.0; the entry of the release
