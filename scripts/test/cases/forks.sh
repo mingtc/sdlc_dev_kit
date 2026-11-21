@@ -1695,6 +1695,52 @@ case_forks_check_unattributed_exits_and_window() {
 }
 
 # =============================================================================
+# CASE — A REGISTER ENTRY'S PROVENANCE NAMES THE CARD BY ITS INTEGER, WHATEVER ITS LEADING ZEROS. Operand:
+# _forks_window_entries over a scratch repository in the real order (the card leaves todo/, then the entry lands on
+# the trunk), one fixed answer per row; the card is XYZ-008.
+#   (a) 'XYZ-8' attributes the entry to it;  (b) 'XYZ-0008' does too;  (c) 'XYZ-008' (its own spelling) does;
+#   (d) 'XYZ-80' names no card, and XYZ-008 is not it though the digits begin with 8: unattributed;  (e) 'XYZ-9', a card of its
+#   own, attributes it to that card and prints nothing for this one;  (f) 'XYZ-8-s1', a slice, is not its parent;
+#   (g) a Provenance naming no card is unattributed.
+# RED FIRST: (a) and (b) print UNATTRIBUTED while an id is matched by its spelling.
+# =============================================================================
+case_a_provenance_that_spells_the_cards_id_with_other_zeros_attributes_the_entry() {
+  cf_reset
+  make_sandbox
+  local d="$SB_TMP/f945" prov lo out
+  _n945_run() {  # <label> <provenance> <want first field, or none>
+    rm -rf "$d"; mkdir -p "$d/progress/todo" "$d/progress/in_progress" "$d/progress/subtasks/XYZ-008/todo" "$d/requirements"
+    git -C "$d" init -q . >/dev/null 2>&1
+    _forks_seed_register "$d/requirements/DECISIONS.md"
+    printf -- '---\nid: XYZ-008\n---\n# card\n' > "$d/progress/todo/XYZ-008-x.md"
+    printf -- '---\nid: XYZ-009\n---\n# card\n' > "$d/progress/in_progress/XYZ-009-y.md"
+    printf -- '---\nid: XYZ-008-s1\n---\n# card\n' > "$d/progress/subtasks/XYZ-008/todo/XYZ-008-s1-w.md"
+    git -C "$d" add -A >/dev/null 2>&1
+    git -C "$d" -c user.name=t -c user.email=t@t commit -q -m base >/dev/null 2>&1
+    git -C "$d" mv progress/todo/XYZ-008-x.md progress/in_progress/XYZ-008-x.md >/dev/null 2>&1
+    git -C "$d" -c user.name=t -c user.email=t@t commit -q -m "pickup" >/dev/null 2>&1
+    lo="$(git -C "$d" rev-parse HEAD)"
+    printf '### D-06\n\n**Ruling.** A ruling.\n\n**Provenance.** %s\n\n' "$2" > "$d/entry.blk"
+    awk -v f="$d/entry.blk" '/^## Retired ids/ && !x { while ((getline l < f) > 0) print l; x=1 } { print }' "$d/requirements/DECISIONS.md" > "$d/r.new" && mv "$d/r.new" "$d/requirements/DECISIONS.md"
+    rm -f "$d/entry.blk"
+    git -C "$d" add requirements/DECISIONS.md >/dev/null 2>&1
+    git -C "$d" -c user.name=t -c user.email=t@t commit -q -m "[PM] D-06" >/dev/null 2>&1
+    out="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/decision-register.sh"; . "$1/lib/qa-gate.sh"; _forks_window_entries "$2" XYZ-008 requirements/DECISIONS.md "### " "D-[0-9]+" "$3" HEAD HEAD' \
+      _ "$REAL_SCRIPTS" "$d" "$lo" 2>&1 </dev/null | cut -f1 | sort | tr '\n' ' ' | sed 's/ $//')"
+    [ "$out" = "$3" ] || cf "($1) a Provenance of '$2' printed [$out], want [$3]"
+  }
+  _n945_run a 'The owner, 2026-11-01; XYZ-8.' MINE
+  _n945_run b 'The owner, 2026-11-01; XYZ-0008.' MINE
+  _n945_run c 'The owner, 2026-11-01; XYZ-008.' MINE
+  _n945_run d 'The owner, 2026-11-01; XYZ-80.' UNATTRIBUTED
+  _n945_run e 'The owner, 2026-11-01; XYZ-9.' ''
+  _n945_run f 'The owner, 2026-11-01; XYZ-8-s1.' ''
+  _n945_run g 'The owner, 2026-11-01.' UNATTRIBUTED
+  finish "a register entry whose Provenance spells the card's id with other leading zeros (XYZ-8, XYZ-0008) is attributed to the card, a number that only begins with the same digits is not, another card's id attributes the entry to that card, and a slice is not its parent"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE WORDINGS A SCRIPT PRINTS: move-issue --help names the blocked_by warning, and the
 # stacked-branch refusals route the rebase to the branch's Dev.
 # =============================================================================

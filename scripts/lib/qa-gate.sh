@@ -1185,14 +1185,22 @@ _forks_entry_ids() {
     | { grep -xE "${5}" || true; } | sort -u || true
 }
 
+# ── _forks_id_canon <text> ─────────────────────────────────────────────────────────────────────
+#   <text> with the leading zeros of every number after a hyphen dropped: an id is its integer, so
+#   X-8, X-008 and a slice's X-8-s01 and X-008-s1 are each one id.
+_forks_id_canon() { printf '%s' "$1" | sed -E 's/(-s?)0+([0-9])/\1\2/g'; }
+
 # ── _forks_cards_on <file-list> <ids> ──────────────────────────────────────────────────────────
 #   Of the work-item ids in <ids> (whitespace-separated), those that name a card file in
 #   <file-list> (git ls-tree paths): a '<id>-*.md' under progress/, in any column or a slice's
-#   subtasks/ folder. One per line, sorted, unique.
+#   subtasks/ folder, the id and the file name compared as integers. One per line, each in
+#   _forks_id_canon's spelling, sorted, unique.
 _forks_cards_on() {
-  local files="$1" ids="$2" t
-  for t in $ids; do
-    if [ "$(grep -cE "(^|/)${t}-[^/]*\.md\$" <<< "$files" || true)" -gt 0 ]; then printf '%s\n' "$t"; fi
+  local files t ct
+  files="$(_forks_id_canon "$1")"
+  for t in $2; do
+    ct="$(_forks_id_canon "$t")"
+    if [ "$(grep -cE "(^|/)${ct}-[^/]*\.md\$" <<< "$files" || true)" -gt 0 ]; then printf '%s\n' "$ct"; fi
   done | sort -u || true
 }
 
@@ -1212,7 +1220,7 @@ _forks_cards_on() {
 #   An id attributes only if it names a card file on <tip-rev> (progress/**/<id>-*.md, any column);
 #   an id that names none counts as no id. An entry left with no id is UNATTRIBUTED, never silently
 #   skipped. Work-item ids are '<PREFIX>-N' or a slice's '<PREFIX>-N-sM', the prefix taken from
-#   the card's own id, and match EXACTLY: a slice id is not its parent. An entry attributed only
+#   the card's own id, and match as integers (X-8 is X-008) and whole: a slice id is not its parent. An entry attributed only
 #   to other cards prints nothing.
 _forks_window_entries() {
   local repo="$1" issue_id="$2" path="$3" mark="$4" shape="$5" lo="$6" hi="$7" tip="$8"
@@ -1259,7 +1267,7 @@ _forks_window_entries() {
       # Name the commit that added the entry (the one whose subject was read); else the last that touched it.
       if [ -n "$add_c" ]; then last_c="$add_c"; last_s="$add_s"; fi
       printf 'UNATTRIBUTED\t%s\t%s\t%s\n' "$d" "$last_c" "$last_s"
-    elif grep -qx "$issue_id" <<< "$kept"; then
+    elif grep -qx "$(_forks_id_canon "$issue_id")" <<< "$kept"; then
       printf 'MINE\t%s\n' "$d"
     fi
   done <<< "$added"
