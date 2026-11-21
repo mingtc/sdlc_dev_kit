@@ -913,6 +913,7 @@ CASES=(
   case_find_polluter_runs_each_path_whole
   case_find_polluter_refuses_an_unrunnable_test_command
   case_brainstorm_stop_server_leaves_no_server_info
+  case_brainstorm_foreground_start_records_the_servers_pid
   case_brainstorm_stop_server_reads_a_zombie_server_as_stopped
   case_brainstorm_server_reads_a_zombie_owner_as_exited
   case_hygiene_instruments_declare_blind_spots

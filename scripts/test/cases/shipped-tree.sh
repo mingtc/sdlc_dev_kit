@@ -1202,6 +1202,34 @@ case_brainstorm_stop_server_leaves_no_server_info() {
 }
 
 # =============================================================================
+# CASE — brainstorming's start-server.sh --foreground RECORDS THE SERVER'S OWN PID.
+# stop-server.sh signals the recorded pid and says stopped once it is gone; a wrapper's pid left the server
+# running. A stand-in `node` on PATH writes its own pid, and the pid the start recorded must be that one.
+# =============================================================================
+case_brainstorm_foreground_start_records_the_servers_pid() {
+  cf_reset
+  local L="brainstorming's start-server.sh --foreground records the pid of the server process itself, not of a wrapper around it"
+  local rel=".claude/skills/brainstorming/scripts/start-server.sh" rec pf i wrap
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  make_sandbox
+  mkdir -p "$SB_TMP/bin" "$SB_TMP/proj"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "$$" > "$STUB_PID_OUT"' 'trap '"'"'kill "$c" 2>/dev/null; exit 0'"'"' TERM' 'sleep 30 & c=$!' 'wait "$c"' > "$SB_TMP/bin/node"
+  chmod +x "$SB_TMP/bin/node"
+  STUB_PID_OUT="$SB_TMP/stub.pid" PATH="$SB_TMP/bin:$PATH" bash "$REAL_REPO_ROOT/$rel" --foreground --project-dir "$SB_TMP/proj" >/dev/null 2>&1 &
+  wrap=$!
+  i=0; while [ ! -s "$SB_TMP/stub.pid" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+  [ -s "$SB_TMP/stub.pid" ] || cf "(instrument) the stand-in server never started"
+  pf=""; for rec in "$SB_TMP"/proj/.brainstorm/*/state/server.pid; do [ -f "$rec" ] && pf="$rec"; done
+  [ -n "$pf" ] || cf "(record) no server.pid was written"
+  [ -z "$pf" ] || [ "$(cat "$pf")" = "$(cat "$SB_TMP/stub.pid" 2>/dev/null)" ] || cf "(record) server.pid holds $(cat "$pf"), the server process is $(cat "$SB_TMP/stub.pid" 2>/dev/null)"
+  kill "$(cat "$SB_TMP/stub.pid" 2>/dev/null)" 2>/dev/null || true
+  kill "$wrap" 2>/dev/null || true
+  wait "$wrap" 2>/dev/null || true
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — brainstorming's stop-server.sh READS A ZOMBIE SERVER AS STOPPED.
 # A server that has exited and that its parent has not reaped (a container started without an init)
 # still answers kill -0; read as alive, it would draw a SIGKILL, which a zombie does not answer, and the
