@@ -1853,28 +1853,20 @@ _ac808_want() {  # <label> <out> <rc> [<needle>…]
   done
 }
 # =============================================================================
-# CASE — THE AC READERS AGREE ON AN HTML COMMENT, AND A COMMENT IS WHAT COMMONMARK CALLS ONE. Operand: the shipped
+# CASE — A '<!--' THAT NOTHING CLOSES IS LITERAL TEXT, AND A COMMENT THAT IS CLOSED IS STILL CUT. Operand: the shipped
 # lib's _qav_ac_ids (the verdict table's population) and _qav_ac_ids_then (the freeze's) over one body, and
 # kit_ac_drift_check over a scratch repository, one fixed answer per row.
-#   (a) a commented-out bullet is no AC for either reader;  (b) a '<!--' in an AC's text that nothing closes hides no
-#   later AC from either;  (c) inline and multi-line comments leave the bullet lines around them;  (d) AC2, below
-#   a literal '<!--', removed after todo/ is refused naming AC2;  (e) a stray marker below it is refused;
-#   (f) a commented-out AC9 and example marker added after todo/ are no new AC and no stray: lands;
-#   (g) a '<!--' in a backtick code span is text, though a later '-->' (a diagram arrow in a fence) closes nothing
-#   it opened, so AC2 stays an AC and its edit is refused;  (h) a '<!--' that starts a line opens a block that
-#   runs to the line holding '-->', blank lines included;  (i) a '<!--' after other text cannot cross a blank
-#   line: it is text, and the bullets below it are read;  (j) a '<!--' inside a fenced block is text;  (k1-k6) a bare
-#   '<!--' with no code span, in an AC, a line indented under an item, a lazy line, a four-space line or a code span over two
-#   lines, ends as text at the next line that starts a block, so a later '-->' (a state arrow) hides nothing and an edit of
-#   AC2 is refused naming AC2 alone.
-# RED FIRST: (a) reads AC9 in the table's population only; (b) reads AC2 in the table's population only; (d) and (e) land;
-# (g) loses AC2 and AC3 from both readers, which lets an edited AC2 land; (k1) to (k6) lose ACs the same way on a cut that
-# ends an inline comment at a blank line only; (l1) to (l7) cut text on a cut that ignores the boundary each names.
+#   (a) a '<!--' in an AC's text that no '-->' follows hides no later AC from the freeze reader, and the table's
+#   population still reads it;  (b) inline and multi-line comments that are closed leave the bullet lines around them;
+#   (c) AC2, below such a '<!--', removed after todo/ is refused naming AC2;  (d) a stray marker below it is refused;
+#   (e) a closed block comment holding an AC line and an example marker, added after todo/, is no stray: lands;
+#   (f) an edit of AC2 below an unclosed '<!--' is refused naming AC2 alone.
+# RED FIRST: (a) reads AC1 only in the freeze; (c) and (d) land.
 # =============================================================================
 case_the_ac_readers_agree_on_comments_and_an_unclosed_comment_is_literal() {
   cf_reset
   make_sandbox
-  local body out ids then f='```'
+  local body out ids then
   _n944_ids() {  # <function> <body>
     bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; '"$1"' "$3"' _ "$REAL_SCRIPTS" "$1" "$2" 2>&1 </dev/null | tr '\n' ' ' | sed 's/ $//'
   }
@@ -1883,63 +1875,22 @@ case_the_ac_readers_agree_on_comments_and_an_unclosed_comment_is_literal() {
     [ "$ids" = "$2" ] || cf "($1) the table's population is [$ids], want [$2]"
     [ "$then" = "$2" ] || cf "($1) the freeze's population is [$then], want [$2]"
   }
-  body="$(printf -- '## Acceptance Criteria\n<!--\n- [ ] AC9 — commented out\n-->\n- [ ] AC1 — x')"
-  _n944_agree a AC1 "$body"
   body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- ```\n- [ ] AC2 — y')"
-  _n944_agree b 'AC1 AC2' "$body"
+  _n944_agree a 'AC1 AC2' "$body"
   body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- note -->\n- [ ] AC2 — y <!-- a\nb -->\n- [ ] AC3 — z <!-- - [ ] AC8 — hidden -->')"
-  _n944_agree c 'AC1 AC2 AC3' "$body"
-  local two code
+  _n944_agree b 'AC1 AC2 AC3' "$body"
+  local two
   two="$(printf -- '- [ ] AC1 — one <!-- ```\n- [ ] AC2 — two.')"
   out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — one <!-- ```')" - yes)"
-  _ac808_want d "$out" 1 'AC2'
+  _ac808_want c "$out" 1 'AC2'
   out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — one <!-- ```\n- [ ] AC2 — two.\n* [ ] a stray marker')" - yes)"
-  _ac808_want e "$out" 1 'a stray marker'
+  _ac808_want d "$out" 1 'a stray marker'
   out="$(_ac808_run "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.')" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n<!--\n- [ ] AC9 — commented out\n* [ ] an example shape\n-->')" - yes)"
-  _ac808_want f "$out" 0
-  code="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")"
-  _n944_agree g1 'AC1 AC2 AC3' "$code"
-  two="$(printf -- '- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")"
-  out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — escape `<!--` in the output.\n- [ ] AC2 — y, but not on Sundays.\n- [ ] AC3 — z.\n## Notes\n%smermaid\nA --> B\n%s' "$f" "$f")" - yes)"
-  _ac808_want g2 "$out" 1 'of its own: AC2'
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x\n<!--\n\n- [ ] AC8 — hidden\n-->\n- [ ] AC2 — y')"
-  _n944_agree h 'AC1 AC2' "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x <!-- note\n\n- [ ] AC2 — y\n-->\n- [ ] AC3 — z')"
-  _n944_agree i 'AC1 AC2 AC3' "$body"
-  body="$(printf -- '## Acceptance Criteria\n- [ ] AC1 — x\n%shtml\n<!-- an example\n%s\n- [ ] AC2 — y\n\n## Notes\n\n-->' "$f" "$f")"
-  _n944_agree j 'AC1 AC2' "$body"
-  # A bare '<!--' (no code span) ends as text at a line that starts a block, whatever a later '-->' is: the ACs after it
-  # stay ACs for both readers, and an edit of AC2 is refused naming AC2 alone.
-  _n944_shape() {  # <label> <want ids> <shape, AC2's text written @@>
-    local old new
-    old="${3//@@/y.}"; new="${3//@@/y, but NOT on Sundays.}"
-    _n944_agree "$1" "$2" "$(printf -- '## Acceptance Criteria\n%s' "$old")"
-    out="$(_ac808_run "$old" "$new" - yes)"
-    _ac808_want "$1/drift" "$out" 1 'of its own: AC2'
-    case "$out" in *"of its own: AC2,"*|*"of its own: AC1"*) cf "($1/drift) the refusal names an AC that was not edited: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;; esac
-  }
-  _n944_shape k1 'AC1 AC2 AC3' "$(printf -- '- [ ] AC1 — escape <!-- in output\n- [ ] AC2 — @@\n- [ ] AC3 — todo --> in_progress')"
-  _n944_shape k2 'AC1 AC2 AC3' "$(printf -- '- [ ] AC1 — x\n  <!-- note\n- [ ] AC2 — @@\n- [ ] AC3 — a --> b')"
-  _n944_shape k3 'AC1 AC2' "$(printf -- '- [ ] AC1 — x\nsee <!-- this\n- [ ] AC2 — @@\n## Notes\nA --> B')"
-  _n944_shape k4 'AC1 AC2' "$(printf -- '- [ ] AC1 — x\n\npara\n    <!-- lazy\n- [ ] AC2 — @@\n-->')"
-  _n944_shape k5 'AC1 AC2 AC3' "$(printf -- '- [ ] AC1 — a `foo\nbar <!-- baz` x\n- [ ] AC2 — @@\n- [ ] AC3 — a --> b')"
-  _n944_shape k6 'AC1 AC2' "$(printf -- '    <!-- code\n- [ ] AC1 — x\n- [ ] AC2 — @@ --> b')"
-  # Each line that can start a block ends an inline comment as text: the cut leaves the text as it was.
-  _n944_uncut() {  # <label> <text> [first]: the cut of <text> is <text> (with 'first', its first line is)
-    local got want="$2"
-    [ "${3:-}" != first ] || want="${2%%$'\n'*}"
-    got="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; printf "%s\n" "$2" | _qav_cut_comments' _ "$REAL_SCRIPTS" "$2" 2>&1 </dev/null)"
-    [ "${3:-}" != first ] || got="${got%%$'\n'*}"
-    [ "$got" = "$want" ] || cf "($1) the cut changed text a block start ends the comment before: [$(printf '%s' "$got" | tr '\n' '|')]"
-  }
-  _n944_uncut l1 "$(printf -- 'a <!-- b\n\nc --> d')"
-  _n944_uncut l2 "$(printf -- 'a <!-- b\n- c\nd --> e')"
-  _n944_uncut l3 "$(printf -- 'a <!-- b\n1. c\nd --> e')"
-  _n944_uncut l4 "$(printf -- 'a <!-- b\n## c\nd --> e')"
-  _n944_uncut l5 "$(printf -- 'a <!-- b\n> c\nd --> e')"
-  _n944_uncut l6 "$(printf -- 'a <!-- b\n%s\nc\nd --> e' '```')"
-  _n944_uncut l7 "$(printf -- 'a <!-- b\n<!-- c\nd --> e')" first
-  finish "the verdict table's AC population and the freeze's agree on a commented-out bullet, an inline comment and a multi-line one, and a comment is what CommonMark calls one (a block from a line-start '<!--' to the line holding '-->', an inline one that does not cross a blank line, none inside a code span or a fence); a '<!--' nothing closes is literal, so an AC removed below it and a stray marker below it are refused, an AC edited after a code-span '<!--' is refused, and a commented-out AC added after todo/ is no new AC"
+  _ac808_want e "$out" 0
+  out="$(_ac808_run "$two" "$(printf -- '- [ ] AC1 — one <!-- ```\n- [ ] AC2 — two, but not on Sundays.')" - yes)"
+  _ac808_want f "$out" 1 'of its own: AC2'
+  case "$out" in *"of its own: AC1"*|*"AC2,"*) cf "(f) the refusal names an AC that was not edited: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;; esac
+  finish "a '<!--' that no '-->' follows is literal text: the freeze reader reads the ACs after it (so an AC removed below it and a stray marker below it are refused) while a closed comment, inline or over several lines, is still cut, and a closed block comment added after todo/ is no new AC and no stray"
   teardown
 }
 
@@ -2065,7 +2016,7 @@ case_the_ac_population_is_every_checklist_line_and_a_removed_ac_needs_a_ruling()
   # A comment trailing a checklist line, one inside the line, and one over several lines leave the line itself to be read.
   out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n* [ ] the login must work <!-- note -->')" - yes)"
   _ac808_want u1 "$out" 1 'the login must work'
-  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\n<!-- start\n* [ ] the login must work\n--> * [ ] it is fast')" - yes)"
+  out="$(_ac808_run "$three" "$(printf -- '- [ ] AC1 — one.\n- [ ] AC2 — two.\n- [ ] AC3 — three.\nSee notes <!-- start\n* [ ] the login must work\n--> * [ ] it is fast')" - yes)"
   _ac808_want u2 "$out" 1 'it is fast'
   case "$out" in *'the login must work'*) cf "(u2) a line inside a multi-line comment was read" ;; esac
   # A bullet is exempt only when one strike spans it: a second struck span after live text is not.

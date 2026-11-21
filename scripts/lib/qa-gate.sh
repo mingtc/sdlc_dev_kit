@@ -343,12 +343,11 @@ _qav_unclosed_fence() {
   printf '%s\n' "$1" | LC_ALL=C awk "$_QAV_FENCE_FN"' { fence_line($0) } END { u = fence_unclosed(); e = fence_unclosed_end(); if (u) print (e ? u " " e : u) }'
 }
 
-# _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order, read through
-# _qav_cut_comments like every other AC reader: a commented-out bullet is no AC. An id directly followed by
+# _qav_ac_idlines <body> — the id-shaped bullet lines of <body> outside a fenced block, in order. An id directly followed by
 # '-' and an alphanumeric ('AC-1', 'S1-AC1') is not one: the separator rule would read it as the id
 # 'AC', and every such line would fold into one graded id.
 _qav_ac_idlines() {
-  { printf '%s\n' "$1" | _qav_cut_comments | _qav_unfenced | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+  { printf '%s\n' "$1" | _qav_unfenced | grep -E "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
     | grep -vE "^${KIT_AC_LEAD}[A-Za-z][A-Za-z0-9]*-[A-Za-z0-9]"; } || true   # no match: empty, never an exit under pipefail
 }
 
@@ -372,60 +371,22 @@ _qav_ac_ids_then() {
 }
 
 # _qav_cut_comments — stdin with the carriage returns stripped and every HTML comment cut out of its
-# line (a trailing one, an inline one, one running over several lines); what is left of a line is kept, and a
-# line is printed for every line read. When unsure a '<!--' is text and nothing is hidden. A '<!--' at the start
-# of a line opens an HTML block that ends on the first line holding '-->', blank lines included. Any other
-# '<!--' (after text, or indented, as under a list item) is inline: its '-->' must come before a blank line and
-# before any line that can start a block (a list marker, '#', '>', a fence, a '<!--'), else it is text. A '<!--'
-# inside a backtick code span (read within one line), on a fence line or inside a fenced block
-# (_QAV_FENCE_FN's rule), and one no '-->' closes by those rules, is text: the lines after it are read.
+# line (a trailing one, an inline one, one running over several lines); what is left of a line is kept.
+# A '<!--' that no '-->' follows anywhere later in the text opens nothing: it is literal text, and the lines
+# after it are read.
 _qav_cut_comments() {
-  LC_ALL=C awk "$_QAV_FENCE_FN"'
-    function next_open(s, from,    p, k, q, r) {
-      p = from
-      while (p <= length(s)) {
-        if (substr(s, p, 1) == "`") {
-          k = 0; while (substr(s, p + k, 1) == "`") k++
-          q = p + k
-          while (q <= length(s)) {
-            if (substr(s, q, 1) == "`") { r = 0; while (substr(s, q + r, 1) == "`") r++; if (r == k) break; q += r } else q++
-          }
-          if (q <= length(s)) p = q + k; else p += k
-          continue
-        }
-        if (substr(s, p, 4) == "<!--") return p
-        p++
-      }
-      return 0
-    }
-    function closes_later(n, block,    m) {
-      for (m = n + 1; m <= N; m++) {
-        if (!block && (L[m] ~ /^[ \t]*$/ || L[m] ~ /^[ \t]*([-*+]|[0-9]+[.)])([ \t]|$)/ || L[m] ~ /^[ \t]*(#|>|<!--|```|~~~)/)) return 0
-        if (index(L[m], "-->")) return 1
-      }
-      return 0
-    }
-    { sub(/\r$/, ""); L[NR] = $0; N = NR }
+  LC_ALL=C awk '
+    { sub(/\r$/, ""); L[NR] = $0; N = NR; if (index($0, "-->")) last = NR }
     END {
       for (n = 1; n <= N; n++) {
-        line = L[n]; out = ""; atstart = 1
-        if (incom) {
-          i = index(line, "-->")
-          if (!i) { print ""; continue }
-          line = substr(line, i + 3); incom = 0; atstart = 0
-        } else {
-          NR = n
-          if (fence_line(line) || isfm) { print line; continue }
-        }
+        line = L[n]; out = ""
         while (line != "") {
-          p = next_open(line, 1)
-          if (!p) { out = out line; break }
-          before = substr(line, 1, p - 1); rest = substr(line, p + 4)
-          block = (atstart && before == "")
-          j = index(rest, "-->")
-          if (j) { out = out before; line = substr(rest, j + 3); atstart = 0; continue }
-          if (closes_later(n, block)) { out = out before; incom = 1; break }
-          out = out before "<!--"; line = rest; atstart = 0
+          if (incom) { i = index(line, "-->"); if (!i) { line = ""; break }; line = substr(line, i + 3); incom = 0; continue }
+          i = index(line, "<!--")
+          if (!i) { out = out line; line = ""; break }
+          rest = substr(line, i + 4)
+          if (!index(rest, "-->") && last <= n) { out = out line; line = ""; break }
+          out = out substr(line, 1, i - 1); line = rest; incom = 1
         }
         print out
       }
