@@ -5,6 +5,12 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.3]
+
+### Changed
+
+- **A comment sent to Claude is the go-ahead for the change it asks.** The Designer pulls, edits, publishes, reads back, replies and resolves without asking in the terminal, and asks first only when the change would send an approved row back to review, goes beyond the comment or touches a board it does not name, contradicts a recorded decision or a pinned state, deletes a board or replaces an edit not yet pulled, or could mean two designs. A pull no sent comment started still ends at the go-ahead with no human present.
+
 ## [0.6.1]
 
 ### Action required

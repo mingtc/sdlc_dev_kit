@@ -5770,3 +5770,36 @@ case_a_canvas_copied_from_the_templates_and_not_yet_filled_in_reads_clean_under_
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — A COMMENT SENT TO CLAUDE IS THE GO-AHEAD FOR THE CHANGE IT ASKS, EXCEPT IN THE FIVE CASES THE ROLE LISTS.
+#   The expected answer is fixed here, in the placed files: the role's § Comments names each of the five asks; rule 11 stops a pull at the
+#   go-ahead only when no sent comment started it; the pull skill's step 6 carries the same exception beside its "go-ahead" and its
+#   no-human path; the README says the comment is the go-ahead. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_a_sent_comment_is_the_go_ahead_unless_one_of_five_asks_applies() {
+  cf_reset
+  local L="the placed role's § Comments says a sent comment is the go-ahead and names the five asks (an approved row back to review, beyond the comment's words, a recorded decision or pinned state, a deleted board or unpulled edit, two designs); rule 11 stops at the go-ahead only for a pull no sent comment started; design-pull step 6 carries the exception; the README says it"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" role pull sect tok r11
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(cat "$SB_WORK/.claude/roles/designer.md")"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  sect="$(printf '%s\n' "$role" | awk '/^### Comments$/ { f = 1; next } /^##/ { f = 0 } f' | tr '\n' ' ' | tr -s ' ')"
+  for tok in 'is the go-ahead for the change it asks' 'approved row back' 'beyond the comment' 'pinned state' 'replaces an edit not yet pulled' 'two designs' 'which of the five applies'; do
+    _dm_has "$sect" "$tok" || cf "(a) the role's § Comments does not carry '$tok'"
+  done
+  r11="$(printf '%s\n' "$role" | awk '/^11[.] / { f = 1 } f && /^$/ { exit } f { print } f && /^## / { exit }' | tr '\n' ' ' | tr -s ' ')"
+  _dm_has "$r11" "no sent comment started" || cf "(b) rule 11 does not stop a pull at the go-ahead only when no sent comment started it: $r11"
+  _dm_has "$r11" "five asks" || cf "(b) rule 11 names no exception for the five asks"
+  for tok in 'sent comment' 'five asks' 'go-ahead' 'no human present'; do
+    _dm_has "$pull" "$tok" || cf "(c) design-pull does not carry '$tok'"
+  done
+  _dm_has "$(tr '\n' ' ' <"$m/README.md" | tr -s ' ')" "go-ahead for the change it asks" || cf "(d) the module README does not say a sent comment is the go-ahead for the change it asks"
+  finish "$L"
+  teardown
+}

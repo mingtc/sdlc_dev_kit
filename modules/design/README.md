@@ -44,3 +44,7 @@ Claude Design canvas itself with the artifact tools, by the order in its role (l
 link check between PRD stories, screens and cards (also the gate row in `PROJECT.md`), the PRD view, the flow graph, and the
 pin-drift report that `check-board.sh` prints.
 [`SETUP.md`](SETUP.md) has the steps for a human to start.
+
+An owner's comment sent to Claude is the go-ahead for the change it asks: the Designer pulls, edits, publishes, reads back, replies and
+resolves without asking in the terminal, and asks first only when the change needs a decision (the role's § Comments lists the five
+cases). The page's automatic first reply ("On it ...") is the platform's text; the Designer keeps that promise unless one of those cases holds.

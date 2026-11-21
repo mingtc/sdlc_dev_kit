@@ -17,7 +17,7 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 - A PRD story with a user-facing surface has **no registered screen** (`requirements/design/*/CANVAS.md`): write the screen's
   spec in `CANVAS.md` § Brief (the UX id, the states its ACs need, the element ids and the tokens), author it on the canvas, and
   take it into the repo. It must be registered before the card for it leaves `todo/`.
-- A comment thread was sent to Claude (§ Comments), or a person edited the canvas on its page: pull, show the diff, act.
+- A comment thread was sent to Claude (§ Comments says when it is the go-ahead), or a person edited the canvas on its page: pull, show the diff, act.
 - A PRD story changed in a way that changes a screen, state or copy. If the PM has not changed the PRD yet, **ask**; do not
   guess.
 - A token needs adding or changing: the source is `requirements/design/tokens/*.tokens.json`, written by hand or generated from a seed (§ Tokens, rule 8).
@@ -54,7 +54,7 @@ needs no canvas (the registry, tokens, citations) continues.
 makes the sign-in call (`list_artifacts`) first, and ends with a `Next:` when you are not signed in or have no artifact tools; the human is asked to look, to decide on a
 diff and to approve, and to carry nothing. The pull compares shas from one list, reads only what differs one path at a time and verifies each, runs
 `scripts/design/normalise-canvas.py` (a page save re-serialises `canvas.json` and a board's `data-props` without a value moving; it gives them the spelling an agent writes), resolves each
-sent comment's anchor with `scripts/design/resolve-anchor.py` against the whole board set, lays the pull over `project/` uncommitted so the link check reads the pulled files, shows its output and the diff and commits only on the go-ahead (a "no" puts `project/` and `CANVAS.md` back). The publish refuses a canvas that moved since the last pull, sends only
+sent comment's anchor with `scripts/design/resolve-anchor.py` against the whole board set, lays the pull over `project/` uncommitted so the link check reads the pulled files, shows its output and the diff and commits only on the go-ahead (a sent comment is one: § Comments; a "no" puts `project/` and `CANVAS.md` back). The publish refuses a canvas that moved since the last pull, sends only
 what changed with the version the check used, reads a `warnings` entry against the manifest and stops on an edit it never pulled or a 409 over a person's edit, reads back by sha, and only then answers and resolves the threads.
 
 ### Creating a canvas
@@ -172,6 +172,13 @@ in a scratch directory: the next round regenerates from it, not from memory. Not
 - `resolve_comment` after the change is published and read back. Both work unasked only on an artifact nobody else can open; on a
   shared one use `reply_shared_comment` and the user resolves.
 - Commit the sent threads in `COMMENTS.md`, which then holds only those; the `thread` column holds the thread's id, so a pull updates a thread it has and does not log it twice.
+- **A comment an owner sent to Claude is the go-ahead for the change it asks.** Pull, make the change, publish, read back, reply and
+  resolve without asking in the terminal; taking in the page edits a person made in the same pull is part of it. **Ask in the terminal
+  first, and wait, when the change** (1) would send an approved row back to review (a `STALE-APPROVAL` line from the link check run over
+  your edit as `/design-pull` step 6 runs it); (2) goes beyond the comment's words or touches a board it does not name; (3) contradicts a
+  recorded decision or a pinned state (a pinned state also needs a `D-NN`, rule 6); (4) deletes a board or replaces an edit not yet
+  pulled; (5) could reasonably mean two designs (put both). Do only what the commenter's own words ask. With no human to answer, change
+  nothing, leave the tree as it was and reply on the thread which of the five applies.
 
 ### What the human still does
 
@@ -244,7 +251,7 @@ Today I need help with: <task>
    commit that holds the render, the one allowed re-target.
    The PM copies it onto the card as `design: [UX-NNN#state@<sha>]` before the card leaves `todo/`.
 6. **A change to a pinned state needs a `D-NN`.** The Designer raises it with `ask.sh` (naming the card and the UX id), then
-   proceeds. A pinned card is never re-targeted: a later design change is new work.
+   proceeds (a change a sent comment asks is first asked in the terminal: § Comments, ask 3). A pinned card is never re-targeted: a later design change is new work.
 7. **A screen is never renamed or renumbered**; a retired one is `superseded` and its file kept.
 8. **Tokens are written by hand or generated, and a screen uses only tokens.** The Designer writes, or generates from a seed (§ Tokens), `requirements/design/tokens/*.tokens.json`
    (DTCG); a screen, or a stylesheet under `project/` that every screen links, declares one custom property per token it uses, named for the
@@ -257,9 +264,10 @@ Today I need help with: <task>
 9. **Pulls before it publishes, and reads back.** Every change follows § The canvas in order; a `warnings` entry on a publish
    that names a file whose edit was never pulled stops the work until the human has been told which files were replaced.
 10. **Never moves a card or lands code.** Board moves are PM, Dev and QA.
-11. **With no human present, ends a pull at either of its stops and does not wait.** The stops are the uncommitted canvas file
-    and the go-ahead of `/design-pull`; both ask a person. Say why in the report and leave the working tree as the stop found it
-    (at the go-ahead, put `project/` and `CANVAS.md` back as on a "no").
+11. **With no human present, ends a pull at the uncommitted canvas file, and at the go-ahead of a pull no sent comment started, and
+    does not wait.** Both ask a person. A pull a sent comment started has its go-ahead in the comment, except for the five asks in
+    § Comments. Say why in the report and leave the working tree as the stop found it (at the go-ahead, put `project/` and `CANVAS.md`
+    back as on a "no").
 
 ## Taking the canvas in
 
