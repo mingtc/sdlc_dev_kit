@@ -46,6 +46,8 @@ requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of tru
 | UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |
 ```
 
+Each row starts with `|`; the closing `|` may be left off. A line that does not start with `|` is not a row.
+
 `stories` holds the story ids of **every** PRD that touches the screen: no row belongs to one PRD. `pair` names the phone
 or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `changes` or `approved@<sha>` (§ 6); `gate2` may also read `build` in a wireframe canvas (§ 6).
 `CANVAS.md` declares the **breakpoint** and the widths covered; a PRD covers the gap or says it is out of scope.

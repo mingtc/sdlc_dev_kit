@@ -6110,3 +6110,53 @@ DRIVE_EOF
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE LINK CHECK READS THE ARTBOARD ROOT, A REGISTRY ROW AND A CARD'S design: COMMENT AS THE FORMATS ALLOW.
+#   Operand: scripts/design/check-design-links.py --strict (and pin-drift.py) over the clean link fixture, one edit at a time (restored between). The
+#   expected answers are fixed here: a comment before the root that quotes another data-ux and data-stories, and a root written in single quotes, raise
+#   no ARTBOARD line; a root that really names another screen still does; a registry row with no closing pipe keeps its last cell (no GATE-CELL, clean);
+#   a card whose design: value is `none` followed by ` #` and a comment with no space after the # is none (no DESIGN-KEY line, and pin-drift does not
+#   call the card uncompared).
+# =============================================================================
+case_the_link_check_reads_root_attributes_table_rows_and_design_comments_as_the_formats_allow() {
+  cf_reset
+  local L="check-design-links.py --strict raises no ARTBOARD line for a root preceded by a comment that quotes another data-ux and data-stories or written in single quotes (and still one for a root naming another screen), reads a registry row with no closing pipe with its last cell, and reads 'design: none #no screen' as none, with pin-drift.py not calling that card uncompared"
+  _dm_wire_guards "$L" || return
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app" V="$_DM_SHA"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(prereq) the fixture is not clean (exit $_dm_rc): $(_dm_brief)"
+  # (1) a comment before the root, then a single-quoted root
+  { printf '<!-- copied from data-ux="UX-009" data-stories="PRD-001-F1-S9" -->\n'; cat "$D/project/A.dc.html"; } > "$D/project/A.new" && mv "$D/project/A.new" "$D/project/A.dc.html"
+  _dm_commit "a comment before the root"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "ARTBOARD" && cf "(a) a comment before the root that quotes another data-ux and data-stories is read as the root: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  _dm_edit "$D/project/A.dc.html" "s@data-ux=\"UX-001\" data-stories=\"PRD-001-F1-S1\"@data-ux='UX-001' data-stories='PRD-001-F1-S1'@"
+  _dm_commit "a root in single quotes"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "ARTBOARD" && cf "(b) a root written in single quotes is read as having no data-ux or no data-stories: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  _dm_edit "$D/project/A.dc.html" 's@data-ux="UX-001"@data-ux="UX-009"@'
+  _dm_commit "a root that names another screen"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "data-ux=UX-009, registry says UX-001" || cf "(c) a root that names another screen is no longer reported: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  # (2) a registry row with no closing pipe
+  _dm_edit "$D/CANVAS.md" '/^| UX-002 /s/ |$//'
+  grep -q '^| UX-002 .*open$' "$D/CANVAS.md" || cf "(prereq) the UX-002 row still ends in a pipe"
+  _dm_commit "a row with no closing pipe"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "GATE-CELL"; } || cf "(d) a registry row with no closing pipe loses its last cell (exit $_dm_rc): $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  # (3) a card whose design: value is followed by a comment with no space after the #
+  _dm_card 954 in_progress 'design: none #no screen'
+  _dm_commit "a card with a comment on design:"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "DESIGN-KEY" && cf "(e) 'design: none #no screen' is not read as none: $(_dm_brief 400)"
+  _dm_py scripts/design/pin-drift.py
+  _dm_has "$_dm_out" "uncompared" && cf "(f) pin-drift.py calls a card with 'design: none #no screen' uncompared: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}

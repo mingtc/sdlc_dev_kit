@@ -21,6 +21,7 @@ any other heading are not read. Nothing here is read while the module is disable
 ### Fixed
 
 - **The link check no longer hangs on a start tag that is never closed and carries many quoted attributes** (about 18 or more; the gate and the `in_progress/` and `dev_complete/` move check waited with no output); the tag is rejected at once and the next tag is read. `normalise-canvas.py` no longer reads past an unclosed `<script` into the next tag.
+- **The link check reads three things as the formats allow, so three false findings stop:** an artboard root whose `data-ux` and `data-stories` are single-quoted, or that follows a comment quoting other ones (a false `ARTBOARD` line); a registry row with no closing `|` (a false `GATE-CELL`); and a card's `design: none #comment` with no space after the `#` (a false `DESIGN-KEY`, and `uncompared` in the pin-drift report). A registry table with no leading `|` is still not read.
 
 ## [0.6.1]
 

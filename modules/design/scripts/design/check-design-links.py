@@ -1039,8 +1039,11 @@ def loaded_stale(root, sha, rel, then, now):
 
 
 def split_row(ln):
-    cells = re.split(r'(?<!\\)\|', ln.strip())
-    return [c.strip() for c in cells[1:-1]] if ln.strip().startswith('|') else []
+    s = ln.strip()
+    if not s.startswith('|'):
+        return []
+    cells = re.split(r'(?<!\\)\|', s)
+    return [c.strip() for c in (cells[1:-1] if re.search(r'(?<!\\)\|$', s) else cells[1:])]   # the closing pipe is optional
 
 
 def head_name(c):
@@ -1317,7 +1320,7 @@ def design_value(text):
         if not ln.startswith('design:'):
             continue
         out['waivers'] = WAIVER_MARK.findall(ln)
-        raw = re.sub(r'\s#\s.*$', '', ln[len('design:'):]).strip()
+        raw = re.sub(r'\s#.*$', '', ln[len('design:'):]).strip()
         out['raw'] = raw
         if raw == 'none':
             out['kind'] = 'none'
@@ -1542,15 +1545,17 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         art = r['canvas'] / PROJECT_SUBDIR / r['file']
         if art.is_file():
             html = read(art)
-            mu, ms = re.search(r'data-ux="([^"]*)"', html), re.search(r'data-stories=(?:"([^"]*)"|\'([^\']*)\')', html)
-            if not mu:
+            # the root is the first start tag that carries either attribute (comments and script bodies left out, either quote)
+            rootat = next((a for _, a in tags_of(html) if 'data-ux' in a or 'data-stories' in a), {})
+            mu, ms = rootat.get('data-ux'), rootat.get('data-stories')
+            if mu is None:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-ux (registry says {r['ux']})"))
-            elif mu.group(1) != r['ux']:
-                out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-ux={mu.group(1)}, registry says {r['ux']}"))
-            if not ms:
+            elif mu != r['ux']:
+                out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-ux={mu}, registry says {r['ux']}"))
+            if ms is None:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-stories"))
             else:
-                have = (ms.group(1) if ms.group(1) is not None else ms.group(2)).split()
+                have = ms.split()
                 if set(have) != set(r['stories']):
                     out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(have)} != registry {sorted(r['stories'])}"))
             loaded, unread = loaded_files(root, art, html)
