@@ -859,14 +859,13 @@ case_kit_upgrade_refuses_a_staging_directory_that_is_a_symbolic_link() {
   [ -z "$(ls -A "$o")" ] || cf "files landed where the link points: $(ls -A "$o" | tr '\n' ' ')"
   [ -L "$KU_T/.kit-upgrade" ] || cf "the link was removed"
   [ ! -e "$KU_T/$KU_CHECKLIST_REL" ] || cf "a checklist was written though the run refused"
-  # (inside) a real staging directory holding a committed link: the copy under it would land outside.
+  # (inside) a real staging directory holding a committed link: refused (as an upgrade in progress, before the link check), nothing outside.
   _ku_pair 0.1.0 0.2.0
   rm -rf "${o:?}"; mkdir -p "$o" "$KU_T/.kit-upgrade"
   ln -s "$o" "$KU_T/.kit-upgrade/lib"
   { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "link inside staging"; } >/dev/null 2>&1 || _fixture_die "${FUNCNAME[0]}: the inner link was not committed"
   _ku_run inner --into "$KU_T"
   [ "$(_ku_rc inner)" != 0 ] || cf "(inside) the upgrade exited 0 over a link inside the staging directory: $(_ku_out inner)"
-  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -eq 1 ] || cf "(inside) no single refusal=upgrade-staging-link record: $(_ku_out inner)"
   [ -z "$(ls -A "$o")" ] || cf "(inside) files landed where the inner link points: $(ls -A "$o" | tr '\n' ' ')"
   # (finish) a staged upgrade whose staging directory then holds a link: --finish refuses and stamps nothing.
   _ku_judge_stage fl; printf 'x\n' > "$KU_T/DONE-MARKER"
@@ -1460,6 +1459,7 @@ case_kit_upgrade_finish_leaves_no_scratch_directory_after_a_refusal_or_a_signal(
 
   # (b) a TERM, sent by the copy of KIT-MANIFEST into the scratch directory, to the script that runs it.
   _ku_judge_stage s; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  mkdir -p "$KU_NEW/scripts/lib"; cp "$REAL_SCRIPTS"/lib/*.sh "$KU_NEW/scripts/lib/"   # the fixture kit is minimal; the exit-trap and modules libraries a real kit carries
   printf '#!/bin/sh\nfor a in "$@"; do last="$a"; done\ncase "$last" in */kit-upgrade-undo.*/KIT-MANIFEST) : > "$SHIM_FIRED"; kill -TERM $PPID; sleep 2; exit 1 ;; esac\nexec /bin/cp "$@"\n' > "$SB_TMP/cpshim/cp"; chmod +x "$SB_TMP/cpshim/cp"
   rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" TMPDIR="$tmp" SHIM_FIRED="$SB_TMP/shim-fired" PATH="$SB_TMP/cpshim:$PATH" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/s-fin.out" 2>&1 || rc=$?
   [ -e "$SB_TMP/shim-fired" ] || cf "(b) (premise) --finish never copied KIT-MANIFEST into its scratch directory, so no signal was sent: $(tr '\n' '|' < "$SB_TMP/s-fin.out" | cut -c1-300)"
@@ -1474,6 +1474,7 @@ case_kit_upgrade_finish_leaves_no_scratch_directory_after_a_refusal_or_a_signal(
     teardown; return
   fi
   _ku_judge_stage m; printf 'x\n' > "$KU_T/DONE-MARKER"
+  mkdir -p "$KU_NEW/scripts/lib"; cp "$REAL_SCRIPTS"/lib/*.sh "$KU_NEW/scripts/lib/"
   { printf 'module example 0.1.0\nfile %064d x.txt\n' 0 > "$KU_T/process/MODULES"
     mkdir -p "$KU_T/.kit-upgrade/module-records"
     printf 'file %064d x.txt\n' 1 > "$KU_T/.kit-upgrade/module-records/example.rows"
