@@ -138,7 +138,8 @@ light tones), plus shape, spacing and elevation. The seed's hue and chroma are k
 are the role's path, no prefix (`color.primary` is `--color-primary`). `scripts/design/dtcg-convert.py --out <dir>` turns the token
 files into a design system's `tokens.json` and `tokens.css` in the shape the design type's compiler writes (`:root, [data-theme="light"]`,
 then `[data-theme="<id>"]`): the page does not generate the sheet, so the Designer writes it with this tool and puts it under `project/ds/<folder>/`
-(§ The canvas, design system). `scripts/design/contrast-audit.py` measures the pairs (`on-X` on `X`, text on the surfaces) in every
+(§ The canvas, design system). Elevation tokens stay in the token files and are left out of `tokens.css`: the converter writes colours, spacing and
+radius, and an elevation is a level in dp, not a shadow value, so a screen cannot read one as `var()`; the converter names each on stderr. `scripts/design/contrast-audit.py` measures the pairs (`on-X` on `X`, text on the surfaces) in every
 theme and the touch targets of the boards (44 px); it is a report, and `--strict` makes a failure the exit status. Its figures are
 the Designer's to quote for Gate 2 (a wireframe canvas has none: run neither audit there).
 

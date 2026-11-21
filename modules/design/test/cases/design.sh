@@ -6001,3 +6001,33 @@ case_the_pull_skills_check_reads_an_approval_against_the_pulled_tree_before_the_
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE ROLE SAYS ELEVATION TOKENS ARE LEFT OUT OF tokens.css, AND THE CONVERTER DOES LEAVE THEM OUT AND NAMES THEM.
+#   Operand: the placed role's § Tokens text, and dtcg-convert.py run over a token file holding a colour, a spacing step and an elevation level.
+#   The expected answer is fixed here: tokens.css holds the colour and the spacing and no elevation line; stderr names the elevation token.
+# =============================================================================
+case_the_role_says_elevation_is_left_out_of_tokens_css_and_the_converter_does_so() {
+  cf_reset
+  local L="the placed role says elevation tokens are left out of tokens.css and why, and dtcg-convert.py over a colour, a spacing step and an elevation level writes the first two to tokens.css and names the elevation token on stderr"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" role css err
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  _dm_has "$role" "left out of \`tokens.css\`" || cf "(a) the placed role does not say elevation tokens are left out of tokens.css"
+  _dm_has "$role" "a level in dp, not a shadow value" || cf "(a) the placed role does not say why elevation is left out"
+  mkdir -p "$SB_TMP/t"
+  printf '{"color":{"primary":{"$type":"color","$value":"#485d92"}},"spacing":{"space-16":{"$type":"dimension","$value":"16px"}},"elevation":{"level1":{"$type":"dimension","$value":"1dp"}}}\n' > "$SB_TMP/t/x.tokens.json"
+  _dm_rc=0; err="$( cd "$SB_TMP" && python3 -I "$m/dtcg-convert.py" t --out out 2>&1 >/dev/null )" || _dm_rc=$?
+  css="$(cat "$SB_TMP/out/tokens.css" 2>/dev/null)"
+  _dm_has "$css" "--color-primary" || cf "(b) tokens.css holds no colour: $css"
+  _dm_has "$css" "--spacing-space-16" || cf "(b) tokens.css holds no spacing step: $css"
+  _dm_has "$css" "elevation" && cf "(b) tokens.css holds an elevation line: $css"
+  _dm_has "$err" "elevation.level1" || cf "(b) the converter does not name the elevation token on stderr: $err"
+  finish "$L"
+  teardown
+}

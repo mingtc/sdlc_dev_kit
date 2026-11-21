@@ -15,7 +15,7 @@ A token is a colour when its `$type` is color (its own, its group's, or its alia
 `color` or when its value reads as a colour. Colours may be `#rgb`, `#rrggbb[aa]` strings or DTCG colour objects with a `hex` (an `alpha` below 1 is written as the last two
 digits); dimensions `16px`, `0` (written as given) or {value, unit}, listed as spacing when a segment of the path starts space, spacing or
 gap, as radius for radius, corner or shape. A colour, spacing or radius token it cannot read is said (`NOT CONVERTED: name why`) and the exit
-status is 1, the rest being written; any other token (typography, shadows, a dimension with neither name) is listed on stderr with its true
+status is 1, the rest being written; any other token (typography, shadows, elevation levels, a dimension with neither name) is listed on stderr with its true
 reason and left out. Python 3 standard library only. Exit 1 on input it cannot read.
 """
 import argparse, json, re, sys
