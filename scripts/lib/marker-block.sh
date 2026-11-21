@@ -130,7 +130,8 @@ kit_mb_insert() {
     # the gitignore slot: no slot line, the file may be absent (created below, after every refusal that can still come)
     marker='KIT-MODULE'; slot="gitignore"
     _kit_mb_need_id "$name"
-    if [ -e "$file" ]; then _kit_mb_precheck "$file" "$name"; else created=1; fi
+    # a link at the path, dangling or not, is the project's file: it is judged, never created through
+    if [ -e "$file" ] || [ -L "$file" ]; then _kit_mb_precheck "$file" "$name"; else created=1; fi
   else
     _kit_mb_precheck "$file" "$name"
   fi
