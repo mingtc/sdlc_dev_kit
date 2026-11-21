@@ -141,7 +141,7 @@ rm requirements/design/<canvas>/<path>
 ```
 
 ```sh check
-idx=$(mktemp -u) && GIT_INDEX_FILE=$idx git read-tree HEAD && GIT_INDEX_FILE=$idx git add -A -- requirements/design &&
+tip=; idx=$(mktemp -u) && GIT_INDEX_FILE=$idx git read-tree HEAD && GIT_INDEX_FILE=$idx git add -A -- requirements/design &&
   tip=$(GIT_INDEX_FILE=$idx git -c user.name=pull -c user.email=pull@localhost commit-tree "$(GIT_INDEX_FILE=$idx git write-tree)" -p HEAD -m 'the pull, uncommitted'); rm -f "$idx"
 [ -n "$tip" ] || { echo 'NO-TIP: could not read the pulled tree'; exit 1; }
 python3 scripts/design/check-design-links.py --head "$tip"
@@ -161,7 +161,7 @@ The block commits the pulled files from a temporary index to a commit no branch 
 A colour a person picked from the picker's **Theme** list arrives as `background-color: var(--<token>, #hex)`, which is a token, not a literal;
 one from **Custom** is a literal.
 
-Show the human the check's output and the diff and **ask**. Only on their go-ahead, continue, unless a sent comment started this pull and none of the five asks of the role's § Comments applies: that comment is the go-ahead, and your reply says what you took in. With no human present and no such comment, the role's rule 11 applies: take the "no" path and say why. On a "no", put `project/` and `CANVAS.md` back, and the pull is over:
+Show the human the check's output and the diff and **ask**. Only on their go-ahead, continue, unless a sent comment started this pull and none of the five asks of the role's § Comments applies and no change above says **Ask**: that comment is the go-ahead, and your reply says what you took in. With no human present and no such comment, the role's rule 11 applies: take the "no" path and say why. On a "no", put `project/` and `CANVAS.md` back, and the pull is over:
 
 ```sh undo
 git checkout -- requirements/design/<canvas>/CANVAS.md
