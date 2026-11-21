@@ -52,5 +52,5 @@ cases). The page's automatic first reply ("On it ...") is the platform's text; t
 A comment sent to Claude is answered only while a session watches the canvas: one that has published, or ran `watch`; a watch can end
 after hours idle. With none it waits: the thread stays open and awaiting reply, and the page shows "working", then "taking a while",
 and does not say why (the page is the platform's, so the module cannot add a notice). A watch armed later does not replay it; the
-Designer reads the threads awaiting reply on every pull and after every publish. Seen once with two sessions watching: one woke and
-replied and the other did not; which one is not known, so do not rely on it.
+Designer reads the threads awaiting reply on every pull and after every publish. Seen once with two sessions watching: the older one, whose watch a publish had armed,
+woke and replied and the other, armed by `watch`, did not; one trial does not settle which wakes in general, so do not rely on it.
