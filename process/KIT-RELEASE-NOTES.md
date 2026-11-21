@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- `check-board.sh` arms [p] and [j] read a table cell that holds `\|` as one cell. A `CORPUS.md` row with `\|` before its Status cell, or a downtime-queue Status cell with `\|` in it, was skipped before and is now read, so a dangling or landed claim in such a row is now reported and the report can move from clean to drift.
 
 ## [0.13.0] — 2026-11-20
 

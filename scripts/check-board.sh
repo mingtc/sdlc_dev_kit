@@ -1742,16 +1742,18 @@ echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never change
 if [ ! -f "$CB_TREE/$DQ_FILE" ]; then
   # A READING WHOSE SUBJECT IS ABSENT STILL PRINTS, naming what was absent.
   echo "      – $DQ_FILE not present  (skipped — no queue to read)"
+elif ! cb_bp_loaded; then
+  cb_bp_missing   # the row reader is lib/board-properties.sh's
 else
   cb_rd_begin
   j_out="$(
-    cb_awk -F'|' -v folders="$STATUS_FOLDERS" '
+    cb_awk -v folders="$STATUS_FOLDERS" "$BP_AWK_CELLS"'
       /^\|/ {
-        n = NF
+        n = bp_cells($0, f)
         # Header, separator and the angle-bracket SHAPE row are not data.
         if ($0 ~ /^\|[[:space:]]*-+/) next
         if ($0 ~ /Wake condition/) next
-        cell = $(n-1)
+        cell = f[n-1]
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
         if (cell ~ /^`?</) next
         # Strip markdown emphasis and backticks before classifying.
