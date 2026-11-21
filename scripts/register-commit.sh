@@ -42,6 +42,11 @@
 #   - It will not invent content: a path that does not exist ANYWHERE (not in your checkout, not
 #     on the trunk) is refused rather than silently skipped. Every path is checked before any is
 #     staged, so a refusal leaves the kanban worktree as it found it.
+#   - It will not land while the local trunk holds commits its remote lacks (exit 1, refusal
+#     trunk-ahead, or trunk-diverged when the remote also holds commits the local trunk lacks;
+#     nothing changed): a landing goes on the remote's tip beside them. Push them, or merge the
+#     remote's trunk in and push, as the refusal's Next: says, then run it again. A trunk only
+#     behind its remote, or equal to it, lands as usual.
 #   - It will not land a STALE copy (exit 1, refusal register-checkout-stale, nothing changed on the
 #     trunk): a path whose trunk copy gained a line since your checkout was cut, or since this
 #     checkout last landed it, that your file lacks. Run it from a checkout at the trunk tip, or bring
@@ -207,6 +212,13 @@ CALLER_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$CALLER_ROOT" ] || kit_refuse 1 not-a-git-repository \
   "Error: not inside a git repository." \
   "Next: run it from inside the project's checkout (cd into the project), then re-run."
+
+# A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap or the sync, so a fresh
+# kanban worktree and a lived-in one refuse alike and nothing has been touched.
+command -v git_refuse_unpublished_trunk >/dev/null 2>&1 || kit_refuse 1 register-lib-outdated \
+  "Error: scripts/lib/push-retry.sh does not define git_refuse_unpublished_trunk, the check this script runs before it lands. Nothing was changed." \
+  "Next: finish the kit upgrade (./scripts/kit-upgrade.sh), or restore the file from the kit release you run, then re-run."
+git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
 
 # Acquire the lock BEFORE touching the worktree (never a half-applied write).
 kwt_lock

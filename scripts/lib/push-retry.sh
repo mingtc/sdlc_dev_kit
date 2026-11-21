@@ -148,3 +148,43 @@ git_report_ahead_behind() {
     echo "Ahead/behind $remote/$branch in '$dir': ahead=${ahead:-0} behind=${behind:-0} — nothing local left unpushed THERE." >&2
   fi
 }
+
+# git_refuse_unpublished_trunk <dir> <remote> <branch> — the same question as the check above, asked
+# BEFORE a landing: refuses (kit_refuse, status 1) while local <branch> holds commits <remote>/<branch>
+# lacks, because the landing goes on the remote's tip beside them and local <branch> then cannot follow
+# it. `trunk-ahead` when the remote holds nothing local lacks, `trunk-diverged` when it holds some.
+# Compares the two REFS in <dir> after a fetch, never <dir>'s checked-out HEAD, so it reads the same
+# wherever <branch> is checked out. A diverged Next: runs the merge in the worktree that holds <branch>;
+# where none does, it switches <dir>'s checkout to <branch> first (git refuses if that would lose edits). Offline it reads the last fetched ref and says so. Behind-only and
+# equal return 0, as does a repository with no local <branch> or no <remote>/<branch> to compare.
+# Changes nothing. Needs lib/refuse.sh loaded (kanban-worktree.sh sources it).
+git_refuse_unpublished_trunk() {
+  local dir="$1" remote="$2" branch="$3" stale="" counts behind ahead holder fix qd qh
+  GIT_TERMINAL_PROMPT=0 git -C "$dir" fetch "$remote" "$branch" --quiet 2>/dev/null \
+    || stale=" (read from the last fetch: the fetch of $remote/$branch failed)"
+  counts="$(git -C "$dir" rev-list --left-right --count "refs/remotes/$remote/$branch...refs/heads/$branch" 2>/dev/null)" || return 0
+  behind="${counts%%[[:space:]]*}"
+  ahead="${counts##*[[:space:]]}"
+  [ "${ahead:-0}" -gt 0 ] || return 0
+  local unpushed; unpushed="$(git -C "$dir" log --format='         %h %s' -n 5 "refs/remotes/$remote/$branch..refs/heads/$branch" 2>/dev/null)" || unpushed=""
+  printf -v qd '%q' "$dir"
+  if [ "${behind:-0}" -eq 0 ]; then
+    kit_refuse 1 trunk-ahead \
+      "Error: local '$branch' is $ahead commit(s) ahead of $remote/$branch and not pushed$stale. A landing now goes on $remote/$branch's tip beside them: a second history, and local '$branch' then diverges from it. Nothing was changed." \
+      "       Unpushed, newest first, up to 5:" \
+      "$unpushed" \
+      "Next: push them, then run the same command again:  git -C $qd push $remote $branch"
+  fi
+  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '/^worktree /{p=substr($0,10)} $0 == "branch " b {print p; exit}')"
+  if [ -n "$holder" ]; then
+    printf -v qh '%q' "$holder"
+    fix="git -C $qh merge $remote/$branch && git -C $qh push $remote $branch"
+  else
+    fix="git -C $qd switch $branch && git -C $qd merge $remote/$branch && git -C $qd push $remote $branch"
+  fi
+  kit_refuse 1 trunk-diverged \
+    "Error: local '$branch' has $ahead commit(s) $remote/$branch lacks, and $remote/$branch has $behind that local '$branch' lacks$stale. A landing now goes on $remote/$branch's tip and cannot be fast-forwarded into local '$branch'. Nothing was changed." \
+    "       Unpushed, newest first, up to 5:" \
+    "$unpushed" \
+    "Next: merge $remote/$branch into local '$branch', push, then run the same command again:  $fix"
+}
