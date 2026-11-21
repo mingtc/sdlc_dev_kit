@@ -337,6 +337,8 @@ columns and never the cards.*
 
 ### Changed
 
+- **`kit-upgrade.sh` refuses a `.kit-upgrade/` that is a symbolic link, or has one inside it.** It stages copies there and `--finish` reads them back, so a link would take them to wherever it points. The refusal (`upgrade-staging-link`) names the link and how to remove it; nothing is written.
+- **`kit-upgrade.sh` refuses a `.kit-upgrade/` that is a symbolic link, or has one inside it.** It stages copies there and `--finish` reads them back, so a link would take them to wherever it points. The refusal (`upgrade-staging-link`) names the link and how to remove it; nothing is written.
 - **`module.sh enable` over an enabled module that has a recorded file or block missing says the module is not whole.** It used to say "already enabled; nothing to do". It now prints the same missing-things line as `status` and names the route back: `module.sh disable <m>`, then `module.sh enable <m>`.
 
 ## [0.13.0] — 2026-11-20

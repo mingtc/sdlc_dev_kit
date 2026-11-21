@@ -832,6 +832,61 @@ LINK_ROWS
 }
 
 # =============================================================================
+# CASE — THE STAGING DIRECTORY IS NEVER A LINK THE UPGRADE WRITES THROUGH.
+#
+# `.kit-upgrade` in the project is a committed symbolic link to a directory outside it. The run stages its copies of the new
+# kit's version, manifest, notes and scripts/lib there, so each would land outside the project: it is refused before any file
+# is written, naming the link and the way on, and the directory outside stays empty. The same for a link inside a real
+# staging directory, and for --finish over one. (control) The same project with a
+# plain directory stages as before.
+# =============================================================================
+case_kit_upgrade_refuses_a_staging_directory_that_is_a_symbolic_link() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh refuses a .kit-upgrade that is a symbolic link before it writes any file, with the refusal's record and a Next, and nothing lands where the link points; the same project with a directory there stages"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.2.0
+  local o="$SB_TMP/outside-stage"
+  mkdir -p "$o"
+  ln -s "$o" "$KU_T/.kit-upgrade" 2>/dev/null || { skp "$L" "this filesystem takes no symbolic link"; teardown; return; }
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "staging link"; } >/dev/null 2>&1 || _fixture_die "${FUNCNAME[0]}: the link was not committed"
+  KU_RECDIR="$KU_T/.progress-records"
+  _ku_run link --into "$KU_T"
+  [ "$(_ku_rc link)" != 0 ] || cf "the upgrade exited 0 over a linked staging directory: $(_ku_out link)"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -eq 1 ] || cf "no single refusal=upgrade-staging-link record: $(_ku_out link)"
+  grep -F 'Next:' "$SB_TMP/link.out" >/dev/null || cf "the refusal has no Next line: $(_ku_out link)"
+  [ -z "$(ls -A "$o")" ] || cf "files landed where the link points: $(ls -A "$o" | tr '\n' ' ')"
+  [ -L "$KU_T/.kit-upgrade" ] || cf "the link was removed"
+  [ ! -e "$KU_T/$KU_CHECKLIST_REL" ] || cf "a checklist was written though the run refused"
+  # (inside) a real staging directory holding a committed link: the copy under it would land outside.
+  _ku_pair 0.1.0 0.2.0
+  rm -rf "${o:?}"; mkdir -p "$o" "$KU_T/.kit-upgrade"
+  ln -s "$o" "$KU_T/.kit-upgrade/lib"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "link inside staging"; } >/dev/null 2>&1 || _fixture_die "${FUNCNAME[0]}: the inner link was not committed"
+  _ku_run inner --into "$KU_T"
+  [ "$(_ku_rc inner)" != 0 ] || cf "(inside) the upgrade exited 0 over a link inside the staging directory: $(_ku_out inner)"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -eq 1 ] || cf "(inside) no single refusal=upgrade-staging-link record: $(_ku_out inner)"
+  [ -z "$(ls -A "$o")" ] || cf "(inside) files landed where the inner link points: $(ls -A "$o" | tr '\n' ' ')"
+  # (finish) a staged upgrade whose staging directory then holds a link: --finish refuses and stamps nothing.
+  _ku_judge_stage fl; printf 'x\n' > "$KU_T/DONE-MARKER"
+  rm -rf "$KU_T/.kit-upgrade/lib"; ln -s "$o" "$KU_T/.kit-upgrade/lib"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "marker and a link in staging"; } >/dev/null 2>&1
+  _ku_run fl-fin --finish --into "$KU_T"
+  [ "$(_ku_rc fl-fin)" != 0 ] || cf "(finish) --finish exited 0 over a link inside the staging directory: $(_ku_out fl-fin)"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -ge 1 ] || cf "(finish) no refusal=upgrade-staging-link record: $(_ku_out fl-fin)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "(finish) the refused --finish stamped the version"
+  # (control) a directory there.
+  _ku_pair 0.1.0 0.2.0
+  _ku_run plain --into "$KU_T"
+  [ "$(_ku_rc plain)" = 0 ] || cf "(control) the upgrade exited $(_ku_rc plain): $(_ku_out plain)"
+  [ -f "$KU_T/.kit-upgrade/KIT-VERSION" ] || cf "(control) the run staged no KIT-VERSION"
+  KU_RECDIR=""
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — "REMOVED UPSTREAM" NEVER SAYS "DELETE IT" ABOUT A FILE THE PROJECT ITSELF CHANGED.
 #
 # c.txt is dropped by the new kit. One target has it unchanged from the old release (today's
