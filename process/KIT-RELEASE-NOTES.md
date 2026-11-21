@@ -338,6 +338,7 @@ columns and never the cards.*
 ### Changed
 
 - A note, README or child index in `progress/history/` is no longer refused by `archive-progress.sh` as a rotation cut off before its index row: only a file that opens with the header the rotation writes (`archived_at:` or `cutoff:`) counts as a chunk. A half-written chunk is still found. No action.
+- `subtask.sh` no longer refuses on a locally edited `scripts/config.sh`: the file every project fills in on day one is not held with the scripts the slice tool runs. Its other held files are unchanged. The `0.13.0` item that says it is held, and its `Verify:`, describe that release; the `Verify:` still passes on a tree whose `config.sh` is committed and pushed. No action.
 
 ## [0.13.0] — 2026-11-20
 

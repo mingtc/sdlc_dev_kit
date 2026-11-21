@@ -1918,12 +1918,20 @@ _held_derive() {
     done < "$dir/.derive.tmp"
   done
   rm -f "$dir/.derive.tmp"
-  printf '%s\n' $seen | sort -u
+  printf '%s\n' $seen | sort -u | grep -vx 'config.sh' || true   # the seam every project edits is read, never held
 }
 
 # _held_listed <script> — the files the script's own list names, one per line; nothing when it has none.
 _held_listed() {
   awk '/^_held_files="$/ { on = 1; next } on && /^"$/ { exit } on { print }' "$1" | sort -u
+}
+
+# _held_extra <scripts dir> <script> <root>… — what the script's list names that the roots do not run.
+_held_extra() {
+  local dir="$1" script="$2"; shift 2
+  _held_derive "$dir" "$@" > "$dir/.d.tmp"; _held_listed "$dir/$script" > "$dir/.l.tmp"
+  comm -13 "$dir/.d.tmp" "$dir/.l.tmp"
+  rm -f "$dir/.d.tmp" "$dir/.l.tmp"
 }
 
 # _held_missing <scripts dir> <script> <root>… — what the roots run that the script's list does not name.
@@ -1947,6 +1955,8 @@ case_the_held_list_names_every_file_the_landing_and_slice_tools_source() {
     grep -q '^_held_files="$' "$d/scripts/$s" || cf "scripts/$s carries no _held_files list"
     miss="$(_held_missing "$d/scripts" "$s" $roots)"
     [ -z "$miss" ] || cf "$s runs files its list does not name: $(printf '%s' "$miss" | tr '\n' ' ')"
+    miss="$(_held_extra "$d/scripts" "$s" $roots)"
+    [ -z "$miss" ] || cf "$s lists files it does not run: $(printf '%s' "$miss" | tr '\n' ' ')"
     while IFS= read -r n; do
       [ -z "$n" ] || [ -f "$d/scripts/$n" ] || cf "$s lists $n, which is not a file under scripts/"
     done <<< "$(_held_listed "$d/scripts/$s")"
