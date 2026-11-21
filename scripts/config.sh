@@ -274,7 +274,7 @@ print_push_before_move() {
   echo "    remote ref when it reports a miss — so a file that exists only in this"
   echo "    checkout is invisible to it — the move fails with 'no file matching'."
   echo ""
-  echo "      git add \"${rel}\" && git commit -m \"[${role}] ${id}: mint\" && git push"
+  echo "      ./scripts/register-commit.sh --role ${role} --message \"${id}: mint\" \"${rel}\""
   echo ""
   echo "    Then, and only then:  ./scripts/move-issue.sh ${id} in_progress --role <Role> --note \"…\""
 }

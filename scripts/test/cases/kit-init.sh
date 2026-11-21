@@ -2841,6 +2841,10 @@ case_first_mile() {
   [ -f "$f" ] || cf "the printed recipe did not create progress/todo/SBX-001-first-mile.md"
   printf '%s\n' "$out" | grep 'PUSH IT BEFORE YOU MOVE IT' >/dev/null \
     || cf "new-issue.sh does not print the push-before-you-move step: $out"
+  printf '%s\n' "$out" | grep -F './scripts/register-commit.sh --role' | grep -F 'SBX-001: mint' >/dev/null \
+    || cf "the push-before-you-move step does not name register-commit.sh as the route: $out"
+  printf '%s\n' "$out" | grep -F 'git commit -m' >/dev/null \
+    && cf "the push-before-you-move step still names a plain git commit: $out"
 
   # The mover's not-found error NAMES the cause.
   out="$(cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" SBX-001 in_progress --role PM --note x 2>&1)"; rc=$?
@@ -2848,6 +2852,8 @@ case_first_mile() {
   printf '%s\n' "$out" | grep 'no file matching' >/dev/null || cf "the mover's error changed shape: $out"
   printf '%s\n' "$out" | grep -i 'not yet pushed' >/dev/null \
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
+  printf '%s\n' "$out" | grep -F './scripts/register-commit.sh --role' >/dev/null \
+    || cf "the not-found error does not name register-commit.sh as the way to publish the card: $out"
   # No "the refusal created no worktree" assertion here: kit-init's self-check has already
   # bootstrapped .kanban-wt, so it would be a false red. case_move_issue_probe asserts it.
 

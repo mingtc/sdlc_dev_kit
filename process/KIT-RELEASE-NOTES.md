@@ -339,6 +339,7 @@ columns and never the cards.*
 
 - **The template-text warning at a `dev_complete` move no longer fires on text the Dev must leave.** `move-issue.sh` skips the `## QA Verdict` and `## Ablation` sections and angle-bracket text inside code spans, and cuts each printed line at 100 bytes, so the warning lists only placeholders left in the Dev's own sections. It still warns, never refuses.
 - **`AGENT_CHECK: UNRUNNABLE` for a missing identity record now says what to do.** `finish-pr.sh` and `subtask.sh` print `Next: wire the harness hooks (copy .claude/settings.json.example to .claude/settings.json) …` under the line; until the hooks are wired the same-agent check does not run and does not stop the landing.
+- **The publish-the-card step names `register-commit.sh`.** `new-bug.sh`, `new-issue.sh` and the mover's "no file matching" error print `./scripts/register-commit.sh --role <Role> --message "<id>: mint" <path>` instead of `git add … && git commit … && git push`, and `archive.sh`'s recipe for a missing `done/` column does the same; the pre-commit hook refuses the plain commit off the trunk.
 
 ## [0.13.0] — 2026-11-20
 

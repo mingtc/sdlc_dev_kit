@@ -148,7 +148,7 @@ if [ ! -d "$DONE_DIR" ]; then
     "  and publish it, the way kit-init does — one .gitkeep per column, so it" \
     "  survives a clone:" \
     "    mkdir -p progress/done && : > progress/done/.gitkeep" \
-    "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
+    "    ./scripts/register-commit.sh --role PM --message 'board: add the done/ column' progress/done/.gitkeep"
 fi
 
 # A MISSING INDEX — the file, or its heading — refuses with the same listing and recipe: the
