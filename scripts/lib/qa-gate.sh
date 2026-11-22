@@ -233,9 +233,12 @@ KIT_AC_LEAD='(>[[:space:]]*)?(-|[0-9]+[.)]) \[[ xX]\] '
 # whole card calls; it adds the containers CommonMark gives a fence: the YAML frontmatter (its lines are no
 # fence and no body: isfm is set), a block quote (a run of '>' markers, each with one optional space after it)
 # and the list items, kept as a stack of the column their text starts at. A line indented less than an item's
-# text ends the item; a line with fewer '>' than a fence's quote ends the quote. A fence that its container ends
-# before it closes is a fence never closed, and so is one the text ends on: fence_unclosed() is the line it
-# opened on, fence_unclosed_end() the line its container ended on (0 when the text did).
+# text ends the item; a line with fewer '>' than a fence's quote, a blank line included, ends the quote. A thematic
+# break ('- - -') is no item. What follows an item's marker on its own line is read as the item's first line, so
+# it may open a quote, a nested item or a fence. A tab counts to the next multiple of four columns from the line's
+# start, after a '>' or a marker too. A fence that its container ends before it closes is a fence never closed,
+# and so is one the text ends on: fence_unclosed() is the line it opened on, fence_unclosed_end() the line its
+# container ended on (0 when the text did).
 _QAV_FENCE_FN='
 function fence_skip(ln, maxind,    ind, k, ch, s, c, n, rest, res) {
   sub(/\r$/, "", ln)
@@ -258,8 +261,17 @@ function fence_skip(ln, maxind,    ind, k, ch, s, c, n, rest, res) {
   } else if (n >= 3 && c == fch && n >= flen && rest ~ /^[ \t]*$/) { fch = ""; flen = 0 }
   return res
 }
+function detab(s,    o, i, c, n) {   # a tab is spaces to the next multiple of four columns
+  if (!index(s, "\t")) return s
+  o = ""
+  for (i = 1; i <= length(s); i++) { c = substr(s, i, 1); if (c == "\t") { n = 4 - length(o) % 4; while (n-- > 0) o = o " " } else o = o c }
+  return o
+}
+function is_hr(s) {   # a thematic break, which is no list item; no {n,m} intervals, mawk has none
+  return (s ~ /^[ \t]*-[ \t]*-[ \t]*-[ \t]*(-[ \t]*)*$/ || s ~ /^[ \t]*\*[ \t]*\*[ \t]*\*[ \t]*(\*[ \t]*)*$/ || s ~ /^[ \t]*_[ \t]*_[ \t]*_[ \t]*(_[ \t]*)*$/)
+}
 function fence_parse(ln,    k, ch, s, ind, c, jp, base) {
-  sub(/\r$/, "", ln)
+  sub(/\r$/, "", ln); ln = detab(ln)
   s = ln; pd = 0; pj = 0
   while (fch == "" || pd < fq) {
     ind = 0
@@ -288,11 +300,12 @@ function fence_end() {
   if (!uncl) { uncl = fopened; uend = NR }
   fch = ""; flen = 0; fdepth = 0
 }
-function fence_line(ln,    lim, was, res, lead, rest2, mlen, after, sp, top) {
+function fence_line(ln,    lim, was, res, lead, rest2, mlen, after, sp, top, qs, qdp, off) {
   isfm = 0
   if (NR == 1 && ln ~ /^---[ \t\r]*$/) { infm = 1; isfm = 1; return 0 }
   if (infm) { isfm = 1; if (ln ~ /^---[ \t\r]*$/) infm = 0; return 0 }
   fence_parse(ln)
+  qs = ps; qdp = pd
   if (!pblank) {
     top = isp; isp = pj
     while (isp < top && iq[isp + 1] == pd) isp++
@@ -302,24 +315,35 @@ function fence_line(ln,    lim, was, res, lead, rest2, mlen, after, sp, top) {
     }
     while (isp > 0 && iq[isp] == pd && pind < icol[isp]) isp--
     if (fch != "" && isp < fdepth) fence_end()
-    if (fch == "" && pind < (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 4 && match(ps, /^[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)/)) {
-      match(ps, /^[ \t]*/); rest2 = substr(ps, RLENGTH + 1)
-      match(rest2, /^([-*+]|[0-9]+[.)])/); mlen = RLENGTH
-      after = substr(rest2, mlen + 1)
-      match(after, /^[ \t]*/); sp = RLENGTH
-      if (after ~ /^[ \t]*$/ || sp > 4) sp = 1
-      isp++; icol[isp] = pind + mlen + sp; iq[isp] = pd; iser[isp] = ++iseq
+    if (fch == "" && pind < (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 4 && !is_hr(ps) && match(ps, /^[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)/)) {
+      off = pind
+      while (1) {   # a marker; what follows it on the line is the first line of the item: it may open a quote, another item or a fence
+        match(qs, /^[ \t]*/); rest2 = substr(qs, RLENGTH + 1)
+        match(rest2, /^([-*+]|[0-9]+[.)])/); mlen = RLENGTH
+        after = substr(rest2, mlen + 1)
+        match(after, /^[ \t]*/); sp = RLENGTH
+        if (after ~ /^[ \t]*$/ || sp > 4) sp = 1
+        isp++; icol[isp] = off + mlen + sp; iq[isp] = qdp; iser[isp] = ++iseq
+        qs = substr(after, sp + 1); off = icol[isp]
+        match(qs, /^ */); lead = RLENGTH
+        while (lead < 4 && substr(qs, lead + 1, 1) == ">") {
+          qdp++; qd = qdp; qs = substr(qs, lead + 2); off = 0
+          if (substr(qs, 1, 1) == " ") qs = substr(qs, 2)
+          match(qs, /^ */); lead = RLENGTH
+        }
+        if (lead >= 4 || is_hr(qs) || !match(qs, /^[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)/)) break
+      }
+      while (off-- > 0) qs = " " qs
     }
-  } else if (pd > 0) {
-    top = isp; isp = pj
-    while (isp < top && iq[isp + 1] == pd) isp++
-    if (fch != "" && isp < fdepth) fence_end()
+  } else {
+    if (pd > 0) { top = isp; isp = pj; while (isp < top && iq[isp + 1] == pd) isp++ }
+    if (fch != "" && ((pd > 0 && isp < fdepth) || fq > pd)) fence_end()
   }
-  if (fch == "") lim = (isp > 0 && iq[isp] == pd ? icol[isp] : 0) + 3
+  if (fch == "") lim = (isp > 0 && iq[isp] == qdp ? icol[isp] : 0) + 3
   else lim = (fdepth > 0 ? icol[fdepth] : 0) + 3
   was = (fch != "")
-  res = fence_skip(ps, lim)
-  if (!was && fch != "") { fopened = NR; fdepth = isp; fq = pd }
+  res = fence_skip(qs, lim)
+  if (!was && fch != "") { fopened = NR; fdepth = isp; fq = qdp }
   return res
 }
 function fence_unclosed() { return uncl ? uncl : (fch != "" ? fopened : 0) }
@@ -453,8 +477,8 @@ _qav_ac_bullet_text() {
 # the item while it is indented to the item's text, a blank line included when more such lines follow; nested
 # items (a '- [ ] step' under it) and fences (see _QAV_FENCE_FN, whatever their depth) belong to it; a quoted AC
 # keeps the lines under the same '>' markers. A lazy line, one that is not indented that far, still belongs when
-# it directly continues a paragraph and would not open anything on its own: a list item, a heading, a quote, a
-# comment block or a fence. A list item that interrupts is a bullet, a '1.' or '1)', or, under an ordered AC, a
+# it directly continues a paragraph and would not open anything on its own: a list item, a heading, a thematic
+# break, a quote, an HTML block start (a comment block, '<div>', '<pre>'; '<span>' cannot interrupt) or a fence. A list item that interrupts is a bullet, a '1.' or '1)', or, under an ordered AC, a
 # sibling of its own list (same delimiter, any number: it is the list's next item); any other numbered line is read
 # as text of the item, so a change to it is a change to the AC. Whatever ends the item ends the
 # text: a line indented less, a sibling item, a blank line followed by such a line. A carriage return is
@@ -473,7 +497,13 @@ _qav_ac_bullet_read() {
         if (!match(s, /^[ \t]*[0-9]+[.)]/) || substr(s, RSTART + RLENGTH - 1, 1) != d) return 0
         return substr(s, RSTART + RLENGTH) ~ /^([ \t]|$)/
       }
-      BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"] }
+      function html_start(s,    l) {   # an HTML block start that can interrupt a paragraph (CommonMark start conditions 1 to 6, not 7)
+        l = tolower(s); sub(/^[ \t]+/, "", l)
+        if (l ~ /^<(script|pre|style|textarea)([ \t>]|$)/ || l ~ /^<!--/ || l ~ /^<\?/ || l ~ /^<![a-z]/ || l ~ /^<!\[cdata\[/) return 1
+        return (l ~ ("^</?(" TAGS ")([ \t]|/?>|$)"))
+      }
+      BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"]
+        TAGS = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul" }
       { line = $0; sub(/\r$/, "", line) }
       !on {
         if (fence_line(line)) next
@@ -484,12 +514,12 @@ _qav_ac_bullet_read() {
       {
         fence_parse(line)
         if (pblank) { fence_line(line); pend = 1; next }
-        if (fch == "" && !pend && para && pd <= qd && !(adel != "" && pd == qd && ordsib(ps, adel)) && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || ps !~ /^[ \t]*(#|>|<!--|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/)) {
+        if (fch == "" && !pend && para && pd <= qd && !(adel != "" && pd == qd && ordsib(ps, adel)) && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || !(ps ~ /^[ \t]*(#|>|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/ || html_start(ps) || is_hr(ps)))) {
           t = t " " line; ln = ln " " NR; next }
         r = fence_line(line)
         if (isp < base || iser[base] != aid) exit
         t = t " " line; ln = ln " " NR
-        para = (r ? 0 : 1); pend = 0 }
+        para = (r || is_hr(ps) || html_start(ps) || ps ~ /^[ \t]*(#+([ \t]|$)|=+[ \t]*$)/ ? 0 : 1); pend = 0 }
       END { if (on) print (mode == "lines" ? ln : t) }' \
     | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
 }

@@ -1116,6 +1116,7 @@ def parse_registry(text, label, canvas):
 
 
 LIST_ITEM = re.compile(r'[ \t]*([-*+]|[0-9]+[.)])([ \t]+|$)')
+HR = re.compile(r'[ \t]*(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$')
 
 
 def fence_parse(ln, cols=(), iqs=(), maxq=None):
@@ -1161,10 +1162,15 @@ def fence_scan(text):
     `_QAV_FENCE_FN`): a fence opens on three or more backticks or tildes (a backtick fence's info string holds no backtick) at most three
     columns past its container, and closes on a line of the same character, at least as long, with nothing else; a block quote
     (`>` markers) and the list items, kept as the column their text starts at, are the containers: a line indented less than an
-    item's text ends the item, one with fewer markers ends the quote, and a fence its container ends first is never closed. YAML frontmatter
-    is no fence: its lines are returned as they are."""
+    item's text ends the item, one with fewer markers (a blank line included) ends the quote, and a fence its container ends first is
+    never closed. A thematic break is no item; what follows an item's marker on its line is read as the item's first line, so it may open
+    a quote, a nested item or a fence; a tab expands to the next multiple of four columns; lines end at '\\n' only (a carriage return is
+    stripped, a form feed or U+2028 is no line end). YAML frontmatter is no fence: its lines are returned as they are."""
     out, icol, iq, fch, flen, fdepth, fq, qd, fopened, unclosed, infm = [], [], [], None, 0, 0, 0, 0, None, None, False
-    for n, raw in enumerate(text.splitlines(), 1):
+    lines = text.split('\n')
+    if lines and lines[-1] == '':
+        lines.pop()
+    for n, raw in enumerate(lines, 1):
         if n == 1 and re.match(r'---[ \t\r]*$', raw):
             infm = True
             out.append((n, raw))
@@ -1173,7 +1179,7 @@ def fence_scan(text):
             infm = not re.match(r'---[ \t\r]*$', raw)
             out.append((n, raw))
             continue
-        d, j, s, ind = fence_parse(raw, icol, iq, fq if fch else None)
+        d, j, s, ind = fence_parse(raw.expandtabs(4), icol, iq, fq if fch else None)
         if s.strip(' \t'):
             keep = j
             while keep < len(icol) and iq[keep] == d:
@@ -1190,17 +1196,31 @@ def fence_scan(text):
                 unclosed, fch = unclosed or fopened, None
             if not fch and ind < (icol[-1] if icol and iq[-1] == d else 0) + 4:
                 m = LIST_ITEM.match(s)
-                if m:
+                off, pushed = ind, False
+                while m and not HR.match(s):
+                    pushed = True
                     after = s[m.end(1):]
                     sp = len(after) - len(after.lstrip(' \t'))
-                    icol.append(ind + len(m.group(1)) + (1 if not after.strip(' \t') or sp > 4 else sp))
+                    sp = 1 if not after.strip(' \t') or sp > 4 else sp
+                    icol.append(off + len(m.group(1)) + sp)
                     iq.append(d)
-        elif d > 0:
-            keep = j
-            while keep < len(icol) and iq[keep] == d:
-                keep += 1
-            del icol[keep:], iq[keep:]
-            if fch and len(icol) < fdepth:
+                    s, off = after[sp:], icol[-1]
+                    lead = len(s) - len(s.lstrip(' '))
+                    while lead < 4 and s[lead:lead + 1] == '>':   # the item's line opens a quote
+                        d, s, off = d + 1, s[lead + 1:], 0
+                        s = s[1:] if s[:1] == ' ' else s
+                        qd = d
+                        lead = len(s) - len(s.lstrip(' '))
+                    m = LIST_ITEM.match(s) if lead < 4 else None
+                if pushed:   # the rest of the line keeps its absolute column, as the awk's padding does
+                    s, ind = ' ' * off + s, off + len(s) - len(s.lstrip(' '))
+        else:
+            if d > 0:
+                keep = j
+                while keep < len(icol) and iq[keep] == d:
+                    keep += 1
+                del icol[keep:], iq[keep:]
+            if fch and (len(icol) < fdepth or fq > d):
                 unclosed, fch = unclosed or fopened, None
         lim = ((icol[-1] if icol and iq[-1] == d else 0) if not fch else (icol[fdepth - 1] if fdepth else 0)) + 3
         t = s.lstrip(' \t')
