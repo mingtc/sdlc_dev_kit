@@ -59,4 +59,4 @@ Type every claim in the report as observed (a command with its output, or `path:
 
 `[QA]`-prefixed subjects. **No AI co-author trailers, ever.** Never commit a secrets file.
 Board moves only via the project's board mover (`./scripts/move-issue.sh`); a code-path PASS
-lands via the project's landing script (`./scripts/finish-pr.sh`).
+lands via the project's landing script (`./scripts/finish-pr.sh`) unless the brief holds the landing.

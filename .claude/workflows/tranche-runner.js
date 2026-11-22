@@ -12,7 +12,7 @@ export const meta = {
 //         defaultModel?, defaultEffort?,
 //         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
 //                   devAgentType?, qaAgentType?, gates?, depends_on?, extraDev?, extraQA?,
-//                   role?, docsPath?, parkable?}] }
+//                   role?, docsPath?, parkable?, signoff?}] }
 //
 // There is no `slug` field, deliberately: the mover resolves the card path from the id.
 //
@@ -20,6 +20,10 @@ export const meta = {
 // CLOSE, and every close gets fresh eyes. A park-QA leg verifies the park is TRUE. PASS →
 // PARKED_OK; still failing after one bounded fix round → PARK_UNVERIFIED, which halts; no
 // verdict → NO_VERDICT, which halts with no fix round.
+//
+// `signoff` is 'not_needed' or 'recorded' (see THE SIGN-OFF GATE below): the QA brief keeps its
+// landing step only for those. Unset, the leg reviews and reports landing=deferred (LAND_READY),
+// the branch unmerged. A docs-path issue lands nothing, so it is not asked.
 
 // The parse is guarded so a non-JSON payload is refused naming this runner, at 0 agents. The
 // message names the required top-level keys only; the per-issue shape stays in the args comment.
@@ -63,12 +67,25 @@ const CFG = {
 }
 if (!CFG.repo) throw new Error('tranche-runner: args.repo is required (absolute path to the repo)')
 
+// THE SIGN-OFF GATE, shared with wave-runner.js and held identical by the self-test. Net-new public
+// surface is parked, never merged, in an unattended run (.claude/roles/orchestrator.md, the
+// discriminator), and a runner's QA leg is unattended. So the landing step is in the QA brief only
+// when the issue says so: `signoff` is 'not_needed' (an established pattern, no new public surface)
+// or 'recorded' (the operator has signed the new surface off). Anything else, unset included, gets
+// holdLanding() in its place: the leg still reviews, and does not merge.
+const SIGNOFF = ['not_needed', 'recorded']
+const landsOnPass = (issue) => SIGNOFF.includes(issue.signoff)
+const heldNext = (issue) => landsOnPass(issue) ? '' : ` — held, no signoff recorded. Next: read the diff, then land it from the main repo directory with ./scripts/finish-pr.sh ${issue.id} (add --worktree <path> when a worktree holds the branch), or set signoff on this issue and run again`
+function holdLanding(issue) {
+  return `do NOT land it: no ./scripts/finish-pr.sh and no merge by hand. This issue records no sign-off decision (signoff is unset), and a runner QA leg never merges net-new public surface on its own PASS: park it. Leave the branch unmerged and the issue in dev_complete/, append the progress.md QA line as "verified, not landed: sign-off not recorded", and report landing=deferred. That is a SUCCESS (LAND_READY), not a failure: the operator lands it after reading the diff, or sets signoff and re-runs.`
+}
+
 // An omitted issue list is refused by name, at 0 agents. A misspelled per-issue key is refused by
 // name too: `depends_on` defaults to [], so a typo (`depends_ons`) would otherwise run the issue
 // solo.
 const ISSUE_KEYS = new Set(['id', 'branch', 'title', 'devModel', 'devEffort', 'qaModel', 'qaEffort',
   'devAgentType', 'qaAgentType', 'gates', 'depends_on', 'extraDev', 'extraQA', 'role', 'docsPath',
-  'parkable'])
+  'parkable', 'signoff'])
 if (Array.isArray(ARGS.issues)) {
   const strays = []
   for (const it of ARGS.issues) {
@@ -80,6 +97,9 @@ if (Array.isArray(ARGS.issues)) {
       `Known keys: ${[...ISSUE_KEYS].join(', ')}. A misspelled key would otherwise be silently ` +
       `ignored — which for depends_on means a solo run where you declared a dependency.`)
   }
+  const badSignoff = ARGS.issues.filter(it => it && typeof it === 'object' && it.signoff !== undefined && !SIGNOFF.includes(it.signoff))
+    .map(it => `${it.id || '<no id>'}.signoff=${JSON.stringify(it.signoff)}`)
+  if (badSignoff.length) throw new Error(`tranche-runner: signoff must be ${SIGNOFF.join(' or ')}, or omitted (which holds the landing): ${badSignoff.join(', ')}`)
 }
 
 if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
@@ -369,7 +389,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 6. Verdict:
    - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue — only when you checked the fact yourself against a citable source; the amendment carries the corrected illustration AND its source) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
-   - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical, and at least one OBSERVED claim in observed — a PASS reported with none is filed NO_VERDICT): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
+   - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical, and at least one OBSERVED claim in observed — a PASS reported with none is filed NO_VERDICT): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : !landsOnPass(issue) ? holdLanding(issue) : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
    - If ${CFG.gateCmd} reports a gate that COULD NOT RUN — or an AC names a gate this tree does not hold — you have no evidence about the implementation and so no verdict to issue: stop, set precondition_failure to name it, OMIT verdict, and send landing=not_applicable. Neither FAIL token fits — both assert something false about the code.
    - On a fail: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return the unmet_ac list with whichever FAILING verdict of ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' / ')} fits — an unmet acceptance criterion vs. a previously-green test this broke (at any severity) or uncovered behaviour it broke at Blocker/Critical severity; a Major/Minor break there is filed and does not fail the review. Do NOT fix code yourself.
 ${issue.extraQA || ''}
@@ -484,7 +504,7 @@ for (const issue of ARGS.issues) {
       log(`${issue.id}: LANDED`)
       results.push({ id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
     } else {
-      log(`${issue.id}: LAND_READY (verified; landing deferred) — tranche continues`)
+      log(`${issue.id}: LAND_READY (verified; landing deferred)${heldNext(issue)} — tranche continues`)
       results.push({ id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
     }
   } catch (e) {
