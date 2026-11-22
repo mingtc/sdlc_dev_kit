@@ -265,7 +265,7 @@ has repaired citations, names its implementation skills and ends with a kit note
 `brainstorming` saves its design under `dev/specs/` and `executing-plans` carries the kit's INLINE description, `writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
 takes its runner from `TEST_CMD`, refuses a clean result over zero matched files, a pre-existing path or a
 `TEST_CMD` that is not a runnable command, and runs each matched path whole. (`brainstorming`'s visual companion is
-upstream's apart from persisting sessions under `.brainstorm/`, the stop command's defined `$SESSION_DIR`, which also removes `server-info`, writes `server-stopped` so a stopped server does not read as alive, and refuses to delete a session path that holds `..`, and the zombie checks in `stop-server.sh` and `server.cjs` that read a process in state `Z` as gone; the kit also declares it an opt-in extra above the floor.) **Read every diff hunk on its
+upstream's apart from persisting sessions under `.brainstorm/`, the stop command's defined `$SESSION_DIR`, which also removes `server-info`, writes `server-stopped` so a stopped server does not read as alive, and refuses to delete a session path that holds `..` or that resolves (a link under `/tmp`) outside `/tmp`, and the zombie checks in `stop-server.sh` and `server.cjs` that read a process in state `Z` as gone; the kit also declares it an opt-in extra above the floor.) **Read every diff hunk on its
 own** — that class is the one that is easiest to mistake for drift, not the only
 one you will meet. A re-copy that restores the single-command form has not updated the
 skill, it has re-narrowed it, and it breaks the claim this file opens with: *nothing here assumes a

@@ -206,7 +206,8 @@ case_mover_template_warning_ignores_the_card_head_and_the_activity_example() {
 # =============================================================================
 # CASE — notify.sh DOES NOT RUN THE WATCHDOG AS A BACKEND.
 # scripts/notify/stall.sh sits beside the adapters but has no `send)` arm, so NOTIFY_BACKEND=stall is
-# "no adapter", said once with the available list, not a usage dump from the watchdog.
+# "no adapter", said once with the available list, not a usage dump from the watchdog. And a backend name holding a '/'
+# or '..' is no adapter either, whatever script it reaches: `../x` is `scripts/x.sh`, a file outside scripts/notify/.
 # =============================================================================
 case_notify_refuses_the_watchdog_as_a_backend() {
   cf_reset
@@ -227,10 +228,22 @@ case_notify_refuses_the_watchdog_as_a_backend() {
     [ "$rc" -eq 1 ] || cf "(case) NOTIFY_BACKEND=$nm exited $rc, not the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
     printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null && cf "(case) NOTIFY_BACKEND=$nm ran the watchdog as an adapter and dumped its usage"
   done
+  # a name that leaves scripts/notify/: the script it reaches (scripts/x.sh, scripts/notify/sub/y.sh) is not run, test or send
+  printf '#!/usr/bin/env bash\necho "REACHED"\n' > "$SB_WORK/scripts/x.sh"; mkdir -p "$SB_WORK/scripts/notify/sub"; cp "$SB_WORK/scripts/x.sh" "$SB_WORK/scripts/notify/sub/y.sh"
+  for nm in ../x sub/y a..b; do
+    rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND="$nm" ./scripts/notify.sh test 2>&1 )" || rc=$?
+    [ "$rc" -eq 1 ] || cf "(name, test) NOTIFY_BACKEND=$nm exited $rc, not the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -F 'REACHED' >/dev/null && cf "(name, test) NOTIFY_BACKEND=$nm ran the script it reaches"
+    printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(name, test) the refusal of NOTIFY_BACKEND=$nm names no Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -F ", or add scripts/notify/$nm.sh" >/dev/null && cf "(name, test) the Next: for NOTIFY_BACKEND=$nm tells the operator to add scripts/notify/$nm.sh"
+    rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND="$nm" NOTIFY_WITH_MSG_AND_ALERT=done ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
+    printf '%s\n' "$out" | grep -F 'REACHED' >/dev/null && cf "(name, send) NOTIFY_BACKEND=$nm ran the script it reaches"
+    [ "$rc" -eq 0 ] || cf "(name, send) a send through NOTIFY_BACKEND=$nm exited $rc, not the fail-soft 0"
+  done
   printf '#!/usr/bin/env bash\ncase "$1" in send|test) echo "DELIVERED $NOTIFY_TEXT" ;; esac\n' > "$SB_WORK/scripts/notify/mine.sh"
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=mine NOTIFY_WITH_MSG_AND_ALERT=done ./scripts/notify.sh done hi --session s 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -F 'DELIVERED' >/dev/null || cf "(adapter) an adapter whose case arm is send|test) was not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  finish "notify.sh treats the stall watchdog as no adapter, in test and in send, and never runs it; an adapter with a send|test) arm still delivers"
+  finish "notify.sh treats the stall watchdog and a backend name holding a '/' or '..' as no adapter, in test and in send, and never runs what they reach; an adapter with a send|test) arm still delivers"
   teardown
 }
 
@@ -402,13 +415,14 @@ case_new_prd_ignores_a_file_that_carries_no_number() {
 }
 
 # =============================================================================
-# CASE — THE BRAINSTORMING COMPANION'S stop-server.sh DELETES NO SESSION DIRECTORY REACHED THROUGH `..`.
-# A prefix test on the text let `/tmp/../<elsewhere>` through, and that directory was deleted whole. (A symlink
-# under /tmp that points elsewhere is not covered.)
+# CASE — THE BRAINSTORMING COMPANION'S stop-server.sh DELETES NO SESSION DIRECTORY REACHED THROUGH `..` OR A LINK.
+# A prefix test on the text let `/tmp/../<elsewhere>` through, and that directory was deleted whole. So did a link
+# under /tmp that points elsewhere: `/tmp/<link>/<session>` is a session under the link's target, which is not under
+# /tmp. A real directory under /tmp is still deleted.
 # =============================================================================
 case_brainstorm_stop_server_does_not_delete_through_a_dotdot_path() {
   cf_reset
-  local rel=".claude/skills/brainstorming/scripts/stop-server.sh" L="stop-server.sh keeps a session directory reached through /tmp/.." phys arg pid out
+  local rel=".claude/skills/brainstorming/scripts/stop-server.sh" L="stop-server.sh keeps a session directory reached through /tmp/.. or through a link under /tmp, and deletes a real one under /tmp" phys arg pid out
   if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
   make_sandbox
   sandbox_outside_tmp || { teardown; skp "$L" "no directory outside /tmp to hold the session: the sandbox is under /tmp and /var/tmp could not be used"; return; }
@@ -421,13 +435,30 @@ case_brainstorm_stop_server_does_not_delete_through_a_dotdot_path() {
   out="$(bash "$REAL_REPO_ROOT/$rel" "$arg" 2>&1)" || true
   kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
   [ -d "$phys" ] || cf "a session directory reached through /tmp/.. was deleted: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  # a path through a link under /tmp to a directory elsewhere: the session there stays; a real session directory under /tmp goes
+  local tl
+  tl="$(mktemp -d /tmp/kit-ss.XXXXXX)" || { teardown; skp "$L" "no directory could be made under /tmp"; return; }
+  mkdir -p "$SB_OUT/.brainstorm/s3/state" "$tl/real/state"
+  ln -s "$SB_OUT/.brainstorm" "$tl/link"
+  sleep 60 & pid=$!
+  printf '%s\n' "$pid" > "$SB_OUT/.brainstorm/s3/state/server.pid"
+  out="$(bash "$REAL_REPO_ROOT/$rel" "$tl/link/s3" 2>&1)" || true
+  kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+  [ -d "$SB_OUT/.brainstorm/s3/state" ] || cf "a session directory reached through a link under /tmp was deleted: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  sleep 60 & pid=$!
+  printf '%s\n' "$pid" > "$tl/real/state/server.pid"
+  out="$(bash "$REAL_REPO_ROOT/$rel" "$tl/real" 2>&1)" || true
+  kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+  [ ! -d "$tl/real" ] || cf "(control) a real session directory under /tmp was kept: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rm -f "$tl/link"; rmdir "$tl/real" 2>/dev/null; rmdir "$tl"
   teardown
   finish "$L"
 }
 
 # =============================================================================
 # CASE — check-board's [j] AND [f0] READ AN ID IN ANY CASE AND A PATH GIT QUOTES.
-# (j) a lower-case prefix, which ISSUE_ID_PATTERN allows, was not an id: the row of a landed card read as live.
+# (j) a lower-case prefix, which ISSUE_ID_PATTERN allows, was not an id: the row of a landed card read as live. A row with
+# no "claimed by" names an id only in the board's own prefix: another prefix's id in its prose is not a claim.
 # (f0) a path with a space is quoted in git's porcelain and was never matched to the places the arms read.
 # =============================================================================
 case_check_board_reads_a_lower_case_id_and_a_quoted_path() {
@@ -440,6 +471,9 @@ case_check_board_reads_a_lower_case_id_and_a_quoted_path() {
 | **Landed already** | audit | S | — | now | open (claimed by zzq-101) |
 | **Prose first** | audit | S | — | now | open — queued after step-4, claimed by ZZQ-103 |
 DQEOF
+  printf '| **Own prefix, no claim words** | audit | S | — | now | open — see %s-104 |\n| **Other prefix** | audit | S | — | now | open — see OTH-105 |\n' "$SB_PREFIX" >> "$SB_WORK/dev/downtime-queue.md"
+  : > "$SB_WORK/progress/done/$SB_PREFIX-104-c.md"
+  : > "$SB_WORK/progress/done/OTH-105-d.md"
   : > "$SB_WORK/progress/done/zzq-101-a.md"
   : > "$SB_WORK/progress/done/ZZQ-103-b.md"
   publish_sandbox
@@ -450,6 +484,8 @@ DQEOF
   sec="$(printf '%s\n' "$out" | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f')"
   printf '%s\n' "$sec" | grep -F 'zzq-101' >/dev/null || cf "(j) an open row claiming a landed LOWER-CASE id was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
   printf '%s\n' "$sec" | grep -F 'ZZQ-103' >/dev/null || cf "(j) a claim after other word-N prose ('queued after step-4, claimed by ZZQ-103') was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$sec" | grep -F "$SB_PREFIX-104" >/dev/null || cf "(j, control) a row naming an id of the board's own prefix with no 'claimed by' was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$sec" | grep -F 'OTH-105' >/dev/null && cf "(j) an id of another prefix in a row with no 'claimed by' was read as its claim: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
   sec="$(printf '%s\n' "$out" | grep -F '[f0]')"
   printf '%s\n' "$sec" | grep -F 'requirements/ab.md' | grep -F '⚠' >/dev/null || cf "(f0, control) an untracked path without a space is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
   printf '%s\n' "$sec" | grep -F 'requirements/a b.md' | grep -F '⚠' >/dev/null || cf "(f0) an untracked path WITH a space is not a ⚠: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"

@@ -1746,8 +1746,11 @@ elif ! cb_bp_loaded; then
   cb_bp_missing   # the row reader is lib/board-properties.sh's
 else
   cb_rd_begin
+  # The prefix this board mints ids by (read, never sourced): the one id a row may name without saying "claimed by".
+  j_prefix="$(kit_config_scalar "$CB_TREE/scripts/config.sh" ISSUE_PREFIX 2>/dev/null || true)"
+  printf '%s' "$j_prefix" | grep -qE '^[A-Za-z][A-Za-z0-9]*$' || j_prefix=""
   j_out="$(
-    cb_awk -v folders="$STATUS_FOLDERS" "$BP_AWK_CELLS"'
+    cb_awk -v folders="$STATUS_FOLDERS" -v prefix="$j_prefix" "$BP_AWK_CELLS"'
       /^\|/ {
         n = bp_cells($0, f)
         # Header, separator and the angle-bracket SHAPE row are not data.
@@ -1761,11 +1764,11 @@ else
         # A trailing "Status:" declaration wins over the cell opening words.
         if (match(cell, /Status:[[:space:]]*/)) cell = substr(cell, RSTART + RLENGTH)
         if (cell !~ /^open/) next                 # struck or ruled dead: not our business
-        # the id after "claimed by" (the cell prose may hold other word-N text first); with no such words, an upper-case id
+        # the id after "claimed by" (the cell prose may hold other word-N text first); with no such words, an id of the board prefix
         if (match(cell, /claimed by[[:space:]]+[A-Za-z][A-Za-z0-9]*-[0-9]+/)) {
           t = substr(cell, RSTART, RLENGTH); sub(/^claimed by[[:space:]]+/, "", t); print t
-        } else if (match(cell, /[A-Z][A-Z0-9]*-[0-9]+/)) {
-          print substr(cell, RSTART, RLENGTH)
+        } else if (prefix != "" && match(cell, "(^|[^A-Za-z0-9])" prefix "-[0-9]+")) {
+          t = substr(cell, RSTART, RLENGTH); sub(/^[^A-Za-z0-9]/, "", t); print t
         }
       }' "$CB_TREE/$DQ_FILE" | sort -u | while IFS= read -r id; do
         [ -n "$id" ] || continue
