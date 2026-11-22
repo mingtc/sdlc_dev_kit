@@ -113,11 +113,17 @@ the only thing that can, because a clone starts with neither.
   round: the initializer commits these paths on purpose, and a staging step that skipped an ignored
   directory would silently drop what it later creates there.
 - No publication remote, or the remote publishes no default branch ⇒ refuse **with the recipe**,
-  including the offline path.
+  including the offline path. The default branch is read from the remote itself, not from the local
+  copy a `set-head` writes; a remote that cannot be asked refuses too.
+- The kit's root is not the repository's root ⇒ refuse before anything is written or pushed: the
+  initializer commits, pushes and sets the hooks path for the whole repository.
 - The remote is a filesystem path that is not absolute ⇒ refuse, with the one-line fix. *Why:* the
   auxiliary checkout runs version-control operations from a different working directory, where a
   relative path resolves to nothing — and the failure otherwise surfaces mid-proof, disguised as an
   access error (measured).
+- A gate command carries shell syntax ⇒ refuse: the runner executes the words of a command and does not
+  interpret them, so a command with `&&`, `;` or a redirection would pass while doing something else; the
+  same refusal stands in the runner, where gates are edited by hand.
 - A gate command is supplied but the gate definition already declares its gates, or is not the
   shipped frame ⇒ refuse; a declared gate table is never overwritten or appended to. (A supplied
   command **fills** the shipped frame's empty table, or writes a minimal runner where none exists —
