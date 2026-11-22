@@ -497,13 +497,16 @@ ${BASH_REMATCH[1]}"
   done
 
   # Every manifest row's Status cell. A LEADING `|` makes the first field empty, so Status
-  # (the table's 3rd column) is f[4]. A table row only — the header and its `|---|` separator are
-  # not data.
+  # (the table's 3rd column) is f[4]. A table row only — the header, its `|---|` separator and the
+  # angle-bracket SHAPE row (its path cell a `<…>` blank) are not data.
   p_rows="$(_bp_awk "$BP_AWK_CELLS"'
     /^\|/ {
       if ($0 ~ /^\|[[:space:]]*-+/) next
       nf = bp_cells($0, f)
       if (nf < 5) next
+      path = f[2]
+      gsub(/^[[:space:]]+|`/, "", path)
+      if (path ~ /^</) next
       status = f[4]
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
       gsub(/`/, "", status)
