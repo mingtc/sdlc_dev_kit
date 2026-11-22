@@ -457,3 +457,48 @@ DQEOF
   finish "check-board [j] reports a landed card claimed under a lower-case prefix, and [f0] warns on an untracked path with a space as it does on one without"
   teardown
 }
+
+# =============================================================================
+# CASE — a `\|` in a table cell stays in its cell for [p] and [j], so a Status cell that follows one is read.
+# =============================================================================
+case_check_board_reads_a_table_row_with_an_escaped_pipe_in_a_cell() {
+  cf_reset
+  make_sandbox
+  mkdir -p "$SB_WORK/dev" "$SB_WORK/requirements"
+  cat > "$SB_WORK/requirements/CORPUS.md" <<'CPEOF'
+| File | Kind | Status | Note |
+|---|---|---|---|
+| `a.md` | `file\|location` | `forward-referenced (ZZQ-991)` | escaped pipe before Status |
+| `b.md` | `file` | `forward-referenced (ZZQ-992)` | control |
+CPEOF
+  cat > "$SB_WORK/dev/downtime-queue.md" <<'DQEOF'
+| Item | Origin | Size | Why deferred | Wake condition | Status |
+|---|---|---|---|---|---|
+| **Escaped** | audit | S | — | now | open (claimed by ZZQ-993) \| extra |
+| **Control** | audit | S | — | now | open (claimed by ZZQ-994) |
+DQEOF
+  : > "$SB_WORK/progress/done/ZZQ-993-a.md"
+  : > "$SB_WORK/progress/done/ZZQ-994-b.md"
+  publish_sandbox
+  local out sec
+  out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" --full 2>&1 )"
+  sec="$(printf '%s\n' "$out" | awk '/^\[p\]/{f=1;print;next} f&&/^\[/{f=0} f')"
+  printf '%s\n' "$sec" | grep -F 'ZZQ-992' >/dev/null || cf "(p, control) a dangling forward reference was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$sec" | grep -F 'ZZQ-991' >/dev/null || cf "(p) a dangling forward reference after a cell holding \\| was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  sec="$(printf '%s\n' "$out" | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f')"
+  printf '%s\n' "$sec" | grep -F 'ZZQ-994' >/dev/null || cf "(j, control) an open row claiming a landed id was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  printf '%s\n' "$sec" | grep -F 'ZZQ-993' >/dev/null || cf "(j) an open row whose Status cell holds \\| was not reported: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-240)"
+  # The two readers of a table row agree: lib/qa-gate.sh's kit_md_row_cell and lib/board-properties.sh's bp_cells.
+  local row n a b
+  ( . "$SB_WORK/scripts/lib/refuse.sh" 2>/dev/null; . "$SB_WORK/scripts/lib/qa-gate.sh" 2>/dev/null; . "$SB_WORK/scripts/lib/board-properties.sh" 2>/dev/null
+    for row in '| a | b\|c | d |' '| `x\|y` | z |' 'a | b\|c | d' '| one | `p|q` | three |' '|  | \| | |'; do
+      for n in 1 2 3 4; do
+        a="$(kit_md_row_cell "$row" "$n")"
+        b="$(printf '%s\n' "$row" | LC_ALL=C awk "$BP_AWK_CELLS"'{ nf = bp_cells($0, f); v = f[n + 1]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); print v }' n="$n")"
+        [ "$a" = "$b" ] || echo "[$row] cell $n: kit_md_row_cell='$a' bp_cells='$b'"
+      done
+    done ) > "$SB_TMP/cells.out" 2>&1
+  [ -s "$SB_TMP/cells.out" ] && cf "(readers) kit_md_row_cell and bp_cells disagree: $(tr '\n' '|' < "$SB_TMP/cells.out" | cut -c1-300)"
+  finish "check-board [p] and [j] read a Status cell that has a \\| in it as one cell, the way the verdict-table reader does"
+  teardown
+}

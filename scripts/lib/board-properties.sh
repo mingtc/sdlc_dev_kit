@@ -59,6 +59,22 @@ _bp_reset() { KIT_BP_NHITS=0; }
 # arm is then NOT a clean one: the caller reads that file and says "did not run". awk's stderr is
 # otherwise dropped, as every caller dropped it before.
 KIT_BP_FAIL_FILE=""
+# BP_AWK_CELLS — awk source that a table-row reader prepends to its program. bp_cells(line, f) fills f[1..n]
+# like awk's -F'|' split (a leading `|` makes f[1] empty) and returns n, but a pipe written `\|` stays inside
+# its cell, as a `|`, the way lib/qa-gate.sh's kit_md_row_cell reads it.
+BP_AWK_CELLS='
+function bp_cells(line, f,    n, i, c, cur) {
+  n = 0; cur = ""
+  for (i = 1; i <= length(line); i++) {
+    c = substr(line, i, 1)
+    if (c == "\\" && substr(line, i + 1, 1) == "|") { cur = cur "|"; i++ }
+    else if (c == "|") { f[++n] = cur; cur = "" }
+    else cur = cur c
+  }
+  f[++n] = cur
+  return n
+}
+'
 _bp_awk() {
   local rc err
   { err="$(LC_ALL=C awk "$@" 2>&1 1>&3)"; rc=$?; } 3>&1
@@ -480,14 +496,18 @@ ${BASH_REMATCH[1]}"
     done
   done
 
-  # Every manifest row's Status cell. A LEADING `|` makes awk's first -F'|' field empty, so Status
-  # (the table's 3rd column) is $4. A table row only — the header and its `|---|` separator are
-  # not data.
-  p_rows="$(_bp_awk -F'|' '
+  # Every manifest row's Status cell. A LEADING `|` makes the first field empty, so Status
+  # (the table's 3rd column) is f[4]. A table row only — the header, its `|---|` separator and the
+  # angle-bracket SHAPE row (its path cell a `<…>` blank) are not data.
+  p_rows="$(_bp_awk "$BP_AWK_CELLS"'
     /^\|/ {
       if ($0 ~ /^\|[[:space:]]*-+/) next
-      if (NF < 5) next
-      status = $4
+      nf = bp_cells($0, f)
+      if (nf < 5) next
+      path = f[2]
+      gsub(/^[[:space:]]+|`/, "", path)
+      if (path ~ /^</) next
+      status = f[4]
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
       gsub(/`/, "", status)
       if (status ~ /^forward-referenced \(/) print status

@@ -5,7 +5,7 @@
      header that names them literally is rewritten by the very substitution it is explaining, and
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
-     issue. If your initializer has not wired a key, substitute it by hand before first use.
+     issue; no script refuses a card for them (the move to dev_complete only warns). If your initializer has not wired a key, substitute it by hand before first use.
      NO `blocks:` / `blocked_by:` in this frontmatter, by decision: a dependency outside the parent
      belongs on the PARENT, the unit the board dispatches; a slice that needs one is its own issue. -->
 

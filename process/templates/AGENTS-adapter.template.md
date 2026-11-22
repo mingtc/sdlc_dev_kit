@@ -5,7 +5,8 @@
      reads a differently-named instructions file instead of or alongside AGENTS.md, point that
      file at this one rather than duplicating it — a copy drifts and the copy wins arguments it
      should lose.)
-  2. Fill every <angle-bracket> blank; delete every HTML comment.
+  2. Fill every <angle-bracket> blank; delete every HTML comment. No script checks either: an
+     unfilled adapter passes every check, so read it once against this list before you commit.
   3. Keep it SHORT. The adapter's job is to route, not to restate — anything it copies out of
      process/MANUAL.md will drift, and the copy will win arguments it should lose.
   LINKS are written for this file's DESTINATION (the repository root) and resolve once copied
@@ -296,7 +297,7 @@ multiple issues in one feature area>**, and the current example of it is **<name
      by every session, and guidance addressed to the person filling the template is read by every
      agent that follows as though it were project law.
 
-     - [ ] Every <angle-bracket> blank filled, or the section deleted.
+     - [ ] Every <angle-bracket> blank filled, or the section deleted (no script checks this).
      - [ ] Every HTML comment in this file deleted — including this one. They are GUIDANCE: they
            address the author of the adapter, not its readers, and their job ends when the blank
            they explain is filled.

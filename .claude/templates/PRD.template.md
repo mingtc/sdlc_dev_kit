@@ -4,7 +4,7 @@
      header that names them literally is rewritten by the very substitution it is explaining, and
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
-     issue. If your initializer has not wired a key, substitute it by hand before first use. -->
+     issue; no script checks that you filled them. If your initializer has not wired a key, substitute it by hand before first use. -->
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — requirements/ — NOT to the directory it
      sits in: a link written for where the template sits is dead in every card. The self-test

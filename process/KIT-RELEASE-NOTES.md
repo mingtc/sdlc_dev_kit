@@ -358,6 +358,7 @@ columns and never the cards.*
 - **The rebase a stacked branch needs after its base squash-lands is in the Dev role doc, and QA reviews a branch that is only behind the trunk as it is.** `dev.md` § Handoff to QA gives `git rebase --onto <trunk> <old-base-tip> <branch>` then `git push --force-with-lease` (the `stacked-branch-squashed-base` refusal names the commit and prints the command); `qa.md` step 2 no longer asks for the trunk tip in the branch and says QA takes the Dev hat for that one rebase when no Dev seat runs.
 - **`new-bug.sh --discovered-in` accepts a slice id.** `<PREFIX>-NNN-sM` is now valid beside `<PREFIX>-NNN` (it was refused as not looking like `<PREFIX>-NNN`), so a bug found while reviewing a slice can cite the slice; `qa.md` § Bug filing and the usage text say so.
 - **The refusal for a lander that is not the trunk's copy names a route for an untracked held file.** `finish-pr.sh` and `move-issue.sh` add an `Untracked here (<files>)` line: such a file is not part of the trunk's copy, so delete it, or commit and land it through the trunk's copy, then re-run.
+- `check-board.sh` arms [p] and [j] read a table cell that holds `\|` as one cell. A `CORPUS.md` row with `\|` before its Status cell, or a downtime-queue Status cell with `\|` in it, was skipped before and is now read, so a dangling or landed claim in such a row is now reported and the report can move from clean to drift.
 
 ## [0.13.0] — 2026-11-20
 
