@@ -95,7 +95,8 @@ CODE_GLOBS=(
 # Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, same shape as CODE_GLOBS.
 # In a `case` pattern `*` already matches across `/`, so "src/*.test.js" covers a test directly
 # under src/ and any depth below it; `**` is not special, and "src/**/*.test.js" would miss
-# src/a.test.js.
+# src/a.test.js. The kit's own self-test lives under scripts/test/; name "scripts/test/*" to have
+# edits to it ablation-checked too.
 #
 # LEAVING IT EMPTY ON PURPOSE: the same `# DECLARED EMPTY — <why>` comment line, inside the
 # parens, that CODE_GLOBS documents above; and one entry left matching nothing on purpose takes
