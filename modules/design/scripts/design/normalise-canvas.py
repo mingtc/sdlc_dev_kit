@@ -24,8 +24,8 @@ import html, html.entities, json, re, sys
 from pathlib import Path
 
 # quote-aware: a `>` inside a quoted attribute value (a props value holding `Next >`) does not end the tag; the three branches start with
-# distinct characters, so a tag is read one way only
-TAG = re.compile(r'''<script\b(?=(?:"[^"]*"|'[^']*'|[^>"'])*?\btype=["']text/x-dc["'])(?:"[^"]*"|'[^']*'|[^>"'])*>''')
+# distinct characters, so a tag is read one way only, and none consumes `<`, so a `<script` never closed ends at the next `<` and the read stays linear
+TAG = re.compile(r'''<script\b(?=(?:"[^"]*"|'[^']*'|[^<>"'])*?\btype=["']text/x-dc["'])(?:"[^"]*"|'[^']*'|[^<>"'])*>''')
 ATTR = re.compile(r'''(\bdata-props=)(?:"([^"]*)"|'([^']*)')''')
 
 

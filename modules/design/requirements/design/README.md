@@ -46,6 +46,8 @@ requirements/design/tokens/<ns>.tokens.json (+ .dark, .wire)  DTCG source of tru
 | UX-id | file | title | platform | pair | states | stories | gate1 | gate2 |
 ```
 
+Each row starts with `|`; the closing `|` may be left off. A line that does not start with `|` is not a row.
+
 `stories` holds the story ids of **every** PRD that touches the screen: no row belongs to one PRD. `pair` names the phone
 or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `changes` or `approved@<sha>` (§ 6); `gate2` may also read `build` in a wireframe canvas (§ 6).
 `CANVAS.md` declares the **breakpoint** and the widths covered; a PRD covers the gap or says it is out of scope.
@@ -177,15 +179,16 @@ A canvas that is a wireframe of flow and content, kept current as part of the PR
 header: `- **Mode:** wireframe [decision: D-NN]`. Without the mode such a canvas is either frozen, to keep its approvals, or its
 approvals reset at every sync until they mean nothing. The decision is an entry of `requirements/DECISIONS.md` whose Ruling is not
 WITHDRAWN (the check a waiver gets); without one the mode is not in effect and the link check reports `WAIVER`. No line, or `none`, is the
-default model above; any other value is a `REGISTRY` finding. The mode is per canvas.
+default model above; any other value is a `REGISTRY` finding. The mode is per canvas: a rough board beside a finished one needs a second canvas.
 
 - **Gate 1 is structure and flow**: the screens, their states, every element (its ids, states and links among its attributes), and the flow. It is approved per
   **round**. A round is one Designer take-in commit; the human approves once for the rows that read `STALE-APPROVAL` or `open` after it,
   and the Designer writes that commit's sha as `approved@<sha>` into those rows only. A row whose structure did not move stays
   approved at its older sha.
 - **Structure** is the ordered start and end tags of the artboard and of each screen it imports, each start tag with its attributes
-  except `class`, `style`, `data-props` and `data-stories`; text is not read. An element added, removed, moved or renamed, a
-  `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy), classes, styles, a sheet, a
+  except `class`, `style`, `data-props` and `data-stories`, and with the values of `placeholder`, `aria-label`, `alt` and `title` left out (the
+  attribute counts, its wording does not); text is not read. An element added, removed, moved or renamed, a
+  `data-state` and a link are structure: the approval goes stale. Text and numbers (renumbering, copy, including the wording of those four attributes), classes, styles, a sheet, a
   token, an image, the component script and its props are content: the approval stands, and the link check lists the row on one
   `CONTENT-ONLY` line. An attribute not named above counts as structure. Script or props logic that changes which branch shows is
   the build's, not gate 1's; a board whose elements its component script builds has little structure to compare, so its gate 1 is in effect the build's.

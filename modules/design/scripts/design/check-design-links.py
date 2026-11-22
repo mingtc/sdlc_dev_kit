@@ -33,8 +33,8 @@ A marker inside a code span or a fenced block is prose and is ignored.
 
 Mode. A canvas whose Mode line says `wireframe` and cites a [decision: D-NN] the register confirms (not WITHDRAWN) is a wireframe
 canvas: its gate 1 approvals are judged by STRUCTURE, not bytes (the ordered start and end tags of the artboard and of the screens it
-imports, each start tag with its attributes except class, style, data-props and data-stories; text, numbers, sheets, scripts,
-images and tokens are not compared), so a row whose bytes moved and whose structure did not stays approved and is listed on one
+imports, each start tag with its attributes except class, style, data-props and data-stories, and with the values of placeholder,
+aria-label, alt and title left out; text, numbers, sheets, scripts, images and tokens are not compared), so a row whose bytes moved and whose structure did not stays approved and is listed on one
 CONTENT-ONLY line; its gate 2 is not judged and may read `build`; and an UNCOVERED or STALE-PENDING finding that reaches only
 wireframe rows is shown as UNCOVERED-WIRE or STALE-PENDING-WIRE and not counted. Without the ruling the mode is not in effect (WAIVER).
 A Mode value other than none or wireframe is a REGISTRY finding and the canvas is read by the default model.
@@ -73,7 +73,7 @@ Reports (each line starts with its class)
                 drawn is no finding, nor is any when git cannot answer; a superseded row may lose its file); each says its Next. "Exists" follows the filesystem: a registry path that differs from a
                 tracked file only in case resolves on a case-insensitive one, so ARTBOARD stays silent there and STALE-APPROVAL
                 (which reads git) still reports a missing approved file
-  FENCE         a PRD with a code fence never closed: everything after it is prose to this check
+  FENCE         a PRD with a code fence never closed, or whose list item or quote ended before it closed: everything after it is prose to this check
   LITERAL-COLOUR an artboard holding a colour literal (#hex, rgb(), hsl(), oklch() ...) in a style block, a style attribute, a
                 presentation attribute, or in a local stylesheet or imported artboard it loads (comments, strings and url() left out),
                 except a custom property whose name is a token's (where a screen, a :root rule or a token sheet holds a token's value), unless the screen's registry row carries a
@@ -148,9 +148,14 @@ MODES = ('', 'none', 'wireframe')
 # The attributes a wireframe canvas's gate 1 does not compare: presentation and component props. Every other attribute counts, so an
 # attribute nobody listed here moves the structure and sends the row back to review.
 STRUCT_IGNORED = ('class', 'style', 'data-props', 'data-stories')
+# The attributes that carry copy: their value is read as text (a wording edit leaves the approval standing), their presence counts as
+# structure (one added or removed moves it).
+STRUCT_COPY = ('placeholder', 'aria-label', 'alt', 'title')
 # quote-aware: a `>` inside a quoted attribute value does not end the tag, and a quote opens a value only after `=` (an apostrophe in an
-# unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it
-TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|[^<>])*)>')
+# unquoted value or a stray quote in a name opens nothing); structure() and tags_of() both read tags with it. A `=` is a bare character only
+# when no complete quoted value follows it, so each attribute is read one way and a start tag never closed before the next `<` is rejected in
+# linear time, not exponential.
+TAG_ANY = re.compile(r'<\s*(/?)\s*([A-Za-z][\w:-]*)((?:=\s*"[^"]*"|=\s*\'[^\']*\'|=(?!\s*(?:"[^"]*"|\'[^\']*\'))|[^<>=])*)>')
 TAG_OPEN = re.compile(r'<(?=\s*/?\s*[A-Za-z])')
 # the root's data-stories with the whitespace before it, as TAG_ANY reads attributes: any whitespace, either quote
 META_B = re.compile(rb'(?<!\s)\s+data-stories=(?:"[^"]*"|\'[^\']*\')')
@@ -396,8 +401,8 @@ def tags_of(markup):
 
 def structure(markup):
     """The structure a wireframe canvas's gate 1 approves: the ordered start and end tags of markup (comments and script bodies left
-    out), each start tag with its attributes except STRUCT_IGNORED, in sorted order. Text is dropped, so a change of wording, a number
-    or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
+    out), each start tag with its attributes except STRUCT_IGNORED and, for STRUCT_COPY, without the value, in sorted order. Text is dropped,
+    so a change of wording (in the text or in a copy attribute), a number or a style does not move it; an added, removed, moved or renamed element, a state mark and a link do."""
     h = SCRIPT_BODY.sub(r'\1', HTML_COMMENT.sub(' ', markup))
     out, end = [], 0
     for o in TAG_OPEN.finditer(h):
@@ -412,7 +417,7 @@ def structure(markup):
             out.append(('/', m.group(2).lower()))
         else:
             at = {n.lower(): htmllib.unescape(a or b or c or '') for n, a, b, c in ATTR.findall(m.group(3))}
-            out.append((m.group(2).lower(), tuple(sorted((k, v) for k, v in at.items() if k not in STRUCT_IGNORED))))
+            out.append((m.group(2).lower(), tuple(sorted((k, '' if k in STRUCT_COPY else v) for k, v in at.items() if k not in STRUCT_IGNORED))))
     return tuple(out)
 
 
@@ -1034,8 +1039,11 @@ def loaded_stale(root, sha, rel, then, now):
 
 
 def split_row(ln):
-    cells = re.split(r'(?<!\\)\|', ln.strip())
-    return [c.strip() for c in cells[1:-1]] if ln.strip().startswith('|') else []
+    s = ln.strip()
+    if not s.startswith('|'):
+        return []
+    cells = re.split(r'(?<!\\)\|', s)
+    return [c.strip() for c in (cells[1:-1] if re.search(r'(?<!\\)\|$', s) else cells[1:])]   # the closing pipe is optional
 
 
 def head_name(c):
@@ -1312,7 +1320,7 @@ def design_value(text):
         if not ln.startswith('design:'):
             continue
         out['waivers'] = WAIVER_MARK.findall(ln)
-        raw = re.sub(r'\s#\s.*$', '', ln[len('design:'):]).strip()
+        raw = re.sub(r'\s#.*$', '', ln[len('design:'):]).strip()
         out['raw'] = raw
         if raw == 'none':
             out['kind'] = 'none'
@@ -1484,7 +1492,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         rel = p.relative_to(root)
         fence = unclosed_fence(p)
         if fence:
-            out.append(line('FENCE', f'{rel}:{fence}: a code fence is never closed; everything after it is read as prose'))
+            out.append(line('FENCE', f'{rel}:{fence}: the code fence opened on this line is never closed (a list item or quote that ends before the closing line leaves it open too); everything after it is read as prose. Next: close the fence, or indent every line of it to the item\'s text'))
         for story, n, ref in sc['markers']:
             check_ref(f'{rel}:{n}', ref)
         pending_story = {s for s, v in sc['stories'].items() if any(a <= v['head'] <= b for _, a, b in sc['pending'])}
@@ -1545,15 +1553,17 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         art = r['canvas'] / PROJECT_SUBDIR / r['file']
         if art.is_file():
             html = read(art)
-            mu, ms = re.search(r'data-ux="([^"]*)"', html), re.search(r'data-stories=(?:"([^"]*)"|\'([^\']*)\')', html)
-            if not mu:
+            # the root is the first start tag that carries either attribute (comments and script bodies left out, either quote)
+            rootat = next((a for _, a in tags_of(html) if 'data-ux' in a or 'data-stories' in a), {})
+            mu, ms = rootat.get('data-ux'), rootat.get('data-stories')
+            if mu is None:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-ux (registry says {r['ux']})"))
-            elif mu.group(1) != r['ux']:
-                out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-ux={mu.group(1)}, registry says {r['ux']}"))
-            if not ms:
+            elif mu != r['ux']:
+                out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-ux={mu}, registry says {r['ux']}"))
+            if ms is None:
                 out.append(line('ARTBOARD', f"{art.relative_to(root)}: no data-stories"))
             else:
-                have = (ms.group(1) if ms.group(1) is not None else ms.group(2)).split()
+                have = ms.split()
                 if set(have) != set(r['stories']):
                     out.append(line('ARTBOARD', f"{art.relative_to(root)}: data-stories {sorted(have)} != registry {sorted(r['stories'])}"))
             loaded, unread = loaded_files(root, art, html)

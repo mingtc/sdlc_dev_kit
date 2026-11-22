@@ -5,6 +5,25 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.3]
+
+### Changed
+
+- **A comment sent to Claude is the go-ahead for the change it asks.** The Designer pulls, edits, publishes, reads back, replies and resolves without asking in the terminal, and asks first only when the change would send an approved row back to review, goes beyond the comment or touches a board it does not name, contradicts a recorded decision or a pinned state, deletes a board or replaces an edit not yet pulled, or could mean two designs. A pull no sent comment started still ends at the go-ahead with no human present.
+- **A comment sent to Claude is answered only while a session watches the canvas.** With none the thread stays open and awaiting reply, a watch armed later does not replay it, and the page gives no notice; the Designer now reads the threads awaiting reply on every pull and after every publish and answers them (README, role § Comments, `/design-publish` step 7).
+- **The mode is per canvas, and the README now says what that means for a mixed need:** a rough board beside a finished one is a second canvas. Nothing in the checker changed.
+- **In a wireframe canvas an edit to the wording of `placeholder`, `aria-label`, `alt` or `title` no longer sends an approved row back to review:** the link check lists the row on a `CONTENT-ONLY` line, as it does for text. An attribute added or removed, and every other attribute, still counts as structure.
+- **The role and `/design-publish` now say how a canvas is started on the built-in `Artifact` tool** (`quickstart` with intent `design`, a `publish` with the type's `type_url` and a `title`, then the files), that `read` of `artifact-type/dc-runtime.js` saves the runtime `render.py` needs, and what `read` with `paths` and `list` cost on that surface.
+- **`/design-pull`'s diff step tells the Designer to state a moved element's old and new parent from the two files**, and to say when it crossed a `data-state` boundary (an editor's drag can paste an element outside its state's container).
+- **`/design-pull`'s link check before the go-ahead now reads approvals against the pulled files**, so a `STALE-APPROVAL` or `CONTENT-ONLY` line shows before you say go, not after the take-in. The check checks out nothing and moves no branch or index.
+- **The role now says elevation tokens are left out of `tokens.css`** (the converter writes colours, spacing and radius; an elevation is a level in dp), so a screen cannot read one as `var()`; the converter already named each on stderr. Token names are unchanged.
+
+### Fixed
+
+- **The link check no longer hangs on a start tag that is never closed and carries many quoted attributes** (about 18 or more; the gate and the `in_progress/` and `dev_complete/` move check waited with no output); the tag is rejected at once and the next tag is read. `normalise-canvas.py` no longer reads past an unclosed `<script` into the next tag.
+- **The link check reads three things as the formats allow, so three false findings stop:** an artboard root whose `data-ux` and `data-stories` are single-quoted, or that follows a comment quoting other ones (a false `ARTBOARD` line); a registry row with no closing `|` (a false `GATE-CELL`); and a card's `design: none #comment` with no space after the `#` (a false `DESIGN-KEY`, and `uncompared` in the pin-drift report). A registry table with no leading `|` is still not read.
+- **The link check's `FENCE` line now says a list item or quote that ends before the closing line leaves a fence open, and ends with a `Next:`** (close the fence, or indent every line of it to the item's text).
+
 ## [0.6.2]
 
 ### Action required

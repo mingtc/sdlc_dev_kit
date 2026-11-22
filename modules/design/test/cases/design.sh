@@ -782,6 +782,7 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   _dm_has "$out" "$SB_PREFIX-903-c.md: pin @deadbee of UX-001#default is not a commit" || cf "(d) a pin that is not a commit, on a card past todo/, is not an UNRESOLVED finding under --strict"
   _dm_has "$out" "$SB_PREFIX-904-c.md" && cf "(d) the check read a declined card, whose pin is nobody's to keep"
   _dm_has "$out" "FENCE" && _dm_has "$out" "never closed" || cf "(d) no FENCE line for a PRD whose code fence is never closed"
+  _dm_line_has "$out" "FENCE" "Next: close the fence" || cf "(d) the FENCE line names no next action"
   _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/C.dc.html: #ff0000" || cf "(d) no LITERAL-COLOUR line for a colour literal in a style outside the :root block"
   _dm_has "$out" "LITERAL-COLOUR requirements/design/app/project/A.dc.html" && cf "(d) a colour literal inside a :root block was reported"
   # the approval of UX-001 was recorded against the commit that took in the artboard, which has not changed since
@@ -1437,7 +1438,7 @@ case_switching_a_canvas_mode_rejudges_its_approvals_and_rewrites_none() {
 # =============================================================================
 case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
   cf_reset
-  local L="the design module's README names the Mode line and every attribute the checker's STRUCT_IGNORED leaves out of a wireframe canvas's structure, and the Designer role, the QA fragment and the canvas template name the wireframe mode"
+  local L="the design module's README names the Mode line and every attribute the checker's STRUCT_IGNORED leaves out of a wireframe canvas's structure, and says the mode is per canvas (a rough board beside a finished one needs a second canvas), and the Designer role, the QA fragment and the canvas template name the wireframe mode"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   local M="$REAL_REPO_ROOT/modules/design" ign a f text
   ign="$(sed -n "s/^STRUCT_IGNORED = (\(.*\))\$/\1/p" "$M/scripts/design/check-design-links.py" | tr -d "' ")"
@@ -1445,6 +1446,7 @@ case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds() {
   text="$(cat "$M/requirements/design/README.md")"
   _dm_has "$text" "### Wireframe mode" || cf "(a) the README has no Wireframe mode section"
   _dm_has "$text" '`- **Mode:** wireframe [decision: D-NN]`' || cf "(a) the README does not give the Mode line"
+  _dm_has "$(printf '%s' "$text" | tr '\n' ' ' | tr -s ' ')" "The mode is per canvas: a rough board beside a finished one needs a second canvas." || cf "(e) the README does not say the mode is per canvas and that a mixed need uses a second canvas"
   local IFS=,
   for a in $ign; do
     _dm_has "$text" "\`$a\`" || cf "(b) the README does not name \`$a\`, which the checker leaves out of structure"
@@ -5795,6 +5797,416 @@ case_a_canvas_copied_from_the_templates_and_not_yet_filled_in_reads_clean_under_
   _dm_py scripts/design/check-design-links.py --strict
   { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(a) the unfilled templates are a finding under --strict (exit $_dm_rc): $(_dm_brief 400)"
   _dm_has "$_dm_out" "shop/CANVAS.md" && cf "(a) a line names the unfilled template canvas: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A COMMENT SENT TO CLAUDE IS THE GO-AHEAD FOR THE CHANGE IT ASKS, EXCEPT IN THE FIVE CASES THE ROLE LISTS.
+#   The expected answer is fixed here, in the placed files: the role's § Comments names each of the five asks; rule 11 stops a pull at the
+#   go-ahead only when no sent comment started it; the pull skill's step 6 carries the same exception beside its "go-ahead" and its
+#   no-human path; the README says the comment is the go-ahead. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_a_sent_comment_is_the_go_ahead_unless_one_of_five_asks_applies() {
+  cf_reset
+  local L="the placed role's § Comments says a sent comment is the go-ahead and names the five asks (an approved row back to review, beyond the comment's words, a recorded decision or pinned state, a deleted board or unpulled edit, two designs); rule 11 stops at the go-ahead only for a pull no sent comment started; design-pull step 6 carries the exception; the README says it"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" role pull sect tok r11
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(cat "$SB_WORK/.claude/roles/designer.md")"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  sect="$(printf '%s\n' "$role" | awk '/^### Comments$/ { f = 1; next } /^##/ { f = 0 } f' | tr '\n' ' ' | tr -s ' ')"
+  for tok in 'is the go-ahead for the change it asks' 'approved row back' 'beyond the comment' 'pinned state' 'replaces an edit not yet pulled' 'two designs' 'which of the five applies'; do
+    _dm_has "$sect" "$tok" || cf "(a) the role's § Comments does not carry '$tok'"
+  done
+  r11="$(printf '%s\n' "$role" | awk '/^11[.] / { f = 1 } f && /^$/ { exit } f { print } f && /^## / { exit }' | tr '\n' ' ' | tr -s ' ')"
+  _dm_has "$r11" "no sent comment started" || cf "(b) rule 11 does not stop a pull at the go-ahead only when no sent comment started it: $r11"
+  _dm_has "$r11" "five asks" || cf "(b) rule 11 names no exception for the five asks"
+  for tok in 'sent comment' 'five asks' 'go-ahead' 'no human present'; do
+    _dm_has "$pull" "$tok" || cf "(c) design-pull does not carry '$tok'"
+  done
+  _dm_has "$(tr '\n' ' ' <"$m/README.md" | tr -s ' ')" "go-ahead for the change it asks" || cf "(d) the module README does not say a sent comment is the go-ahead for the change it asks"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A COMMENT SENT TO CLAUDE IS ANSWERED ONLY WHILE A SESSION WATCHES, AND THE DOCUMENTS SAY SO AND TELL THE DESIGNER TO READ THE WAITING THREADS.
+#   The expected answer is fixed here, in the placed files: the README says a sent comment waits with no watcher, is not replayed by a watch
+#   armed later, and that the page gives no notice; the role carries the act (read the threads awaiting reply on every pull and after every
+#   publish); design-publish's step 7 names that read. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_a_comment_sent_while_no_session_watches_waits_and_the_designer_reads_the_waiting_threads() {
+  cf_reset
+  local L="the module README says a sent comment is answered only while a session watches, is not replayed by a watch armed later and shows no notice on the page; the placed role says to read the threads awaiting reply on every pull and after every publish; design-publish step 7 and design-pull step 7 name that read"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" rdme role pub pull tok
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  rdme="$(tr '\n' ' ' <"$m/README.md" | tr -s ' ')"
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  pub="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-publish/SKILL.md" | tr -s ' ')"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  for tok in 'answered only while a session watches the canvas' 'does not replay it' 'awaiting reply' 'does not say why'; do
+    _dm_has "$rdme" "$tok" || cf "(a) the module README does not carry '$tok'"
+  done
+  for tok in 'only while a session watches the canvas' 'a watch armed later does not replay it' 'every pull and after every publish'; do
+    _dm_has "$role" "$tok" || cf "(b) the placed role does not carry '$tok'"
+  done
+  _dm_has "$pub" "does not replay earlier comments" || cf "(c) design-publish does not say a publish's watch does not replay earlier comments"
+  _dm_has "$pub" "threads awaiting reply" || cf "(c) design-publish does not tell the Designer to read the threads awaiting reply after a publish"
+  _dm_has "$pull" "after each publish" || cf "(d) design-pull's comments step does not say to read threads after each publish"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — IN A WIREFRAME CANVAS THE WORDING OF PLACEHOLDER, ARIA-LABEL, ALT AND TITLE IS CONTENT, THEIR PRESENCE IS STRUCTURE.
+#   Operand: scripts/design/check-design-links.py --strict over the wireframe fixture, its approved screen given one input and one image that carry
+#   the four attributes, approved again, then one edit at a time (restored between). Each attribute's value edited leaves the approval good on a
+#   CONTENT-ONLY line; one attribute removed, one added and an id renamed read STALE-APPROVAL saying structure. The README names each attribute the
+#   checker's STRUCT_COPY holds.
+# =============================================================================
+case_a_wireframe_canvas_reads_the_wording_of_copy_attributes_as_content_and_their_presence_as_structure() {
+  cf_reset
+  local L="in a wireframe canvas check-design-links.py --strict keeps UX-001's gate 1 approval through an edit of the value of placeholder, aria-label, alt or title (a CONTENT-ONLY line, exit 0), and reads a copy attribute removed, one added and an id renamed as STALE-APPROVAL saying structure; the README names every attribute STRUCT_COPY holds"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" M="$REAL_REPO_ROOT/modules/design" e name expr cp a text
+  _dm_edit "$D/A.dc.html" 's@</h1>@</h1><input id="ux-001-q" placeholder="Search" aria-label="Find" title="Tip"><img id="ux-001-img" alt="Logo">@'
+  _dm_commit "the screen gains an input and an image that carry copy attributes"
+  _dm_edit "$SB_WORK/requirements/design/app/CANVAS.md" "s/approved@$_DM_W/approved@${_DM_SHA}/"
+  _dm_commit "approve the screen as it is"; _DM_V="$_DM_SHA"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "CONTENT-ONLY"; } || cf "(a) the approved screen is not clean before any edit (exit $_dm_rc): $(_dm_brief)"
+  for e in \
+    'placeholder::s@placeholder="Search"@placeholder="Look something up"@' \
+    'aria-label::s@aria-label="Find"@aria-label="Locate"@' \
+    'alt::s@alt="Logo"@alt="Our mark"@' \
+    'title::s@title="Tip"@title="A hint"@'; do
+    name="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/A.dc.html" "$expr"; _dm_commit "wording: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001"; } || cf "(b) a change of the wording of $name does not leave the approval good with a CONTENT-ONLY line (exit $_dm_rc): $(_dm_brief)"
+    _dm_has "$_dm_out" "STALE-APPROVAL" && cf "(b) a change of the wording of $name reads STALE-APPROVAL in a wireframe canvas"
+    _dm_wire_restore
+  done
+  for e in \
+    'a removed aria-label::s@ aria-label="Find"@@' \
+    'an added alt::s@<input id="ux-001-q"@<input alt="Box" id="ux-001-q"@' \
+    'a renamed id::s@ux-001-q@ux-001-search@'; do
+    name="${e%%::*}"; expr="${e#*::}"
+    _dm_edit "$D/A.dc.html" "$expr"; _dm_commit "structure: $name"
+    _dm_py scripts/design/check-design-links.py --strict
+    { [ "$_dm_rc" -eq 1 ] && _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_has "$_dm_out" "structure"; } || cf "(c) $name does not read STALE-APPROVAL saying structure (exit $_dm_rc): $(_dm_brief)"
+    _dm_wire_restore
+  done
+  cp="$(sed -n "s/^STRUCT_COPY = (\(.*\))\$/\1/p" "$M/scripts/design/check-design-links.py" | tr -d "' ")"
+  [ -n "$cp" ] || cf "(prereq) the checker has no STRUCT_COPY list this case can read"
+  text="$(cat "$M/requirements/design/README.md")"
+  local IFS=,
+  for a in $cp; do
+    _dm_has "$text" "\`$a\`" || cf "(d) the README does not name \`$a\`, whose value the checker leaves out of structure"
+  done
+  IFS=$' \t\n'
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE FIRST PUBLISH AND THE ROLE'S CREATING A CANVAS ARE WRITTEN FOR BOTH SURFACES, AND THE RUNTIME ROUTE ON B IS NOT CALLED UNTRIED.
+#   The expected answer is fixed here, in the placed files: the role's Creating a canvas and design-publish § 1 carry surface B's start (the
+#   `quickstart` action with intent design, then a publish with `type_url` and a `title`); the role's runtime paragraph and render.py's --runtime
+#   text carry the `read` of `artifact-type/dc-runtime.js` and no longer say "not tried here"; design-pull's On B note carries the transcript cost
+#   of a `read` with `paths` and the cut sha of `list`.
+# =============================================================================
+case_the_first_publish_and_creating_a_canvas_name_surface_b_s_start_and_its_runtime_route() {
+  cf_reset
+  local L="the placed role's Creating a canvas and design-publish § 1 name surface B's start (quickstart with intent design, a publish with type_url and a title), the role and render.py carry the runtime read on B and not 'not tried here', and design-pull's On B note carries the transcript cost of read with paths and the cut sha of list"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design" role pub pull rp tok sect
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  pub="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-publish/SKILL.md" | tr -s ' ')"
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  rp="$(tr '\n' ' ' <"$m/scripts/design/render.py" | tr -s ' ')"
+  sect="$(awk '/^### Creating a canvas$/ { f = 1; next } /^###? / { f = 0 } f' "$SB_WORK/.claude/roles/designer.md" | tr '\n' ' ' | tr -s ' ')"
+  for tok in 'quickstart' 'intent: "design"' 'type_url' 'title' 'file_path'; do
+    _dm_has "$sect" "$tok" || cf "(a) the role's Creating a canvas does not carry '$tok'"
+  done
+  for tok in 'quickstart' 'intent: "design"' 'type_url' 'title' 'no files'; do
+    _dm_has "$pub" "$tok" || cf "(b) design-publish does not carry '$tok'"
+  done
+  for tok in 'artifact-type/dc-runtime.js' 'seen 2026-11'; do
+    _dm_has "$role" "$tok" || cf "(c) the placed role does not carry '$tok'"
+  done
+  _dm_has "$role" "not tried here" && cf "(c) the placed role still calls the runtime read on surface B not tried"
+  _dm_has "$rp" "not tried here" && cf "(c) render.py still calls the runtime read on surface B not tried"
+  _dm_has "$rp" "artifact-type/dc-runtime.js" || cf "(c) render.py's --runtime text does not name the runtime read on surface B"
+  for tok in 'every file'"'"'s text into the transcript' 'cut to a prefix'; do
+    _dm_has "$pull" "$tok" || cf "(d) design-pull's On B note does not carry '$tok'"
+  done
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL SKILL TELLS THE DESIGNER TO STATE A MOVED ELEMENT'S OLD AND NEW PARENT FROM THE TWO FILES AND SAY WHEN IT CROSSED A STATE BOUNDARY.
+#   The expected answer is fixed here, in the placed skill's diff step: the three phrases. Prose: the attended run is where behaviour is measured.
+# =============================================================================
+case_the_pull_skill_names_a_moved_elements_old_and_new_parent_and_a_state_boundary() {
+  cf_reset
+  local L="the placed design-pull skill's diff step says to state a moved element's old and new parent from the two files and to say when it crossed a data-state boundary"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local pull tok
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  pull="$(tr '\n' ' ' <"$SB_WORK/.claude/skills/design-pull/SKILL.md" | tr -s ' ')"
+  for tok in 'old and new parent from the two files' 'crossed a `data-state` boundary'; do
+    _dm_has "$pull" "$tok" || cf "(a) design-pull does not carry '$tok'"
+  done
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PULL SKILL'S CHECK, RUN BEFORE THE GO-AHEAD, READS AN APPROVAL AGAINST THE PULLED FILES AND LEAVES THE REPOSITORY ALONE.
+#   Operand: the skill's own `check` block, run in a wireframe canvas whose UX-001 gate 1 is approved, over a pull laid on project/ uncommitted, in the
+#   order of the real pull. The expected answers are fixed here: clean before any edit; an edit of text names UX-001 on a CONTENT-ONLY line; a reorder
+#   and a deleted board name it on a STALE-APPROVAL line (saying structure, and missing); the block moves no branch, index entry or stash and leaves
+#   only the pulled file changed; and once the pull is committed the plain check prints the same STALE-APPROVAL line the block printed before.
+# =============================================================================
+case_the_pull_skills_check_reads_an_approval_against_the_pulled_tree_before_the_go_ahead() {
+  cf_reset
+  local L="the design-pull skill's check block, over a pull laid uncommitted on a wireframe canvas whose UX-001 is approved, is clean before an edit, prints CONTENT-ONLY for a text edit and STALE-APPROVAL for a reorder and for a deleted board, moves no branch, index entry or stash, and prints the line the plain check prints once the pull is committed"
+  _dm_wire_guards "$L" || return
+  _dm_wire_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app/project" sk="$SB_WORK/.claude/skills/design-pull/SKILL.md" head0 stale0 stale1 st
+  chk() { _dm_sh "$(_dm_fence "$sk" check | sed 's|<canvas>|app|g')"; }
+  [ -n "$(_dm_fence "$sk" check)" ] || cf "(prereq) design-pull has no fenced \`\`\`sh check block"
+  chk
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "CONTENT-ONLY" && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(a) the check block is not clean before any edit (exit $_dm_rc): $(_dm_brief)"
+  # (b) a text edit, uncommitted
+  _dm_edit "$D/A.dc.html" 's@>List<@>Lists, now 3.<@'
+  chk
+  { _dm_line_has "$_dm_out" "CONTENT-ONLY" "UX-001" && ! _dm_has "$_dm_out" "STALE-APPROVAL"; } || cf "(b) an uncommitted text edit does not print a CONTENT-ONLY line for UX-001 (exit $_dm_rc): $(_dm_brief)"
+  git -C "$SB_WORK" checkout -q -- requirements
+  # (c) a reorder, uncommitted
+  _dm_edit "$D/A.dc.html" 's@</b></div><i id="ux-001-i1">y</i>@</b><i id="ux-001-i1">y</i></div>@'
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  chk
+  { _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001 gate1" && _dm_has "$_dm_out" "structure"; } || cf "(c) an uncommitted reorder does not print STALE-APPROVAL saying structure for UX-001 (exit $_dm_rc): $(_dm_brief)"
+  stale0="$(printf '%s\n' "$_dm_out" | awk '/^STALE-APPROVAL/')"
+  # (d) the block leaves the repository alone: HEAD, the index, the stash, and the work tree but for the pulled file
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(d) the check block moved HEAD"
+  git -C "$SB_WORK" diff --cached --quiet || cf "(d) the check block staged something"
+  [ -z "$(git -C "$SB_WORK" stash list)" ] || cf "(d) the check block made a stash"
+  st="$(git -C "$SB_WORK" status --porcelain)"
+  [ "$st" = " M requirements/design/app/project/A.dc.html" ] || cf "(d) the work tree holds more than the pulled file after the check block: $(printf '%s' "$st" | tr '\n' '|')"
+  # (e) the pull committed: the plain check prints the same STALE-APPROVAL line
+  _dm_commit "the pull, committed"
+  _dm_py scripts/design/check-design-links.py
+  stale1="$(printf '%s\n' "$_dm_out" | awk '/^STALE-APPROVAL/')"
+  { [ -n "$stale0" ] && [ "$stale0" = "$stale1" ]; } || cf "(e) the check block before the take-in and the plain check after it print different STALE-APPROVAL lines: before [$stale0] after [$stale1]"
+  # (f) a board the pull deletes, uncommitted
+  git -C "$SB_WORK" checkout -q "$_DM_V" -- requirements
+  rm "$D/A.dc.html"
+  chk
+  { _dm_line_has "$_dm_out" "STALE-APPROVAL" "UX-001" && _dm_has "$_dm_out" "is missing at"; } || cf "(f) an uncommitted deletion of the approved board does not print STALE-APPROVAL saying it is missing (exit $_dm_rc): $(_dm_brief)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE ROLE SAYS ELEVATION TOKENS ARE LEFT OUT OF tokens.css, AND THE CONVERTER DOES LEAVE THEM OUT AND NAMES THEM.
+#   Operand: the placed role's § Tokens text, and dtcg-convert.py run over a token file holding a colour, a spacing step and an elevation level.
+#   The expected answer is fixed here: tokens.css holds the colour and the spacing and no elevation line; stderr names the elevation token.
+# =============================================================================
+case_the_role_says_elevation_is_left_out_of_tokens_css_and_the_converter_does_so() {
+  cf_reset
+  local L="the placed role says elevation tokens are left out of tokens.css and why, and dtcg-convert.py over a colour, a spacing step and an elevation level writes the first two to tokens.css and names the elevation token on stderr"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design" role css err
+  _md_sandbox
+  _md_mod enable design
+  [ "$_md_rc" -eq 0 ] || { cf "enable exited $_md_rc: $_md_out"; finish "$L"; teardown; return; }
+  role="$(tr '\n' ' ' <"$SB_WORK/.claude/roles/designer.md" | tr -s ' ')"
+  _dm_has "$role" "left out of \`tokens.css\`" || cf "(a) the placed role does not say elevation tokens are left out of tokens.css"
+  _dm_has "$role" "a level in dp, not a shadow value" || cf "(a) the placed role does not say why elevation is left out"
+  mkdir -p "$SB_TMP/t"
+  printf '{"color":{"primary":{"$type":"color","$value":"#485d92"}},"spacing":{"space-16":{"$type":"dimension","$value":"16px"}},"elevation":{"level1":{"$type":"dimension","$value":"1dp"}}}\n' > "$SB_TMP/t/x.tokens.json"
+  _dm_rc=0; err="$( cd "$SB_TMP" && python3 -I "$m/dtcg-convert.py" t --out out 2>&1 >/dev/null )" || _dm_rc=$?
+  css="$(cat "$SB_TMP/out/tokens.css" 2>/dev/null)"
+  _dm_has "$css" "--color-primary" || cf "(b) tokens.css holds no colour: $css"
+  _dm_has "$css" "--spacing-space-16" || cf "(b) tokens.css holds no spacing step: $css"
+  _dm_has "$css" "elevation" && cf "(b) tokens.css holds an elevation line: $css"
+  _dm_has "$err" "elevation.level1" || cf "(b) the converter does not name the elevation token on stderr: $err"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A START TAG NEVER CLOSED, WITH MANY QUOTED ATTRIBUTES, IS READ IN BOUNDED TIME BY THE LINK CHECK'S TAG READER AND THE NORMALISER'S.
+#   Operand: check-design-links.py's TAG_ANY and normalise-canvas.py's TAG, each run in a child python with a 20 s limit (macOS has no timeout(1), and the
+#   exponential read would not end). The expected answers are fixed here: 30 quoted attributes and no `>` before the next `<` match nothing in time and the
+#   next tag is read; 9000 `<script ` and no `>` match nothing in time; a fixed set of tags reads the text given beside it; a `<script` never closed ends at
+#   the next `<`, so the second, well-formed script tag is the one read.
+# =============================================================================
+case_a_start_tag_never_closed_with_many_quoted_attributes_is_read_in_bounded_time() {
+  cf_reset
+  local L="check-design-links.py's TAG_ANY reads '<div ' + 30 quoted attributes + ' <p>' in under 20 s and finds the <p> tag, reads a fixed set of tags (a quoted >, an apostrophe in an unquoted value, a bare attribute, a closing tag, a spaced =, an unclosed quote, ==, a quoted > before a < ) as written, and normalise-canvas.py's TAG reads 9000 unclosed '<script ' in under 20 s and a well-formed text/x-dc tag after an unclosed one"
+  if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
+  _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers need it"; return; }
+  local m="$REAL_REPO_ROOT/modules/design/scripts/design"
+  _md_sandbox
+  mkdir -p "$SB_TMP/p955"
+  cat > "$SB_TMP/p955/drive.py" <<'PYEOF'
+import subprocess, sys
+M = sys.argv[1]
+CHILD = r'''
+import importlib.util, sys
+def load(path):
+    spec = importlib.util.spec_from_file_location("m", path)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
+links = load(sys.argv[1] + "/check-design-links.py"); norm = load(sys.argv[1] + "/normalise-canvas.py")
+row = sys.argv[2]
+if row == "attrs":
+    m = links.TAG_ANY.search("<div " + " ".join('a%d="x"' % i for i in range(30)) + " <p>")
+    print(m.group(0) if m else "None")
+elif row == "scripts":
+    m = norm.TAG.search("<script " * 9000 + "x" * 50000)
+    print(m.group(0) if m else "None")
+elif row == "second":
+    s = '<script type="x-dc"<script type="text/x-dc" data-p=\'{"a":"<b>"}\'>X</script>'
+    print("|".join(m.group(0) for m in norm.TAG.finditer(s)))
+else:
+    m = links.TAG_ANY.search(row)
+    print(m.group(0) if m else "None")
+'''
+def run(row):
+    try:
+        r = subprocess.run([sys.executable, "-I", "-c", CHILD, M, row], capture_output=True, text=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT"
+    return r.stdout.rstrip("\n") if r.returncode == 0 else "ERROR " + r.stderr.strip()[-200:]
+def check(tag, row, want):
+    got = run(row)
+    print("%s\t%s\t%s" % ("ok" if got == want else "BAD", tag, "" if got == want else "got [%s] want [%s]" % (got[:120], want)))
+check("attrs", "attrs", "<p>")
+check("scripts", "scripts", "None")
+check("second", "second", '<script type="text/x-dc" data-p=\'{"a":"<b>"}\'>')
+for s, w in [
+    ('<a title="x>y" href="z">t', '<a title="x>y" href="z">'),
+    ("<a b=it's c=d>", "<a b=it's c=d>"),
+    ("<input disabled value=1>", "<input disabled value=1>"),
+    ("</div >", "</div >"),
+    ('<a b = "x" c = \'y\'>', '<a b = "x" c = \'y\'>'),
+    ('<a b="x c=d>', '<a b="x c=d>'),
+    ("<a b=c==d>", "<a b=c==d>"),
+    ('<a b= "x">', '<a b= "x">'),
+    ('<a b="x>y" <p>', "<p>"),
+]:
+    check("sample " + s, s, w)
+PYEOF
+  local out line
+  out="$(python3 -I "$SB_TMP/p955/drive.py" "$m" 2>&1)"
+  while IFS= read -r line; do
+    case "$line" in
+      ok$'\t'*) ;;
+      '') ;;
+      *) cf "(a) ${line//$'\t'/ — }" ;;
+    esac
+  done <<DRIVE_EOF
+$out
+DRIVE_EOF
+  _dm_has "$out" "sample " || cf "(prereq) the driver printed no sample row: $out"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE LINK CHECK READS THE ARTBOARD ROOT, A REGISTRY ROW AND A CARD'S design: COMMENT AS THE FORMATS ALLOW.
+#   Operand: scripts/design/check-design-links.py --strict (and pin-drift.py) over the clean link fixture, one edit at a time (restored between). The
+#   expected answers are fixed here: a comment before the root that quotes another data-ux and data-stories, and a root written in single quotes, raise
+#   no ARTBOARD line; a root that really names another screen still does; a registry row with no closing pipe keeps its last cell (no GATE-CELL, clean);
+#   a card whose design: value is `none` followed by ` #` and a comment with no space after the # is none (no DESIGN-KEY line, and pin-drift does not
+#   call the card uncompared).
+# =============================================================================
+case_the_link_check_reads_root_attributes_table_rows_and_design_comments_as_the_formats_allow() {
+  cf_reset
+  local L="check-design-links.py --strict raises no ARTBOARD line for a root preceded by a comment that quotes another data-ux and data-stories or written in single quotes (and still one for a root naming another screen), reads a registry row with no closing pipe with its last cell, and reads 'design: none #no screen' as none, with pin-drift.py not calling that card uncompared"
+  _dm_wire_guards "$L" || return
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  local D="$SB_WORK/requirements/design/app" V="$_DM_SHA"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)"; } || cf "(prereq) the fixture is not clean (exit $_dm_rc): $(_dm_brief)"
+  # (1) a comment before the root, then a single-quoted root
+  { printf '<!-- copied from data-ux="UX-009" data-stories="PRD-001-F1-S9" -->\n'; cat "$D/project/A.dc.html"; } > "$D/project/A.new" && mv "$D/project/A.new" "$D/project/A.dc.html"
+  _dm_commit "a comment before the root"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "ARTBOARD" && cf "(a) a comment before the root that quotes another data-ux and data-stories is read as the root: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  _dm_edit "$D/project/A.dc.html" "s@data-ux=\"UX-001\" data-stories=\"PRD-001-F1-S1\"@data-ux='UX-001' data-stories='PRD-001-F1-S1'@"
+  _dm_commit "a root in single quotes"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "ARTBOARD" && cf "(b) a root written in single quotes is read as having no data-ux or no data-stories: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  _dm_edit "$D/project/A.dc.html" 's@data-ux="UX-001"@data-ux="UX-009"@'
+  _dm_commit "a root that names another screen"
+  _dm_py scripts/design/check-design-links.py
+  _dm_has "$_dm_out" "data-ux=UX-009, registry says UX-001" || cf "(c) a root that names another screen is no longer reported: $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  # (2) a registry row with no closing pipe
+  _dm_edit "$D/CANVAS.md" '/^| UX-002 /s/ |$//'
+  grep -q '^| UX-002 .*open$' "$D/CANVAS.md" || cf "(prereq) the UX-002 row still ends in a pipe"
+  _dm_commit "a row with no closing pipe"
+  _dm_py scripts/design/check-design-links.py --strict
+  { [ "$_dm_rc" -eq 0 ] && _dm_has "$_dm_out" "; 0 finding(s)" && ! _dm_has "$_dm_out" "GATE-CELL"; } || cf "(d) a registry row with no closing pipe loses its last cell (exit $_dm_rc): $(_dm_brief 400)"
+  git -C "$SB_WORK" checkout -q "$V" -- requirements; _dm_commit "restored"
+  # (3) a card whose design: value is followed by a comment with no space after the #
+  _dm_card 954 in_progress 'design: none #no screen'
+  _dm_commit "a card with a comment on design:"
+  _dm_py scripts/design/check-design-links.py --strict
+  _dm_has "$_dm_out" "DESIGN-KEY" && cf "(e) 'design: none #no screen' is not read as none: $(_dm_brief 400)"
+  _dm_py scripts/design/pin-drift.py
+  _dm_has "$_dm_out" "uncompared" && cf "(f) pin-drift.py calls a card with 'design: none #no screen' uncompared: $(_dm_brief 400)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A FENCE THAT A LIST ITEM ENDED BEFORE IT CLOSED IS REPORTED WITH THE LINE IT OPENED ON, THE LIST-ITEM CAUSE AND A NEXT.
+#   Operand: scripts/design/check-design-links.py over the clean link fixture plus a PRD whose list item opens a fence on line 5 and ends (a line at
+#   column 0) before any closer. The expected answer is fixed here: a FENCE line naming requirements/PRD-004-lists.md:5:, the list item, and a Next:
+#   that says to close the fence or indent its lines to the item's text.
+# =============================================================================
+case_a_fence_a_list_item_ended_before_it_closed_is_reported_with_its_cause_and_a_next() {
+  cf_reset
+  local L="check-design-links.py reports a fence opened in a list item that ends before the fence closes as a FENCE line naming the PRD and the line it opened on, the list item as a cause, and a Next to close the fence or indent its lines to the item's text"
+  _dm_wire_guards "$L" || return
+  _dm_links_fixture || { finish "$L"; teardown; return; }
+  printf '# PRD-004 — Lists\n\n- an item\n\n  ```\n  code\n\nafter the item\n' > "$SB_WORK/requirements/PRD-004-lists.md"
+  _dm_commit "a PRD whose list item ends before its fence does"
+  _dm_py scripts/design/check-design-links.py
+  _dm_line_has "$_dm_out" "FENCE" "requirements/PRD-004-lists.md:5: " || cf "(a) no FENCE line names the PRD and the line the fence opened on: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "FENCE" "list item" || cf "(b) the FENCE line does not name a list item that ends first as a cause: $(_dm_brief 400)"
+  _dm_line_has "$_dm_out" "FENCE" "Next: close the fence, or indent every line of it to the item" || cf "(c) the FENCE line names no next action: $(_dm_brief 400)"
   finish "$L"
   teardown
 }
