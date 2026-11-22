@@ -5162,7 +5162,7 @@ case_the_local_only_pin_verify_line_reads_the_trunk_as_the_kit_does_and_covers_s
   git init -q --bare "$SB_TMP/lv2-remote.git" >/dev/null 2>&1
   git -C "$w2" remote add up "$SB_TMP/lv2-remote.git"; git -C "$w2" push -q up trunk >/dev/null 2>&1
   echo y >> "$w2/f"; git -C "$w2" add f >/dev/null 2>&1; git -C "$w2" commit -qm b >/dev/null 2>&1; d2="$(git -C "$w2" rev-parse HEAD)"
-  _lv_run2() { rc=0; ( cd "$w2" && env -u KWT_TRUNK_LAST_RESORT GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null KWT_REMOTE=up bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
+  _lv_run2() { rc=0; ( cd "$w2" && env -u KWT_TRUNK_LAST_RESORT GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null KWT_REMOTE=up bash -c "$v" >/dev/null 2>&1 ) || rc=$?; }
   _lv_card "$w2/progress/in_progress/X-1-c.md" "$c"
   _lv_run2; [ "$rc" -eq 0 ] || cf "(e) a pin on a trunk that is not main fails the Verify line, which should read the last-resort name from kanban-worktree.sh (exit $rc)"
   _lv_card "$w2/progress/in_progress/X-2-c.md" "$d2"
