@@ -95,6 +95,115 @@ case_archive_preview_does_not_demand_a_role_tag() {
 }
 
 # =============================================================================
+# CASE — THE MOVER'S TEMPLATE-TEXT WARNING IGNORES THE QA VERDICT SECTION AND SHORTENS ITS LINES.
+# At the dev_complete boundary the QA fills `## QA Verdict`, so its placeholders are blank by design:
+# (a) a card whose only angle-bracket text is there moves with no warning; (b) a placeholder in a Dev
+# section still warns, on a line cut at 100 characters, and the QA Verdict text is not printed.
+# =============================================================================
+case_mover_template_warning_skips_the_qa_verdict_section_and_cuts_long_lines() {
+  cf_reset
+  make_sandbox
+  local a="$SB_PREFIX-975" b="$SB_PREFIX-976" out rc long
+  long="$(printf 'x%.0s' $(seq 1 300))"
+  seed_issue in_progress "$a" qaonly chore "Only the QA table holds placeholders"
+  seed_issue in_progress "$b" devhole chore "A Dev section holds one"
+  local f
+  for f in "$SB_WORK/progress/in_progress/$a-qaonly.md" "$SB_WORK/progress/in_progress/$b-devhole.md"; do
+    sed 's/^| AC1 | PASS .*/| AC1 | <PASS or FAIL> | <evidence kind> | <evidence pointer> |/' "$f" > "$f.new" && mv "$f.new" "$f"
+  done
+  printf '\n## Handoff\n\n- Out of scope: <out-of-scope item> %s\n' "$long" >> "$SB_WORK/progress/in_progress/$b-devhole.md"
+  publish_sandbox
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$a" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"unfilled <angle-bracket>"*) cf "(a) a card with placeholders only in ## QA Verdict was warned: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$b" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the move exited $rc"
+  case "$out" in *"<out-of-scope item>"*) : ;; *) cf "(b) a placeholder in a Dev section was not reported: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"<evidence kind>"*) cf "(b) the QA Verdict placeholders were printed" ;; esac
+  case "$out" in *"$long"*) cf "(b) the long line was printed whole" ;; esac
+
+  finish "move-issue.sh's template-text warning skips ## QA Verdict, still reports a Dev section, and cuts a long line"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MOVER'S TEMPLATE-TEXT WARNING ON A CARD MINTED FROM THE SHIPPED TEMPLATE.
+# The lines the template holds under `## QA Verdict` and `## Ablation` are read from the template
+# itself, before any fix: none may be printed. An angle-bracket line of the AC paragraph's code span
+# is not printed either, and a placeholder in a Dev section still is.
+# =============================================================================
+case_mover_template_warning_on_a_minted_card_skips_qa_verdict_and_ablation() {
+  cf_reset
+  if ! has_kit_init; then skp "the mover's template-text warning on a minted card" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "the mover's template-text warning on a minted card" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local id="$SB_PREFIX-979" out rc tpl line skipped
+  tpl="$SB_WORK/.claude/templates/ISSUE.template.md"
+  skipped="$(awk '/^## /{ s = ($0 ~ /^## (QA Verdict|Ablation)/) } s && /<[a-z]/ { print }' "$tpl")"
+  [ -n "$skipped" ] || _fixture_die "case_mover_template_warning_on_a_minted_card: the shipped template holds no angle text under QA Verdict or Ablation, so the case would pass for nothing"
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh minted --id "$id" --prd n/a 2>&1 )" || _fixture_die "case_mover_template_warning_on_a_minted_card: new-issue.sh did not mint $id: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role "$SB_ROLE" --note "picked up" 2>&1 )" || cf "moving the minted card to in_progress failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the move of a minted card to dev_complete exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"unfilled <angle-bracket>"*) : ;; *) cf "a minted card with Dev placeholders left was not warned: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$out" in *"$line"*) cf "the warning prints a template line from QA Verdict or Ablation: $line" ;; esac
+  done <<< "$skipped"
+  case "$out" in *"AC<n>"*) cf "the warning prints the AC paragraph's code-span text" ;; esac
+  case "$out" in *"<statement>"*) : ;; *) cf "a minted card's unfilled AC placeholder, a Dev section's, was not reported: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  finish "move-issue.sh's template-text warning on a card minted from the shipped template skips QA Verdict, Ablation and code spans, and still reports a Dev section"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MOVER'S TEMPLATE-TEXT WARNING IS SILENT ON A MINTED CARD THE DEV HAS FILLED.
+# A card minted by new-issue.sh carries two angle-bracket texts the Dev does not fill: the head's own
+# fill instruction and the Activity section's indented example entry. With every Dev blank filled
+# the move to dev_complete warns of nothing; one blank left is reported alone, without either.
+# =============================================================================
+case_mover_template_warning_ignores_the_card_head_and_the_activity_example() {
+  cf_reset
+  if ! has_kit_init; then skp "the mover's template-text warning on a filled minted card" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "the mover's template-text warning on a filled minted card" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local a="$SB_PREFIX-980" b="$SB_PREFIX-981" id card out rc
+  for id in "$a" "$b"; do
+    out="$( cd "$SB_WORK" && ./scripts/new-issue.sh filled --id "$id" --prd n/a 2>&1 )" \
+      || _fixture_die "case_mover_template_warning_ignores_the_card_head_and_the_activity_example: new-issue.sh did not mint $id: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    card="$SB_WORK/progress/todo/$id-filled.md"
+    grep -F '<the decision>' "$card" >/dev/null 2>&1 \
+      || _fixture_die "case_mover_template_warning_ignores_the_card_head_and_the_activity_example: the minted card holds no Activity example entry, so the case would pass for nothing"
+    # Fill every blank the Dev owns; leave the head, the Activity example and the QA Verdict and Ablation text as minted.
+    sed -e 's/<one-line summary>/A real title/' -e 's/<section that gives context>/Intro/' \
+        -e 's/from <story id>: <statement>/from the lite path: a real criterion/' -e 's/^- <out-of-scope item>$/- nothing else/' \
+        -e 's/^\(- \*\*Code:\*\*\) .*/\1 none/' -e 's/^\(- \*\*Resource:\*\*\) .*/\1 none/' "$card" > "$card.new" && mv "$card.new" "$card"
+  done
+  card="$SB_WORK/progress/todo/$b-filled.md"
+  sed 's/^One paragraph: .*/The one blank the Dev left: <real blank>./' "$card" > "$card.new" && mv "$card.new" "$card"
+  publish_sandbox
+  for id in "$a" "$b"; do
+    out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role "$SB_ROLE" --note "picked up" 2>&1 )" \
+      || cf "moving $id to in_progress failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  done
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$a" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the move of a filled minted card exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"unfilled <angle-bracket>"*) cf "(a) a minted card with every Dev blank filled was warned: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$b" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"<real blank>"*) : ;; *) cf "(b) a blank the Dev left was not reported: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Fill every"*) cf "(b) the warning prints the card head's own fill instruction" ;; esac
+  case "$out" in *"<the decision>"*) cf "(b) the warning prints the Activity section's example entry" ;; esac
+  finish "move-issue.sh's template-text warning is silent on a filled minted card, and a blank left is reported without the card head or the Activity example"
+  teardown
+}
+
+# =============================================================================
 # CASE — notify.sh DOES NOT RUN THE WATCHDOG AS A BACKEND.
 # scripts/notify/stall.sh sits beside the adapters but has no `send)` arm, so NOTIFY_BACKEND=stall is
 # "no adapter", said once with the available list, not a usage dump from the watchdog.

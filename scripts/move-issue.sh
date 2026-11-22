@@ -201,6 +201,11 @@ if [ -n "$_held_off" ] || [ "$_held_noref" = true ]; then
        Uncommitted edits here (${_held_local%% }): to drop them, git checkout HEAD -- ${_held_local%% }
        to keep them, commit and land them through the trunk's copy, then re-run."
     fi
+    _held_untr="$( { git -C "$SCRIPT_DIR/.." ls-files --others --exclude-standard -- $_held_off 2>/dev/null || true; } | tr '\n' ' ')"
+    if [ -n "$_held_untr" ]; then
+      _held_edit="${_held_edit}
+       Untracked here (${_held_untr%% }): not part of the trunk's copy; delete it, or commit and land it through the trunk's copy, then re-run."
+    fi
     _held_next="Next: bring the scripts here to the trunk's. A branch that is only behind them (it changed none of
        them) is brought up to date in place:  git fetch ${_held_rem} && git rebase ${_held_rem}/${_held_trunk}
        Otherwise run the trunk's copy of this command, from the main checkout on ${_held_trunk}, freshly pulled:
@@ -429,7 +434,7 @@ issue_not_found() {   # <provenance — which tree was read>; refuses, so it doe
     "       ($1)" \
     "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk." \
     "Next: if so, publish it:" \
-    "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[${ROLE:-<Role>}] ${ISSUE_ID}: mint\" && git push" \
+    "         ./scripts/register-commit.sh --role ${ROLE:-<Role>} --message \"${ISSUE_ID}: mint\" progress/todo/${ISSUE_ID}-<slug>.md" \
     "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}"
 }
 
@@ -610,7 +615,10 @@ else
   # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal
   # prose, and a refusal on valid input trains the operator to ignore it (instruments.md § A.8).
   if [ "$TARGET" = "dev_complete" ]; then
-    ph="$(grep -nE '<[a-z][a-z0-9 _|/-]*>' "$SRC" 2>/dev/null | head -5 || true)"
+    # Skipped: `## QA Verdict` and `## Ablation` (the QA fills the first; the second is the Dev's template block and the
+    # QA's to check), angle text inside code spans and indented code blocks (a blank line, then a line indented four
+    # spaces that is no list item: the Activity section's example entry). A line is cut at 100 bytes.
+    ph="$(awk '/^## /{ skip = ($0 ~ /^## (QA Verdict|Ablation)/) } { ind = ($0 ~ /^(    |\t)/ && $0 !~ /^[ \t]+([-*+]|[0-9]+[.)]) /); code = ind && (pb || pc); pb = ($0 ~ /^[ \t]*$/); pc = code } !skip && !code { l = $0; gsub(/`[^`]*`/, "", l) } !skip && !code && l ~ /<[a-z][a-z0-9 _|\/-]*>/ { print NR ":" substr($0, 1, 100) }' "$SRC" 2>/dev/null | head -5 || true)"
     if [ -n "$ph" ]; then
       {
         echo "Warning: ${ISSUE_ID} still carries unfilled <angle-bracket> template text:"

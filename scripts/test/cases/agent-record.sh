@@ -167,6 +167,7 @@ case_finish_pr_refuses_a_verdict_by_the_code_agent() {
   _ar_landing "$id" none none
   [ "$AR_RC" -eq 0 ] || cf "(e) no records: finish-pr exited $AR_RC, want 0: $(printf '%s' "$AR_OUT" | tail -5)"
   case "$AR_OUT" in *"AGENT_CHECK: UNRUNNABLE"*) : ;; *) cf "(e) no records, and no 'AGENT_CHECK: UNRUNNABLE' line — a check that did not run must say so" ;; esac
+  case "$AR_OUT" in *"Next: wire the harness hooks"*) : ;; *) cf "(e) no records, and the UNRUNNABLE line names no Next" ;; esac
   teardown
 
   # (f) The verdict is recorded and the code is not: UNRUNNABLE, lands.
@@ -174,6 +175,7 @@ case_finish_pr_refuses_a_verdict_by_the_code_agent() {
   _ar_landing "$id" none agent-qa-2@sess-x
   [ "$AR_RC" -eq 0 ] || cf "(f) code unrecorded: finish-pr exited $AR_RC, want 0: $(printf '%s' "$AR_OUT" | tail -5)"
   case "$AR_OUT" in *"AGENT_CHECK: UNRUNNABLE"*) : ;; *) cf "(f) code commits unrecorded, and no 'AGENT_CHECK: UNRUNNABLE' line" ;; esac
+  case "$AR_OUT" in *"Next: wire the harness hooks"*) : ;; *) cf "(f) code commits unrecorded, and the UNRUNNABLE line names no Next" ;; esac
   teardown
 
   finish "finish-pr.sh refuses a verdict whose (session, agent) committed the branch's code (a1/X twice, main/X twice), lands a1/X vs a2/X and main/X vs main/Y and pushes the records, and prints UNRUNNABLE when either side has no record"

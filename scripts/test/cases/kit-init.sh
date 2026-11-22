@@ -2625,6 +2625,12 @@ case_creation_link_options_are_shape_checked() {
   [ "$rc" -eq 0 ] || cf "(control) new-issue.sh with well-formed --prd and --stories exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh okbug --id "$SB_PREFIX-932" --prd n/a --discovered-in "$SB_PREFIX-931" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) new-bug.sh with --prd n/a and a well-formed --discovered-in exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh slicebug --id "$SB_PREFIX-977" --prd n/a --discovered-in "$SB_PREFIX-931-s1" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "new-bug.sh --discovered-in a slice id exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  grep -F "discovered_in: $SB_PREFIX-931-s1 " "$SB_WORK/progress/todo/$SB_PREFIX-977-slicebug.md" >/dev/null 2>&1 \
+    || cf "new-bug.sh --discovered-in a slice id did not write it to discovered_in:"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh badslice --id "$SB_PREFIX-978" --prd n/a --discovered-in "$SB_PREFIX-931-sx" 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "(control) new-bug.sh --discovered-in a malformed slice id exited $rc, want 2"
   finish "$L"
   teardown
 }
@@ -2841,6 +2847,10 @@ case_first_mile() {
   [ -f "$f" ] || cf "the printed recipe did not create progress/todo/SBX-001-first-mile.md"
   printf '%s\n' "$out" | grep 'PUSH IT BEFORE YOU MOVE IT' >/dev/null \
     || cf "new-issue.sh does not print the push-before-you-move step: $out"
+  printf '%s\n' "$out" | grep -F './scripts/register-commit.sh --role' | grep -F 'SBX-001: mint' >/dev/null \
+    || cf "the push-before-you-move step does not name register-commit.sh as the route: $out"
+  printf '%s\n' "$out" | grep -F 'git commit -m' >/dev/null \
+    && cf "the push-before-you-move step still names a plain git commit: $out"
 
   # The mover's not-found error NAMES the cause.
   out="$(cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" SBX-001 in_progress --role PM --note x 2>&1)"; rc=$?
@@ -2848,6 +2858,8 @@ case_first_mile() {
   printf '%s\n' "$out" | grep 'no file matching' >/dev/null || cf "the mover's error changed shape: $out"
   printf '%s\n' "$out" | grep -i 'not yet pushed' >/dev/null \
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
+  printf '%s\n' "$out" | grep -F './scripts/register-commit.sh --role' >/dev/null \
+    || cf "the not-found error does not name register-commit.sh as the way to publish the card: $out"
   # No "the refusal created no worktree" assertion here: kit-init's self-check has already
   # bootstrapped .kanban-wt, so it would be a false red. case_move_issue_probe asserts it.
 

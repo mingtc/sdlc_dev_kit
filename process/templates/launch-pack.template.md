@@ -238,7 +238,7 @@ derivation; before/after measurements for the shrink issues; each expensive-arti
 regeneration cited by commit; the escalation route actually used>.
 
 **Close conditions:** this pack stamped **SPENT** against the report by name; the board clean
-(`./scripts/check-board.sh` ends on `── board-drift: clean`; its exit status is 0 whatever it finds); the full gate script's summary block quoted verbatim with
+(`./scripts/check-board.sh` ends on `── board-drift: clean`; read the verdict line, not the exit status); the full gate script's summary block quoted verbatim with
 its exit code read; residue named. **Parking well is success; a silent stop and improvising are
 the two failure modes.**
 

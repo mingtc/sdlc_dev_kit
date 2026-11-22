@@ -7,7 +7,7 @@
 # Usage:
 #   ./scripts/new-bug.sh <slug> --id <PREFIX>-NNN \
 #     [--prd PRD-NNN|n/a] [--stories ID1,ID2,...] \
-#     [--discovered-in <PREFIX>-NNN] [--severity Blocker|Critical|Major|Minor]
+#     [--discovered-in <PREFIX>-NNN|<PREFIX>-NNN-sM] [--severity Blocker|Critical|Major|Minor]
 #   --prd n/a is the lite path: no PRD, stories: [] unless --stories is given, and prd_reason: is yours to fill.
 #
 # The id is REQUIRED and passed in — this script is stateless (it does not guess
@@ -32,7 +32,7 @@ usage() {
   [ -n "$pp" ] || pp='<PRD_PREFIX from scripts/config.sh>'
   echo "Usage: $(basename "$0") <slug> --id ${ip}-NNN \\"
   echo "         [--prd ${pp}-NNN|n/a] [--stories ID1,ID2,...] \\"
-  echo "         [--discovered-in ${ip}-NNN] [--severity Blocker|Critical|Major|Minor]"
+  echo "         [--discovered-in ${ip}-NNN|${ip}-NNN-sM] [--severity Blocker|Critical|Major|Minor]"
   echo "  --prd n/a is the lite path: no PRD, stories: [] unless --stories is given, and prd_reason: is yours to fill."
   echo "  --id is required; get it from ./scripts/next-id.sh and sanity-check it."
   echo "  -h, --help    this text (exit 0)."
