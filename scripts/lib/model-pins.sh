@@ -23,6 +23,11 @@ cleanup:Cleanup / classifier:cleanup-worker.md:'
 KIT_MODEL_CLASSES="orchestrator refactorer pm-mint spike dev qa xs-mechanical cleanup"
 KIT_MODEL_RECORD_NAME="model-pins.record"
 
+# The ladder row is split into cells by lib/board-properties.sh's bp_cells, which keeps a pipe written `\|`
+# inside its cell: the one cell reader the board properties and the landing's table reader share, loaded here
+# unless the caller already has it. A caller that cannot load it sees this file define nothing.
+[ -n "${BP_AWK_CELLS:-}" ] || . "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1   # return-class: internal
+
 # kit_model_class_label <class> / kit_model_class_pin <class> — one field of the class's row;
 # a class this table does not carry returns 1.
 kit_model_class_label() { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c { print $2; f=1; exit } END { exit !f }'; }
@@ -42,12 +47,14 @@ kit_model_claude_dir() {
 # kit_model_ladder_cell <orchestrator.md> <ladder label> <model|effort> — the first backticked
 # token of that cell in the label's row; nothing when the row is absent or the cell still reads
 # `<fill in…>`. The label matches as a prefix inside the bold span ("XS / mechanical (any role)").
+# A token that holds a pipe written `\|` is read whole, as `a | b`.
 kit_model_ladder_cell() {
   local col=3
   [ "$3" = effort ] && col=4
-  awk -F'|' -v want="| **$2" -v col="$col" '
+  awk -v want="| **$2" -v col="$col" "$BP_AWK_CELLS"'
     index($0, want) == 1 {
-      c = $col
+      bp_cells($0, f)
+      c = f[col]
       if (match(c, /`[^`]*`/)) { v = substr(c, RSTART + 1, RLENGTH - 2); if (v !~ /^<fill in/) print v }
       exit
     }' "$1"
