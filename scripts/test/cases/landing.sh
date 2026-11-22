@@ -3437,3 +3437,113 @@ case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name() {
   finish "finish-pr.sh: the board-property check reads the branch, not a tag that shares its name"
   teardown
 }
+
+
+# =============================================================================
+# CASE — A MOVE TO qa_complete THAT NO finish-pr.sh LANDING VOUCHES FOR RUNS THE GATE ON THE TRUNK TIP.
+#
+# Two documented routes put a change on the trunk without the landing gate: QA's by-hand squash-merge and
+# the direct-to-trunk close. The mover then ran only the QA Verdict check, so a red trunk reached qa_complete/
+# with exit 0. A move to qa_complete/ with no verified --landed-at now runs the trunk's committed
+# `verify.sh --quick`, in a fresh detached worktree at the trunk tip, and refuses on a red (1), on a runner
+# that did not run (2) and on a gate that could not run (3), each named apart, with the move undone.
+#
+# THE FIXTURE: a real gate on the trunk, red exactly when marker.txt reads `red`. The harness defaults the
+# mover's test seam ON (MOVE_ISSUE_TEST_ALLOW_STUB=1, MOVE_ISSUE_GATE_CMD=true) so the cases that only need a
+# card to move stay about their own subject; every row here runs the mover with both unset (_mvg_run) unless it
+# is the row about the seam. Rows: (a) a branch card landed by hand on a red trunk; (b) a branchless card closed
+# direct on a red trunk; (c) the green control moves, and the refused card of (a) moves once the trunk is fixed;
+# (d) a command in MOVE_ISSUE_GATE_CMD without the allow flag is ignored (the red still refuses); (e) with the
+# flag, the seam's exit statuses 1, 2 and 3 are refused apart and `true` moves the card and says STUB.
+# RED FIRST: on a mover with no such check, (a) and (b) move the card. Ablation: the call removed from a
+# copy of the mover, committed to the sandbox trunk (a lander runs only the trunk's own copy), must let (f)'s
+# red-trunk card through.
+# =============================================================================
+_mvg_run() {   # <id> [VAR=value…] — the mover to qa_complete, the harness's seam OFF unless the caller sets it. Sets MVG_OUT, MVG_RC.
+  local id="$1"; shift
+  MVG_OUT="$( cd "$SB_WORK" && env -u MOVE_ISSUE_GATE_CMD -u MOVE_ISSUE_TEST_ALLOW_STUB "$@" ./scripts/move-issue.sh "$SB_PREFIX-$id" qa_complete --role QA --note "review" 2>&1 )"; MVG_RC=$?
+}
+_mvg_marker() {   # <red|green> <subject> — commit marker.txt on the trunk and push it
+  printf '%s\n' "$1" > "$SB_WORK/marker.txt"
+  git -C "$SB_WORK" add marker.txt >/dev/null 2>&1
+  sbcommit -m "$2" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+}
+case_move_to_qa_complete_without_a_landing_runs_the_gate_on_the_trunk_tip() {
+  cf_reset
+  make_sandbox
+  local W="$SB_WORK" ida="$SB_PREFIX-701" idb="$SB_PREFIX-702" idc="$SB_PREFIX-703" idd="$SB_PREFIX-704" ide="$SB_PREFIX-705"
+  local tip0 tip1 abl
+  printf '%s\n' '#!/usr/bin/env bash' 'cd "$(dirname "$0")/.." || exit 3' '[ "$(cat marker.txt 2>/dev/null)" != red ]' > "$W/scripts/marker-gate.sh"
+  chmod +x "$W/scripts/marker-gate.sh"
+  _declare_gate 'marker gate|core|./scripts/marker-gate.sh'
+  seed_issue dev_complete "$ida" hand chore "A branch landed by hand" "feature/$ida-hand"
+  seed_issue dev_complete "$idb" direct chore "A direct-to-trunk change"
+  seed_issue dev_complete "$idc" ctl chore "The green control" "feature/$idc-ctl"
+  seed_issue dev_complete "$idd" seam chore "The seam rows" "feature/$idd-seam"
+  seed_issue dev_complete "$ide" abl chore "The ablation card" "feature/$ide-abl"
+  publish_sandbox
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$SB_TMP/gate-exit-1"; printf '%s\n' '#!/usr/bin/env bash' 'exit 2' > "$SB_TMP/gate-exit-2"
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 3' > "$SB_TMP/gate-exit-3"; chmod +x "$SB_TMP"/gate-exit-?
+  _mvg_refused() {   # <label> <card id> <card file name> <phrase the refusal must carry>
+    [ "$MVG_RC" -ne 0 ] || cf "$1: the move to qa_complete/ was accepted (exit 0)"
+    case "$MVG_OUT" in *"$4"*) : ;; *) cf "$1: the refusal does not say '$4': $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+    case "$MVG_OUT" in *"Next:"*) : ;; *) cf "$1: the refusal names no Next: step" ;; esac
+    origin_has_path "progress/dev_complete/$3" || cf "$1: the card is no longer in dev_complete/ on the trunk"
+    origin_has_path "progress/qa_complete/$3" && cf "$1: the card reached qa_complete/ on the trunk"
+    [ "$(git -C "$W" rev-parse "origin/$SB_TRUNK")" = "$tip0" ] || cf "$1: the trunk moved during a refused move"
+  }
+
+  # (a) BA-05: a branch card, the change squash-merged by hand onto a trunk whose gate is red.
+  _mvg_marker red "[QA] $ida: squash-merge by hand"
+  origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
+  _mvg_run 701
+  _mvg_refused "(a) hand squash-merge, red trunk" 701 "$ida-hand.md" "FAILED"
+  # (b) BA-06: a branchless card closed after a direct red commit.
+  _mvg_marker red "[Dev] $idb: direct red change"
+  origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
+  _mvg_run 702
+  _mvg_refused "(b) direct-to-trunk, red trunk" 702 "$idb-direct.md" "FAILED"
+
+  # (d) a command in the seam's variable is ignored without the allow flag: the red still refuses.
+  _mvg_run 704 MOVE_ISSUE_GATE_CMD=true
+  _mvg_refused "(d) MOVE_ISSUE_GATE_CMD without the allow flag" 704 "$idd-seam.md" "FAILED"
+  # (e) with the flag, the seam's statuses are read the way the landing reads them, apart; `true` moves and says STUB.
+  _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-1"
+  _mvg_refused "(e1) seam exit 1" 704 "$idd-seam.md" "FAILED"
+  _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-2"
+  _mvg_refused "(e2) seam exit 2" 704 "$idd-seam.md" "REFUSED TO RUN"
+  _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-3"
+  _mvg_refused "(e3) seam exit 3" 704 "$idd-seam.md" "COULD NOT RUN"
+  _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 MOVE_ISSUE_GATE_CMD=true
+  [ "$MVG_RC" -eq 0 ] || cf "(e4) the stubbed gate (true) refused the move: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)"
+  case "$MVG_OUT" in *"STUB"*) : ;; *) cf "(e4) a stubbed gate is not marked STUB in the mover's output" ;; esac
+  origin_has_path "progress/qa_complete/$idd-seam.md" || cf "(e4) the stubbed move did not reach qa_complete/"
+
+  # (c) THE CONTROL: the trunk is fixed, and the cards refused above move; the gate's verdict is printed.
+  _mvg_marker green "[QA] fix the trunk"
+  _mvg_run 703
+  [ "$MVG_RC" -eq 0 ] || cf "(c) a green trunk refused the move: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)"
+  case "$MVG_OUT" in *"Trunk gate"*"PASS"*) : ;; *) cf "(c) the output does not say the trunk gate passed: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$idc-ctl.md" || cf "(c) the control card did not reach qa_complete/"
+  _mvg_run 701
+  [ "$MVG_RC" -eq 0 ] || cf "(c2) the card refused in (a) did not move once the trunk was fixed: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$ida-hand.md" || cf "(c2) the card refused in (a) is not in qa_complete/ after the fix"
+
+  # (f) ABLATION: the call removed from a copy of the mover, committed to the trunk (a lander runs the trunk's own copy).
+  _mvg_marker red "[QA] $ide: squash-merge by hand, red again"
+  abl="$SB_TMP/move-issue.ablated"
+  sed 's/^\( *\)kit_trunk_gate_check .*$/\1:/' "$W/scripts/move-issue.sh" > "$abl"
+  if cmp -s "$abl" "$W/scripts/move-issue.sh"; then cf "(ablation) no 'kit_trunk_gate_check' call line in move-issue.sh — re-anchor this case"
+  else
+    cp "$abl" "$W/scripts/move-issue.sh"; chmod +x "$W/scripts/move-issue.sh"
+    git -C "$W" add scripts/move-issue.sh >/dev/null 2>&1
+    sbcommit -m "[QA] ablate the mover's trunk gate" --quiet >/dev/null 2>&1
+    git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+    _mvg_run 705
+    [ "$MVG_RC" -eq 0 ] || cf "(ablation) with the gate call removed the mover still refused a red trunk — the case cannot see the check: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-200)"
+  fi
+  unset -f _mvg_refused
+  finish "a move to qa_complete/ that no finish-pr.sh landing vouches for runs the trunk's committed gate: a hand squash-merge and a direct-to-trunk close on a red trunk are refused with the card left where it was, a green trunk moves, a caller's gate command is ignored without the allow flag, the seam's statuses 1, 2 and 3 are refused apart, and the check is ablation-proven"
+  teardown
+}

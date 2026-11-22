@@ -37,6 +37,12 @@
 #     the review, it is not the content reviewed, and its path changes at every board move.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
+#   kit_trunk_gate_check <repo> <trunk-rev> <kanban worktree> <card-id> <role>
+#     The trunk's committed `scripts/verify.sh --quick` on the trunk tip, in a fresh detached worktree: the gate
+#     for a move to qa_complete/ that no finish-pr.sh landing vouches for. Refuses through kit_refuse with
+#     qa-complete-gate-failed, qa-complete-gate-refused-to-run, qa-complete-gate-could-not-run,
+#     qa-complete-gate-prep-failed and qa-complete-gate-tree-unavailable.
+#
 #   kit_qa_evidence_kinds <repo> <rev>
 #     The evidence kinds a QA Verdict row may carry: the built-in ones plus the files under
 #     process/evidence-kinds.d/ at <rev>. The one reader (declared below, where it is defined).
@@ -700,6 +706,59 @@ kit_md_row_cell() {
     cell[k] = cur
     v = cell[n]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); print v
   }'
+}
+
+# kit_trunk_gate_check <repo> <trunk-rev> <kanban worktree> <card-id> <role> — the gate on the trunk tip, for a move
+# to qa_complete/ that no finish-pr.sh landing vouches for (a change squash-merged by hand, a direct-to-trunk close).
+# It runs the trunk's committed `scripts/verify.sh --quick` in a fresh detached worktree at <trunk-rev>, prepared by
+# the trunk's POST_MERGE_PREP, so an edit or an untracked file in the caller's checkout cannot green a red trunk.
+# Exit 0 passes. 1 (or any other status) is a red, 2 a runner that did not run, 3 a gate that could not run: each is
+# refused through kit_refuse with its own rule id, before the move changes anything. The test seam
+# MOVE_ISSUE_GATE_CMD stands in for the runner only behind MOVE_ISSUE_TEST_ALLOW_STUB=1, and is then marked STUB.
+kit_trunk_gate_check() {
+  local repo="$1" rev="$2" kwt="$3" id="$4" role="$5" tip tmp="" prep rc=0
+  tip="$(git -C "$repo" rev-parse --verify --quiet "${rev}^{commit}" 2>/dev/null || true)"
+  [ -n "$tip" ] || kit_refuse 1 qa-complete-gate-tree-unavailable \
+    "Error: ${id} cannot move to qa_complete/: the trunk tip '${rev}' does not resolve, so there is no revision to run the gate on." \
+    "Next: fetch the remote's trunk (git -C '$repo' fetch), check the remote is reachable, then re-run the move. NOTHING WAS CHANGED."
+  if [ "${MOVE_ISSUE_TEST_ALLOW_STUB:-}" = "1" ] && [ -n "${MOVE_ISSUE_GATE_CMD:-}" ]; then
+    echo "Trunk gate: STUB — a test-only command ran in the gate's place; nothing was measured."
+    # shellcheck disable=SC2086  # the test seam's command is word-split on purpose
+    ( cd "$repo" && ${MOVE_ISSUE_GATE_CMD} ) > /dev/null 2>&1 || rc=$?
+  else
+    if ! tmp="$(mktemp -d "${TMPDIR:-/tmp}/move-issue-gate.XXXXXX" 2>/dev/null)" \
+       || ! git -C "$repo" worktree add --detach --quiet "$tmp/tree" "$tip" > /dev/null 2>&1; then
+      [ -z "$tmp" ] || rm -rf "$tmp"
+      kit_refuse 1 qa-complete-gate-tree-unavailable \
+        "Error: ${id} cannot move to qa_complete/: could not make a fresh worktree at ${tip:0:9}, the trunk tip, to run the gate in." \
+        "Next: free disk space or the temporary directory (TMPDIR=${TMPDIR:-/tmp}), check  git -C '$repo' worktree list  for a broken entry (git worktree prune), then re-run the move. NOTHING WAS CHANGED."
+    fi
+    prep="$(kit_declared_value "$kwt/scripts/config.sh" POST_MERGE_PREP 2>/dev/null || true)"
+    if [ -n "$prep" ] && ! ( cd "$tmp/tree" && sh -c "$prep" < /dev/null ) > /dev/null 2>&1; then
+      git -C "$repo" worktree remove --force "$tmp/tree" > /dev/null 2>&1 || true; rm -rf "$tmp"
+      kit_refuse 1 qa-complete-gate-prep-failed \
+        "Error: POST_MERGE_PREP failed in the fresh worktree at ${tip:0:9} — the gate did not run, so ${id} cannot move to qa_complete/." \
+        "Next: fix the POST_MERGE_PREP command in scripts/config.sh on the trunk (it prepares every fresh tree the gate runs in), then re-run the move. NOTHING WAS CHANGED."
+    fi
+    echo "Trunk gate (blocking): scripts/verify.sh --quick, run in a fresh worktree at ${tip:0:9}"
+    if [ -x "$tmp/tree/scripts/verify.sh" ]; then ( cd "$tmp/tree" && ./scripts/verify.sh --quick ) || rc=$?; else rc=2; fi
+    git -C "$repo" worktree remove --force "$tmp/tree" > /dev/null 2>&1 || true; rm -rf "$tmp"
+  fi
+  case "$rc" in
+    0) echo "Trunk gate: PASS at ${tip:0:9}"; return 0 ;;
+    2) kit_refuse 1 qa-complete-gate-refused-to-run \
+         "Error: the trunk's quick gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, or --quick over a table whose every gate is class full) — ${id} cannot move to qa_complete/." \
+         "       Nothing about the trunk was measured: this is the gate's own configuration. A move that no finish-pr.sh landing vouches for needs a gate that runs." \
+         "Next: fix scripts/verify.sh on the trunk (its own refusal names what it needs; ./scripts/verify.sh --list prints the table), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
+    3) kit_refuse 1 qa-complete-gate-could-not-run \
+         "Error: the trunk's quick gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — ${id} cannot move to qa_complete/." \
+         "       Nothing about the trunk was measured." \
+         "Next: fix what the gate needs to start (its summary names it), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
+    *) kit_refuse 1 qa-complete-gate-failed \
+         "Error: the trunk's quick gate FAILED at ${tip:0:9} — ${id} cannot move to qa_complete/." \
+         "       No finish-pr.sh landing gated this card (a change squash-merged by hand, or a commit made direct to the trunk), so the gate on the trunk tip is the measurement, and it is red: moving the card would record it as reviewed and landed over a red trunk." \
+         "Next: fix the trunk (a corrective commit through ./scripts/register-commit.sh, or revert the change that turned it red), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. A branch that has not landed yet goes through ./scripts/finish-pr.sh ${id}, which gates it before the merge. NOTHING WAS CHANGED." ;;
+  esac
 }
 
 # kit_qa_verdict_rows <card-file> — the '## QA Verdict' table's data rows, one per line: the

@@ -140,7 +140,9 @@ to change and making every change self-recording.
   AC-drift check: an AC bullet whose text changed after the card left `todo/` needs `[decision: D-NN]`
   on that bullet (skipped for the landing script's own move, below). A card that skips the landing script
   (direct to the trunk, or squash-merged by hand) is judged here; a table that exists only in an
-  unpublished commit is, to this check, not there. The one move exempt is the landing script's own, which
+  unpublished commit is, to this check, not there. A move without that landing also runs the trunk's quick
+  gate on the trunk tip in a fresh worktree, and refuses on a red, a runner that did not run or a gate that
+  could not run. The one move exempt is the landing script's own, which
   has just checked the branch: it names the squash commit it landed, the mover verifies that commit is
   the item's squash on the trunk, and the skip is printed and recorded. Any other value is refused.
 - A move of a decomposed item into the reviewed state or the completed store while any of its children

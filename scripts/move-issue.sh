@@ -51,7 +51,10 @@
 #    by-hand landing meet the same check finish-pr.sh runs. A table filled in a local commit that is
 #    not on the trunk is the template to this check; commit it to the trunk with
 #    ./scripts/register-commit.sh first. It also refuses an AC bullet whose text changed after the
-#    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check.)
+#    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check. Without
+#    --landed-at it then runs the trunk's `scripts/verify.sh --quick` on the trunk tip in a fresh worktree
+#    and refuses on a red, a runner that did not run or a gate that could not run: a card no finish-pr.sh
+#    landing gated does not reach qa_complete/ over a red trunk.)
 #   (in_progress/ and dev_complete/ warn, never refuse, when a `blocked_by` card is not in
 #    qa_complete/ or done/ on the trunk.)
 #   (a move also runs each scripts/move-check.d/<target>/<NN>-<name>.sh the trunk holds, after the
@@ -594,6 +597,8 @@ else
       IFS=$'\t' read -r _mv_leave_c _mv_leave_p <<< "$(kit_card_leave_todo "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk")"
       kit_ac_drift_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_leave_c:-}" "${_mv_leave_p:-}"
       [ -z "$_mv_read" ] || QA_READ_NOTE=" (verdict read at $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
+      # The gate on the trunk tip: this move is the one route the landing's gate did not run for.
+      kit_trunk_gate_check "$MAIN_ROOT" "${_mv_read:-$_mv_trunk}" "$KWT" "$ISSUE_ID" "$ROLE"
     else
       _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"
       _mv_subj=""

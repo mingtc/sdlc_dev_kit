@@ -267,6 +267,10 @@ isolation_snapshot
 # record unsets or overrides it.
 RUN_PROGRESS_SCRATCH="$(mktemp -d)" || { echo "run.sh: REFUSING — could not create a scratch directory for the run's progress records." >&2; exit 2; }
 export KIT_PROGRESS_DIR="$RUN_PROGRESS_SCRATCH"
+# The mover's test seam for the trunk gate it runs on a move to qa_complete/ that no finish-pr.sh landing vouches for
+# (scripts/lib/qa-gate.sh kit_trunk_gate_check): ON by default, so the cases that need a card to move stay about their
+# own subject. The cases that are about the gate unset both (landing.sh _mvg_run).
+export MOVE_ISSUE_TEST_ALLOW_STUB=1 MOVE_ISSUE_GATE_CMD=true
 trap 'teardown; rm -rf "$RUN_PROGRESS_SCRATCH" "$RUN_GIT_HOME"' EXIT
 
 # ── THE CASE LIST. Explicit for ORDER, derived for COMPLETENESS. ─────────────
@@ -578,6 +582,7 @@ CASES=(
   case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched
   case_finish_pr_qa_verdict_well_formed_lands
   case_pre_commit_judges_a_hand_move_into_qa_complete
+  case_move_to_qa_complete_without_a_landing_runs_the_gate_on_the_trunk_tip
   case_finish_pr_qa_verdict_pointer_unresolved_refuses
   case_a_pointer_to_the_last_line_of_a_file_with_no_final_newline_resolves
   case_finish_pr_qa_verdict_quote_checks_refuse
