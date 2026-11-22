@@ -460,6 +460,13 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
     && cat "$SB_TMP/v.sh" > "$SB_WORK/scripts/verify.sh"
   echo "deps/" >> "$SB_WORK/.gitignore"
   mkdir -p "$SB_WORK/deps" && printf '#!/bin/sh\nexit 0\n' > "$SB_WORK/deps/run-gate" && chmod +x "$SB_WORK/deps/run-gate"
+  # The declared prep installs deps/ into the PRE-merge fresh tree only (the state file marks that it ran),
+  # so the post-merge fresh tree is the one that lacks them.
+  H_DEP="$SB_TMP/run-gate.dep"; H_STATE="$SB_TMP/prepped"
+  cp "$SB_WORK/deps/run-gate" "$H_DEP"
+  grep -v '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh" > "$SB_TMP/config.sh" || true
+  printf '%s\n' "POST_MERGE_PREP='if [ ! -e \"\$H_STATE\" ]; then mkdir -p deps && cp \"\$H_DEP\" deps/run-gate && : > \"\$H_STATE\"; fi'" >> "$SB_TMP/config.sh"
+  cat "$SB_TMP/config.sh" > "$SB_WORK/scripts/config.sh"
   FPR_PM_BR="feature/$SB_PREFIX-954-pm"
   seed_issue dev_complete "$SB_PREFIX-954" pm chore "Environmental red" "$FPR_PM_BR"
   publish_sandbox
@@ -470,7 +477,7 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
     || _control_did_not_run "(H) make the real verify.sh green where deps/ is installed"
   git -C "$SB_WORK" check-ignore -q deps/run-gate \
     || _control_did_not_run "(H) keep deps/ ignored, so a fresh worktree lacks it"
-  FPR_PM_OUT="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$SB_PREFIX-954" 2>&1 )"; FPR_PM_RC=$?
+  FPR_PM_OUT="$( cd "$SB_WORK" && env H_DEP="$H_DEP" H_STATE="$H_STATE" ./scripts/finish-pr.sh "$SB_PREFIX-954" 2>&1 )"; FPR_PM_RC=$?
   if [ "$FPR_PM_RC" -ne 0 ]; then
     cf "(H) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
   else
@@ -492,16 +499,19 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
 #
 # THE FIXTURE. The committed verify.sh is red unless an IGNORED `.prepared` file exists — the
 # stand-in for installed dependencies: the gate checkout has it, a fresh worktree does not.
-# The gate appends one line per run to $PM_GATE_LOG, the prep to $PM_PREP_LOG.
+# The gate appends one line per run to $PM_GATE_LOG, the prep to $PM_PREP_LOG. The FIRST gate run
+# is the pre-merge one, which this case does not measure: it is green unprepared, and only a later
+# run (the post-merge reading) needs `.prepared`. The prep runs once per fresh tree the gate reads.
 #
 #   (P1) dirty gate checkout + a declared prep that makes `.prepared`: the reading is PASS,
-#        the output says the tree was prepared, and the prep ran exactly once.
+#        the output says the tree was prepared, and the prep ran once for each fresh tree
+#        (pre-merge and post-merge).
 #   (P2) the same dirty checkout, NO declared prep: unchanged — FAIL, and the note says how
 #        to read the gate checkout in place (commit or stash).
-#   (P3) a declared prep that exits 1: UNRUNNABLE (never FAIL), naming POST_MERGE_PREP, and
+#   (P3) a declared prep that exits 1 once the pre-merge gate has run: UNRUNNABLE (never FAIL), naming POST_MERGE_PREP, and
 #        the gate does not run.
-#   (P4) CLEAN gate checkout + a declared prep: the checkout is read in place and the prep
-#        does NOT run.
+#   (P4) CLEAN gate checkout + a declared prep: the checkout is read in place after the
+#        merge, so the prep ran only for the pre-merge tree.
 #   (P5) NO declared prep + a POST_MERGE_PREP in the environment: not honoured — the
 #        declaration is the landed tree's, not the caller's.
 # =============================================================================
@@ -510,8 +520,9 @@ _fpr_prep_sandbox() {  # <id> <prep line, or empty> — sets FPR_PM_BR, PM_GATE_
   cat > "$SB_WORK/scripts/verify.sh" <<'V'
 #!/usr/bin/env bash
 root="$(cd "$(dirname "$0")/.." && pwd)"
+first=""; [ -s "$PM_GATE_LOG" ] || first=1
 printf 'gate\n' >> "$PM_GATE_LOG"
-[ -e "$root/.prepared" ] || { echo "gate: .prepared is missing in $root"; exit 1; }
+[ -e "$root/.prepared" ] || [ -n "$first" ] || { echo "gate: .prepared is missing in $root"; exit 1; }
 exit 0
 V
   chmod +x "$SB_WORK/scripts/verify.sh"
@@ -557,8 +568,8 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
       || cf "(P1) a fresh worktree prepared by the declared POST_MERGE_PREP did not read PASS: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify|gate:' | tr '\n' '|')"
     printf '%s\n' "$FPR_PM_OUT" | grep 'prepared the fresh worktree with POST_MERGE_PREP' >/dev/null \
       || cf "(P1) the reading does not say the fresh worktree was prepared — a PASS must state what it read"
-    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 1 ] \
-      || cf "(P1) the prep ran $(wc -l < "$PM_PREP_LOG" | tr -d ' ') time(s), expected once: $(tr '\n' '|' < "$PM_PREP_LOG")"
+    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 2 ] \
+      || cf "(P1) the prep ran $(wc -l < "$PM_PREP_LOG" | tr -d ' ') time(s), expected twice (pre-merge tree, post-merge tree): $(tr '\n' '|' < "$PM_PREP_LOG")"
   fi
   teardown
 
@@ -579,7 +590,7 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
   teardown
 
   # --- (P3) a prep that exits 1 -> UNRUNNABLE, naming it; the gate does not run ----
-  _fpr_prep_sandbox 963 "POST_MERGE_PREP='exit 1'"
+  _fpr_prep_sandbox 963 "POST_MERGE_PREP='if [ -s \"\$PM_GATE_LOG\" ]; then exit 1; fi'"
   _fpr_prep_dirty 963
   _fpr_prep_run 963
   if [ "$FPR_PM_RC" -ne 0 ]; then
@@ -607,8 +618,8 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
       || _control_did_not_run "(P4) get the clean gate checkout to read PASS"
     printf '%s\n' "$FPR_PM_OUT" | grep -i 'fresh worktree' >/dev/null \
       && cf "(P4) a clean gate checkout was not read in place"
-    [ ! -s "$PM_PREP_LOG" ] \
-      || cf "(P4) the prep ran against a gate checkout that was read in place: $(tr '\n' '|' < "$PM_PREP_LOG")"
+    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 1 ] \
+      || cf "(P4) the prep ran against a gate checkout that was read in place (expected the pre-merge tree's run only): $(tr '\n' '|' < "$PM_PREP_LOG")"
   fi
   teardown
 
@@ -697,6 +708,91 @@ case_finish_pr_post_merge_names_the_dirty_paths() {
   teardown
 
   finish "finish-pr.sh: the uncommitted-changes note names the dirty paths of the gate checkout (N1), gives a card copy its own discard command and discards nothing (N1), prints no card-copy clause for other files (N2), and caps the list at five with a count (N3)"
+}
+
+# =============================================================================
+# CASE — THE PRE-MERGE GATE READS THE TREE THAT LANDS, NOT THE GATE CHECKOUT'S WORKING FILES.
+#
+# THE FIXTURE. The branch's committed CHANGE<id>.txt reads `a real change`, and the gate is green
+# only where a CHANGE*.txt reads `green` or a `stray.txt` exists: the committed branch is RED.
+# Each arm lands with the branch checked out in the main checkout, and asks origin whether the
+# squash arrived.
+#   (a) CONTROL: a clean checkout — the gate is red, nothing lands.
+#   (b) a tracked file edited to `green` but not committed — still red, nothing lands.
+#   (c) an UNTRACKED stray.txt — still red, nothing lands.
+#   (d) the same stray.txt and a declared POST_MERGE_PREP that exits 1: the prep prepares the
+#       pre-merge tree too, so the landing is refused naming it, and the gate never ran.
+# =============================================================================
+_fpr_pg_sandbox() {  # <id> [config line] — sets FPR_PM_BR, PG_LOG; leaves the branch checked out
+  make_sandbox
+  cat > "$SB_WORK/scripts/verify.sh" <<'V'
+#!/usr/bin/env bash
+root="$(cd "$(dirname "$0")/.." && pwd)"
+printf '%s\n' "$root" >> "$PG_LOG"
+[ -e "$root/stray.txt" ] && exit 0
+grep -qx green "$root"/CHANGE*.txt 2>/dev/null && exit 0
+echo "gate: red in $root"; exit 1
+V
+  chmod +x "$SB_WORK/scripts/verify.sh"
+  if [ -n "$2" ]; then
+    grep -v '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh" > "$SB_TMP/config.sh" || true
+    printf '%s\n' "$2" >> "$SB_TMP/config.sh"
+    cat "$SB_TMP/config.sh" > "$SB_WORK/scripts/config.sh"
+  fi
+  FPR_PM_BR="feature/$SB_PREFIX-$1-pg"
+  seed_issue dev_complete "$SB_PREFIX-$1" pg chore "Gate reads the landing tree" "$FPR_PM_BR"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-$1" pg "CHANGE$1.txt"
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  PG_LOG="$SB_TMP/gate.log"; : > "$PG_LOG"
+}
+_fpr_pg_run() {  # <id> — sets FPR_PM_OUT, FPR_PM_RC, FPR_PM_SQUASH
+  FPR_PM_OUT="$( cd "$SB_WORK" && env PG_LOG="$PG_LOG" ./scripts/finish-pr.sh "$SB_PREFIX-$1" 2>&1 )"; FPR_PM_RC=$?
+  _fpr_pm_landed
+}
+case_finish_pr_premerge_gate_reads_the_tree_that_lands() {
+  cf_reset
+
+  _fpr_pg_sandbox 974 ""
+  _fpr_pg_run 974
+  { [ "$FPR_PM_RC" -ne 0 ] && printf '%s\n' "$FPR_PM_OUT" | grep 'pre-merge gate FAILED' >/dev/null; } \
+    || _control_did_not_run "(a) get the clean, red branch refused by the gate: rc=$FPR_PM_RC $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  teardown
+
+  _fpr_pg_sandbox 975 ""
+  echo green > "$SB_WORK/CHANGE975.txt"                  # tracked, edited, uncommitted
+  _fpr_pg_run 975
+  [ "$FPR_PM_RC" -ne 0 ] \
+    || cf "(b) an uncommitted edit in the gate checkout turned a red branch green and it landed (rc=0): $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'pre-merge|POST_MERGE' | tr '\n' '|')"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(b) the squash reached origin's trunk although the committed branch is red"
+  printf '%s\n' "$FPR_PM_OUT" | grep 'pre-merge gate FAILED' >/dev/null \
+    || cf "(b) the refusal is not the gate's: $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  grep -x green "$SB_WORK/CHANGE975.txt" >/dev/null \
+    || cf "(b) the gate checkout's uncommitted edit was touched"
+  teardown
+
+  _fpr_pg_sandbox 977 ""
+  : > "$SB_WORK/stray.txt"                                # untracked
+  _fpr_pg_run 977
+  [ "$FPR_PM_RC" -ne 0 ] \
+    || cf "(c) an untracked file in the gate checkout turned a red branch green and it landed (rc=0): $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'pre-merge|POST_MERGE' | tr '\n' '|')"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(c) the squash reached origin's trunk although the committed branch is red"
+  [ -e "$SB_WORK/stray.txt" ] || cf "(c) the gate checkout's untracked file was removed"
+  teardown
+
+  _fpr_pg_sandbox 978 "POST_MERGE_PREP='exit 1'"
+  : > "$SB_WORK/stray.txt"
+  _fpr_pg_run 978
+  [ "$FPR_PM_RC" -ne 0 ] || cf "(d) a failing POST_MERGE_PREP did not stop the pre-merge gate: the landing exited 0"
+  printf '%s\n' "$FPR_PM_OUT" | grep 'POST_MERGE_PREP' >/dev/null \
+    || cf "(d) the refusal does not name POST_MERGE_PREP: $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$FPR_PM_OUT" | grep '^Next: ' >/dev/null \
+    || cf "(d) the refusal names no next step"
+  [ ! -s "$PG_LOG" ] || cf "(d) the gate ran after its preparation failed: $(tr '\n' '|' < "$PG_LOG")"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(d) the squash reached origin's trunk"
+  teardown
+
+  finish "finish-pr.sh: the pre-merge gate runs in a fresh worktree at the branch tip, so a clean red branch is refused (a), an uncommitted edit (b) or an untracked file (c) in the gate checkout cannot green it, and the declared POST_MERGE_PREP prepares that tree and refuses the landing when it fails (d)"
 }
 
 # =============================================================================

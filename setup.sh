@@ -185,8 +185,8 @@ fi
 # │      idempotent and a contributor's machine reproducible.                │
 # │      If the gate needs them, also declare `POST_MERGE_PREP` in            │
 # │      scripts/config.sh: the command that installs them into a fresh       │
-# │      worktree, which `finish-pr.sh` reads after a landing when it cannot  │
-# │      read your checkout.                                                  │
+# │      worktree, which `finish-pr.sh` runs the gate in, before the merge    │
+# │      and after it, when it cannot use your checkout.                      │
 # │   2. Run the test gate ONCE and report PASS/FAIL, without aborting the    │
 # │      script: a red suite on a fresh clone is information, and swallowing  │
 # │      it is how a broken trunk stays unnoticed. Prefer invoking            │

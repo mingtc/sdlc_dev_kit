@@ -67,7 +67,9 @@
 # --worktree <path>: run the BLOCKING pre-merge gate against a genuine git worktree of THIS
 #   repo (QA's own checkout of the branch) instead of the main checkout — needed when the main
 #   checkout belongs to a parallel leg. The gate ALWAYS runs the trunk's committed
-#   scripts/verify.sh --quick in that worktree: the caller names a LOCATION, never a command
+#   scripts/verify.sh --quick, in a fresh detached worktree at the branch tip (prepared by
+#   POST_MERGE_PREP when config.sh declares one), so nothing uncommitted or untracked in the gate
+#   checkout can green it: the caller names a LOCATION, never a command
 #   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are the self-test's seams, refused unless
 #   FINISH_PR_TEST_ALLOW_STUB=1). After the landing that worktree is left DETACHED AT THE
 #   LANDED COMMIT, where the post-merge check reads the trunk; if it has uncommitted tracked
@@ -283,7 +285,7 @@ if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n
     "Next: unset FINISH_PR_PREMERGE_CMD and FINISH_PR_VERIFY_CMD and re-run; to gate against a parallel leg's checkout, pass --worktree <path>."
 fi
 
-# The checkout whose TRACKED scripts/verify.sh the pre-merge gate runs: the repo root, or
+# The checkout that must hold the branch tip's TRACKED scripts/verify.sh for the pre-merge gate: the repo root, or
 # --worktree, which must be a registered worktree of THIS repo with verify.sh committed and
 # unmodified.
 GATE_WORKTREE="$MAIN_ROOT"
@@ -633,30 +635,70 @@ echo ""
 # scripts/verify.sh, the trunk's copy runs in the branch's tree, from a sibling file because the
 # runner roots itself at its own directory's parent. A killed run can leave that file behind.
 _trunk_gate=""
+# THE TREE IT READS IS THE REVISION THAT LANDS, NEVER THE GATE CHECKOUT'S WORKING FILES: a fresh
+# detached worktree at the branch tip, so an uncommitted edit or an untracked file in the checkout
+# cannot green a red branch. The trunk's POST_MERGE_PREP, read as text, prepares it (empty = nothing runs).
+_pre_tree="$GATE_WORKTREE"; _pre_fresh=""
+_pre_cleanup() {
+  if [ -n "$_pre_fresh" ]; then
+    chmod -R u+w "$_pre_fresh" 2>/dev/null || true
+    git -C "$MAIN_ROOT" worktree remove --force "$_pre_fresh/tree" >/dev/null 2>&1 || true
+    rm -rf "${_pre_fresh:?}" 2>/dev/null || true
+    _pre_fresh=""
+  fi
+}
+if ! { [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; }; then
+  _pre_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${QA_READ_FULL}^{commit}" 2>/dev/null || true)"
+  _pre_tmp="${TMPDIR:-/tmp}"; _pre_tmp="${_pre_tmp%/}"
+  if [ -z "$_pre_tip" ] || ! _pre_fresh="$(mktemp -d "${_pre_tmp}/finish-pr-premerge.XXXXXX" 2>/dev/null)" \
+     || ! git -C "$MAIN_ROOT" worktree add --detach --quiet "$_pre_fresh/tree" "$_pre_tip" >/dev/null 2>&1; then
+    _pre_cleanup
+    kit_refuse 1 premerge-tree-unavailable \
+      "Error: could not make a fresh worktree at ${QA_READ_FULL:0:9}, the revision of '${BRANCH}' being landed, to run the pre-merge gate in." \
+      "       No squash, no push, no branch deletion, no issue advance." \
+      "Next: free disk space or the temporary directory (TMPDIR=${_pre_tmp}), check  git -C '$MAIN_ROOT' worktree list  for a broken entry (git worktree prune), then re-run finish-pr.sh."
+  fi
+  _pre_tree="$_pre_fresh/tree"
+  _pre_prep="$(kit_declared_value "$KWT/scripts/config.sh" POST_MERGE_PREP 2>/dev/null || true)"
+  if [ -n "$_pre_prep" ]; then
+    echo "Preparing the pre-merge worktree with POST_MERGE_PREP: ${_pre_prep}"
+    _pre_prep_rc=0
+    ( cd "$_pre_tree" && sh -c "$_pre_prep" </dev/null ) || _pre_prep_rc=$?
+    if [ "$_pre_prep_rc" -ne 0 ]; then
+      _pre_cleanup
+      kit_refuse 1 premerge-prep-failed \
+        "Error: POST_MERGE_PREP exited ${_pre_prep_rc} in the fresh pre-merge worktree — the gate did not run; refusing to merge '${BRANCH}'." \
+        "       No squash, no push, no branch deletion, no issue advance." \
+        "Next: fix the POST_MERGE_PREP command in scripts/config.sh on ${DEFAULT_BRANCH} (it prepares every fresh tree the gate runs in), then re-run finish-pr.sh."
+    fi
+  fi
+fi
 if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
 elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
      && ! git -C "$KWT" diff --quiet HEAD "$QA_READ_FULL" -- scripts/verify.sh 2>/dev/null; then
-  if ! { _trunk_gate="$(mktemp "$GATE_WORKTREE/scripts/.verify-trunk.XXXXXX")" \
+  if ! { _trunk_gate="$(mktemp "$_pre_tree/scripts/.verify-trunk.XXXXXX")" \
          && git -C "$KWT" show HEAD:scripts/verify.sh > "$_trunk_gate" && chmod +x "$_trunk_gate"; }; then
     [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
-    echo "Error: could not stage ${DEFAULT_BRANCH}'s scripts/verify.sh in '${GATE_WORKTREE}/scripts/' — refusing to merge '${BRANCH}'." >&2
+    _pre_cleanup
+    echo "Error: could not stage ${DEFAULT_BRANCH}'s scripts/verify.sh in '${_pre_tree}/scripts/' — refusing to merge '${BRANCH}'." >&2
     exit 1   # exit-class: internal
   fi
   PREMERGE_CMD=("$_trunk_gate" --quick)
 else
-  PREMERGE_CMD=("$GATE_WORKTREE/scripts/verify.sh" --quick)
+  PREMERGE_CMD=("$_pre_tree/scripts/verify.sh" --quick)
 fi
 # The banner names the runner that actually runs.
 if [ -n "$_trunk_gate" ]; then
-  echo "Pre-merge gate (blocking): ${DEFAULT_BRANCH}'s scripts/verify.sh --quick, run in ${GATE_WORKTREE}"
+  echo "Pre-merge gate (blocking): ${DEFAULT_BRANCH}'s scripts/verify.sh --quick, run in ${_pre_tree}"
   echo "  '${BRANCH}' changes scripts/verify.sh, so ${DEFAULT_BRANCH}'s copy judges it; the branch's governs from the next landing."
 else
   echo "Pre-merge gate (blocking): ${PREMERGE_CMD[*]}"
 fi
 if "${PREMERGE_CMD[@]}"; then
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
+  _pre_cleanup
   echo "  pre-merge verify --quick: PASS"
 else
   _pre_rc=$?
@@ -670,6 +712,7 @@ else
     case "$_pre_list" in *"the table is empty"*) _pre_empty=1 ;; esac
   fi
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
+  _pre_cleanup
   # All three reds refuse, named apart: verify.sh exits 2 when it never ran at all (a
   # configuration problem — nothing was measured, nothing was even attempted) and 3 when a gate
   # could not run (nothing was measured either, but the runner did start). Only a plain FAIL
