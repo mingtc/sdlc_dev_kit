@@ -5,6 +5,12 @@
 #
 # HOW TO RUN
 #   ./scripts/test/run.sh          # run every case; exit 0 iff none FAILed
+#   ./scripts/test/run.sh --cases <name>[,<name>...]   # run only the named cases (or KIT_TEST_CASES=<names>)
+#   ./scripts/test/run.sh --list   # print the case names, one a line, and run nothing
+#   A SELECTED RUN IS A PARTIAL RUN, AND IS NEVER A GREEN FULL RUN: it prints a `partial:` line, exits 1 when a
+#   selected case FAILs and exits 3 (never 0) when every selected case passed. Exit 0 is the full list's alone.
+#   A name that is not a defined case refuses the run (exit 2) before anything runs. The selection is applied
+#   after the case-list check, so the full run is the same run it always was.
 #   KIT_TEST_KILL_ALL=1 ./scripts/test/run.sh
 #                                  # the cases that kill a program before each of its writes use every write
 #                                  # and every order of enabling, not the bounded set (lib/modules.sh)
@@ -109,11 +115,21 @@ case "${1:-}" in
     _rs_end="$(awk 'NR>2 && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
     sed -n "3,${_rs_end:-34}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
-  '') : ;;
-  *) echo "run.sh: unknown option '$1' — this harness takes none; run it with no arguments." >&2
-     echo "        Run  run.sh --help  for what it does." >&2
-     exit 2 ;;
 esac
+# THE SELECTOR (the header says what a selected run is). A flag beats the environment variable.
+SEL_VIA=""; SEL_LIST="${KIT_TEST_CASES:-}"; SEL_LISTONLY=""
+[ -z "$SEL_LIST" ] || SEL_VIA="KIT_TEST_CASES"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --cases) [ "$#" -ge 2 ] || { echo "run.sh: --cases takes a list of case names, comma or space separated." >&2; echo "        Next: ./scripts/test/run.sh --list prints the names." >&2; exit 2; }
+             SEL_VIA="--cases"; SEL_LIST="$2"; shift 2 ;;
+    --cases=*) SEL_VIA="--cases"; SEL_LIST="${1#--cases=}"; shift ;;
+    --list) SEL_LISTONLY=1; shift ;;
+    *) echo "run.sh: unknown option '$1' — this harness takes --cases <names> and --list, or no arguments." >&2
+       echo "        Run  run.sh --help  for what it does." >&2
+       exit 2 ;;
+  esac
+done
 
 # perl is required: nearly every sandbox is built with it, so there is no skip path.
 command -v perl >/dev/null 2>&1 || {
@@ -982,6 +998,7 @@ CASES=(
   case_restated_rules_are_registered
   case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes
   case_the_harness_runs_an_add_ons_cases_and_refuses_one_that_is_not_listed
+  case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_exit_status
   case_register_commit_leaves_the_kanban_worktree_as_found_when_a_later_write_fails
   case_register_commit_records_landed_only_after_the_push
   case_register_commit_refuses_a_path_through_a_link
@@ -1047,6 +1064,39 @@ fi
 echo "case list: ${#CASES[@]} case(s), and every defined case_* is listed."
 echo
 
+# ── THE SELECTOR. Applied after the check above, so the full run is untouched. ───────────────────────────
+if [ -n "$SEL_LISTONLY" ]; then printf '%s\n' "${CASES[@]}"; exit 0; fi
+PARTIAL=""
+if [ -n "$SEL_VIA" ]; then
+  _sel_names="$SEL_LIST"
+  _sel_names="$(printf '%s' "$_sel_names" | tr ',\n\t' '   ' | tr -s ' ')"; _sel_names="${_sel_names# }"; _sel_names="${_sel_names% }"
+  if [ -z "$_sel_names" ]; then
+    echo "run.sh: REFUSING — $SEL_VIA names no case, so nothing would run." >&2
+    echo "        Next: ./scripts/test/run.sh --list prints the cases this harness defines." >&2
+    exit 2
+  fi
+  _sel_unknown=""
+  for _n in $_sel_names; do
+    _found=""
+    for _c in "${CASES[@]}"; do [ "$_c" = "$_n" ] && { _found=1; break; }; done
+    [ -n "$_found" ] || _sel_unknown="$_sel_unknown $_n"
+  done
+  if [ -n "$_sel_unknown" ]; then
+    echo "run.sh: REFUSING — $SEL_VIA names a case this harness does not define:$_sel_unknown" >&2
+    echo "        Nothing ran. Next: ./scripts/test/run.sh --list prints the defined case names; copy one from there." >&2
+    exit 2
+  fi
+  _total_cases=${#CASES[@]}
+  _sel_cases=()
+  for _c in "${CASES[@]}"; do
+    for _n in $_sel_names; do [ "$_c" = "$_n" ] && { _sel_cases+=("$_c"); break; }; done
+  done
+  CASES=("${_sel_cases[@]}")
+  PARTIAL="partial: ${#CASES[@]} of $_total_cases case(s) selected by $SEL_VIA — this is NOT a full run; exit 3 means every selected case passed, exit 0 is the full list's alone."
+  echo "$PARTIAL"
+  echo
+fi
+
 # ── THE RUN, AND A STABLE IDENTITY FOR EACH CASE'S OUTCOME. ──────────────────
 #
 # The outcome is keyed on the case's FUNCTION NAME, not its printed line: a finish line may
@@ -1073,6 +1123,7 @@ done
 echo
 echo "════════════════════════════════════════════════════════"
 printf 'summary: %d PASS, %d FAIL, %d SKIP, %d N/A-on-lived-tree\n' "$PASS" "$FAIL" "$SKIP" "$LIVED"
+[ -z "$PARTIAL" ] || echo "$PARTIAL"
 # THE N/A LIST IS PRINTED, NOT JUST COUNTED: a case with no subject on this tree otherwise
 # looks exactly like a case that passed.
 if [ "$LIVED" -gt 0 ]; then
@@ -1093,4 +1144,6 @@ if [ -n "$_multi" ]; then
   echo "  outcome table ambiguous. Both are defects in the case, not in the tree under test."
   exit 2
 fi
-[ "$FAIL" -eq 0 ]
+[ "$FAIL" -eq 0 ] || exit 1
+[ -z "$PARTIAL" ] || exit 3
+exit 0
