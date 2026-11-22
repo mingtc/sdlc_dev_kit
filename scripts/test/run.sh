@@ -720,6 +720,7 @@ CASES=(
   case_runner_returns_leg_notes_on_every_outcome
   case_leg_report_contract_is_in_every_schema
   case_runner_promotes_only_observed_verdicts
+  case_runner_qa_leg_lands_only_on_a_recorded_signoff
   case_runner_typed_leg_keeps_its_frontmatter_pin
   case_wave_brief_matches_the_legs_checkout
   case_archive_progress_before_must_be_a_calendar_date

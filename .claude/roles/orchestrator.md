@@ -409,7 +409,9 @@ a judgment call.
 Misclassifying a net-new surface as "reuse" would ship an unreviewed public change — when the
 call is genuinely ambiguous, treat it as NEW and park. Undecidable disagreements STOP and raise
 (an `attention` ping); the orchestrator never settles a public-surface call itself. (The run
-plan states when this applies.)
+plan states when this applies.) A runner call carries the call per issue: `signoff: "not_needed"` for
+reuse, `"recorded"` once the operator has signed the new surface off; unset, the runner's QA leg
+verifies the change and does not land it: the run report lists it as needing your call.
 
 ### AFK decision-batching (autonomous runs)
 

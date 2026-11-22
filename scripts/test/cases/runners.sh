@@ -241,6 +241,7 @@ the verdict and outcome vocabulary through devAnswered|^const VERDICTS =|^const 
 QA_SCHEMA|^const QA_SCHEMA =|^}
 PARK_SCHEMA|^const PARK_SCHEMA =|^}
 gatesOf()|^function gatesOf[(]|^}
+the sign-off gate|^const SIGNOFF =|^}
 the leg-report contract helpers|^const CHILDREN =|^const settled ='
 
 # <file> <start ERE> <end ERE>: the start line through the first LATER line matching end.
@@ -783,6 +784,116 @@ case_workflow_briefs_compose_from_a_sparse_payload() {
   rm -rf "$(dirname "$stub")"
   unset -f _wf_run _wf_ok _wf_err
   finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven (the depends_on guard removed from a copy) ($n runner(s), nothing dispatched)"
+}
+
+# =============================================================================
+# CASE — a runner's QA brief tells its leg to land only when the issue records a sign-off decision.
+#
+# The brief used to say "land it" on every PASS, while the orchestrator's discriminator says net-new
+# public surface is parked and never merged: a runner leg could merge it unattended. The runners now
+# fail closed. `signoff` of `not_needed` or `recorded` keeps the landing step; anything else, unset
+# included, replaces it with a hold that reports landing=deferred. A value outside the two is
+# refused by name at 0 agents. A docs-path issue lands nothing and is unchanged.
+#
+# NOTHING IS DISPATCHED: the briefs come from the stub of the case above and are read as text. This
+# shows the runner no longer TELLS a leg to land; it cannot show that an agent obeys the brief.
+# Ablation, per check: the gate forced open in a copy must bring the landing command back for an
+# unset issue, and the value check removed must let `approved` through.
+# =============================================================================
+case_runner_qa_leg_lands_only_on_a_recorded_signoff() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out r sig n=0 abl dir
+  [ -d "$wf" ] || _fixture_die "case_runner_qa_leg_lands_only_on_a_recorded_signoff: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  if ! command -v node >/dev/null 2>&1; then
+    skp "a runner's QA brief lands only on a recorded sign-off" "node absent"
+    return
+  fi
+  dir="$(mktemp -d)"; stub="$dir/stub-run.mjs"
+  _wf_brief_stub "$stub"
+
+  local BASE='"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local LAND='finish-pr.sh ZZ-1' HELD='sign-off not recorded' CLOSE='move-issue.sh ZZ-1 qa_complete'
+  _so_args() {   # <runner file name> <extra per-issue keys: a leading comma, or empty>
+    case "$1" in
+      tranche-runner.js) printf '{"repo":"/tmp/x","issues":[{%s%s}]}' "$BASE" "$2" ;;
+      *)                 printf '{"repo":"/tmp/x","wave1":[{%s,"worktreeMode":"self","phase":"Wave1","restartNote":"n"%s}]}' "$BASE" "$2" ;;
+    esac
+  }
+  _so_has() { printf '%s' "$1" | grep -F -- "$2" >/dev/null; }
+
+  for r in tranche-runner.js wave-runner.js; do
+    n=$(( n + 1 ))
+    # unset: the brief must not carry the landing command and must carry the hold
+    out="$(node "$stub" "$wf/$r" "$(_so_args "$r" '')" 2>&1)"
+    _so_has "$out" '"ok":true' || cf "$r threw composing a brief for an issue with no signoff: $(printf '%s' "$out" | cut -c1-200)"
+    _so_has "$out" "$LAND" && cf "$r: with no signoff the QA brief still tells the leg to run $LAND — a runner leg can merge net-new public surface on its own PASS"
+    _so_has "$out" "$HELD" || cf "$r: with no signoff the QA brief carries no hold ('$HELD'), so the leg is neither told to land nor told not to"
+    # the two recorded values keep the landing step and carry no hold
+    for sig in not_needed recorded; do
+      out="$(node "$stub" "$wf/$r" "$(_so_args "$r" ",\"signoff\":\"$sig\"")" 2>&1)"
+      _so_has "$out" '"ok":true' || cf "$r refused signoff=$sig, a documented value: $(printf '%s' "$out" | cut -c1-200)"
+      _so_has "$out" "$LAND" || cf "$r: signoff=$sig and the QA brief no longer tells the leg to land ($LAND) — the gate would hold every landing"
+      _so_has "$out" "$HELD" && cf "$r: signoff=$sig and the QA brief still carries the hold"
+    done
+    # a value outside the two is refused by name, before any agent starts
+    out="$(node "$stub" "$wf/$r" "$(_so_args "$r" ',"signoff":"approved"')" 2>&1)"
+    { _so_has "$out" '"ok":false' && _so_has "$out" '"briefs":0' && _so_has "$out" 'signoff'; } \
+      || cf "$r did not refuse signoff=approved by name at 0 agents: $(printf '%s' "$out" | cut -c1-200)"
+    # a docs-path issue lands nothing: its close is unchanged, and it is not held
+    out="$(node "$stub" "$wf/$r" "$(_so_args "$r" ',"docsPath":true')" 2>&1)"
+    _so_has "$out" "$CLOSE" || cf "$r: a docs-path issue's QA brief lost its close ($CLOSE)"
+    _so_has "$out" "$HELD" && cf "$r: a docs-path issue lands nothing, yet its QA brief carries the hold"
+  done
+
+  # ABLATION: each check must be able to go red.
+  abl="$dir/ablated.js"
+  for r in tranche-runner.js wave-runner.js; do
+    sed 's/SIGNOFF\.includes(issue\.signoff)/true/' "$wf/$r" > "$abl"
+    if cmp -s "$abl" "$wf/$r"; then cf "(ablation) the gate expression 'SIGNOFF.includes(issue.signoff)' is not in $r — re-anchor this case"
+    else
+      out="$(node "$stub" "$abl" "$(_so_args "$r" '')" 2>&1)"
+      _so_has "$out" "$LAND" || cf "(ablation) with the gate forced open, $r's brief for an unset issue still held the landing — the case cannot see the gate"
+    fi
+    sed 's/!SIGNOFF\.includes(it\.signoff)/false/' "$wf/$r" > "$abl"
+    if cmp -s "$abl" "$wf/$r"; then cf "(ablation) the value check '!SIGNOFF.includes(it.signoff)' is not in $r — re-anchor this case"
+    else
+      out="$(node "$stub" "$abl" "$(_so_args "$r" ',"signoff":"approved"')" 2>&1)"
+      _so_has "$out" '"ok":true' || cf "(ablation) with the value check removed, $r still refused signoff=approved — the refusal check cannot bite"
+    fi
+  done
+
+
+  # THE ROUTE: a LAND_READY from a held issue tells a person how to land it; a deferral for any other
+  # reason (signoff recorded) does not. A second stub captures the runner's log lines and answers
+  # landing=deferred and no precondition_failure, so the runner reaches its LAND_READY line.
+  local stub2="$dir/stub-log.mjs" ROUTE='Next: read the diff'
+  sed -e 's/^const log = () => {}$/const logs = []; const log = (m) => logs.push(String(m))/' \
+      -e "s/if (v.enum) o\[k\] = v.enum\[0\]/if (v.enum) o[k] = (k === 'landing') ? 'deferred' : v.enum[0]/" \
+      -e 's/text: briefs.join(String.fromCharCode(10)) }/text: logs.join(String.fromCharCode(10)) }/' \
+      -e 's/^  return o$/  delete o.precondition_failure; return o/' "$stub" > "$stub2"
+  if ! grep -q 'logs.push' "$stub2" || ! grep -q "'deferred'" "$stub2" || ! grep -q 'text: logs.join' "$stub2" || ! grep -q 'delete o.precondition_failure' "$stub2"; then
+    cf "the log-capturing stub could not be derived from _wf_brief_stub — the stub's lines moved, re-anchor this case"
+  else
+    for r in tranche-runner.js wave-runner.js; do
+      out="$(node "$stub2" "$wf/$r" "$(_so_args "$r" '')" 2>&1)"
+      _so_has "$out" 'LAND_READY' || cf "$r: a deferred PASS did not log LAND_READY: $(printf '%s' "$out" | cut -c1-200)"
+      _so_has "$out" "$ROUTE" || cf "$r: a held issue's LAND_READY line does not say how a person lands it ('$ROUTE')"
+      _so_has "$out" "$LAND" || cf "$r: a held issue's LAND_READY line does not name the landing command ($LAND)"
+      out="$(node "$stub2" "$wf/$r" "$(_so_args "$r" ',"signoff":"recorded"')" 2>&1)"
+      _so_has "$out" 'LAND_READY' || cf "$r: a deferred PASS with signoff recorded did not log LAND_READY"
+      _so_has "$out" "$ROUTE" && cf "$r: a deferral with signoff recorded carries the held route, so it is not a deferral for another reason"
+      sed 's/\${heldNext(issue)}//' "$wf/$r" > "$abl"
+      if cmp -s "$abl" "$wf/$r"; then cf "(ablation) '\${heldNext(issue)}' is not in $r — re-anchor this case"
+      else
+        out="$(node "$stub2" "$abl" "$(_so_args "$r" '')" 2>&1)"
+        _so_has "$out" "$ROUTE" && cf "(ablation) with the route removed, $r still said how to land — the case cannot see the route"
+      fi
+    done
+  fi
+
+  rm -rf "$dir"
+  unset -f _so_args _so_has
+  finish "both runners' QA briefs tell a leg to land only when the issue records signoff not_needed or recorded, hold the landing otherwise (and say how a person lands the held branch), refuse any other value by name at 0 agents, leave a docs-path close alone, and each check is ablation-proven ($n runner(s), nothing dispatched)"
 }
 
 # CASE — a prose (non-JSON) `args` is refused at 0 agents, naming the runner and its args shape.
