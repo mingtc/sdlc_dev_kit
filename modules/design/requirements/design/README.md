@@ -7,7 +7,7 @@ directory is the *record* and the authority. The human looks, approves and may c
 The workflow that obeys these rules is [`.claude/roles/designer.md`](../../.claude/roles/designer.md).
 
 **Read its § What this version has before doing any of this.** The Designer takes the canvas in with `/design-pull` and sends to it with `/design-publish`.
-This binds every role: Dev and QA compare a build against the PNG committed at the pin, and do not render a screen file by hand.
+This binds every role: Dev and QA compare a build against what is committed at the pin: its PNG, and for a wireframe canvas its screen file too (§ 5 says who, and how), and do not render a screen file by hand.
 
 ## 1. Layout
 
@@ -113,15 +113,25 @@ or desktop row of the same screen (symmetric). `gate1` and `gate2` are `open`, `
 
 - A card may carry `design-scope:`: element ids it does not build. Everything else in the pinned render must match.
 - Each (UI) QA row gets a design cell with evidence kind `design`:
-  `UX-003#some-done@<pin>: identical | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). The pinned
+  `UX-003#some-done@<pin>: identical (image) | identical (structure) | diffs: <ids>` (`.claude/templates/design/QA-verdict-design.fragment.md`). The pinned
   side is the PNG committed at the pin (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png`),
-  never the working tree; a human or the orchestrator compares the build's screenshot with it (`dev/evidence/README.md`), and QA records
-  the result. A row with no image is not a PASS: the QA gate runs a
-  cell check on each PASS row of kind `design`, which refuses unless every entry says `identical`, its pin is a commit the card
+  never the working tree.
+- **Who compares, and how: stated here once.** Whoever writes the row does one of two acts and writes the word for the act it did:
+  - `identical (image)`: it opened the pin PNG and the build PNG and compared them.
+  - `identical (structure)`: it read the pinned screen file (`git show <pin>:<the row's .dc.html>`) against the build's source, and the
+    same screens, states, elements, flow and copy are there. The cell check refuses this word unless the pin's canvas is a wireframe canvas in effect at the pin (read at the pin, as below).
+  - A seat that can do neither (`qa-worker` never reads an image, and the cell check refuses a structural read of any other canvas) does not write `identical`: it writes
+    `diffs: <element ids>` for what it found, or asks.
+- **Dev makes both images at handoff**, so QA never has to. The pin copy is
+  `git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png > dev/evidence/<card-id>/UX-NNN-<state>-pin.png`; the build image is a
+  screenshot of the build at the same width, saved as `dev/evidence/<card-id>/UX-NNN-<state>-build.png`. Both go to the trunk
+  (`./scripts/register-commit.sh --role Dev`; `dev/evidence/README.md`). These two names are fixed: the rule there to name each file for its AC does not apply to them.
+- A row with no image is not a PASS: the QA gate runs a
+  cell check on each PASS row of kind `design`, which refuses unless every entry says `identical (image)` or `identical (structure)`, its pin is a commit the card
   carries in `design:`, both images are PNGs committed on the trunk (by Dev or the project's tooling, never by QA's leaf worker), the build image is
   not the pin image, and the pin image is the render the pin commit holds for that screen and state. A card cannot reach
   `qa_complete/` while an AC tagged `(UI)`, or citing a screen, has no design row for each state it cites. For a pin to a wireframe canvas
-  `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared (§ 6). Whether
+  in effect, either word of `identical` means the same screens, states, elements, flow and copy as the pinned wireframe; styling is not compared (§ 6). Whether
   a pin is to a wireframe canvas is read at the pin commit: its `CANVAS.md` there carries the Mode line and `requirements/DECISIONS.md`
   there holds the ruling it cites (the link check, run in a checkout of the pin, prints a `MODE` line for it). Without both, compare as the default.
 
@@ -203,5 +213,5 @@ Every navigation is an `<a href>`, so `scripts/design/flow-from-links.py` derive
 | **PM** | PRDs and ACs; answers the Designer's questions; mints cards and writes the pin. |
 | **Designer** | The canvas records (`CANVAS.md`, `COMMENTS.md`), registry and tokens; the renders as brought in. Proposes citations, never edits PRD text. Questions to the PM go through `scripts/ask.sh` only. |
 | **Dev** | Builds from the pinned design and its tokens; never edits this directory. |
-| **QA** | Verifies each (UI) AC; cites the images by sha and records in the design cell the result of the comparison a human or the orchestrator made. |
+| **QA** | Verifies each (UI) AC; cites the images by sha and records in the design cell the comparison made and its word (§ 5). |
 | **The human** | Looks at the canvas and approves the gates; sends the comments the Designer must act on with Send to Claude (a plain comment was invisible to the agent on the claude-artifacts server); copies a PNG; may change the canvas by hand. Carries nothing. |

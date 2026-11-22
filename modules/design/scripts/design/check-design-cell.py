@@ -11,11 +11,14 @@ usage: check-design-cell.py REPO TRUNK CARD-ID AC-ID CELL       judge one PASS r
 
 A cell is one entry per pinned state, then the images:
 
-  UX-NNN#state@<pin>: identical; dev/evidence/<CARD-ID>/UX-NNN-state-pin.png, dev/evidence/<CARD-ID>/UX-NNN-state-build.png
+  UX-NNN#state@<pin>: identical (image); dev/evidence/<CARD-ID>/UX-NNN-state-pin.png, dev/evidence/<CARD-ID>/UX-NNN-state-build.png
 
 and is refused (exit 1, the reasons printed) unless, for every entry:
-  * the verdict is `identical`: the check runs on PASS rows, and a PASS row names no difference (a `diffs: <element ids>` entry is
-    a FAIL_AC row);
+  * the verdict is `identical (image)` or `identical (structure)`, the word saying which comparison was made (the image comparison of
+    the pin PNG with the build PNG, or the structural read of the pinned screen file against the source); a bare `identical` names
+    neither and is refused, and `identical (structure)` is refused unless the pin's canvas is a wireframe canvas in effect at the pin
+    (its Mode line and the register's ruling, as check-design-links.py reads them). The check runs on PASS rows, and a PASS row names no difference (a `diffs: <element ids>` entry is a
+    FAIL_AC row);
   * <pin> resolves to a commit, and the card at TRUNK carries `UX-NNN#state@<pin>` in its `design:` key;
   * the cell names the entry's pin and build images, under dev/evidence/<CARD-ID>/, and TRUNK holds both, each a PNG (the signature
     and an IHDR with a size), the build image not the pin image;
@@ -39,6 +42,7 @@ cdl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cdl)
 
 ANCHOR = re.compile(r'(UX-\d+)#([A-Za-z0-9_-]+)@([0-9a-fA-F]{7,40}):')
+COMPARISON = re.compile(r'identical(?:\s*\((image|structure)\))?')
 IMAGE = re.compile(r'dev/evidence/[^\s,;]+?\.png')
 PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 # A pointer a row may end with, for the QA gate's own check: `path:line` or `path:a-b`, then its quotes. The gate reads it; these
@@ -125,6 +129,18 @@ def registry_at(repo, rev):
     return rows
 
 
+def wireframe_problem(repo, rev, ux):
+    """Why the canvas of UX at rev is not a wireframe canvas in effect (the link check's own reading of its Mode line and the register), else None."""
+    row = registry_at(repo, rev).get(ux)
+    if row is None:
+        return f'the registry at the pin has no row {ux}'
+    if row['mode'] != 'wireframe':
+        return 'its CANVAS.md has no Mode line wireframe'
+    body = bytes_at(repo, rev, f'{Path(cdl.DESIGN_REL).parent.as_posix()}/DECISIONS.md')
+    register = None if body is None else cdl.register_from_text(body.decode('utf-8', 'replace'))
+    return cdl.mode_problem(register, Path(cdl.DESIGN_REL).parent.as_posix(), row['mode_waivers'])
+
+
 def without_pointers(cell):
     """The design cell as the QA gate hands it over (backticks gone) with any `path:line "quote"` pointer taken out: what the design checks judge."""
     return re.sub(r'(?:;\s*)+;', ';', re.sub(r'\s+', ' ', POINTER.sub(' ', cell.replace('`', '')))).strip(' ;,')
@@ -136,19 +152,27 @@ def judge_cell(repo, trunk, card_id, ac, cell, text):
     why = []
     anchors = list(ANCHOR.finditer(cell))
     if not anchors:
-        why.append('the design cell holds no `UX-NNN#state@<pin>: identical` entry')
+        why.append('the design cell holds no `UX-NNN#state@<pin>: identical (image)` entry')
     images = IMAGE.findall(cell)
     for n, m in enumerate(anchors):
         ux, state, pin = m.group(1), m.group(2), m.group(3).lower()
         end = anchors[n + 1].start() if n + 1 < len(anchors) else len(cell)
         verdict = re.split(r'dev/evidence/', cell[m.end():end])[0].strip().rstrip(';,').strip()
         tag = f'{ux}#{state}@{pin[:7]}'
-        if verdict != 'identical':
+        said = COMPARISON.fullmatch(verdict)
+        if not said:
             what = 'names differences' if verdict.startswith('diffs:') else f'reads `{verdict[:40]}`'
-            why.append(f'{tag} {what}: a PASS row says `identical`; differences make the row FAIL_AC')
+            why.append(f'{tag} {what}: a PASS row says `identical (image)` or `identical (structure)`; differences make the row FAIL_AC')
+        elif not said.group(1):
+            why.append(f'{tag}: `identical` names no comparison: write `identical (image)` or `identical (structure)`')
         full = commit_of(repo, pin)
         if not full:
             why.append(f'{tag}: the pin is not a commit of this repository')
+        elif said and said.group(1) == 'structure':
+            problem = wireframe_problem(repo, full, ux)
+            if problem:
+                why.append(f'{tag}: identical (structure) is for a pin to a wireframe canvas in effect at the pin; this canvas is not ({problem}), '
+                           f'so compare the images (identical (image)) or write diffs: or ask')
         if not any(i[0] == ux and i[1] == state and i[2] and (i[2].startswith(pin) or pin.startswith(i[2])) for i in dv['items']):
             why.append(f'{tag}: the card carries no such entry in its design: key')
         pin_png = f'dev/evidence/{card_id}/{ux}-{state}-pin.png'

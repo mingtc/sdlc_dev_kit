@@ -1,6 +1,6 @@
 # KIT-CLASS: KIT — the design module's manifest. Every line is `<key>: <value>`; process/MODULES.md says what each key takes. See process/EXTRACTION.md.
 name: design
-version: 0.6.1
+version: 0.6.2
 purpose: Evergreen screen designs beside the PRDs: the rules for where they live and how a story and a card cite them, and a Designer role to keep them true.
 release-notes: RELEASE-NOTES.md
 requires: python3 | python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' | install Python 3.9 or later from your system's packages | required
@@ -84,7 +84,7 @@ move-check: move-check.d/50-design-pin.sh -> in_progress/50-design-pin.sh
 move-check: move-check.d/50-design-pin.sh -> dev_complete/50-design-pin.sh
 move-check: move-check.d/50-design-rows.sh -> qa_complete/50-design-rows.sh
 qa-cell: qa-cell.d/50-design-cell.sh -> design/50-design-cell.sh
-evidence-kind: design   a pointer to a design cell, `UX-NNN#state@<pin>: identical | diffs: <element ids>`, with the render files
+evidence-kind: design   a pointer to a design cell, `UX-NNN#state@<pin>: identical (image) | identical (structure) | diffs: <element ids>`, with the render files
 fragment: PRD slot-story-fields fragments/prd-ui-line.txt
 fragment: ISSUE frontmatter fragments/issue-design.txt
 block: PROJECT.md gates gates.md

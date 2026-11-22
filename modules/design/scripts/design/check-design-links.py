@@ -1334,9 +1334,12 @@ def register_ids(root, requirements):
     `### D-NN` heading with a `**Ruling.**` field, outside code fences and HTML comments; the field's head is read as the kit's
     kit_ruling_state reads it (leading backticks, `*`, `_` and spaces skipped): WITHDRAWN there means no current ruling."""
     f = Path(root) / requirements / 'DECISIONS.md'
-    if not f.is_file():
-        return None
-    lines = [ln for _, ln in fence_scan(HTML_COMMENT.sub(lambda m: '\n' * m.group(0).count('\n'), read(f)))[0]]
+    return register_from_text(read(f)) if f.is_file() else None
+
+
+def register_from_text(text):
+    """{D-NN: has a current ruling} read from the text of a DECISIONS.md (register_ids' reader, for text taken from any revision)."""
+    lines = [ln for _, ln in fence_scan(HTML_COMMENT.sub(lambda m: '\n' * m.group(0).count('\n'), text))[0]]
     entries, cur, ruling = {}, None, None
     for ln in lines + ['### END']:
         m = re.match(r'### (D-\d+)\b', ln)
@@ -1362,6 +1365,11 @@ def waiver_problem(register, requirements, ids):
     if withdrawn:
         return f'{", ".join(withdrawn)} is WITHDRAWN in {requirements}/DECISIONS.md: it has no current ruling'
     return None
+
+
+def mode_problem(register, requirements, ids):
+    """Why a canvas's Mode wireframe is not in effect, or None when its Mode line cites a ruling the register holds with a current ruling."""
+    return waiver_problem(register, requirements, ids) if ids else 'its Mode line cites no [decision: D-NN]'
 
 
 def analyse(root, requirements='requirements', design=None, cards='progress', leaving=()):
@@ -1410,7 +1418,7 @@ def analyse(root, requirements='requirements', design=None, cards='progress', le
         if r['canvas'] in seen or r['mode'] != 'wireframe':
             continue
         seen.add(r['canvas'])
-        problem = waiver_problem(get_register(), requirements, r['mode_waivers']) if r['mode_waivers'] else 'its Mode line cites no [decision: D-NN]'
+        problem = mode_problem(get_register(), requirements, r['mode_waivers'])
         if problem:
             out.append(line('WAIVER', f"{r['mode_where']}: mode wireframe is not in effect, so the canvas is read by the default model: {problem}. "
                             f"Next: cite on the Mode line a [decision: D-NN] that {requirements}/DECISIONS.md holds with a current ruling, or remove the line"))

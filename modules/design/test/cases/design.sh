@@ -1873,13 +1873,13 @@ _dm_qa_gate() {
 # =============================================================================
 # CASE — THE QA GATE REFUSES A PASS ROW OF KIND design WHOSE CELL THE TRUNK DOES NOT BACK, AND PASSES ONE IT DOES.
 #   Operand: scripts/lib/qa-gate.sh's kit_qa_verdict_check, with the card and the evidence images on the TRUNK (where QA commits them) and
-#   the branch holding neither. A cell that is not `identical`, names no image, cites a pin the card lacks, whose pin image is not the
+#   the branch holding neither. A cell that is not `identical (image)` or `identical (structure)`, names no image, cites a pin the card lacks, whose pin image is not the
 #   render the pin commit holds for that screen, whose image is empty, not a PNG, or the same bytes as the pin image, or whose image only
 #   a branch holds: refused, with a Next: line. A gate that cannot run: refused as broken.
 # =============================================================================
 case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_does() {
   cf_reset
-  local L="the QA gate passes a PASS row of kind design whose cell says identical for a pin the card carries, with both PNGs committed on the trunk and the pin image the render the pin commit holds for that screen, and refuses (qa-verdict-cell-refused, a Next: line, NOTHING WAS CHANGED) a cell that names differences, omits an image, cites a pin the card lacks, whose pin image is another screen's or another render, whose build image is empty, text or the pin image, or whose images only a branch holds, and refuses as broken when the tool is off the trunk"
+  local L="the QA gate passes a PASS row of kind design whose cell says identical (image) or identical (structure) for a pin the card carries, with both PNGs committed on the trunk and the pin image the render the pin commit holds for that screen, and refuses (qa-verdict-cell-refused, a Next: line, NOTHING WAS CHANGED) a cell that names differences or a bare identical, omits an image, cites a pin the card lacks, whose pin image is another screen's or another render, whose build image is empty, text or the pin image, or whose images only a branch holds, and refuses as broken when the tool is off the trunk"
   if ! _dm_have; then skp_lived "$L" "$(_dm_gone_reason)"; return; fi
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): enable refuses without one"; return; }
   _dm_python || { skp "$L" "python3 3.9 or later is absent: the module's checkers and its enable need it"; return; }
@@ -1889,12 +1889,20 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
   _dm_png "$SB_WORK/requirements/design/app/renders/A-default.png" LIST
   _dm_png "$SB_WORK/requirements/design/app/renders/B-default.png" EDIT
   _dm_commit "renders at the pin"; P="$_DM_SHA"
+  # the pins a structural read is judged against, each made in the workflow's order (the Mode line and its ruling, then the pin): a wireframe canvas in effect, the ruling withdrawn, no register
+  local DN="D-$((30 + 1))" W W2 W3 pins
+  _dm_mode "wireframe [decision: $DN]"; printf '# Decisions\n\n### %s — the canvas is a wireframe\n\n**Ruling.** The build is the visual anchor.\n' "$DN" > "$SB_WORK/requirements/DECISIONS.md"
+  _dm_commit "wireframe mode, ruled"; W="$_DM_SHA"
+  printf '# Decisions\n\n### %s — withdrawn\n\n**Ruling.** WITHDRAWN 2026-01-01 — nothing replaces it.\n' "$DN" > "$SB_WORK/requirements/DECISIONS.md"
+  _dm_commit "the ruling is withdrawn"; W2="$_DM_SHA"
+  git -C "$SB_WORK" rm -q requirements/DECISIONS.md; _dm_commit "no register"; W3="$_DM_SHA"
+  pins="UX-001#default@$P, UX-001#default@$W, UX-001#default@$W2, UX-001#default@$W3"
   seed_issue dev_complete "$_DM_QID" cell chore "A card with a design row"
-  perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | x |\n$1/' "$SB_WORK/progress/dev_complete/$_DM_QID-cell.md"
+  PINS="$pins" perl -0pi -e 's/(forks: none\n)/$1design: [$ENV{PINS}]\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | x |\n$1/' "$SB_WORK/progress/dev_complete/$_DM_QID-cell.md"
   _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$ev/UX-001-default-build.png" BUILD
   _dm_land "the card and its evidence, on the trunk"
-  good="UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
+  good="UX-001#default@$P: identical (image); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
   _dm_row_card() {  # <cell> — the trunk's card with the AC2 row's cell replaced
     git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/dev_complete/$_DM_QID-cell.md" > "$card"
     CELL="$1" perl -0pi -e 's/^\| AC2 \| PASS \|[^\n]*$/| AC2 | PASS | design | $ENV{CELL} |/m' "$card"
@@ -1911,14 +1919,34 @@ case_the_qa_gate_refuses_a_design_row_the_trunk_does_not_back_and_passes_one_it_
     _dm_has "$_dm_out" "NOTHING WAS CHANGED" || cf "($1) the refusal does not say nothing was changed"
   }
   refused b "UX-001#default@$P: diffs: ux-001-title; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "names differences"
-  refused c "UX-001#default@$P: identical; $ev/UX-001-default-pin.png" "UX-001-default-build.png"
-  refused d "UX-001#default@$X: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "carries no such entry"
-  refused f "UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-missing.png" "UX-001-default-build.png"
+  refused c "UX-001#default@$P: identical (image); $ev/UX-001-default-pin.png" "UX-001-default-build.png"
+  refused d "UX-001#default@$X: identical (image); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "carries no such entry"
+  refused f "UX-001#default@$P: identical (image); $ev/UX-001-default-pin.png, $ev/UX-001-default-missing.png" "UX-001-default-build.png"
   refused g "no entry here" "holds no"
+  # the comparison word: a bare identical names none and its Next says what to write, each of the two words passes, any other word is refused
+  refused c1 "UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "names no comparison"
+  { _dm_has "$_dm_out" "identical (image) after comparing" && _dm_has "$_dm_out" "identical (structure) after reading" && _dm_has "$_dm_out" "diffs: <element ids> or asks"; } || cf "(c1) the Next of a bare identical does not name both words and the fallback: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  refused c2 "UX-001#default@$P: identical (screenshot); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "reads \`identical (screenshot)\`"
+  refused c8 "UX-001#default@$P: Identical (image); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "reads"
+  { _dm_has "$_dm_out" "identical (image) after comparing" && _dm_has "$_dm_out" "identical (structure) after reading"; } || cf "(c8) the Next of a misspelt comparison word does not name both words: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  for _w in image structure; do
+    _dm_row_card "UX-001#default@$([ "$_w" = structure ] && echo "$W" || echo "$P"): identical ($_w); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
+    _dm_qa_gate "$card" "$SB_TRUNK" "$SB_TRUNK"
+    [ "$_dm_rc" -eq 0 ] || cf "(c3) a design row saying identical ($_w) is refused (exit $_dm_rc): $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  done
+  # identical (structure) is for a wireframe canvas in effect at the pin: refused on a pin whose canvas has no Mode line, whose ruling is withdrawn or has no register (it passes at $W, in the loop above)
+  refused c5 "UX-001#default@$P: identical (structure); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "wireframe canvas in effect"
+  { _dm_has "$_dm_out" "has no Mode line wireframe" && _dm_has "$_dm_out" "needs a wireframe canvas in effect"; } || cf "(c5) a structural read on a pin with no Mode line says neither why nor what to do: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
+  refused c6 "UX-001#default@$W2: identical (structure); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "is WITHDRAWN"
+  refused c7 "UX-001#default@$W3: identical (structure); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png" "cannot be checked"
+  # the missing-image Next names both files and the one-line recipe for the pin copy, and says Dev makes both
+  refused c4 "UX-001#default@$P: identical (image); $ev/UX-001-default-pin.png" "UX-001-default-build.png"
+  { _dm_has "$_dm_out" "Dev makes both images at handoff" && _dm_has "$_dm_out" "git show <pin>:requirements/design/<canvas>/renders/<Screen>-state.png > dev/evidence/$_DM_QID/UX-NNN-state-pin.png" && _dm_has "$_dm_out" "dev/evidence/$_DM_QID/UX-NNN-state-build.png"; } || cf "(c4) the Next of a missing image does not name both files and the git show recipe: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   # the images: another screen's render as the pin image, the same bytes as the pin image, an empty file, a text file
   _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" EDIT
   _dm_land "the pin image is another screen's render"
   refused e "$good" "is not the render"
+  _dm_has "$_dm_out" "git show <pin>:requirements/design/<canvas>/renders/<Screen>-state.png" || cf "(e) the Next of a wrong pin copy does not give the git show recipe: $(printf '%s' "$_dm_out" | tr '\n' '|' | cut -c1-300)"
   _dm_png "$SB_WORK/$ev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$ev/UX-001-default-build.png" LIST
   _dm_land "the build image is the pin image"
@@ -1985,7 +2013,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" add app/list.txt >/dev/null 2>&1; sbcommit -qm "[Dev] $id: the list screen" >/dev/null 2>&1
   git -C "$SB_WORK" push -q -u origin "feature/$id-work" >/dev/null 2>&1
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
-  good="UX-001#default@$P: identical; $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
+  good="UX-001#default@$P: identical (image); $ev/UX-001-default-pin.png, $ev/UX-001-default-build.png"
   _dm_qa_register() {  # <AC2 row> [<paths to commit besides the card>…] — QA's verdict (and evidence) on the trunk, by register-commit.sh
     local row="$1"; shift
     ROW="$row" perl -0pi -e 's/^\| AC2 \|[^\n]*\n//m; s/(\| shadow-check )/$ENV{ROW}\n$1/' "$card"
@@ -2024,7 +2052,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   { [ "$rc" -ne 0 ] && _dm_has "$out" "AC2" && origin_has_path "progress/subtasks/$SB_PREFIX-851/dev_complete/$sid-walk.md"; } || cf "(e) a slice whose (UI) AC has a file:line row moves to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   _dm_png "$SB_WORK/$sev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$sev/UX-001-default-build.png" BUILD
-  ROW="| AC2 | PASS | design | UX-001#default@$P: identical; $sev/UX-001-default-pin.png, $sev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$sf"
+  ROW="| AC2 | PASS | design | UX-001#default@$P: identical (image); $sev/UX-001-default-pin.png, $sev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$sf"
   _dm_land "the slice's design row and images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-s2" ./scripts/subtask.sh move "$sid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-851/qa_complete/$sid-walk.md"; } || cf "(f) a slice with a design row backed on the trunk does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 700) [local: $(grep -c 'design |' "$sf")] [trunk: $(git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-851/dev_complete/$sid-walk.md" 2>&1 | grep 'AC2 |' | cut -c1-120)]"
@@ -2040,7 +2068,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   { [ "$rc" -ne 0 ] && _dm_has "$out" "pins UX-001#default" && origin_has_path "progress/subtasks/$SB_PREFIX-852/dev_complete/$gid-pinned.md"; } || cf "(g) a slice pinned to a screen, with no design row and ACs that carry no tag, moves to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 500)"
   _dm_png "$SB_WORK/$gev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$gev/UX-001-default-build.png" BUILD
-  ROW="| AC2 | PASS | design | UX-001#default@$P: identical; $gev/UX-001-default-pin.png, $gev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$gf"
+  ROW="| AC2 | PASS | design | UX-001#default@$P: identical (image); $gev/UX-001-default-pin.png, $gev/UX-001-default-build.png |" perl -0pi -e 's/^\| AC2 \|[^\n]*$/$ENV{ROW}/m' "$gf"
   _dm_land "the slice's design row and images"
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-g2" ./scripts/subtask.sh move "$gid" qa_complete 2>&1 </dev/null )"; rc=$?
   { [ "$rc" -eq 0 ] && origin_has_path "progress/subtasks/$SB_PREFIX-852/qa_complete/$gid-pinned.md"; } || cf "(h) a pinned slice with its design row and images does not move to qa_complete/ (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | tail -c 600)"
@@ -2050,7 +2078,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-855" in_progress
   lf="$(_seed_subtask "$SB_PREFIX-855" s1 dev_complete twocell "A slice of two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png; ARCHIVE.md:1 \"condensed index of completed issues\" | UX-001#empty@$P: identical; $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $lev/UX-001-default-pin.png, $lev/UX-001-default-build.png; ARCHIVE.md:1 \"condensed index of completed issues\" | UX-001#empty@$P: identical (image); $lev/UX-001-empty-pin.png, $lev/UX-001-empty-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$lf"
   _dm_png "$SB_WORK/$lev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$lev/UX-001-default-build.png" BUILD
   _dm_land "a slice of two states, the second in a second cell"
@@ -2061,7 +2089,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   aev="dev/evidence/$aid"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   seed_issue dev_complete "$aid" allui chore "A card of one UI AC" "feature/$aid-work"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $aev/UX-001-default-pin.png, $aev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$SB_WORK/progress/dev_complete/$aid-allui.md"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $aev/UX-001-default-pin.png, $aev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$SB_WORK/progress/dev_complete/$aid-allui.md"
   _dm_land "a card of one UI AC"
   git -C "$SB_WORK" checkout -q -b "feature/$aid-work" "$SB_TRUNK" >/dev/null 2>&1
   echo "the second screen's code" > "$SB_WORK/app/list2.txt"
@@ -2080,7 +2108,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-854" in_progress
   of="$(_seed_subtask "$SB_PREFIX-854" s1 dev_complete oneac "A slice of one UI AC")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $oev/UX-001-default-pin.png, $oev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$of"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $oev/UX-001-default-pin.png, $oev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$of"
   _dm_png "$SB_WORK/$oev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$oev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its row and images"
@@ -2092,7 +2120,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-856" in_progress
   kf="$(_seed_subtask "$SB_PREFIX-856" s1 dev_complete oneptr "A slice of one UI AC with a pointer")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $kev/UX-001-default-pin.png, $kev/UX-001-default-build.png; $ptr |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$kf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $kev/UX-001-default-pin.png, $kev/UX-001-default-build.png; $ptr |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$kf"
   _dm_png "$SB_WORK/$kev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$kev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its design row ending with a quoted pointer"
@@ -2104,7 +2132,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-857" in_progress
   mf="$(_seed_subtask "$SB_PREFIX-857" s1 dev_complete badptr "A slice of one UI AC with a pointer that does not resolve")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $mev/UX-001-default-pin.png, $mev/UX-001-default-build.png; no-such-file.md:1 \"condensed index of completed issues\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$mf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $mev/UX-001-default-pin.png, $mev/UX-001-default-build.png; no-such-file.md:1 \"condensed index of completed issues\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$mf"
   _dm_png "$SB_WORK/$mev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$mev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its design row ending with a pointer that does not resolve"
@@ -2116,7 +2144,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-858" in_progress
   nf="$(_seed_subtask "$SB_PREFIX-858" s1 dev_complete twostate "A slice of one UI AC citing two states")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $nev/UX-001-default-pin.png, $nev/UX-001-default-build.png; ARCHIVE.md:1 \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$nf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $nev/UX-001-default-pin.png, $nev/UX-001-default-build.png; ARCHIVE.md:1 \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$nf"
   _dm_land "a slice citing two states, the second spelled only inside a quote"
   trunk_n="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
   out="$( bash "$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh" "$nid" dev_complete qa_complete QA "$nf" "$SB_WORK" "$trunk_n" 2>&1 </dev/null )"; rc=$?
@@ -2127,7 +2155,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-859" in_progress
   pf="$(_seed_subtask "$SB_PREFIX-859" s1 dev_complete midptr "A slice of one UI AC with the pointer before the images")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $ptr; $pev/UX-001-default-pin.png, $pev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$pf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $ptr; $pev/UX-001-default-pin.png, $pev/UX-001-default-build.png |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$pf"
   _dm_png "$SB_WORK/$pev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$pev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its pointer before the images"
@@ -2138,7 +2166,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-860" in_progress
   qf="$(_seed_subtask "$SB_PREFIX-860" s1 dev_complete tick "A slice citing two states, the pointer in backticks")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; dev/evidence/$qid/UX-001-default-pin.png, dev/evidence/$qid/UX-001-default-build.png; \`ARCHIVE.md:1\` \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$qf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); dev/evidence/$qid/UX-001-default-pin.png, dev/evidence/$qid/UX-001-default-build.png; \`ARCHIVE.md:1\` \"UX-001#empty@$P: identical\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"', UX-001#empty\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: both states show. [design: UX-001#default, UX-001#empty]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$qf"
   _dm_land "a slice citing two states, the second spelled only inside the quote of a backticked pointer"
   qtrunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
   out="$( bash "$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh" "$qid" dev_complete qa_complete QA "$qf" "$SB_WORK" "$qtrunk" 2>&1 </dev/null )"; rc=$?
@@ -2149,7 +2177,7 @@ case_a_card_with_a_ui_ac_lands_only_with_its_design_row_through_finish_pr_and_su
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   _seed_parent "$SB_PREFIX-861" in_progress
   rf="$(_seed_subtask "$SB_PREFIX-861" s1 dev_complete wrongq "A slice of one UI AC whose pointer quote is not on its line")"
-  ROW="| AC1 | PASS | design | UX-001#default@$P: identical; $rev/UX-001-default-pin.png, $rev/UX-001-default-build.png; ARCHIVE.md:1 \"a quote the line does not hold\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$rf"
+  ROW="| AC1 | PASS | design | UX-001#default@$P: identical (image); $rev/UX-001-default-pin.png, $rev/UX-001-default-build.png; ARCHIVE.md:1 \"a quote the line does not hold\" |" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@'"$P"']\n/; s/- \[ \] AC1 — [^\n]*\n/- [ ] AC1 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/^\| AC1 \|[^\n]*$/$ENV{ROW}/m' "$rf"
   _dm_png "$SB_WORK/$rev/UX-001-default-pin.png" LIST
   _dm_png "$SB_WORK/$rev/UX-001-default-build.png" BUILD
   _dm_land "a slice of one UI AC, its pointer quote not on the line"
@@ -4813,7 +4841,7 @@ case_a_design_pin_must_be_a_commit_the_trunk_holds_at_landing_and_a_local_only_p
   git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
   seed_issue dev_complete "$id" pinned chore "A card with a screen"
   card="$SB_WORK/progress/dev_complete/$id-pinned.md"
-  PIN="$P" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@$ENV{PIN}]\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | UX-001#default\@$ENV{PIN}: identical; x |\n$1/' "$card"
+  PIN="$P" perl -0pi -e 's/(forks: none\n)/$1design: [UX-001#default\@$ENV{PIN}]\n/; s/(- \[ \] AC1 — [^\n]*\n)/$1- [ ] AC2 — (UI) from PRD-001-F1-S1: the list shows. [design: UX-001#default]\n/; s/(\| shadow-check )/| AC2 | PASS | design | UX-001#default\@$ENV{PIN}: identical (image); x |\n$1/' "$card"
   _dm_land "the card pinned to a trunk commit"
   hook="$SB_WORK/scripts/move-check.d/qa_complete/50-design-rows.sh"
   trunk="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"

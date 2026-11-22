@@ -335,6 +335,11 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Action required
+
+- **A design row says which comparison made it `identical`, and Dev makes both design images at handoff (design module 0.6.2).** The design module's QA cell check refuses a bare `identical` and takes `identical (image)` (the pin PNG and the build PNG compared) or `identical (structure)` (the pinned `.dc.html` read against the source; refused unless the pin's canvas is a wireframe canvas in effect at the pin); a seat that can do neither writes `diffs: <element ids>` or asks. Dev commits `dev/evidence/<card-id>/UX-NNN-<state>-pin.png` (`git show <pin>:requirements/design/<canvas>/renders/<Screen>-<state>.png > …`) and `…-build.png` to the trunk at handoff; `dev/evidence/README.md` exempts these fixed names from naming a file for its AC. A card already holding a PASS design row with a bare `identical` is refused at landing: rewrite the row. The line below names each such card; it does nothing in a project without the module.
+  Verify: bad=0; for c in progress/{in_progress,blocked,dev_complete,qa_complete}/*.md progress/subtasks/*/{in_progress,blocked,dev_complete,qa_complete}/*.md; do [ -f "$c" ] || continue; awk -F'|' '$3 ~ /PASS/ && $4 ~ /design/ { p = $5; gsub(/"[^"]*"/, "", p); gsub(/`/, "", p); if (p ~ /@[0-9a-fA-F]+: *identical *([;,]|dev\/|UX-|$)/) f = 1 } END { exit !f }' "$c" && { echo "$c: a design row says a bare identical"; bad=1; }; done; [ "$bad" = 0 ]
+
 ### Changed
 
 - **`kit-init.sh` and `verify.sh` refuse starts that used to pass.** A gate command with shell syntax (`&&`, `;`, a redirection, `$`, parentheses, a backtick or a backslash) is refused where it is declared, in `kit-init --gate-command` and in the `GATES` table, because the runner executes its words and never interprets them: put the command in a script and name the script. `kit-init` also refuses, before it writes or pushes anything, a kit that is not at its repository's root, and a `--trunk` that the remote's own HEAD does not name (a local `git remote set-head` does not satisfy it; a remote it cannot ask refuses too); a `host:path` ssh alias is accepted as a remote URL. In a project that already has a `.gitignore`, `kit-init` adds the `.env` entries to it, and `setup.sh` no longer seeds a `.env` that git would not ignore.
