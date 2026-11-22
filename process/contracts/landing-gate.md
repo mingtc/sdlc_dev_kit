@@ -132,8 +132,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   on the item does not cover it), or an AC it had then is no longer on it (removed or renamed) and no `[decision: D-NN]`
   on an Activity line written since it left `todo/` and naming it, or on the bullet kept struck through completely
   (`- [ ] ~~AC3 — …~~`), covers the removal ⇒ refuse, naming the AC id. The item's acceptance criteria are read first,
-  whatever its history (the heading is matched as a lower-case prefix, so a slice's `Acceptance Criteria (…)` counts): a checklist
-  line of `## Acceptance Criteria` that is not `- [ ] <id> — <text>` (another marker, an indent, an id with a dot, no id; a
+  whatever its history (the heading is matched as a lower-case prefix, so a slice's `Acceptance Criteria (…)` counts, and so does a
+  refactor item's `## Behaviors Preserved`, which is its acceptance criteria): a checklist
+  line of that section that is not `- [ ] <id> — <text>` (another marker, an indent, an id with a dot, no id; a
   numbered or quoted line is graded if it carries an id), an id directly followed by `-` and a letter or digit, or an id
   two lines share ⇒ refuse, naming each; the struck bullet above is a recorded removal and the one exception; an item
   with no acceptance criterion ⇒ refuse.
