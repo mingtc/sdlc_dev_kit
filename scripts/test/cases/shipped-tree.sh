@@ -1318,6 +1318,106 @@ console.log(ownerAlive() ? 'alive' : 'exited');" "$1" 2>&1
 }
 
 # =============================================================================
+# CASE — brainstorming's companion UPGRADES A WEBSOCKET ONLY FOR A CLIENT THAT HOLDS ITS TOKEN, AND NAMES ITS OWN ORIGIN.
+# The socket carries a user's selection to the agent, which reads it as the user's choice, and a page open in
+# the same browser can reach 127.0.0.1. The real server.cjs is started on a free port and a small client asks
+# for the upgrade: the token in the URL it printed, with the server's own origin or none, upgrades; no token,
+# a wrong one, a foreign origin or the origin `null` is refused with 403. The page still serves with the
+# token's query string. start-server.sh's /tmp fallback is an owner-only directory named at random, not a pid
+# and a clock. Each check is ablated in a copy: the token check, the origin check, and the directory's name.
+# SKIPs without node. A forged value is never accepted; what the agent then does with an answer is not tested.
+# =============================================================================
+case_brainstorm_server_gates_its_websocket_on_a_token_and_an_origin() {
+  cf_reset
+  local L="brainstorming's server.cjs upgrades a WebSocket only for a client holding the session token that names no origin or the server's own, and start-server.sh makes an owner-only, randomly named session directory under /tmp"
+  local dir=".claude/skills/brainstorming/scripts" nodebin abl sess perm
+  if [ ! -f "$REAL_REPO_ROOT/$dir/server.cjs" ]; then skp "$L" "$dir/server.cjs absent"; return; fi
+  nodebin="$(command -v node 2>/dev/null)" || { skp "$L" "node absent: the brainstorming server runs on node"; return; }
+  make_sandbox
+  cat > "$SB_TMP/ws.js" <<'WSEOF'
+const http = require('http')
+const [port, p, origin] = process.argv.slice(2)
+const headers = { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==' }
+if (origin) headers.Origin = origin
+const req = http.request({ host: '127.0.0.1', port, path: p, headers })
+req.on('upgrade', (res, sock) => { console.log('UPGRADED ' + res.statusCode); sock.destroy(); process.exit(0) })
+req.on('response', (res) => { console.log('REFUSED ' + res.statusCode); process.exit(0) })
+req.on('error', (e) => { console.log('REFUSED ' + e.code); process.exit(0) })
+req.end(); setTimeout(() => { console.log('TIMEOUT'); process.exit(1) }, 5000)
+WSEOF
+  _bs_start() {   # <scripts dir>: starts its server.cjs on a free port; sets BS_PORT BS_PID BS_TOK; 1 when it never announced itself
+    local sd="$1" i
+    BS_PORT="$("$nodebin" -e 'const s=require("net").createServer().listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
+    rm -rf "$SB_TMP/sess"; mkdir -p "$SB_TMP/sess"
+    BRAINSTORM_PORT="$BS_PORT" BRAINSTORM_DIR="$SB_TMP/sess" "$nodebin" "$sd/server.cjs" > "$SB_TMP/server.out" 2>&1 &
+    BS_PID=$!
+    i=0; while [ ! -s "$SB_TMP/sess/state/server-info" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    [ -s "$SB_TMP/sess/state/server-info" ] || return 1
+    BS_TOK="$(sed -n 's/.*token=\([0-9a-f]*\).*/\1/p' "$SB_TMP/sess/state/server-info")"
+  }
+  _bs_stop() { kill "$BS_PID" 2>/dev/null; wait "$BS_PID" 2>/dev/null; return 0; }
+  _bs_expect() {   # <label> <UPGRADED|REFUSED> <path> [origin]
+    local got; got="$("$nodebin" "$SB_TMP/ws.js" "$BS_PORT" "$3" ${4:+"$4"} 2>&1)"
+    case "$got" in "$2"*) ;; *) cf "$1: wanted $2, the client saw '$got'" ;; esac
+  }
+
+  if ! _bs_start "$REAL_REPO_ROOT/$dir"; then
+    _bs_stop; teardown
+    _fixture_die "case_brainstorm_server_gates_its_websocket_on_a_token_and_an_origin: the real server never wrote its info file: $(head -c 300 "$SB_TMP/server.out" 2>/dev/null)"
+  fi
+  [ "${#BS_TOK}" -ge 32 ] || cf "(url) the URL the server prints carries no token of 32 hex characters: $(cut -c1-220 "$SB_TMP/sess/state/server-info")"
+  _bs_expect "(token, the server's own origin)" UPGRADED "/?token=$BS_TOK" "http://localhost:$BS_PORT"
+  _bs_expect "(token, the loopback origin)" UPGRADED "/?token=$BS_TOK" "http://127.0.0.1:$BS_PORT"
+  _bs_expect "(token, no origin)" UPGRADED "/?token=$BS_TOK"
+  _bs_expect "(no token)" REFUSED "/" "http://localhost:$BS_PORT"
+  _bs_expect "(a wrong token)" REFUSED "/?token=00000000000000000000000000000000" "http://localhost:$BS_PORT"
+  _bs_expect "(token, a foreign origin)" REFUSED "/?token=$BS_TOK" "http://evil.example"
+  _bs_expect "(token, origin null)" REFUSED "/?token=$BS_TOK" "null"
+  "$nodebin" -e "require('http').get({host:'127.0.0.1',port:$BS_PORT,path:'/?token=$BS_TOK'},r=>{console.log('HTTP '+r.statusCode);process.exit(0)}).on('error',e=>{console.log('ERR '+e.code);process.exit(0)})" > "$SB_TMP/page.out" 2>&1
+  [ "$(cat "$SB_TMP/page.out")" = "HTTP 200" ] || cf "(page) GET /?token=… did not answer 200: '$(cat "$SB_TMP/page.out")' — the page the user opens would be gone"
+  _bs_stop
+
+  # ABLATION: each check must be able to go red, in a copy of the scripts.
+  abl="$SB_TMP/abl"; cp -R "$REAL_REPO_ROOT/$dir" "$abl"
+  sed 's/!tokenOk(req)/false/' "$REAL_REPO_ROOT/$dir/server.cjs" > "$abl/server.cjs"
+  if cmp -s "$abl/server.cjs" "$REAL_REPO_ROOT/$dir/server.cjs"; then cf "(ablation) '!tokenOk(req)' is not in server.cjs — re-anchor this case"
+  elif _bs_start "$abl"; then _bs_expect "(ablation: token check removed, no token)" UPGRADED "/" "http://localhost:$BS_PORT"; _bs_stop
+  else _bs_stop; cf "(ablation) the copy with the token check removed never started"; fi
+  sed 's/!originOk(req)/false/' "$REAL_REPO_ROOT/$dir/server.cjs" > "$abl/server.cjs"
+  if cmp -s "$abl/server.cjs" "$REAL_REPO_ROOT/$dir/server.cjs"; then cf "(ablation) '!originOk(req)' is not in server.cjs — re-anchor this case"
+  elif _bs_start "$abl"; then _bs_expect "(ablation: origin check removed, a foreign origin)" UPGRADED "/?token=$BS_TOK" "http://evil.example"; _bs_stop
+  else _bs_stop; cf "(ablation) the copy with the origin check removed never started"; fi
+
+  # THE SESSION DIRECTORY start-server.sh makes when there is no --project-dir. A stand-in node records its BRAINSTORM_DIR.
+  mkdir -p "$SB_TMP/bin"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "$BRAINSTORM_DIR" > "$STUB_DIR_OUT"' 'exit 0' > "$SB_TMP/bin/node"
+  chmod +x "$SB_TMP/bin/node"
+  _bs_dir() {   # <start-server.sh> -> the session directory it chose
+    rm -f "$SB_TMP/stub.dir"
+    STUB_DIR_OUT="$SB_TMP/stub.dir" PATH="$SB_TMP/bin:$PATH" bash "$1" --foreground > /dev/null 2>&1 < /dev/null
+    cat "$SB_TMP/stub.dir" 2>/dev/null
+  }
+  sess="$(_bs_dir "$REAL_REPO_ROOT/$dir/start-server.sh")"
+  case "$sess" in
+    /tmp/brainstorm.??????????)
+      perm="$(ls -ld "$sess" | cut -c1-10)"
+      [ "$perm" = "drwx------" ] || cf "(dir) the session directory $sess is $perm, not owner-only"
+      rm -rf "$sess" ;;
+    *) cf "(dir) the /tmp fallback is '$sess', not a /tmp/brainstorm.<ten random characters> directory from mktemp -d" ;;
+  esac
+  sed 's|\$(mktemp -d /tmp/brainstorm.XXXXXXXXXX)|/tmp/brainstorm-$$-1|' "$REAL_REPO_ROOT/$dir/start-server.sh" > "$abl/start-server.sh"
+  if cmp -s "$abl/start-server.sh" "$REAL_REPO_ROOT/$dir/start-server.sh"; then cf "(ablation) the mktemp fallback is not in start-server.sh — re-anchor this case"
+  else
+    sess="$(_bs_dir "$abl/start-server.sh")"
+    case "$sess" in /tmp/brainstorm.??????????) cf "(ablation) with the pid-and-clock name restored the directory still read as the mktemp form: $sess" ;; esac
+    case "$sess" in /tmp/brainstorm-*) rm -rf "$sess" ;; esac
+  fi
+  unset -f _bs_start _bs_stop _bs_expect _bs_dir
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
 #
 # A consumer reads `"blind_spots": []` as "this walk has no blind spots", which is false: the

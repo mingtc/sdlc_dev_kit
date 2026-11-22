@@ -80,7 +80,8 @@ SESSION_ID="$$-$(date +%s)"
 if [[ -n "$PROJECT_DIR" ]]; then
   SESSION_DIR="${PROJECT_DIR}/.brainstorm/${SESSION_ID}"
 else
-  SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
+  # Owner-only and unguessable: a name built from a pid and a clock is one another local user can list or guess.
+  SESSION_DIR="$(mktemp -d /tmp/brainstorm.XXXXXXXXXX)" || { echo '{"error": "could not create a session directory under /tmp"}'; exit 1; }
 fi
 
 STATE_DIR="${SESSION_DIR}/state"

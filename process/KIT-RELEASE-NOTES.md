@@ -348,6 +348,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **The brainstorming companion's WebSocket now needs the session token in the URL, and a browser must connect from the server's own origin.** `start-server.sh` prints a URL ending `/?token=<hex>`: open it as printed. A bare `http://localhost:<port>/` still loads the page, but its socket is refused, so no selection reaches the agent. A page open in the same browser can no longer send the agent a selection. Without `--project-dir`, the session directory under `/tmp` now has a random name and is owner-only.
 - **`check-board.sh`'s `TEST_GLOBS vs scripts/test/**` line now says what it is.** It names the kit's own self-test, not your tests, and ends with a `Next:` (add `"scripts/test/*"` to `TEST_GLOBS` to have edits to it ablation-checked, or leave the line). It is still a report and never moves the verdict; `scripts/config.sh`'s `TEST_GLOBS` comment says the same.
 - **`kit-upgrade.sh` refuses a `.kit-upgrade/` that is a symbolic link, or has one inside it.** It stages copies there and `--finish` reads them back, so a link would take them to wherever it points. The refusal (`upgrade-staging-link`) names the link and how to remove it; nothing is written.
 - **`module.sh enable` over an enabled module that has a recorded file or block missing says the module is not whole.** It used to say "already enabled; nothing to do". It now prints the same missing-things line as `status` and names the route back: `module.sh disable <m>`, then `module.sh enable <m>`.

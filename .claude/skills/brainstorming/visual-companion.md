@@ -36,12 +36,12 @@ The server watches a directory for HTML files and serves the newest one to the b
 # Start server with persistence (mockups saved to project)
 .claude/skills/brainstorming/scripts/start-server.sh --project-dir /path/to/project
 
-# Returns: {"type":"server-started","port":52341,"url":"http://localhost:52341",
+# Returns: {"type":"server-started","port":52341,"url":"http://localhost:52341/?token=<hex>",
 #           "screen_dir":"/path/to/project/.brainstorm/12345-1706000000/content",
 #           "state_dir":"/path/to/project/.brainstorm/12345-1706000000/state"}
 ```
 
-Save `screen_dir` and `state_dir` from the response. Tell user to open the URL.
+Save `screen_dir` and `state_dir` from the response. Tell user to open the URL exactly as returned: its token is what lets the page's socket connect.
 
 **Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. When using `--project-dir`, check `<project>/.brainstorm/` for the session directory.
 

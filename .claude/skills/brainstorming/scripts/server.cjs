@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // ========== WebSocket Protocol (RFC 6455) ==========
 
@@ -76,10 +77,33 @@ function decodeFrame(buffer) {
 const PORT = process.env.BRAINSTORM_PORT || (49152 + Math.floor(Math.random() * 16383));
 const HOST = process.env.BRAINSTORM_HOST || '127.0.0.1';
 const URL_HOST = process.env.BRAINSTORM_URL_HOST || (HOST === '127.0.0.1' ? 'localhost' : HOST);
-const SESSION_DIR = process.env.BRAINSTORM_DIR || '/tmp/brainstorm';
+const SESSION_DIR = process.env.BRAINSTORM_DIR || path.join(os.tmpdir(), 'brainstorm-' + crypto.randomBytes(8).toString('hex'));
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
 let ownerPid = process.env.BRAINSTORM_OWNER_PID ? Number(process.env.BRAINSTORM_OWNER_PID) : null;
+
+// ========== Who may connect ==========
+//
+// The WebSocket carries a user's selection to the agent, which reads it as the user's choice. A page
+// open in the same browser can reach 127.0.0.1 too, so two checks stand in front of it: the URL this
+// server prints carries a per-session token that only the person it was handed to has, and a browser
+// connection must name this server's own origin. A client that sends no Origin (not a browser) still
+// needs the token.
+const TOKEN = process.env.BRAINSTORM_TOKEN || crypto.randomBytes(16).toString('hex');
+const ORIGINS = new Set(['http://' + URL_HOST + ':' + PORT, 'http://localhost:' + PORT, 'http://127.0.0.1:' + PORT]);
+
+function tokenOk(req) {
+  let given = '';
+  try { given = new URL(req.url, 'http://localhost').searchParams.get('token') || ''; } catch (e) { return false; }
+  const a = Buffer.from(given);
+  const b = Buffer.from(TOKEN);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function originOk(req) {
+  const origin = req.headers.origin;
+  return origin === undefined || ORIGINS.has(origin);
+}
 
 const MIME_TYPES = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
@@ -128,7 +152,7 @@ function getNewestScreen() {
 
 function handleRequest(req, res) {
   touchActivity();
-  if (req.method === 'GET' && req.url === '/') {
+  if (req.method === 'GET' && req.url.split('?')[0] === '/') {
     const screenFile = getNewestScreen();
     let html = screenFile
       ? (raw => isFullDocument(raw) ? raw : wrapInFrame(raw))(fs.readFileSync(screenFile, 'utf-8'))
@@ -167,6 +191,10 @@ const clients = new Set();
 function handleUpgrade(req, socket) {
   const key = req.headers['sec-websocket-key'];
   if (!key) { socket.destroy(); return; }
+  if (!tokenOk(req) || !originOk(req)) {
+    socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+    return;
+  }
 
   const accept = computeAcceptKey(key);
   socket.write(
@@ -346,7 +374,7 @@ function startServer() {
   server.listen(PORT, HOST, () => {
     const info = JSON.stringify({
       type: 'server-started', port: Number(PORT), host: HOST,
-      url_host: URL_HOST, url: 'http://' + URL_HOST + ':' + PORT,
+      url_host: URL_HOST, url: 'http://' + URL_HOST + ':' + PORT + '/?token=' + TOKEN,
       screen_dir: CONTENT_DIR, state_dir: STATE_DIR
     });
     console.log(info);
