@@ -794,8 +794,13 @@ case_subtask_blocked_needs_a_note() {
 # it, else the set's first tag); a literal [<Role>] <ID> is refused by the hook. Two arms: the
 # shipped set, and a narrowed set that lacks the creator's seat.
 # =============================================================================
-_printed_commit_subject() {   # <creator output> -> the -m subject of the printed commit line
-  printf '%s\n' "$1" | grep -F 'git commit -m' | head -1 | sed -n 's/.*git commit -m "\(.*\)" && git push.*/\1/p'
+_printed_commit_subject() {   # <creator output> -> the subject its printed commit line makes: register-commit.sh's "[<role>] <message>", or a -m subject
+  local l
+  l="$(printf '%s\n' "$1" | grep -E 'register-commit\.sh --role|git commit -m' | head -1)"
+  case "$l" in
+    *'register-commit.sh --role'*) printf '%s\n' "$l" | sed -n 's/.*register-commit\.sh --role \([^ ]*\) --message "\([^"]*\)".*/[\1] \2/p' ;;
+    *) printf '%s\n' "$l" | sed -n 's/.*git commit -m "\(.*\)" && git push.*/\1/p' ;;
+  esac
 }
 case_creator_prints_a_commit_line_the_hook_accepts() {
   cf_reset
