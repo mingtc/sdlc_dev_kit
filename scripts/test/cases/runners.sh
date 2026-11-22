@@ -2143,6 +2143,75 @@ case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused() {
 }
 
 # =============================================================================
+# CASE — A LADDER CELL READS A PIPE WRITTEN `\|` INSIDE ITS CELL, WITH THE SHARED CELL READER.
+#
+# kit_model_ladder_cell split the ladder row on every `|`, so a `\|` (a literal pipe in markdown) moved every
+# column after it: a filled QA row read as unfilled, and the drift check (check-board.sh arm [s]) then had
+# nothing to compare. The row is now split by lib/board-properties.sh's bp_cells, the reader the board
+# properties and the landing's table reader already share: a third copy of the splitter would be the one
+# that disagrees. Each row has one fixed answer. A cell holding `opus \| sonnet` reads whole, as `opus | sonnet`
+# (the markdown reading; it then differs from any single pin, which the drift check reports). The
+# `<fill in…>` rule and the label match are unchanged: their rows are the control.
+# Ablation, per check, on a copy of lib/: the splitter put back to a plain `|` split must fail the QA rows,
+# and the `<fill in` rule removed must fail the unfilled row.
+# =============================================================================
+case_model_ladder_cell_reads_an_escaped_pipe_inside_its_cell() {
+  cf_reset
+  local lib="$REAL_SCRIPTS/lib/model-pins.sh" d doc rows row lab fld want got bad
+  [ -f "$lib" ] || _fixture_die "case_model_ladder_cell_reads_an_escaped_pipe_inside_its_cell: no lib/model-pins.sh at $lib"
+  d="$(mktemp -d)"; doc="$d/orchestrator.md"
+  cat > "$doc" <<'LADDER'
+| Work class | Model | Effort |
+| --- | --- | --- |
+| **Dev** | `sonnet` | `medium` default; `low` \| `high` for hard work |
+| **QA** | `opus \| sonnet` | `high` |
+| **Cleanup / classifier** | `haiku` | `low` |
+| **Spike / probe** | `<fill in>` | `<fill in>` |
+LADDER
+  rows='Dev@model@sonnet
+Dev@effort@medium
+QA@model@opus | sonnet
+QA@effort@high
+Cleanup / classifier@model@haiku
+Cleanup / classifier@effort@low
+Spike / probe@model@
+Spike / probe@effort@
+No such class@model@'
+  _lc_bad() {   # <model-pins.sh> -> the rows it reads wrongly, one per line
+    local l="$1" r a f w g
+    while IFS='@' read -r a f w; do
+      g="$( . "$l" 2>/dev/null; kit_model_ladder_cell "$doc" "$a" "$f" 2>&1 )"
+      [ "$g" = "$w" ] || printf '%s %s: read "%s", wanted "%s"\n' "$a" "$f" "$g" "$w"
+    done <<< "$rows"
+  }
+  bad="$(_lc_bad "$lib")"
+  [ -z "$bad" ] || cf "kit_model_ladder_cell misreads a ladder row: $(printf '%s' "$bad" | tr '\n' ';')"
+  # The reader is the shared one: no splitter of its own in the function.
+  got="$(sed -n '/^kit_model_ladder_cell() {/,/^}/p' "$lib")"
+  [ -n "$got" ] || _fixture_die "case_model_ladder_cell_reads_an_escaped_pipe_inside_its_cell: no kit_model_ladder_cell in $lib"
+  case "$got" in *bp_cells*) ;; *) cf "kit_model_ladder_cell does not call bp_cells, the shared cell reader" ;; esac
+  case "$got" in *"-F'|'"*|*'split('*) cf "kit_model_ladder_cell carries a splitter of its own" ;; esac
+
+  # ABLATION, on a copy of lib/ (model-pins.sh sources its sibling board-properties.sh by its own path).
+  cp -R "$REAL_SCRIPTS/lib" "$d/lib"
+  sed 's/bp_cells(\$0, f)/split($0, f, "|")/' "$lib" > "$d/lib/model-pins.sh"
+  if cmp -s "$d/lib/model-pins.sh" "$lib"; then cf "(ablation) 'bp_cells(\$0, f)' is not in kit_model_ladder_cell — re-anchor this case"
+  else
+    bad="$(_lc_bad "$d/lib/model-pins.sh")"
+    case "$bad" in *"QA model"*) ;; *) cf "(ablation) with a plain | split put back, the QA model row still read right: '$bad' — the case cannot see the splitter" ;; esac
+  fi
+  sed 's|v !~ /^<fill in/|1|' "$lib" > "$d/lib/model-pins.sh"
+  if cmp -s "$d/lib/model-pins.sh" "$lib"; then cf "(ablation) the '<fill in' rule is not in kit_model_ladder_cell — re-anchor this case"
+  else
+    bad="$(_lc_bad "$d/lib/model-pins.sh")"
+    case "$bad" in *"Spike / probe model"*) ;; *) cf "(ablation) with the <fill in rule removed, the unfilled row still read empty: '$bad' — the case cannot see that rule" ;; esac
+  fi
+  rm -rf "$d"
+  unset -f _lc_bad
+  finish "kit_model_ladder_cell reads a pipe written \\| inside its cell with the shared bp_cells (opus \\| sonnet reads whole), still reads a plain cell, an unfilled cell as nothing and an absent label as nothing, and each check is ablation-proven"
+}
+
+# =============================================================================
 # _seed_provisioning_sandbox — the fixture scripts/set-models.sh and the adopted-tree branch of
 # case_agent_model_pins_match_their_declaration both need: .claude/agents/*.md, .claude/roles/
 # orchestrator.md and .claude/workflows/{wave,tranche}-runner.js, copied from the REAL tree (never

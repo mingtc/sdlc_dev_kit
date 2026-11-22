@@ -903,6 +903,7 @@ CASES=(
   case_agent_model_pins_match_their_declaration
   case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused
   case_model_pins_vs_own_ladder
+  case_model_ladder_cell_reads_an_escaped_pipe_inside_its_cell
   case_set_models_class_rewrites_pin_and_ladder_only
   case_set_models_all_rewrites_runners_too
   case_set_models_unknown_class_refuses
