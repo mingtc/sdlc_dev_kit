@@ -145,6 +145,11 @@ to change and making every change self-recording.
   could not run. The one move exempt is the landing script's own, which
   has just checked the branch: it names the squash commit it landed, the mover verifies that commit is
   the item's squash on the trunk, and the skip is printed and recorded. Any other value is refused.
+- A move into the completed store (`done`) of a card that is not in the reviewed state (`qa_complete`) ⇒
+  refuse, naming the move to the reviewed state as the way: the store is written by the sweep of that
+  state, and a card there counts as shipped for a dependent's `blocked_by`.
+- A move of a subtask by an id that is not a full slice id (`<PARENT>-s<N>`), or that names more than
+  one card ⇒ refuse, naming the parent's slices or the matching cards: nothing moves by guess.
 - A move of a decomposed item into the reviewed state or the completed store while any of its children
   is neither reviewed nor declined ⇒ refuse, naming each such child. (Declining the item itself claims no
   completion and is not refused.) A child that will not be done is closed by declining it, with its reason.

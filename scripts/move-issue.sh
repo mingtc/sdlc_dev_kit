@@ -36,8 +36,8 @@
 #   a ruling) while it already sits in the right column; the move refuses that as a no-op.
 #
 # Target folders: @TARGET_FOLDERS@
-#   (done/ is the permanent home for completed stories — normally populated by
-#    archive.sh sweeping qa_complete/, but a valid manual target too.)
+#   (done/ is the permanent home for completed stories, populated by archive.sh sweeping
+#    qa_complete/; a move there from any other column is refused.)
 #   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
@@ -549,6 +549,16 @@ else
         "  A parent advances only when every subtask has, or is declined." \
         "Next: finish each subtask, or close one that will not be done with  ./scripts/subtask.sh move <id> declined --note \"why\". NOTHING WAS CHANGED."
     fi
+  fi
+
+  # A CARD REACHES done/ ONLY FROM qa_complete/. done/ is the retired store of reviewed work, written by
+  # archive.sh's sweep of qa_complete/, and it counts as shipped for a dependent's blocked_by: a card moved
+  # there from any other column was never reviewed, whoever moved it.
+  if [ "$TARGET" = "done" ] && [ "$SRC_FOLDER" != "qa_complete" ]; then
+    kit_refuse 1 done-needs-qa-complete \
+      "Error: ${ISSUE_ID} is in progress/${SRC_FOLDER}/, not qa_complete/, so it cannot move to done/." \
+      "       done/ is the retired store of REVIEWED work, written by archive.sh's sweep of qa_complete/; a card moved there from any other column skips the review, and done/ counts as shipped for a dependent's blocked_by." \
+      "Next: take the card through review first (./scripts/move-issue.sh ${ISSUE_ID} qa_complete --role ${ROLE}), then ./scripts/archive.sh sweeps it into done/. NOTHING WAS CHANGED."
   fi
 
   # A missing target folder ABORTS rather than being created: git does not track an

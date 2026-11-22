@@ -288,6 +288,7 @@ CASES=(
   case_move_issue_set_pr_on_a_minted_card
   case_move_issue_moves_a_decomposed_parent
   case_parent_advances_only_with_every_subtask
+  case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id
   case_subtask_declined_closes_a_slice
   case_subtask_blocked_needs_a_note
   case_creator_prints_a_commit_line_the_hook_accepts

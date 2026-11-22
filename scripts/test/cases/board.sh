@@ -4544,3 +4544,92 @@ case_prepare_commit_msg_compares_raw_messages() {
   finish "prepare-commit-msg: a wrapped, CRLF, trailing-blank or # first line is still held; a resolution commit inside a stopped rebase --apply gets the ordinary Next and loses nothing; the push retry blames a hook only when a hook refused"
   teardown
 }
+
+
+# =============================================================================
+# CASE — A CARD REACHES done/ ONLY FROM qa_complete/, AND A SLICE IS NAMED BY ITS FULL ID.
+#
+# `move-issue.sh <id> done` retired a card from any column, by any role: a card never worked, or never
+# reviewed, then counted as shipped (done/ unblocks a dependent's blocked_by) and sat outside the sweep's index.
+# archive.sh, the sweep of qa_complete/, is the writer of done/; a move there from any other column is refused,
+# with the review as the next step. `subtask.sh move <PARENT>` matched every slice of the parent through
+# "<id>-*.md" and moved the first it found, so a parent id could move or decline an arbitrary slice: it now takes
+# only the full slice id (<PARENT>-s<N>) and refuses on more than one card of that id, naming them.
+# Rows: (a) a todo card and a dev_complete card refused, left where they were; (b) the control: a qa_complete
+# card moves; (c) the parent id is refused naming its slices, moving none; (d) the full id moves that slice only;
+# (e) a slice id filed in two columns is refused, naming both, moving neither. Ablation: each check removed from a
+# copy of the script, committed to the sandbox trunk (a lander runs only the trunk's own copy), lets its row through.
+# =============================================================================
+case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
+  cf_reset
+  make_sandbox
+  local W="$SB_WORK" t="$SB_PREFIX-801" d="$SB_PREFIX-802" q="$SB_PREFIX-803" p="$SB_PREFIX-810" out rc abl
+  seed_issue todo "$t" fresh chore "Never worked"
+  seed_issue dev_complete "$d" handoff chore "Handed off, not reviewed"
+  seed_issue qa_complete "$q" reviewed chore "Reviewed"
+  seed_issue in_progress "$p" parent chore "A decomposed parent"
+  mkdir -p "$W/progress/subtasks/$p/todo" "$W/progress/subtasks/$p/in_progress"
+  seed_issue "subtasks/$p/todo" "$p-s1" first chore "Slice one"
+  seed_issue "subtasks/$p/in_progress" "$p-s2" second chore "Slice two"
+  seed_issue "subtasks/$p/todo" "$p-s3" twin chore "Slice three, filed in two columns"
+  seed_issue "subtasks/$p/in_progress" "$p-s3" twin chore "Slice three, filed in two columns"
+  publish_sandbox
+  _mvd() { ( cd "$W" && ./scripts/move-issue.sh "$1" done --role QA --note "straight to done" 2>&1 ); }
+  _std() { ( cd "$W" && ./scripts/subtask.sh move "$@" --role Dev --note "move" 2>&1 ); }
+
+  # (a) a card in any column but qa_complete/ is refused, and stays where it was
+  rc=0; out="$(_mvd "$t")" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a todo card moved to done/ (exit 0)"
+  case "$out" in *"qa_complete"*"Next:"*|*"Next:"*"qa_complete"*) : ;; *) cf "(a) the refusal does not name qa_complete as the way: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/todo/$t-fresh.md" || cf "(a) the todo card left todo/ during the refusal"
+  origin_has_path "progress/done/$t-fresh.md" && cf "(a) the todo card reached done/"
+  rc=0; out="$(_mvd "$d")" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a2) a dev_complete card moved to done/ (exit 0)"
+  origin_has_path "progress/dev_complete/$d-handoff.md" || cf "(a2) the dev_complete card left dev_complete/ during the refusal"
+
+  # (b) THE CONTROL: a reviewed card moves
+  rc=0; out="$(_mvd "$q")" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a qa_complete card was refused its move to done/: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/done/$q-reviewed.md" || cf "(b) the reviewed card did not reach done/"
+
+  # (c) the parent id names no slice: refused, naming the slices, moving none
+  rc=0; out="$(_std "$p" in_progress)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) subtask.sh move took the PARENT id and moved a slice (exit 0)"
+  case "$out" in *"$p-s1"*"$p-s2"*|*"$p-s2"*"$p-s1"*) : ;; *) cf "(c) the refusal does not name the parent's slices: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/subtasks/$p/todo/$p-s1-first.md" || cf "(c) slice s1 left todo/ during the refusal"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s2-second.md" || cf "(c) slice s2 left in_progress/ during the refusal"
+  # (d) the full slice id moves that slice, and only it
+  rc=0; out="$(_std "$p-s1" in_progress)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the full slice id was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s1-first.md" || cf "(d) slice s1 did not reach in_progress/"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s2-second.md" || cf "(d) slice s2 was moved with s1"
+  # (e) one id filed in two columns is ambiguous: refused, naming both, moving neither
+  rc=0; out="$(_std "$p-s3" dev_complete)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a slice id filed in two columns moved (exit 0)"
+  case "$out" in *"todo"*"in_progress"*|*"in_progress"*"todo"*) : ;; *) cf "(e) the refusal does not name both cards: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/subtasks/$p/todo/$p-s3-twin.md" || cf "(e) the todo copy moved during the refusal"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s3-twin.md" || cf "(e) the in_progress copy moved during the refusal"
+
+  # ABLATION: each check removed from a copy, committed to the trunk; its row must then go through.
+  _mvd_abl() {   # <script> <sed expression> <label>
+    abl="$SB_TMP/ablated.sh"
+    sed "$2" "$W/scripts/$1" > "$abl"
+    if cmp -s "$abl" "$W/scripts/$1"; then cf "(ablation) $3 is not in $1 — re-anchor this case"; return 1; fi
+    cp "$abl" "$W/scripts/$1"; chmod +x "$W/scripts/$1"
+    git -C "$W" add "scripts/$1" >/dev/null 2>&1
+    sbcommit -m "[QA] ablate $3" --quiet >/dev/null 2>&1
+    git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  }
+  seed_issue todo "$SB_PREFIX-804" abl chore "The ablation card" && git -C "$W" add -A >/dev/null 2>&1 && sbcommit -m "[PM] seed ablation card" --quiet >/dev/null 2>&1 && git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  if _mvd_abl move-issue.sh 's/\[ "\$TARGET" = "done" \] && \[ "\$SRC_FOLDER" != "qa_complete" \]/false/' "the done-needs-qa_complete condition"; then
+    rc=0; out="$(_mvd "$SB_PREFIX-804")" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(ablation) with the done check removed, a todo card was still refused — the case cannot see the check"
+  fi
+  if _mvd_abl subtask.sh 's/if ! \[\[ "\$ID" =~ -s\[0-9\]+\$ \]\]; then/if false; then/' "the full-slice-id condition"; then
+    rc=0; out="$(_std "$p" in_progress)" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(ablation) with the slice-id check removed, the parent id was still refused — the case cannot see the check"
+  fi
+  unset -f _mvd _std _mvd_abl
+  finish "move-issue.sh refuses a move to done/ from any column but qa_complete/ and leaves the card, a reviewed card still moves, subtask.sh move takes only a full slice id (the parent id is refused naming the slices, one id in two columns is refused naming both), and each check is ablation-proven"
+  teardown
+}
