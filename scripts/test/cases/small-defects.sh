@@ -142,8 +142,8 @@ case_mover_template_warning_on_a_minted_card_skips_qa_verdict_and_ablation() {
   local id="$SB_PREFIX-979" out rc tpl line skipped
   tpl="$SB_WORK/.claude/templates/ISSUE.template.md"
   skipped="$(awk '/^## /{ s = ($0 ~ /^## (QA Verdict|Ablation)/) } s && /<[a-z]/ { print }' "$tpl")"
-  [ -n "$skipped" ] || _fixture_die "case_mover_template_warning_on_a_minted_card: the shipped template holds no angle text under QA Verdict or Ablation, so the case would pass for nothing"
-  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh minted --id "$id" --prd n/a 2>&1 )" || _fixture_die "case_mover_template_warning_on_a_minted_card: new-issue.sh did not mint $id: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ -n "$skipped" ] || _fixture_die "case_mover_template_warning_on_a_minted_card_skips_qa_verdict_and_ablation: the shipped template holds no angle text under QA Verdict or Ablation, so the case would pass for nothing"
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh minted --id "$id" --prd n/a 2>&1 )" || _fixture_die "case_mover_template_warning_on_a_minted_card_skips_qa_verdict_and_ablation: new-issue.sh did not mint $id: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   publish_sandbox
   out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role "$SB_ROLE" --note "picked up" 2>&1 )" || cf "moving the minted card to in_progress failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
