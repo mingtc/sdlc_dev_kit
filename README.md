@@ -172,8 +172,9 @@ for. *(`-b` needs git 2.28 or newer. On older git, `git symbolic-ref HEAD refs/h
 
 `--prefix XYZ` makes your issue files `XYZ-001-<slug>.md`; until you stamp it, `scripts/config.sh`
 carries a neutral placeholder, and the generic documents say `<PREFIX>` before and after. `--trunk`
-is **required and confirmed, never inferred** — if it disagrees with `origin/HEAD`, the initializer
-refuses rather than letting the scripts pick. `--gate-command` declares your first gate: the seed ships
+is **required and confirmed, never inferred** — if it disagrees with the remote's own HEAD, the initializer
+refuses rather than letting the scripts pick. `--gate-command` declares your first gate (one command, run as
+plain words: put shell syntax such as `&&` in a script and name the script): the seed ships
 `scripts/verify.sh` as a frame whose gate table is **empty and refuses to run**, and the flag
 writes your command into that table as its first record. Drop the flag only if you will
 declare your gates in that table by hand before the first landing — never skip both: **the landing gate refuses to land a

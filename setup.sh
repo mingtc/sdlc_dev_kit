@@ -156,9 +156,14 @@ if [ "$FAILURES" -eq 0 ]; then log "✓ board sanity check passed."; fi
 # .env is gitignored and MUST NEVER be committed. Only .env.example is tracked.
 ENV_SEEDED=false
 if [ ! -f "$ROOT/.env" ] && [ -f "$ROOT/.env.example" ]; then
-  cp "$ROOT/.env.example" "$ROOT/.env"
-  ENV_SEEDED=true
-  log "✓ seeded .env from .env.example — fill it in; it is gitignored and never committed."
+  # Ask git, not the file: an existing project's own .gitignore may not carry the kit's entries.
+  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && ! git -C "$ROOT" check-ignore -q .env; then
+    note_fail ".env was NOT seeded: git does not ignore it here, so a secret filled into it would be committable. Add the line  .env  to .gitignore (and  .env.*  and  !.env.example ), then re-run ./setup.sh."
+  else
+    cp "$ROOT/.env.example" "$ROOT/.env"
+    ENV_SEEDED=true
+    log "✓ seeded .env from .env.example — fill it in; it is gitignored and never committed."
+  fi
 fi
 
 if [ "$KIT_ONLY" = true ]; then

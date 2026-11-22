@@ -161,6 +161,9 @@ Options:
                       scripts/verify.sh exists at all, a minimal single-gate
                       runner is written around <C>. Refuses if verify.sh already
                       declares a gate, or is not the frame — that file is yours.
+                      <C> is run as plain words, never interpreted by a shell:
+                      shell syntax (&& ; > < ( ) $ ` \) is refused — put it in
+                      a script and name the script.
                       Omit it and an existing, executable scripts/verify.sh is a
                       REQUIRED precondition instead: finish-pr.sh REFUSES to land
                       without one — and the shipped frame REFUSES TO RUN while its
@@ -466,6 +469,11 @@ if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   pft "$ROOT is not a git repository — run 'git init' first."
 elif ! git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
   pft "this repository has no commits yet — make the first commit on '$TRUNK' and push it (see the recipe below)."
+else
+  _top="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$_top" ] && [ "$(cd "$_top" && pwd -P)" != "$(cd "$ROOT" && pwd -P)" ]; then
+    pft "the kit's root ($ROOT) is not the repository root ($_top) — kit-init commits, pushes and sets the hooks path for the whole repository, so it would act on files that are not the kit's. Move the kit's files to the repository root, or run kit-init from a repository whose root is the kit."
+  fi
 fi
 git -C "$ROOT" config user.email >/dev/null 2>&1 || pf "git user.email is not set — the board scripts commit."
 git -C "$ROOT" config user.name  >/dev/null 2>&1 || pf "git user.name is not set — the board scripts commit."
@@ -478,15 +486,34 @@ else
   # A filesystem remote must be ABSOLUTE: the kanban worktree runs git from .kanban-wt/,
   # where a relative URL resolves somewhere else.
   REMOTE_URL="$(git -C "$ROOT" remote get-url "$REMOTE" 2>/dev/null || true)"
+  _rel=0
   case "$REMOTE_URL" in
-    ""|*://*|*@*:*|/*|'~'*) ;;   # a scheme, scp-style ssh, or an absolute path — fine
-    *) pf "the '$REMOTE' remote URL '$REMOTE_URL' is a RELATIVE path — the kanban worktree runs git from .kanban-wt/, where it resolves somewhere else. Make it absolute:  git remote set-url $REMOTE \"\$(cd '$REMOTE_URL' && pwd -P)\"" ;;
+    ""|*://*|/*|'~'*) ;;   # a scheme, an absolute path — fine
+    *:*) case "${REMOTE_URL%%:*}" in */*) _rel=1 ;; esac ;;   # host:path or user@host:path (scp-style ssh, or an ssh alias) — fine; a slash before the colon is a path
+    *) _rel=1 ;;
   esac
+  if [ "$_rel" = 1 ]; then
+    if [ -d "$ROOT/$REMOTE_URL" ]; then
+      pf "the '$REMOTE' remote URL '$REMOTE_URL' is a RELATIVE path — the kanban worktree runs git from .kanban-wt/, where it resolves somewhere else. Make it absolute:  git remote set-url $REMOTE \"\$(cd '$REMOTE_URL' && pwd -P)\""
+    else
+      pf "the '$REMOTE' remote URL '$REMOTE_URL' is a RELATIVE path that does not exist from $ROOT — the kanban worktree runs git from .kanban-wt/, where it resolves somewhere else. Set the remote to an absolute path or a URL:  git remote set-url $REMOTE <absolute-path-or-url>"
+    fi
+  fi
   REMOTE_HEAD="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
   if [ -z "$REMOTE_HEAD" ]; then
     pft "$REMOTE/HEAD is not set — WITHOUT IT the trunk is resolved by fallback in kanban-worktree.sh and your first board move may push to a branch nobody chose."
   elif [ -n "$TRUNK" ] && [ "$REMOTE_HEAD" != "$TRUNK" ]; then
     pft "--trunk '$TRUNK' disagrees with $REMOTE/HEAD → '$REMOTE_HEAD'. One of the two is wrong; fix it rather than let the scripts pick."
+  fi
+  # The local refs/remotes/$REMOTE/HEAD is written by 'git remote set-head' and says nothing about the remote:
+  # ask the remote itself, so a trunk the forge does not default to is not read as agreeing.
+  if [ -n "$TRUNK" ]; then
+    _own_head="$(git -C "$ROOT" ls-remote --symref "$REMOTE" HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "", $2); print $2; exit }' || true)"
+    if [ -z "$_own_head" ]; then
+      pft "cannot read the remote's own HEAD from '$REMOTE' ('git ls-remote --symref $REMOTE HEAD' printed none) — the trunk cannot be confirmed against the remote. Check the URL and your access, then re-run."
+    elif [ "$_own_head" != "$TRUNK" ]; then
+      pft "--trunk '$TRUNK' disagrees with the remote's own HEAD → '$_own_head' ('git ls-remote --symref $REMOTE HEAD'); 'git remote set-head' only changes your local copy. Set the forge's default branch to '$TRUNK', or run with --trunk '$_own_head'."
+    fi
   fi
   if [ -n "$TRUNK" ] && ! git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1; then  # card-read-exempt: the trunk, not a card branch
     pft "$REMOTE/$TRUNK does not exist locally — push the trunk and fetch before initializing."
@@ -693,6 +720,11 @@ GATE_MODE=""   # write | fill | "" (no --gate-command)
 if [ -n "$GATE_CMD" ]; then
   case "$GATE_CMD" in
     *'|'*|*'"'*) pf "--gate-command '$GATE_CMD' contains '|' or '\"' — the GATES table's record format cannot carry either; put the command in a script and name the script." ;;
+  esac
+  # verify.sh word-splits the command and runs the words, so shell syntax is not interpreted: `cd . && false`
+  # runs `cd` with arguments, and the gate can pass while the command fails.
+  case "$GATE_CMD" in
+    *[\&\;\<\>\(\)\$\`\\]*|*$'\n'*) pf "--gate-command '$GATE_CMD' contains shell syntax (one of & ; < > ( ) \$ \` \\ or a newline) — verify.sh runs the words of the command, it does not interpret them; put the command in a script and name the script." ;;
   esac
   if [ ! -e "$VERIFY" ]; then
     GATE_MODE=write
@@ -1215,11 +1247,11 @@ fi
 # tracked, it forks per branch and reaches a landing as a merge conflict.
 touch "$ROOT/.gitignore"
 IGN_ADDED=0
-for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' "$KIT_HAT_FILE_REL"; do
+for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' "$KIT_HAT_FILE_REL" '.env' '.env.*' '!.env.example'; do
   grep -qxF "$entry" "$ROOT/.gitignore" || { printf '%s\n' "$entry" >> "$ROOT/.gitignore"; IGN_ADDED=$((IGN_ADDED+1)); }
 done
 if [ "$IGN_ADDED" -eq 1 ]; then _ign_word=entry; else _ign_word=entries; fi
-say "  .gitignore: ${IGN_ADDED} ${_ign_word} added (kanban worktree + $KIT_HAT_FILE_REL)"
+say "  .gitignore: ${IGN_ADDED} ${_ign_word} added (kanban worktree, $KIT_HAT_FILE_REL, .env secrets)"
 
 # =============================================================================
 # 4. HOOKS
