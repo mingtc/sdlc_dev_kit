@@ -733,6 +733,32 @@ isolation_snapshot() {
   REAL_HEAD_BEFORE="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
   REAL_STATUS_BEFORE="$(_board_status)"
 }
+# =============================================================================
+# CASE — THE ISOLATION SNAPSHOT IS TAKEN, AND READ, WITH THE MACHINE'S GIT CONFIG SHUT OUT.
+#   Operand: a repository with an untracked path that a global ignore file hides. Read through the
+#   shutout, `git status` lists it whatever the machine's ignore files say; and run.sh shuts the config
+#   out before it takes the snapshot, so the snapshot and case_isolation's read agree.
+# =============================================================================
+case_isolation_is_read_with_the_machines_git_config_shut_out() {
+  cf_reset
+  local L="the run shuts the machine's git config out before it takes the isolation snapshot, and git status read through the shutout lists a path the machine's global ignore file hides"
+  local d g got a b
+  d="$(mktemp -d)" || _fixture_die "${FUNCNAME[0]}: mktemp failed"
+  g="$d/home/.config/git"; mkdir -p "$g" "$d/repo/sub"
+  printf 'hidden-by-global/\n' > "$g/ignore"
+  git -C "$d/repo" init -q 2>/dev/null; mkdir -p "$d/repo/hidden-by-global"; : > "$d/repo/hidden-by-global/x"
+  got="$(HOME="$d/home" XDG_CONFIG_HOME="$d/home/.config" git -C "$d/repo" status --porcelain 2>/dev/null)"
+  [ -z "$got" ] || { rm -rf "$d"; _fixture_die "${FUNCNAME[0]}: the planted global ignore does not hide the path, so the row below proves nothing"; }
+  got="$( HOME="$d/home" XDG_CONFIG_HOME="$d/home/.config"; export HOME XDG_CONFIG_HOME; no_machine_git_config git -C "$d/repo" status --porcelain 2>/dev/null )"
+  case "$got" in *hidden-by-global*) ;; *) cf "git status through no_machine_git_config did not list the path a global ignore hides: '$got'" ;; esac
+  rm -rf "$d"
+  a="$(awk '/^machine_git_config_off /{print NR; exit}' "$HARNESS_ENTRY")"
+  b="$(awk '/^isolation_snapshot$/{print NR; exit}' "$HARNESS_ENTRY")"
+  if [ -z "$a" ] || [ -z "$b" ]; then cf "run.sh lacks a top-level machine_git_config_off call or isolation_snapshot call (found '$a' and '$b')"
+  elif [ "$a" -ge "$b" ]; then cf "run.sh calls machine_git_config_off (line $a) after isolation_snapshot (line $b)"; fi
+  finish "$L"
+}
+
 # THIS CASE REPORTS WHAT IT MEASURED, NOT WHO DID IT. A path that differs between t0 and t1
 # may have been written by the harness or by a concurrent session in the same checkout, and
 # no snapshot can tell them apart, so the output names both (instruments.md § A.4).

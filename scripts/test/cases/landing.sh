@@ -1683,6 +1683,10 @@ case_the_tools_hold_a_copy_of_scripts_outside_the_repository() {
   perl -i -pe 's/^(\s*)kit_qa_verdict_check "\$SRC".*$/$1:/' "$oot/scripts/move-issue.sh"
   rc=0; out="$( cd "$SB_WORK" && "$oot/scripts/move-issue.sh" "$id" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
   [ "$rc" -eq 1 ] || cf "(outside mover) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "(outside mover) the refusal does not say the tool is not the trunk's copy: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'scripts/move-issue.sh' >/dev/null || cf "(outside mover) the refusal does not name scripts/move-issue.sh"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(outside mover) the refusal names no next action"
   origin_has_path "progress/qa_complete/$id-oot.md" && cf "(outside mover) the FAIL card was published to qa_complete/"
   finish "a copy of scripts/ outside the repository, run from the project, is held to the project's trunk: an edited finish-pr.sh, a gutted qa-gate.sh and an edited move-issue.sh are each refused with nothing landed or published"
   teardown
