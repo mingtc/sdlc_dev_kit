@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`kit-init.sh` and `verify.sh` refuse starts that used to pass.** A gate command with shell syntax (`&&`, `;`, a redirection, `$`, parentheses, a backtick or a backslash) is refused where it is declared, in `kit-init --gate-command` and in the `GATES` table, because the runner executes its words and never interprets them: put the command in a script and name the script. `kit-init` also refuses, before it writes or pushes anything, a kit that is not at its repository's root, and a `--trunk` that the remote's own HEAD does not name (a local `git remote set-head` does not satisfy it; a remote it cannot ask refuses too); a `host:path` ssh alias is accepted as a remote URL. In a project that already has a `.gitignore`, `kit-init` adds the `.env` entries to it, and `setup.sh` no longer seeds a `.env` that git would not ignore.
 
 ## [0.13.0] — 2026-11-20
 

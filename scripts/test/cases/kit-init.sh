@@ -2160,6 +2160,204 @@ case_kit_init_gate_and_remote_refusals() {
 }
 
 # =============================================================================
+# kit-init's PREFLIGHT REFUSES A GATE COMMAND THAT CARRIES SHELL SYNTAX, AND --help SAYS SO
+# =============================================================================
+# verify.sh word-splits a declared command and runs the words: `cd . && false` is not a
+# command but `cd` with four arguments, so on a shell where `cd` accepts them the gate is green
+# while the command fails. The rule ("put it in a script") has to be enforced where the command
+# enters, and said where an operator looks first. Each shape is one a project actually writes.
+case_kit_init_refuses_a_gate_command_with_shell_syntax() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: refuses a --gate-command with shell syntax" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: refuses a --gate-command with shell syntax" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local before out rc g
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  for g in 'cd . && false' 'make; make test' 'npm test > out.txt' 'echo $HOME' '(cd app)' 'a & b' 'echo `date`' 'run\ it'; do
+    out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command "$g" 2>&1)"; rc=$?
+    [ "$rc" -ne 0 ] || cf "'$g': did not refuse"
+    printf '%s\n' "$out" | grep 'shell syntax' >/dev/null || cf "'$g': the refusal did not name shell syntax: $out"
+    printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null || cf "'$g': the refusal did not state that nothing was written"
+    [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "'$g': HEAD moved during a refusal"
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "'$g': the tree was modified during a refusal"
+  done
+  # A plain command with flags is not shell syntax: whatever else refuses it, this does not.
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command './scripts/run-tests.sh --fast' 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep 'shell syntax' >/dev/null && cf "a plain command with a flag was refused as shell syntax: $out"
+  out="$("$SB_WORK/scripts/kit-init.sh" --help 2>&1)"
+  printf '%s\n' "$out" | grep 'shell syntax' >/dev/null || cf "--help is silent about shell syntax in --gate-command"
+
+  finish "kit-init: refuses a --gate-command carrying shell syntax (&&, ;, redirection, \$, parentheses, &, backtick, backslash) writing nothing, accepts a plain command with flags, and --help says so"
+  teardown
+}
+
+# =============================================================================
+# kit-init REFUSES, BEFORE WRITING OR PUSHING ANYTHING, A KIT THAT IS NOT AT ITS REPOSITORY'S ROOT
+# =============================================================================
+# The kit in mono/tools/kit of a larger repository used to run its steps against the enclosing
+# repository: commits pushed, the hooks path rewritten, then a self-check failure. The operand is a
+# second repository enclosing the kit, with its own hooks path and its own bare remote; what must not
+# change is that repository's history, its remote and its configuration.
+case_kit_init_refuses_a_kit_inside_a_repo_subdirectory() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: refuses a kit that is not at the repository root" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: refuses a kit that is not at the repository root" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local outer="$SB_TMP/mono" bare="$SB_TMP/mono-origin.git" out rc heads_before
+  git init --bare "$bare" >/dev/null 2>&1
+  git -C "$bare" symbolic-ref HEAD "refs/heads/$SB_TRUNK" >/dev/null 2>&1
+  git init "$outer" >/dev/null 2>&1
+  git -C "$outer" symbolic-ref HEAD "refs/heads/$SB_TRUNK" >/dev/null 2>&1
+  git -C "$outer" config user.email "test@sandbox.invalid"
+  git -C "$outer" config user.name "Sandbox Test"
+  git -C "$outer" config commit.gpgsign false
+  : > "$outer/README"
+  git -C "$outer" add README >/dev/null 2>&1
+  git -C "$outer" commit -q -m "seed the enclosing repository" >/dev/null 2>&1
+  git -C "$outer" remote add origin "$bare" >/dev/null 2>&1
+  git -C "$outer" push -q -u origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$outer" remote set-head origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$outer" config core.hooksPath .myhooks
+  mkdir -p "$outer/tools"
+  cp -R "$SB_WORK" "$outer/tools/kit"
+  rm -rf "$outer/tools/kit/.git"
+  heads_before="$(git -C "$bare" rev-list --all | wc -l | tr -d ' ')"
+
+  out="$("$outer/tools/kit/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "kit-init did not refuse a kit that sits in a subdirectory of its repository"
+  printf '%s\n' "$out" | grep 'is not the repository root' >/dev/null || cf "the refusal did not say the kit is not at the repository root: $out"
+  printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null || cf "the refusal did not state that nothing was written: $out"
+  [ "$(git -C "$outer" rev-list --count HEAD)" = 1 ] || cf "the enclosing repository gained commits during a refusal"
+  [ "$(git -C "$bare" rev-list --all | wc -l | tr -d ' ')" = "$heads_before" ] || cf "something was pushed to the enclosing repository's remote during a refusal"
+  [ "$(git -C "$outer" config core.hooksPath)" = ".myhooks" ] || cf "the enclosing repository's core.hooksPath was rewritten: $(git -C "$outer" config core.hooksPath)"
+
+  finish "kit-init: a kit in a repository subdirectory is refused before anything is written or pushed — no commits, no push, hooks path untouched"
+  teardown
+}
+
+# =============================================================================
+# kit-init TAKES A host:path ssh ALIAS AS A REMOTE URL AND NEVER PRINTS A FIX THAT EVALUATES TO NOTHING
+# =============================================================================
+# `ghalias:foo/bar.git` resolves through ~/.ssh/config and has no `@`; it was called RELATIVE and the
+# printed recipe `cd 'ghalias:foo/bar.git' && pwd -P` evaluates to an empty URL. The alias cannot be
+# resolved here (ssh is replaced by `false`), so what the preflight does next is not the subject:
+# only that it stops calling the URL a relative path and writes nothing.
+case_kit_init_accepts_a_host_path_remote() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: a host:path remote is not a relative path" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: a host:path remote is not a relative path" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local before out rc
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  git -C "$SB_WORK" remote set-url origin 'ghalias:foo/bar.git' >/dev/null 2>&1
+  out="$(GIT_SSH_COMMAND=/usr/bin/false "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep 'RELATIVE path' >/dev/null && cf "a host:path remote was called a relative path: $out"
+  printf '%s\n' "$out" | grep "pwd -P" >/dev/null && cf "the refusal printed a fix that evaluates to an empty URL: $out"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "HEAD moved"
+  [ "$(git -C "$SB_WORK" remote get-url origin)" = 'ghalias:foo/bar.git' ] || cf "the remote URL was changed"
+
+  finish "kit-init: a host:path ssh alias is not called a relative path and no printed fix evaluates to an empty URL"
+  teardown
+}
+
+# =============================================================================
+# kit-init CONFIRMS THE TRUNK AGAINST THE REMOTE'S OWN HEAD, NOT THE LOCAL REF set-head WRITES
+# =============================================================================
+# `git remote set-head origin develop` writes refs/remotes/origin/HEAD locally and changes nothing on
+# the remote; the check read that ref, so a trunk the forge does not default to passed as agreeing.
+# The operand: a remote whose HEAD is the sandbox trunk, a pushed `develop`, and a local set-head to it.
+case_kit_init_confirms_the_trunk_against_the_remote_head() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: the trunk is confirmed against the remote's own HEAD" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: the trunk is confirmed against the remote's own HEAD" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local before out rc
+  git -C "$SB_WORK" switch -q -c develop >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin develop >/dev/null 2>&1
+  git -C "$SB_WORK" remote set-head origin develop >/dev/null 2>&1
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk develop 2>&1)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "kit-init accepted a trunk the remote's own HEAD does not name"
+  printf '%s\n' "$out" | grep "the remote's own HEAD" >/dev/null || cf "the refusal did not name the remote's own HEAD: $out"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "HEAD moved during a refusal"
+  [ "$(git -C "$SB_ORIGIN" symbolic-ref HEAD)" = "refs/heads/$SB_TRUNK" ] || cf "the remote's HEAD was changed"
+
+  finish "kit-init: --trunk that the remote's own HEAD does not name is refused, though a local set-head says otherwise"
+  teardown
+}
+
+# =============================================================================
+# kit-init IGNORES THE SECRETS ENTRIES IN AN EXISTING .gitignore; setup.sh WILL NOT SEED A .env GIT WOULD TRACK
+# =============================================================================
+# An adopter's own .gitignore is kept on unpack, so the kit's entries are not in it. setup.sh then
+# seeded .env and printed "gitignored and never committed" while `git status` showed `?? .env`.
+# (a) the entries are added by kit-init; (b) setup.sh asks git, and refuses to seed when git would
+# track the file; (c) with the entry present it seeds, so (b) is not a refusal that always fires.
+case_setup_refuses_to_seed_an_env_git_would_track() {
+  cf_reset
+  if ! has_kit_init; then skp "setup.sh: no .env is seeded where git would track it" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "setup.sh: no .env is seeded where git would track it" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  if [ ! -f "$SB_WORK/setup.sh" ]; then skp "setup.sh: no .env is seeded where git would track it" "the sandbox carries no setup.sh"; teardown; return; fi
+  local out rc
+  # (a) an existing .gitignore that knows nothing of the kit
+  _neu_array "$SB_WORK/scripts/verify.sh" GATES
+  printf 'node_modules/\n' > "$SB_WORK/.gitignore"
+  publish_sandbox
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command '/bin/echo green' 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) kit-init exited $rc against an existing .gitignore: $out"
+  ( cd "$SB_WORK" && git check-ignore -q .env ) || cf "(a) after kit-init, git does not ignore .env"
+  ( cd "$SB_WORK" && git check-ignore -q .env.local ) || cf "(a) after kit-init, git does not ignore .env.local"
+  ( cd "$SB_WORK" && git check-ignore -q .env.example ) && cf "(a) after kit-init, .env.example is ignored — it is the one tracked file"
+  # (b) setup.sh refuses to seed where git would track the result
+  printf 'API_KEY=\n' > "$SB_WORK/.env.example"
+  printf 'node_modules/\n' > "$SB_WORK/.gitignore"
+  rm -f "$SB_WORK/.env"
+  out="$( cd "$SB_WORK" && ./setup.sh --kit-only 2>&1 )"; rc=$?
+  [ ! -e "$SB_WORK/.env" ] || cf "(b) .env was seeded although git would not ignore it"
+  [ "$rc" -ne 0 ] || cf "(b) setup.sh exited 0 although it could not seed .env safely: $out"
+  printf '%s\n' "$out" | grep 'never committed' >/dev/null && cf "(b) setup.sh still claims .env is never committed: $out"
+  # (c) with the entry in place it seeds
+  printf '.env\n' >> "$SB_WORK/.gitignore"
+  out="$( cd "$SB_WORK" && ./setup.sh --kit-only 2>&1 )"
+  [ -f "$SB_WORK/.env" ] || cf "(c) .env was not seeded though git ignores it: $out"
+
+  finish "kit-init adds the secrets entries to an existing .gitignore; setup.sh refuses to seed a .env git would track, and seeds it once ignored"
+  teardown
+}
+
+# =============================================================================
+# verify.sh REFUSES A DECLARED GATE THAT CARRIES SHELL SYNTAX, WHEREVER THE RECORD CAME FROM
+# =============================================================================
+# Gates are edited by hand after day one, so the kit-init refusal alone leaves the table open: the
+# word-split `cmd=( $g_cmd )` runs `cd . && false` as `cd` with arguments and the run reports PASS.
+case_verify_refuses_a_gate_with_shell_syntax() {
+  cf_reset
+  if [ ! -f "$REAL_SCRIPTS/verify.sh" ]; then skp "verify.sh: refuses a declared gate with shell syntax" "scripts/verify.sh absent"; return; fi
+  make_sandbox
+  _declare_gate 'shell|core|cd . && false'
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/verify.sh --quick 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] || cf "a gate with shell syntax: verify.sh exited $rc, not 2: $out"
+  printf '%s\n' "$out" | grep 'shell syntax' >/dev/null || cf "the refusal did not name shell syntax: $out"
+  printf '%s\n' "$out" | grep '^Next:' >/dev/null || cf "the refusal printed no Next: route: $out"
+  printf '%s\n' "$out" | grep 'PASS  shell' >/dev/null && cf "the gate with shell syntax reported PASS: $out"
+  # control: the same table without that record is not refused for this reason
+  teardown
+  make_sandbox
+  _declare_gate 'plain|core|/bin/echo plain-gate'
+  out="$( cd "$SB_WORK" && ./scripts/verify.sh --quick 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) a plain declared gate exited $rc: $out"
+  printf '%s\n' "$out" | grep 'shell syntax' >/dev/null && cf "(control) a plain command was refused as shell syntax: $out"
+
+  finish "verify.sh: a declared gate carrying shell syntax is refused with a Next: route, and a plain command still runs"
+  teardown
+}
+
+# =============================================================================
 # CASE — OPTION-PARSING HYGIENE across the argument-taking scripts.
 # A script that takes `--help` as a slug mints a nonsense card, burns an id and prints
 # "Created:", so each behaviour's exit code is asserted, not only its output:
@@ -3491,7 +3689,7 @@ case_kit_init_text_matches_what_it_does() {
   teardown
 
   # (d) the .gitignore count: one entry missing prints '1 entry', all missing prints 'N entries'.
-  _hk_sandbox; printf '%s\n' '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' > "$SB_WORK/.gitignore"; _hk_run
+  _hk_sandbox; printf '%s\n' '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' '.env' '.env.*' '!.env.example' > "$SB_WORK/.gitignore"; _hk_run
   [ "$_hk_rc" -eq 0 ] || cf "(d) the run exited $_hk_rc: $(printf '%s\n' "$_hk_out" | tail -3 | tr '\n' '|')"
   printf '%s\n' "$_hk_out" | grep -F '.gitignore: 1 entry added' >/dev/null || cf "(d) one missing entry did not print '1 entry added': $(printf '%s\n' "$_hk_out" | grep -F '.gitignore:')"
   teardown

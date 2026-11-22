@@ -224,6 +224,12 @@ for rec in "${GATES[@]}"; do
          "verify.sh: REFUSING — gate '$g_name' has unknown class '$g_class' (one of: core, select, full)." \
          "Next: set the class of '$g_name' in the GATES array to core, select or full." ;;
   esac
+  # The command is word-split and run, never interpreted: `cd . && false` would run `cd` with arguments.
+  case "$g_cmd" in
+    *[\&\;\<\>\(\)\$\`\\]*) kit_refuse 2 gate-command-shell-syntax \
+         "verify.sh: REFUSING — gate '$g_name' carries shell syntax: '$g_cmd'. The command is run as plain words, not by a shell, so it would not do what it says." \
+         "Next: put the command in a script and name the script in the GATES array: \"$g_name|$g_class|./scripts/<your-script>.sh\"." ;;
+  esac
 done
 
 # (2b) --quick must select something: a table whose every gate is class `full` runs nothing under
