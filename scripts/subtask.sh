@@ -55,11 +55,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # branch, or a local edit, may not rewrite the checks that judge it. The comparison is plain shell and
 # runs BEFORE any file below is sourced, so it leans on none of them; the trunk is resolved as
 # lib/kanban-worktree.sh's kwt_resolve does. THE LIST IS DERIVED, never counted: every file this script
-# sources, directly or through a library, plus the script it reads a declaration from. The self-test
-# fails when a sourced file is missing from it.
+# sources, directly or through a library, except scripts/config.sh, which every project edits by design
+# and which this script only reads for its shared validators. The self-test fails when a sourced file is
+# missing from it, or a listed file is not sourced.
 _held_files="
 check-board.sh
-config.sh
 lib/addon-check.sh
 lib/agent-record.sh
 lib/attrib-trailer.sh
@@ -100,8 +100,6 @@ if [ "$_held_help" = true ]; then
   :
 elif git rev-parse --verify --quiet "$_held_rem/$_held_trunk^{commit}" >/dev/null 2>&1; then
   for _f in $_held_files; do
-    # config.sh alone may be gone: its absence is this script's own seam refusal, which names it.
-    [ "$_f" != config.sh ] || [ -e "$SCRIPT_DIR/$_f" ] || continue
     if git cat-file -e "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null; then
       [ -e "$SCRIPT_DIR/$_f" ] && git show "$_held_rem/$_held_trunk:scripts/$_f" 2>/dev/null | cmp -s - "$SCRIPT_DIR/$_f" 2>/dev/null \
         || _held_off="$_held_off scripts/$_f"

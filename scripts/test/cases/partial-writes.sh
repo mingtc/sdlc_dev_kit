@@ -646,6 +646,13 @@ case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_wri
   [ "$rc" -ne 0 ] || cf "(c) a rotation ran over a chunk whose entries are still in the log"
   printf '%s\n' "$out" | grep -F "rm 'progress/history/q3.md'" >/dev/null || cf "(c) no delete command: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   [ ! -e "$R3/progress/history/other.md" ] || cf "(c) a duplicate chunk was written"
+  # a file the tool did not write (a note, a README, a child index) has no chunk header: it is not a chunk and is left alone
+  printf '# my notes\n' > "$R3/progress/history/NOTES.md"
+  printf -- '---\ntitle: readme\n---\n\n## 2026-08-01 [Dev] e1\n' > "$R3/progress/history/README.md"
+  rm -f "$R3/progress/history/q3.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R3" --milestone other --keep-last 2 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -E 'NOTES\.md|README\.md' >/dev/null && cf "(e) a file with no chunk header was refused as a cut-off chunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$rc" -eq 0 ] || cf "(e) the dry run over a history directory holding notes failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   finish "$L"
   teardown
 }
@@ -848,6 +855,40 @@ case_kit_init_lived_refusal_off_the_trunk_and_on_a_diverged_checkout_prints_no_m
     git -C "$SB_WORK" merge-base --is-ancestor "$sha" HEAD || cf "(diverged) the Next reverts $sha, which is not in the checkout's history"
   done
   printf '%s\n' "$cmds" | grep -F "git pull --rebase origin $SB_TRUNK" >/dev/null || cf "(diverged) the Next does not say to git pull --rebase origin $SB_TRUNK: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A REBASE A PERSON STARTED BY HAND IN THE BOARD WORKTREE SURVIVES THE OP'S ENDING.
+# The op holds the lock with its push held at the hook; a person opens a rebase over an older commit (one the op did
+# not make) and stops it with `edit`; TERM goes to the op's pid alone. The exit aborts only a rebase of the op's own
+# commit, so the person's rebase is still open afterwards, and the op still exits 143 with the lock gone.
+# =============================================================================
+case_a_rebase_started_by_hand_in_the_board_worktree_survives_the_ops_exit() {
+  cf_reset
+  local L="a board op sent TERM to its own pid leaves a rebase a person opened by hand over another commit in the board worktree open, ends 143 and releases the lock"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local id="$SB_PREFIX-964" rc=0 pid i hold="$SB_TMP/in-hook6" lock="$SB_WORK/.kanban-wt.lock" wt="$SB_WORK/.kanban-wt" rmd rad
+  seed_issue todo "$id" handrebase chore "A card whose op ends while a person rebases by hand in the board worktree"
+  publish_sandbox
+  printf '#!/bin/sh\ntouch "%s"\nsleep 6\nexit 0\n' "$hold" > "$SB_ORIGIN/hooks/pre-receive"; chmod +x "$SB_ORIGIN/hooks/pre-receive"
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "ended over a hand rebase" ) > "$SB_TMP/term6.out" 2>&1 &
+  pid=$!
+  for i in $(seq 1 60); do [ -e "$hold" ] && break; sleep 1; done
+  [ -e "$hold" ] || cf "(prereq) the push never reached the hook: $(tr '\n' '|' < "$SB_TMP/term6.out" | cut -c1-200)"
+  # the person's rebase: over the commit before the op's, stopped by `edit`
+  git -C "$wt" checkout -q --detach HEAD~1 >/dev/null 2>&1 || cf "(prereq) the board worktree could not be moved to the commit before the op's"
+  GIT_SEQUENCE_EDITOR='sed -i.bak s/^pick/edit/' git -C "$wt" -c user.email=p@kit.invalid -c user.name=person -c commit.gpgsign=false rebase -q -i --root > "$SB_TMP/handrebase.out" 2>&1 || true
+  rmd="$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null)"; rad="$rmd/rebase-apply"; rmd="$rmd/rebase-merge"
+  { [ -d "$rmd" ] || [ -d "$rad" ]; } || cf "(prereq) the hand rebase did not stop open: $(tr '\n' '|' < "$SB_TMP/handrebase.out" | cut -c1-300)"
+  kill -TERM "$pid" 2>/dev/null
+  _tw_reap "$pid"; rc="$TW_RC"
+  [ "$rc" = 143 ] || cf "the op ended with status $rc, not 143"
+  [ ! -d "$lock" ] || cf "the lock is still there after the op ended"
+  { [ -d "$rmd" ] || [ -d "$rad" ]; } || cf "the rebase the person started by hand was aborted at the op's exit"
+  rm -f "$SB_ORIGIN/hooks/pre-receive"
   finish "$L"
   teardown
 }
