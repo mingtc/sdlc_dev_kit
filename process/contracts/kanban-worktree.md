@@ -81,7 +81,8 @@ guard can see a commit the operator makes by hand.
 - The publication remote or the trunk cannot be resolved ⇒ refuse **before** any change, naming
   what to configure.
 - The lock cannot be acquired within its bound, and the holder is alive ⇒ refuse with the holder
-  named. Waiting forever and stealing the lock are both worse.
+  named, and, once the lock is older than an op runs, the check of the holder and the command that
+  removes the lock. Waiting forever and stealing the lock are both worse.
 - The auxiliary checkout holds uncommitted tracked changes ⇒ refuse, naming them, unless the caller
   explicitly asked for them to be discarded. The `Next:` asks first: an op leaves such changes only
   when it failed mid-write, and keeping them (commit and push) is offered only for that, as a

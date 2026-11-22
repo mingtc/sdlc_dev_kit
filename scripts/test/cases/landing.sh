@@ -915,6 +915,58 @@ case_a_deleted_board_worktree_is_recreated_and_the_diverged_warning_names_the_me
 }
 
 # =============================================================================
+# CASE — A LEFTOVER BOARD LOCK WHOSE PID IS ALIVE HAS A WAY OUT.
+#   (a) the pid names a live process that started AFTER the lock was taken (the pid was reused
+#       after a crash or reboot): the lock is abandoned and the next op reaps it;
+#   (b) the pid names a live process older than the lock, and the lock is past the age ceiling:
+#       the op refuses `kanban-lock-held` and prints the exact check and the exact removal;
+#   (c) the control: a young lock held by a live, older process prints no removal command.
+# =============================================================================
+case_a_live_pid_leftover_board_lock_is_reaped_or_names_the_way_out() {
+  cf_reset
+  local out rc lock pid e
+
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-991" lock chore "Lock card a"
+  seed_issue todo "$SB_PREFIX-992" lockb chore "Lock card b"
+  seed_issue todo "$SB_PREFIX-993" lockc chore "Lock card c"
+  publish_sandbox
+  lock="$SB_WORK/.kanban-wt.lock"
+
+  # (a) a live process younger than the lock: the pid was reused.
+  sleep 120 & pid=$!
+  mkdir -p "$lock"
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$(( $(date +%s) - 86400 ))" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=3 ./scripts/move-issue.sh "$SB_PREFIX-991" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) a lock whose live pid started after the lock was not reaped (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+
+  # (b) a live process older than the lock, the lock past the ceiling.
+  sleep 120 & pid=$!
+  e="$(date +%s)"; sleep 4
+  rm -rf "$lock"; mkdir -p "$lock"
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$e" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=1 KWT_LOCK_STALE=2 ./scripts/move-issue.sh "$SB_PREFIX-992" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(b) get a live, older holder to refuse the op"
+  printf '%s\n' "$out" | grep -E "rm -rf '[^']*\.kanban-wt\.lock'" >/dev/null \
+    || cf "(b) a lock past the ceiling prints no removal command: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "ps -p $pid" >/dev/null \
+    || cf "(b) the refusal does not name the check of the holder: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+
+  # (c) the same lock, young.
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$(date +%s)" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=1 KWT_LOCK_STALE=100 ./scripts/move-issue.sh "$SB_PREFIX-993" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(c) get a young live holder to refuse the op"
+  printf '%s\n' "$out" | grep -F "rm -rf" >/dev/null \
+    && cf "(c) a young lock is offered for removal: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+  rm -rf "$lock"
+  teardown
+
+  finish "kanban-worktree.sh: a lock whose live pid started after the lock was taken is reaped (a); a lock past the age ceiling held by an older live process is refused with the check and the exact removal (b); a young one is not offered for removal (c)"
+}
+
+# =============================================================================
 # CASE — the branch is checked out in a SECOND WORKTREE: the local delete correctly SKIPS,
 # and the board note must not claim it.
 # =============================================================================
