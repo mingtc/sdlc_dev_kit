@@ -114,7 +114,7 @@ guard can see a commit the operator makes by hand.
   (a register path's landing adds a line naming a question file whose `**Answer` is in the caller's
   checkout and not on the trunk, and the file is not among the paths), the path-shape family `register-path-*`
   (a named path that is outside the project, not canonical, has a control character, differs only in letter case from another or from the trunk's spelling, is a directory, is unreadable, is ignored, or passes through a link),
-  `register-stage-failed` (git could not stage a path in the kanban worktree), `register-trunk-unreadable` (the trunk's file list could not be read), `trunk-ahead` and `trunk-diverged` (the local trunk holds commits its remote lacks, the second when the remote also holds some the local trunk lacks; read from the two refs after a fetch, and checked before the lock, the worktree's creation and its sync), `register-lib-outdated` (`scripts/lib/push-retry.sh` lacks the function that check calls) and `nothing-to-commit`
+  `register-stage-failed` (git could not stage a path in the kanban worktree), `register-trunk-unreadable` (the trunk's file list could not be read), `trunk-ahead` and `trunk-diverged` (the local trunk holds commits its remote lacks, the second when the remote also holds some the local trunk lacks; read from the two refs after a fetch, and checked before the lock, the worktree's creation and its sync; `move-issue.sh`, `finish-pr.sh`, `subtask.sh` and `archive.sh` raise the same two, at the same point), `register-lib-outdated` (`scripts/lib/push-retry.sh` lacks the function that check calls) and `nothing-to-commit`
   (every named path already matches the trunk's tip).
 - **The code-vs-metadata rule**, raised by `scripts/githooks/pre-commit` as
   `pre-commit-metadata-off-trunk`: a commit made off the trunk that stages no path the project
@@ -140,7 +140,9 @@ guard can see a commit the operator makes by hand.
 1. The operation's commit exists **on the trunk of the publication remote** — its identifier is
    printed.
 2. The operator's workspace is **byte-identical** to before, unless it was unambiguously safe to
-   bring forward, in which case the report says it was brought forward.
+   bring forward, in which case the report says it was brought forward. The local trunk ref moves only
+   when the remote's trunk descends from it, with its old value named: a local trunk holding commits the
+   remote lacks stays where it is, and the report says so.
 3. The lock is **released**, including on failure.
 4. The auxiliary checkout holds **no unpublished commit** — the state the drift report's sixth
    check independently confirms.

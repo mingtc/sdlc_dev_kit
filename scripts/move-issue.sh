@@ -485,6 +485,10 @@ if probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ]
   issue_not_found "read the TRUNK's board straight out of $KWT_REMOTE/$DEFAULT_BRANCH, freshly fetched — not your checkout; no kanban worktree was created"
 fi
 
+# A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+# the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
 # Acquire the lock BEFORE touching the worktree (never a half-applied move).
 # trap-release is armed inside kwt_lock.
 kwt_lock
