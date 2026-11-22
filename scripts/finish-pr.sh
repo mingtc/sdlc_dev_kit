@@ -397,21 +397,24 @@ TITLE="$(kit_card_field "$SRC" title --raw)"   # a title is free text: a '#' in 
 
 # The Next: of a refusal for a branch this repository does not hold: the fetch is offered only
 # when the remote has the branch (ls-remote exits 2 when it has not, anything else when it could not be asked).
+# It sets BM_NEXT, each value a literal `Next:` assignment, so the refusal census reads it.
 _branch_missing_next() {
   local _bm_rc=0
   GIT_TERMINAL_PROMPT=0 git -C "$MAIN_ROOT" ls-remote --exit-code --heads "$KWT_REMOTE" "$BRANCH" >/dev/null 2>&1 || _bm_rc=$?
-  case "$_bm_rc" in
-    0) printf '%s' "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run." ;;
-    2) printf '%s' "Next: ${KWT_REMOTE} has no '${BRANCH}' either, so this card has no code to land. If Dev never pushed it, send the card back:  ./scripts/move-issue.sh ${ISSUE_ID} in_progress --role $ROLE --note \"no branch: <what happened>\"  or pass --branch <name> for the branch that holds the work." ;;
-    *) printf '%s' "Next: pass --branch <name> naming the local branch, or, if ${KWT_REMOTE} has it (it could not be asked), create it with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run." ;;
-  esac
+  BM_NEXT="Next: pass --branch <name> naming the local branch, or, if ${KWT_REMOTE} has it (it could not be asked), create it with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
+  if [ "$_bm_rc" -eq 0 ]; then
+    BM_NEXT="Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
+  elif [ "$_bm_rc" -eq 2 ]; then
+    BM_NEXT="Next: ${KWT_REMOTE} has no '${BRANCH}' either, so this card has no code to land. If Dev never pushed it, send the card back:  ./scripts/move-issue.sh ${ISSUE_ID} in_progress --role $ROLE --note \"no branch: <what happened>\"  or pass --branch <name> for the branch that holds the work."
+  fi
 }
 
 # The branch must exist locally (its commits are what we squash).
 if ! BRANCH_REF="$(kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" -)"; then
+  _branch_missing_next
   kit_refuse 1 branch-not-found \
     "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." \
-    "$(_branch_missing_next)"
+    "$BM_NEXT"
 fi
 
 # THE REVISION EVERYTHING BELOW READS, resolved once and through refs/heads/…, never the short name
@@ -419,9 +422,10 @@ fi
 # after the branch is shown not to have moved.
 QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{commit}" 2>/dev/null || true)"
 if [ -z "$QA_READ_FULL" ]; then
+  _branch_missing_next
   kit_refuse 1 branch-not-found \
     "Error: local branch '$BRANCH' does not resolve to a commit." \
-    "$(_branch_missing_next)"
+    "$BM_NEXT"
 fi
 
 # ── A STACKED BRANCH LOSES ITS BASE WHEN THE BASE SQUASH-LANDS. `$BRANCH` was branched from

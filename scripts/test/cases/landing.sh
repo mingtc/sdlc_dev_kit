@@ -831,6 +831,11 @@ case_finish_pr_refusals_name_a_route_out() {
   id="$SB_PREFIX-986"; br="feature/$id-nobranch"
   seed_issue dev_complete "$id" nobranch chore "A card with no branch" "$br"
   publish_sandbox
+  seed_branch "$id" nobranch A986.txt
+  git -C "$SB_WORK" branch -D "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin --delete "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1 \
+    && _control_did_not_run "(b) remove the branch from the remote"
   out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) a card with no branch anywhere landed (rc=0)"
   printf '%s\n' "$out" | grep -F "git fetch origin" >/dev/null \
