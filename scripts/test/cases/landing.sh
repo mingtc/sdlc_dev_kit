@@ -142,13 +142,16 @@ case_finish_pr_post_merge_names_its_ref() {
   cf_reset
   make_sandbox
   # The 6th argument is the card's `branch:` frontmatter, which finish-pr.sh reads to find
-  # what to merge; without it the run dies on "local branch 'n/a' not found".
+  # what to merge; without it the run dies on "local branch 'n/a' not found". The gate is a real
+  # runner (a stubbed one reads STUB, not PASS), run from the branch's checkout.
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$SB_WORK/scripts/verify.sh"; chmod +x "$SB_WORK/scripts/verify.sh"
   seed_issue dev_complete "$SB_PREFIX-140" postmerge chore "Post-merge ref naming" "feature/$SB_PREFIX-140-postmerge"
   publish_sandbox
   seed_branch "$SB_PREFIX-140" postmerge "postmerge.txt"
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-140-postmerge" >/dev/null 2>&1
 
   local out rc pass_line
-  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-140" 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$SB_PREFIX-140" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "finish-pr exited $rc on the happy path: $out"
 
   # (1) The HUMAN line names the ref — read that line alone, not the whole run.
@@ -460,6 +463,13 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
     && cat "$SB_TMP/v.sh" > "$SB_WORK/scripts/verify.sh"
   echo "deps/" >> "$SB_WORK/.gitignore"
   mkdir -p "$SB_WORK/deps" && printf '#!/bin/sh\nexit 0\n' > "$SB_WORK/deps/run-gate" && chmod +x "$SB_WORK/deps/run-gate"
+  # The declared prep installs deps/ into the PRE-merge fresh tree only (the state file marks that it ran),
+  # so the post-merge fresh tree is the one that lacks them.
+  H_DEP="$SB_TMP/run-gate.dep"; H_STATE="$SB_TMP/prepped"
+  cp "$SB_WORK/deps/run-gate" "$H_DEP"
+  grep -v '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh" > "$SB_TMP/config.sh" || true
+  printf '%s\n' "POST_MERGE_PREP='if [ ! -e \"\$H_STATE\" ]; then mkdir -p deps && cp \"\$H_DEP\" deps/run-gate && : > \"\$H_STATE\"; fi'" >> "$SB_TMP/config.sh"
+  cat "$SB_TMP/config.sh" > "$SB_WORK/scripts/config.sh"
   FPR_PM_BR="feature/$SB_PREFIX-954-pm"
   seed_issue dev_complete "$SB_PREFIX-954" pm chore "Environmental red" "$FPR_PM_BR"
   publish_sandbox
@@ -470,7 +480,7 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
     || _control_did_not_run "(H) make the real verify.sh green where deps/ is installed"
   git -C "$SB_WORK" check-ignore -q deps/run-gate \
     || _control_did_not_run "(H) keep deps/ ignored, so a fresh worktree lacks it"
-  FPR_PM_OUT="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$SB_PREFIX-954" 2>&1 )"; FPR_PM_RC=$?
+  FPR_PM_OUT="$( cd "$SB_WORK" && env H_DEP="$H_DEP" H_STATE="$H_STATE" ./scripts/finish-pr.sh "$SB_PREFIX-954" 2>&1 )"; FPR_PM_RC=$?
   if [ "$FPR_PM_RC" -ne 0 ]; then
     cf "(H) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
   else
@@ -492,16 +502,19 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
 #
 # THE FIXTURE. The committed verify.sh is red unless an IGNORED `.prepared` file exists — the
 # stand-in for installed dependencies: the gate checkout has it, a fresh worktree does not.
-# The gate appends one line per run to $PM_GATE_LOG, the prep to $PM_PREP_LOG.
+# The gate appends one line per run to $PM_GATE_LOG, the prep to $PM_PREP_LOG. The FIRST gate run
+# is the pre-merge one, which this case does not measure: it is green unprepared, and only a later
+# run (the post-merge reading) needs `.prepared`. The prep runs once per fresh tree the gate reads.
 #
 #   (P1) dirty gate checkout + a declared prep that makes `.prepared`: the reading is PASS,
-#        the output says the tree was prepared, and the prep ran exactly once.
+#        the output says the tree was prepared, and the prep ran once for each fresh tree
+#        (pre-merge and post-merge).
 #   (P2) the same dirty checkout, NO declared prep: unchanged — FAIL, and the note says how
 #        to read the gate checkout in place (commit or stash).
-#   (P3) a declared prep that exits 1: UNRUNNABLE (never FAIL), naming POST_MERGE_PREP, and
+#   (P3) a declared prep that exits 1 once the pre-merge gate has run: UNRUNNABLE (never FAIL), naming POST_MERGE_PREP, and
 #        the gate does not run.
-#   (P4) CLEAN gate checkout + a declared prep: the checkout is read in place and the prep
-#        does NOT run.
+#   (P4) CLEAN gate checkout + a declared prep: the checkout is read in place after the
+#        merge, so the prep ran only for the pre-merge tree.
 #   (P5) NO declared prep + a POST_MERGE_PREP in the environment: not honoured — the
 #        declaration is the landed tree's, not the caller's.
 # =============================================================================
@@ -510,8 +523,9 @@ _fpr_prep_sandbox() {  # <id> <prep line, or empty> — sets FPR_PM_BR, PM_GATE_
   cat > "$SB_WORK/scripts/verify.sh" <<'V'
 #!/usr/bin/env bash
 root="$(cd "$(dirname "$0")/.." && pwd)"
+first=""; [ -s "$PM_GATE_LOG" ] || first=1
 printf 'gate\n' >> "$PM_GATE_LOG"
-[ -e "$root/.prepared" ] || { echo "gate: .prepared is missing in $root"; exit 1; }
+[ -e "$root/.prepared" ] || [ -n "$first" ] || { echo "gate: .prepared is missing in $root"; exit 1; }
 exit 0
 V
   chmod +x "$SB_WORK/scripts/verify.sh"
@@ -557,8 +571,8 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
       || cf "(P1) a fresh worktree prepared by the declared POST_MERGE_PREP did not read PASS: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify|gate:' | tr '\n' '|')"
     printf '%s\n' "$FPR_PM_OUT" | grep 'prepared the fresh worktree with POST_MERGE_PREP' >/dev/null \
       || cf "(P1) the reading does not say the fresh worktree was prepared — a PASS must state what it read"
-    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 1 ] \
-      || cf "(P1) the prep ran $(wc -l < "$PM_PREP_LOG" | tr -d ' ') time(s), expected once: $(tr '\n' '|' < "$PM_PREP_LOG")"
+    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 2 ] \
+      || cf "(P1) the prep ran $(wc -l < "$PM_PREP_LOG" | tr -d ' ') time(s), expected twice (pre-merge tree, post-merge tree): $(tr '\n' '|' < "$PM_PREP_LOG")"
   fi
   teardown
 
@@ -579,7 +593,7 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
   teardown
 
   # --- (P3) a prep that exits 1 -> UNRUNNABLE, naming it; the gate does not run ----
-  _fpr_prep_sandbox 963 "POST_MERGE_PREP='exit 1'"
+  _fpr_prep_sandbox 963 "POST_MERGE_PREP='if [ -s \"\$PM_GATE_LOG\" ]; then exit 1; fi'"
   _fpr_prep_dirty 963
   _fpr_prep_run 963
   if [ "$FPR_PM_RC" -ne 0 ]; then
@@ -607,8 +621,8 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
       || _control_did_not_run "(P4) get the clean gate checkout to read PASS"
     printf '%s\n' "$FPR_PM_OUT" | grep -i 'fresh worktree' >/dev/null \
       && cf "(P4) a clean gate checkout was not read in place"
-    [ ! -s "$PM_PREP_LOG" ] \
-      || cf "(P4) the prep ran against a gate checkout that was read in place: $(tr '\n' '|' < "$PM_PREP_LOG")"
+    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 1 ] \
+      || cf "(P4) the prep ran against a gate checkout that was read in place (expected the pre-merge tree's run only): $(tr '\n' '|' < "$PM_PREP_LOG")"
   fi
   teardown
 
@@ -697,6 +711,328 @@ case_finish_pr_post_merge_names_the_dirty_paths() {
   teardown
 
   finish "finish-pr.sh: the uncommitted-changes note names the dirty paths of the gate checkout (N1), gives a card copy its own discard command and discards nothing (N1), prints no card-copy clause for other files (N2), and caps the list at five with a count (N3)"
+}
+
+# =============================================================================
+# CASE — THE PRE-MERGE GATE READS THE TREE THAT LANDS, NOT THE GATE CHECKOUT'S WORKING FILES.
+#
+# THE FIXTURE. The branch's committed CHANGE<id>.txt reads `a real change`, and the gate is green
+# only where a CHANGE*.txt reads `green` or a `stray.txt` exists: the committed branch is RED.
+# Each arm lands with the branch checked out in the main checkout, and asks origin whether the
+# squash arrived.
+#   (a) CONTROL: a clean checkout — the gate is red, nothing lands.
+#   (b) a tracked file edited to `green` but not committed — still red, nothing lands.
+#   (c) an UNTRACKED stray.txt — still red, nothing lands.
+#   (d) the same stray.txt and a declared POST_MERGE_PREP that exits 1: the prep prepares the
+#       pre-merge tree too, so the landing is refused naming it, and the gate never ran.
+# =============================================================================
+_fpr_pg_sandbox() {  # <id> [config line] — sets FPR_PM_BR, PG_LOG; leaves the branch checked out
+  make_sandbox
+  cat > "$SB_WORK/scripts/verify.sh" <<'V'
+#!/usr/bin/env bash
+root="$(cd "$(dirname "$0")/.." && pwd)"
+printf '%s\n' "$root" >> "$PG_LOG"
+[ -e "$root/stray.txt" ] && exit 0
+grep -qx green "$root"/CHANGE*.txt 2>/dev/null && exit 0
+echo "gate: red in $root"; exit 1
+V
+  chmod +x "$SB_WORK/scripts/verify.sh"
+  if [ -n "$2" ]; then
+    grep -v '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh" > "$SB_TMP/config.sh" || true
+    printf '%s\n' "$2" >> "$SB_TMP/config.sh"
+    cat "$SB_TMP/config.sh" > "$SB_WORK/scripts/config.sh"
+  fi
+  FPR_PM_BR="feature/$SB_PREFIX-$1-pg"
+  seed_issue dev_complete "$SB_PREFIX-$1" pg chore "Gate reads the landing tree" "$FPR_PM_BR"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-$1" pg "CHANGE$1.txt"
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  PG_LOG="$SB_TMP/gate.log"; : > "$PG_LOG"
+}
+_fpr_pg_run() {  # <id> — sets FPR_PM_OUT, FPR_PM_RC, FPR_PM_SQUASH
+  FPR_PM_OUT="$( cd "$SB_WORK" && env PG_LOG="$PG_LOG" ./scripts/finish-pr.sh "$SB_PREFIX-$1" 2>&1 )"; FPR_PM_RC=$?
+  _fpr_pm_landed
+}
+case_finish_pr_premerge_gate_reads_the_tree_that_lands() {
+  cf_reset
+
+  _fpr_pg_sandbox 974 ""
+  _fpr_pg_run 974
+  { [ "$FPR_PM_RC" -ne 0 ] && printf '%s\n' "$FPR_PM_OUT" | grep 'pre-merge gate FAILED' >/dev/null; } \
+    || _control_did_not_run "(a) get the clean, red branch refused by the gate: rc=$FPR_PM_RC $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  teardown
+
+  _fpr_pg_sandbox 975 ""
+  echo green > "$SB_WORK/CHANGE975.txt"                  # tracked, edited, uncommitted
+  _fpr_pg_run 975
+  [ "$FPR_PM_RC" -ne 0 ] \
+    || cf "(b) an uncommitted edit in the gate checkout turned a red branch green and it landed (rc=0): $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'pre-merge|POST_MERGE' | tr '\n' '|')"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(b) the squash reached origin's trunk although the committed branch is red"
+  printf '%s\n' "$FPR_PM_OUT" | grep 'pre-merge gate FAILED' >/dev/null \
+    || cf "(b) the refusal is not the gate's: $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  grep -x green "$SB_WORK/CHANGE975.txt" >/dev/null \
+    || cf "(b) the gate checkout's uncommitted edit was touched"
+  teardown
+
+  _fpr_pg_sandbox 977 ""
+  : > "$SB_WORK/stray.txt"                                # untracked
+  _fpr_pg_run 977
+  [ "$FPR_PM_RC" -ne 0 ] \
+    || cf "(c) an untracked file in the gate checkout turned a red branch green and it landed (rc=0): $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'pre-merge|POST_MERGE' | tr '\n' '|')"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(c) the squash reached origin's trunk although the committed branch is red"
+  [ -e "$SB_WORK/stray.txt" ] || cf "(c) the gate checkout's untracked file was removed"
+  teardown
+
+  _fpr_pg_sandbox 978 "POST_MERGE_PREP='exit 1'"
+  : > "$SB_WORK/stray.txt"
+  _fpr_pg_run 978
+  [ "$FPR_PM_RC" -ne 0 ] || cf "(d) a failing POST_MERGE_PREP did not stop the pre-merge gate: the landing exited 0"
+  printf '%s\n' "$FPR_PM_OUT" | grep 'POST_MERGE_PREP' >/dev/null \
+    || cf "(d) the refusal does not name POST_MERGE_PREP: $(printf '%s' "$FPR_PM_OUT" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$FPR_PM_OUT" | grep '^Next: ' >/dev/null \
+    || cf "(d) the refusal names no next step"
+  [ ! -s "$PG_LOG" ] || cf "(d) the gate ran after its preparation failed: $(tr '\n' '|' < "$PG_LOG")"
+  [ -z "$FPR_PM_SQUASH" ] || cf "(d) the squash reached origin's trunk"
+  teardown
+
+  finish "finish-pr.sh: the pre-merge gate runs in a fresh worktree at the branch tip, so a clean red branch is refused (a), an uncommitted edit (b) or an untracked file (c) in the gate checkout cannot green it, and the declared POST_MERGE_PREP prepares that tree and refuses the landing when it fails (d)"
+}
+
+# =============================================================================
+# CASE — A REFUSAL'S PRINTED ROUTE LEADS OUT (finish-pr.sh).
+#   (a) a branch whose whole diff is already a squash commit on the trunk (a landing cut short
+#       after the push) is refused as ALREADY LANDED, naming the move that records it
+#       (--landed-at <sha>), and not as stacked with a rebase to run;
+#   (b) a card with no branch anywhere: the fetch is not offered, the refusal says the card has
+#       no code and names the move back to in_progress;
+#   (c) the control: a branch only on the remote still gets the fetch.
+# =============================================================================
+case_finish_pr_refusals_name_a_route_out() {
+  cf_reset
+  local out rc br id
+
+  make_sandbox
+  id="$SB_PREFIX-985"; br="feature/$id-landed"
+  seed_issue dev_complete "$id" landed chore "Interrupted landing" "$br"
+  publish_sandbox
+  seed_branch "$id" landed A985.txt
+  git -C "$SB_WORK" merge --squash "$br" --quiet >/dev/null 2>&1
+  sbcommit -m "[QA] $id: Interrupted landing (squash-merge $br)" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a branch already squash-landed was landed again (rc=0)"
+  printf '%s\n' "$out" | grep -F -- "--landed-at" >/dev/null \
+    || cf "(a) the refusal does not name the --landed-at move that records the landing: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "git rebase --onto" >/dev/null \
+    && cf "(a) the refusal sends a landed branch to a rebase: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-986"; br="feature/$id-nobranch"
+  seed_issue dev_complete "$id" nobranch chore "A card with no branch" "$br"
+  publish_sandbox
+  seed_branch "$id" nobranch A986.txt
+  git -C "$SB_WORK" branch -D "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin --delete "$br" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1 \
+    && _control_did_not_run "(b) remove the branch from the remote"
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a card with no branch anywhere landed (rc=0)"
+  printf '%s\n' "$out" | grep -F "git fetch origin" >/dev/null \
+    && cf "(b) the refusal offers a fetch of a branch the remote does not have: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "move-issue.sh $id in_progress" >/dev/null \
+    || cf "(b) the refusal does not name the move back to in_progress: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-987"; br="feature/$id-remote"
+  seed_issue dev_complete "$id" remote chore "A branch only on the remote" "$br"
+  publish_sandbox
+  seed_branch "$id" remote A987.txt
+  git -C "$SB_WORK" branch -D "$br" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(c) get a card whose branch is only on the remote refused (rc=0)"
+  printf '%s\n' "$out" | grep -F "git fetch origin $br:$br" >/dev/null \
+    || cf "(c) a branch that is on the remote is not offered the fetch: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  teardown
+
+  finish "finish-pr.sh: a branch already squash-landed is refused as landed with the --landed-at move, not a rebase (a); a card with no branch anywhere is not sent to a fetch that fails and is told to move back to in_progress (b); a branch on the remote still gets its fetch (c)"
+}
+
+# =============================================================================
+# CASE — A DELETED BOARD WORKTREE IS RECREATED, AN UNREADABLE ONE IS NAMED, AND THE LOOKS-PUSHED
+# WARNING OF A DIVERGED TRUNK DOES NOT SEND A PUSH THAT IS REJECTED.
+#   (a) `.kanban-wt` removed by hand (still registered, prunable): the next op prunes it and
+#       recreates it, with no "offline" warning and no "no file matching";
+#   (b) `.kanban-wt` with its .git file gone: refused as not a registered worktree, with the move that
+#       clears it, and not read as a failed fetch;
+#   (c) register-commit.sh's advice for a broken board worktree names `git worktree prune`;
+#   (d) local trunk both ahead of and behind the remote: the warning names the merge first;
+#       ahead only keeps the bare push.
+# =============================================================================
+case_a_deleted_board_worktree_is_recreated_and_the_diverged_warning_names_the_merge() {
+  cf_reset
+  local out rc other
+
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-988" first chore "First card"
+  seed_issue todo "$SB_PREFIX-989" second chore "Second card"
+  seed_issue todo "$SB_PREFIX-990" third chore "Third card"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-988" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  { [ "$rc" -eq 0 ] && [ -d "$SB_WORK/.kanban-wt" ]; } \
+    || _control_did_not_run "(a) make the first move and leave a board worktree: rc=$rc $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  rm -rf "$SB_WORK/.kanban-wt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-989" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the op after a hand-deleted .kanban-wt failed (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "offline?" >/dev/null && cf "(a) a deleted board worktree was read as being offline"
+
+  rm -f "$SB_WORK/.kanban-wt/.git"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-990" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an unreadable board worktree was used (rc=0)"
+  printf '%s\n' "$out" | grep -F "offline?" >/dev/null && cf "(b) an unreadable board worktree was read as a failed fetch"
+  printf '%s\n' "$out" | grep -F "not a registered worktree" >/dev/null \
+    || cf "(b) the refusal does not say the directory is not a registered worktree: $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep '^Next: ' >/dev/null || cf "(b) the refusal names no next step"
+
+  grep -F "git worktree prune" "$SB_WORK/scripts/register-commit.sh" >/dev/null \
+    || cf "(c) register-commit.sh's advice for a broken board worktree does not name git worktree prune"
+  teardown
+
+  make_sandbox
+  publish_sandbox
+  other="$SB_TMP/other"
+  git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
+  echo "remote side" > "$other/remote.txt"
+  git -C "$other" add remote.txt >/dev/null 2>&1
+  git -C "$other" -c user.email=o@k.invalid -c user.name=o -c commit.gpgsign=false commit -q -m "remote moves" >/dev/null 2>&1
+  git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1
+  echo "local side" > "$SB_WORK/local.txt"
+  git -C "$SB_WORK" add local.txt >/dev/null 2>&1
+  sbcommit -m "local unpushed" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && bash -c '. scripts/lib/push-retry.sh; git_report_ahead_behind "$1" origin "$2"' _ "$SB_WORK" "$SB_TRUNK" 2>&1 )"
+  printf '%s\n' "$out" | grep -F "merge origin/$SB_TRUNK" >/dev/null \
+    || cf "(d) a trunk both ahead and behind is not told to merge origin/$SB_TRUNK first: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "Push it:" >/dev/null && cf "(d) a trunk behind the remote is sent a bare push"
+  git -C "$SB_WORK" merge -q --no-edit "origin/$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && bash -c '. scripts/lib/push-retry.sh; git_report_ahead_behind "$1" origin "$2"' _ "$SB_WORK" "$SB_TRUNK" 2>&1 )"
+  printf '%s\n' "$out" | grep -F "Push it:" >/dev/null || cf "(d) after the merge the trunk is only ahead and the warning lost its push: $(printf '%s' "$out" | tr '\n' '|')"
+  teardown
+
+  finish "a hand-deleted .kanban-wt is pruned and recreated by the next op (a), one whose .git is gone is refused as not a registered worktree, with a next step, and not read as offline (b), register-commit.sh's advice names the prune (c), and a trunk both ahead of and behind the remote is told to merge first while an ahead-only trunk keeps its push (d)"
+}
+
+# =============================================================================
+# CASE — A LEFTOVER BOARD LOCK WHOSE PID IS ALIVE HAS A WAY OUT.
+#   (a) the pid names a live process that started AFTER the lock was taken (the pid was reused
+#       after a crash or reboot): the lock is abandoned and the next op reaps it;
+#   (b) the pid names a live process older than the lock, and the lock is past the age ceiling:
+#       the op refuses `kanban-lock-held` and prints the exact check and the exact removal;
+#   (c) the control: a young lock held by a live, older process prints no removal command.
+# =============================================================================
+case_a_live_pid_leftover_board_lock_is_reaped_or_names_the_way_out() {
+  cf_reset
+  local out rc lock pid e
+
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-991" lock chore "Lock card a"
+  seed_issue todo "$SB_PREFIX-992" lockb chore "Lock card b"
+  seed_issue todo "$SB_PREFIX-993" lockc chore "Lock card c"
+  publish_sandbox
+  lock="$SB_WORK/.kanban-wt.lock"
+
+  # (a) a live process younger than the lock: the pid was reused.
+  sleep 120 & pid=$!
+  mkdir -p "$lock"
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$(( $(date +%s) - 86400 ))" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=3 ./scripts/move-issue.sh "$SB_PREFIX-991" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) a lock whose live pid started after the lock was not reaped (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+
+  # (b) a live process older than the lock, the lock past the ceiling.
+  sleep 120 & pid=$!
+  e="$(date +%s)"; sleep 4
+  rm -rf "$lock"; mkdir -p "$lock"
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$e" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=1 KWT_LOCK_STALE=2 ./scripts/move-issue.sh "$SB_PREFIX-992" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(b) get a live, older holder to refuse the op"
+  printf '%s\n' "$out" | grep -E "rm -rf '[^']*\.kanban-wt\.lock'" >/dev/null \
+    || cf "(b) a lock past the ceiling prints no removal command: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "ps -p $pid" >/dev/null \
+    || cf "(b) the refusal does not name the check of the holder: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+
+  # (c) the same lock, young.
+  printf 'pid=%s\nepoch=%s\nhost=%s\ntoken=x\n' "$pid" "$(date +%s)" "$(hostname)" > "$lock/info"
+  out="$( cd "$SB_WORK" && env -u MSG_OK KWT_LOCK_WAIT=1 KWT_LOCK_STALE=100 ./scripts/move-issue.sh "$SB_PREFIX-993" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(c) get a young live holder to refuse the op"
+  printf '%s\n' "$out" | grep -F "rm -rf" >/dev/null \
+    && cf "(c) a young lock is offered for removal: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+  rm -rf "$lock"
+  teardown
+
+  finish "kanban-worktree.sh: a lock whose live pid started after the lock was taken is reaped (a); a lock past the age ceiling held by an older live process is refused with the check and the exact removal (b); a young one is not offered for removal (c)"
+}
+
+# =============================================================================
+# CASE — A STUBBED LANDING GATE SAYS STUB, NEVER PASS, AND THE SWITCH IS NOT ADVERTISED.
+#   (a) `finish-pr.sh --help` does not name the test-only marker or the seams it opens;
+#   (b) a landing through both stubbed gates prints `pre-merge verify --quick: STUB` and
+#       `POST_MERGE_GATE: STUB`, no PASS from either; the squash subject and the Activity note
+#       carry the mark, and the subject still ends `(squash-merge <branch>)`;
+#   (c) a stubbed gate that fails is still a refusal (the stub changes the word of a green, not of a red);
+#   (d) an operator-supplied --note carries the mark too.
+# =============================================================================
+case_finish_pr_a_stubbed_gate_says_stub_not_pass() {
+  cf_reset
+  local out rc id br subj card
+
+  make_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh --help 2>&1 )"
+  printf '%s\n' "$out" | grep -F 'ALLOW_STUB' >/dev/null && cf "(a) --help names the test-only marker"
+  printf '%s\n' "$out" | grep -F 'FINISH_PR_PREMERGE_CMD' >/dev/null && cf "(a) --help names the gate-command seams"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-995"; br="feature/$id-stub"
+  seed_issue dev_complete "$id" stub chore "A stubbed landing" "$br"
+  publish_sandbox
+  seed_branch "$id" stub CHANGE995.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the stubbed landing did not complete (rc=$rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -E 'verify --quick: PASS' >/dev/null && cf "(b) a stubbed gate printed PASS: $(printf '%s\n' "$out" | grep -E 'verify --quick' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null && cf "(b) the machine line says PASS for a stubbed gate"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: STUB' >/dev/null || cf "(b) the machine line is not exactly 'POST_MERGE_GATE: STUB': $(printf '%s\n' "$out" | grep POST_MERGE_GATE | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'pre-merge verify --quick: STUB' >/dev/null || cf "(b) the pre-merge line does not say STUB"
+  origin_fetch_or_die
+  subj="$(git -C "$SB_WORK" log "origin/$SB_TRUNK" --format=%s -F --grep="(squash-merge $br)" -1 2>/dev/null)"
+  case "$subj" in *"[STUB gate] (squash-merge $br)") : ;; *) cf "(b) the squash subject does not carry the mark before its suffix: '$subj'" ;; esac
+  card="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$id-stub.md" 2>/dev/null)"
+  printf '%s\n' "$card" | grep -F 'STUB gate' >/dev/null || cf "(b) the Activity note does not carry the mark"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-996"; br="feature/$id-stubred"
+  seed_issue dev_complete "$id" stubred chore "A stubbed red gate" "$br"
+  publish_sandbox
+  seed_branch "$id" stubred CHANGE996.txt
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD=false ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a stubbed red pre-merge gate landed"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-997"; br="feature/$id-stubnote"
+  seed_issue dev_complete "$id" stubnote chore "A stubbed landing with a note" "$br"
+  publish_sandbox
+  seed_branch "$id" stubnote CHANGE997.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" --note "Reviewed by hand." 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the stubbed landing with --note did not complete (rc=$rc)"
+  origin_fetch_or_die
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$id-stubnote.md" 2>/dev/null | grep -F 'Reviewed by hand.' | grep -F 'STUB gate' >/dev/null \
+    || cf "(d) an operator-supplied note lost the mark of a stubbed gate"
+  teardown
+
+  finish "finish-pr.sh: --help does not name the test-only marker (a); a landing through stubbed gates says STUB on both gate lines, in the squash subject (suffix intact) and in the Activity note, never PASS (b); a stubbed red gate still refuses (c), and an operator's --note carries the mark (d)"
 }
 
 # =============================================================================
@@ -2011,8 +2347,10 @@ case_finish_pr_gate_hardening() {
   out="$( cd "$SB_WORK" && FINISH_PR_PREMERGE_CMD="$SB_TMP/fabricated-gate.sh" \
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-790" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) fabricated stub was ACCEPTED (expected a nonzero refusal), got 0"
-  printf '%s' "$out" | grep -i 'FINISH_PR_TEST_ALLOW_STUB\|refus' >/dev/null \
+  printf '%s' "$out" | grep -i 'refus' >/dev/null \
     || cf "(a) the refusal did not name why it was refused: $out"
+  printf '%s' "$out" | grep -F 'ALLOW_STUB' >/dev/null \
+    && cf "(a) the refusal names the switch that would let the command through: $out"
   assert_landing_untouched "(a)" "$SB_PREFIX-790" sandbox "feature/$SB_PREFIX-790-work" CHANGE.txt
   teardown
 

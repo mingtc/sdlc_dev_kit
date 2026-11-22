@@ -408,8 +408,8 @@ if [ "${RELEASE_TEST_ALLOW_STUB:-}" != "1" ] \
     "       RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD override the two gates that decide" \
     "       whether this cut may happen — the verify gate and the board-truth gate — so" \
     "       an unmarked override does not weaken a gate, it removes one." \
-    "       They are honored ONLY behind the test-only marker RELEASE_TEST_ALLOW_STUB=1," \
-    "       which only the self-test sets. NOTHING WAS WRITTEN." \
+    "       A gate command is not a setting: it is not read from the environment on this path." \
+    "       NOTHING WAS WRITTEN." \
     "Next: unset RELEASE_VERIFY_CMD and RELEASE_BOARD_CMD and re-run. If a gate is genuinely wrong for this project," \
     "       change what it RUNS (verify.sh's GATES table, PREFLIGHT_GATES) rather than replacing the runner."
 fi
@@ -707,6 +707,7 @@ if ${RELEASE_VERIFY_CMD:-"$SCRIPT_DIR/verify.sh"}; then :; else
       "Next: fix what ./scripts/verify.sh reports (its summary names the failing gate), then re-run."
   fi
 fi
+[ -z "${RELEASE_VERIFY_CMD:-}" ] || echo "[b] verify.sh: STUB — a test-only command ran in its place; nothing was measured."
 
 # ── Preflight 4 (gate c): the project's own extra gates, in declared order. ──
 for rec in ${PREFLIGHT_GATES[@]+"${PREFLIGHT_GATES[@]}"}; do
@@ -736,6 +737,7 @@ if ! grep -q -- 'board-drift: clean' <<< "$board_out"; then
     "$(printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' || true)" \
     "Next: resolve the drift check-board.sh reports (./scripts/check-board.sh names each finding), then re-run."
 fi
+[ -z "${RELEASE_BOARD_CMD:-}" ] || echo "[d] board-drift: STUB — a test-only command ran in its place; nothing was measured."
 
 # ── Preflight 6 (gate e): every declared release document covers this version. ─
 if [ "${#RELEASE_DOCS[@]}" -eq 0 ]; then

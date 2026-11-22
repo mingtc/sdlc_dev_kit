@@ -104,8 +104,8 @@ CODE_GLOBS=(
 TEST_GLOBS=(
 )
 
-# ── POST_MERGE_PREP — an optional command that prepares the fresh worktree the post-landing
-#    check reads. What the landing does with it, and when, is process/contracts/landing-gate.md § 4.
+# ── POST_MERGE_PREP — an optional command that prepares each fresh worktree the landing gate runs
+#    in, before the merge and after it. When it runs is process/contracts/landing-gate.md § 4.
 #
 # OPTIONAL: empty means undeclared and nothing runs — a normal answer, which check-board.sh's [g]
 # arm does not report. The declaration is the plain single-quoted form (one line, column 1), read

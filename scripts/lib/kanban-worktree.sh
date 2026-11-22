@@ -200,8 +200,8 @@ kwt_resolve() {
 # non-zero return, and nothing touched.
 # ---------------------------------------------------------------------------
 KWT_LOCK_HELD=false
-KWT_LOCK_WAIT=30      # seconds to wait for a held lock
-KWT_LOCK_STALE=120    # seconds after which a held lock is considered stale
+KWT_LOCK_WAIT="${KWT_LOCK_WAIT:-30}"      # seconds to wait for a held lock
+KWT_LOCK_STALE="${KWT_LOCK_STALE:-120}"   # seconds after which a held lock is considered stale
                       # (cross-host / unknown-holder fallback; same-host uses PID liveness)
 KWT_REAP_STALE=10     # seconds after which a `.reap` claim dir is considered orphaned
                       # (a reap completes in ms — a survivor means the reaper crashed;
@@ -242,7 +242,8 @@ kwt__publish_next() {
 KWT_LANDED_SHA=""
 
 # Echoes "yes" if the CURRENT lock holder is provably abandoned:
-#   - same host + holder PID no longer exists; or
+#   - same host + holder PID no longer exists, or exists but began after the lock was taken (the pid
+#     was reused: a live process cannot hold a lock older than itself); or
 #   - cross-host / unknown PID + lock older than KWT_LOCK_STALE.
 # Liveness is `kill -0` OR `ps -p`, so another user's live process (EPERM) is not taken for
 # dead; a holder `ps -o stat=` names with a Z has exited and only waits for its parent to reap
@@ -250,7 +251,7 @@ KWT_LANDED_SHA=""
 # The `|| true` on the seds is load-bearing: a loser may poll between the winner's mkdir
 # and its `info` write.
 kwt__lock_abandoned() {
-  local p h e a my
+  local p h e a my et ets
   p="$(sed -n 's/^pid=//p'   "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
   h="$(sed -n 's/^host=//p'  "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
   e="$(sed -n 's/^epoch=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
@@ -260,7 +261,16 @@ kwt__lock_abandoned() {
     if kill -0 "$p" 2>/dev/null || ps -p "$p" >/dev/null 2>&1; then
       case "$(ps -o stat= -p "$p" 2>/dev/null | tr -d ' \t')" in
         Z*) ;;                                # exited, not yet reaped → dead holder
-        *) return 0 ;;                        # exists (any user) → not abandoned
+        *)
+          # etime is [[dd-]hh:]mm:ss; 5s of slack covers its rounding to the second.
+          et="$(ps -o etime= -p "$p" 2>/dev/null | tr -d ' \t')"
+          if [ -n "$et" ] && [ -n "$e" ] && [ -z "${e//[0-9]/}" ]; then
+            ets="$(printf '%s' "$et" | awk -F'[-:]' '{ n=NF; if (n==2) s=$1*60+$2; else if (n==3) s=$1*3600+$2*60+$3; else if (n==4) s=$1*86400+$2*3600+$3*60+$4; else s=-1; print s }')"
+            if [ "${ets:--1}" -ge 0 ] 2>/dev/null && [ $(( $(date +%s) - ets )) -gt $(( e + 5 )) ]; then
+              echo yes                        # began after the lock: the pid was reused
+            fi
+          fi
+          return 0 ;;                         # exists (any user) → not abandoned unless reused, above
       esac
     fi
     echo yes                                  # gone → dead holder
@@ -330,14 +340,14 @@ kwt_lock() {
     if [ "$waited" -ge "$KWT_LOCK_WAIT" ]; then
       # NAME THE HOLDER from the info file (contracts/kanban-worktree.md § 3). An absent or
       # unreadable info file is reported as that, not as blanks.
-      local h_pid h_host h_epoch h_age h_detail
+      local h_pid h_host h_epoch h_age="" h_detail h_next
       h_pid="$(sed -n 's/^pid=//p'   "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
       h_host="$(sed -n 's/^host=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
       h_epoch="$(sed -n 's/^epoch=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
+      if [ -n "$h_epoch" ] && [ -z "${h_epoch//[0-9]/}" ]; then h_age=$(( $(date +%s) - h_epoch )); fi
       h_detail="$(
         if [ -n "$h_pid" ] || [ -n "$h_host" ]; then
-          if [ -n "$h_epoch" ] && [ -z "${h_epoch//[0-9]/}" ]; then
-            h_age=$(( $(date +%s) - h_epoch ))
+          if [ -n "$h_age" ]; then
             echo "       Holder: pid ${h_pid:-<unrecorded>} on host ${h_host:-<unrecorded>}, held for ${h_age}s."
           else
             echo "       Holder: pid ${h_pid:-<unrecorded>} on host ${h_host:-<unrecorded>}, age unknown (epoch '${h_epoch:-<empty>}' is not a number)."
@@ -349,10 +359,15 @@ kwt_lock() {
           echo "       such a lock only by AGE (${KWT_LOCK_STALE}s), because there is no pid to probe."
         fi
       )"
+      if [ -n "$h_age" ] && [ "$h_age" -gt "$KWT_LOCK_STALE" ]; then
+        h_next="Next: the lock is ${h_age}s old, longer than a kanban op runs (${KWT_LOCK_STALE}s), and its holder is not provably gone. Check the holder on ${h_host:-its host}:  ps -p ${h_pid:-<pid>} -o pid,lstart,command  If that is not a kit script still running, remove the lock and re-run this same command:  rm -rf '$KWT_LOCK'"
+      else
+        h_next="Next: wait for the holder's op to finish, then re-run this same command. A holder that has died is reaped by the next attempt (an unrecorded or other-host lock after ${KWT_LOCK_STALE}s), so leave $KWT_LOCK alone. If it is still held after several attempts, the holder is a live op: ask whose it is and how long it runs (./scripts/ask.sh --role <role> \"<question>\" --default \"wait for the holder, then re-run\")."
+      fi
       kit_refuse 1 kanban-lock-held \
         "Error: another kanban op holds the lock at $KWT_LOCK (waited ${KWT_LOCK_WAIT}s)." \
         "$h_detail" \
-        "Next: wait for the holder's op to finish, then re-run this same command. A holder that has died is reaped by the next attempt (an unrecorded or other-host lock after ${KWT_LOCK_STALE}s), so leave $KWT_LOCK alone. If it is still held after several attempts, the holder is a live op: ask whose it is and how long it runs (./scripts/ask.sh --role <role> \"<question>\" --default \"wait for the holder, then re-run\")."
+        "$h_next"
     fi
     sleep 1
     waited=$(( waited + 1 ))
@@ -438,19 +453,13 @@ kwt_unlock() {
 # tree with no error. Created DETACHED at the trunk's tip.
 # ---------------------------------------------------------------------------
 kwt_bootstrap() {
-  if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-       | grep -xF "worktree $KWT" >/dev/null; then
-    kwt__ensure_detached  # detach-by-construction, not assumed.
-    return $?   # return-class: relay
-  fi
-
-  # A leftover directory with no registration (e.g. partial create) blocks
-  # `worktree add`. Prune dead entries, then if the path still exists un-managed,
-  # bail with a clear message rather than clobbering.
+  # Prune dead entries FIRST: a worktree directory removed by hand stays registered (prunable), and
+  # reading it as a live tree makes every later op fail. A leftover directory with no registration
+  # (e.g. partial create) blocks `worktree add`; if it still exists un-managed, bail rather than clobber.
   git -C "$MAIN_ROOT" worktree prune 2>/dev/null || true
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
        | grep -xF "worktree $KWT" >/dev/null; then
-    kwt__ensure_detached
+    kwt__ensure_detached  # detach-by-construction, not assumed.
     return $?   # return-class: relay
   fi
   if [ -e "$KWT" ]; then

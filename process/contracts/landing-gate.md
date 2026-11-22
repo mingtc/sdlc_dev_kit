@@ -33,6 +33,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   *Why:* a landing gate that accepts an arbitrary command from its caller can be handed a
   command that always succeeds, which turns the strongest control in the process into a
   formality.
+  A refusal does not name the switch, and a run that used a stub says so: its gate lines read
+  STUB (the machine line `POST_MERGE_GATE: STUB`), never PASS, and the squash subject and the
+  Activity note carry the mark.
 - **The gate that runs is the COMMITTED one.** The gate definition must be tracked at the
   revision being landed and free of uncommitted modification, or landing refuses.
   *Why:* an edited-but-uncommitted gate means the proof came from a definition that will not
@@ -199,7 +202,7 @@ last is why the run is worth having at all:
   carries that checkout's untracked and ignored files — its installed dependencies — and they are
   part of what was read. A fresh worktree has none, so it may be prepared by the command the landed
   commit declares as `POST_MERGE_PREP` in `scripts/config.sh`; the line says when it was, and a
-  prep that fails is UNRUNNABLE, not a red trunk. **If it cannot read the landed commit, it says so in its own word** —
+  prep that fails is UNRUNNABLE, not a red trunk. It prepares any fresh checkout the gate runs in, before the merge (a prep that fails there refuses the landing) and after it. **If it cannot read the landed commit, it says so in its own word** —
   neither green nor red, because neither was measured ([verify-gate.md](verify-gate.md) § 3's
   UNRUNNABLE, applied to the reading as a whole, and to a run whose own summary counts only gates
   that could not run).

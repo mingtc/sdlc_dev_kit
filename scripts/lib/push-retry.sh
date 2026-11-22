@@ -126,6 +126,20 @@ git_push_with_retry() {
   return 1   # return-class: internal
 }
 
+# git__merge_then_push_cmd <dir> <remote> <branch> — prints the command that merges <remote>/<branch> into local
+# <branch> and pushes it: in the worktree that holds <branch>, else after switching <dir>'s checkout to it.
+git__merge_then_push_cmd() {
+  local dir="$1" remote="$2" branch="$3" holder qd qh
+  printf -v qd '%q' "$dir"
+  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '/^worktree /{p=substr($0,10)} $0 == "branch " b {print p; exit}')"
+  if [ -n "$holder" ]; then
+    printf -v qh '%q' "$holder"
+    printf '%s' "git -C $qh merge $remote/$branch && git -C $qh push $remote $branch"
+  else
+    printf '%s' "git -C $qd switch $branch && git -C $qd merge $remote/$branch && git -C $qd push $remote $branch"
+  fi
+}
+
 # git_report_ahead_behind <dir> <remote> <branch> — the "looks-pushed" check. A board move
 # pushes its own commit via the kanban worktree; a hand-made trunk commit in the OPERATOR'S
 # checkout stays local and looks pushed. Reports <dir>'s ahead/behind against <remote>/<branch>.
@@ -140,7 +154,10 @@ git_report_ahead_behind() {
   counts="$(git -C "$dir" rev-list --left-right --count "$remote/$branch...$branch" 2>/dev/null)" || return 0
   behind="$(printf '%s' "$counts" | awk '{print $1}')"
   ahead="$(printf '%s' "$counts" | awk '{print $2}')"
-  if [ "${ahead:-0}" != "0" ]; then
+  if [ "${ahead:-0}" != "0" ] && [ "${behind:-0}" != "0" ]; then
+    echo "Warning: '$dir' local $branch is ${ahead} commit(s) AHEAD of $remote/$branch and NOT pushed, and ${behind} BEHIND it (the looks-pushed check)." >&2
+    echo "         A plain push is rejected; merge first, then push: $(git__merge_then_push_cmd "$dir" "$remote" "$branch")" >&2
+  elif [ "${ahead:-0}" != "0" ]; then
     echo "Warning: '$dir' local $branch is ${ahead} commit(s) AHEAD of $remote/$branch and NOT pushed (the looks-pushed check)." >&2
     echo "         Push it: git -C '$dir' push $remote $branch" >&2
   else
@@ -159,7 +176,7 @@ git_report_ahead_behind() {
 # equal return 0, as does a repository with no local <branch> or no <remote>/<branch> to compare.
 # Changes nothing. Needs lib/refuse.sh loaded (kanban-worktree.sh sources it).
 git_refuse_unpublished_trunk() {
-  local dir="$1" remote="$2" branch="$3" stale="" counts behind ahead holder fix qd qh
+  local dir="$1" remote="$2" branch="$3" stale="" counts behind ahead fix qd
   GIT_TERMINAL_PROMPT=0 git -C "$dir" fetch "$remote" "$branch" --quiet 2>/dev/null \
     || stale=" (read from the last fetch: the fetch of $remote/$branch failed)"
   counts="$(git -C "$dir" rev-list --left-right --count "refs/remotes/$remote/$branch...refs/heads/$branch" 2>/dev/null)" || return 0
@@ -175,13 +192,7 @@ git_refuse_unpublished_trunk() {
       "$unpushed" \
       "Next: push them, then run the same command again:  git -C $qd push $remote $branch"
   fi
-  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '/^worktree /{p=substr($0,10)} $0 == "branch " b {print p; exit}')"
-  if [ -n "$holder" ]; then
-    printf -v qh '%q' "$holder"
-    fix="git -C $qh merge $remote/$branch && git -C $qh push $remote $branch"
-  else
-    fix="git -C $qd switch $branch && git -C $qd merge $remote/$branch && git -C $qd push $remote $branch"
-  fi
+  fix="$(git__merge_then_push_cmd "$dir" "$remote" "$branch")"
   kit_refuse 1 trunk-diverged \
     "Error: local '$branch' has $ahead commit(s) $remote/$branch lacks, and $remote/$branch has $behind that local '$branch' lacks$stale. A landing now goes on $remote/$branch's tip and cannot be fast-forwarded into local '$branch'. Nothing was changed." \
     "       Unpushed, newest first, up to 5:" \
