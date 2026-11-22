@@ -616,8 +616,9 @@ else
   # prose, and a refusal on valid input trains the operator to ignore it (instruments.md § A.8).
   if [ "$TARGET" = "dev_complete" ]; then
     # Skipped: `## QA Verdict` and `## Ablation` (the QA fills the first; the second is the Dev's template block and the
-    # QA's to check) and angle text inside code spans (prose). A line is cut at 100 bytes.
-    ph="$(awk '/^## /{ skip = ($0 ~ /^## (QA Verdict|Ablation)/) } !skip { l = $0; gsub(/`[^`]*`/, "", l) } !skip && l ~ /<[a-z][a-z0-9 _|\/-]*>/ { print NR ":" substr($0, 1, 100) }' "$SRC" 2>/dev/null | head -5 || true)"
+    # QA's to check), angle text inside code spans and indented code blocks (a blank line, then a line indented four
+    # spaces that is no list item: the Activity section's example entry). A line is cut at 100 bytes.
+    ph="$(awk '/^## /{ skip = ($0 ~ /^## (QA Verdict|Ablation)/) } { ind = ($0 ~ /^(    |\t)/ && $0 !~ /^[ \t]+([-*+]|[0-9]+[.)]) /); code = ind && (pb || pc); pb = ($0 ~ /^[ \t]*$/); pc = code } !skip && !code { l = $0; gsub(/`[^`]*`/, "", l) } !skip && !code && l ~ /<[a-z][a-z0-9 _|\/-]*>/ { print NR ":" substr($0, 1, 100) }' "$SRC" 2>/dev/null | head -5 || true)"
     if [ -n "$ph" ]; then
       {
         echo "Warning: ${ISSUE_ID} still carries unfilled <angle-bracket> template text:"

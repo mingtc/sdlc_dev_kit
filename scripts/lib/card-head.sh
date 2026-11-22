@@ -40,7 +40,7 @@ kit_rehead_card() {
   head='<!-- A live card, not a template. It carries NO travel-classification marker, by design:
      this file was born in this repository and never travels, and process/EXTRACTION.md § The one
      file classification convention states that the absence is deliberate rather than an oversight.
-     Fill every <angle-bracket>; never leave one in a live card. -->'
+     Fill every angle-bracket blank; never leave one in a live card. -->'
   body="${card}.rehead"
   # Two comment blocks are the template's, not the card's: the classification marker and the
   # LINKS declaration (addressed to whoever maintains the template; the self-test reads it there).

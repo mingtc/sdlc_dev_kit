@@ -160,6 +160,50 @@ case_mover_template_warning_on_a_minted_card_skips_qa_verdict_and_ablation() {
 }
 
 # =============================================================================
+# CASE — THE MOVER'S TEMPLATE-TEXT WARNING IS SILENT ON A MINTED CARD THE DEV HAS FILLED.
+# A card minted by new-issue.sh carries two angle-bracket texts the Dev does not fill: the head's own
+# fill instruction and the Activity section's indented example entry. With every Dev blank filled
+# the move to dev_complete warns of nothing; one blank left is reported alone, without either.
+# =============================================================================
+case_mover_template_warning_ignores_the_card_head_and_the_activity_example() {
+  cf_reset
+  if ! has_kit_init; then skp "the mover's template-text warning on a filled minted card" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "the mover's template-text warning on a filled minted card" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local a="$SB_PREFIX-980" b="$SB_PREFIX-981" id card out rc
+  for id in "$a" "$b"; do
+    out="$( cd "$SB_WORK" && ./scripts/new-issue.sh filled --id "$id" --prd n/a 2>&1 )" \
+      || _fixture_die "case_mover_template_warning_ignores_the_card_head_and_the_activity_example: new-issue.sh did not mint $id: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    card="$SB_WORK/progress/todo/$id-filled.md"
+    grep -F '<the decision>' "$card" >/dev/null 2>&1 \
+      || _fixture_die "case_mover_template_warning_ignores_the_card_head_and_the_activity_example: the minted card holds no Activity example entry, so the case would pass for nothing"
+    # Fill every blank the Dev owns; leave the head, the Activity example and the QA Verdict and Ablation text as minted.
+    sed -e 's/<one-line summary>/A real title/' -e 's/<section that gives context>/Intro/' \
+        -e 's/from <story id>: <statement>/from the lite path: a real criterion/' -e 's/^- <out-of-scope item>$/- nothing else/' \
+        -e 's/^\(- \*\*Code:\*\*\) .*/\1 none/' -e 's/^\(- \*\*Resource:\*\*\) .*/\1 none/' "$card" > "$card.new" && mv "$card.new" "$card"
+  done
+  card="$SB_WORK/progress/todo/$b-filled.md"
+  sed 's/^One paragraph: .*/The one blank the Dev left: <real blank>./' "$card" > "$card.new" && mv "$card.new" "$card"
+  publish_sandbox
+  for id in "$a" "$b"; do
+    out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role "$SB_ROLE" --note "picked up" 2>&1 )" \
+      || cf "moving $id to in_progress failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  done
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$a" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the move of a filled minted card exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"unfilled <angle-bracket>"*) cf "(a) a minted card with every Dev blank filled was warned: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$b" dev_complete --role "$SB_ROLE" --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"<real blank>"*) : ;; *) cf "(b) a blank the Dev left was not reported: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Fill every"*) cf "(b) the warning prints the card head's own fill instruction" ;; esac
+  case "$out" in *"<the decision>"*) cf "(b) the warning prints the Activity section's example entry" ;; esac
+  finish "move-issue.sh's template-text warning is silent on a filled minted card, and a blank left is reported without the card head or the Activity example"
+  teardown
+}
+
+# =============================================================================
 # CASE — notify.sh DOES NOT RUN THE WATCHDOG AS A BACKEND.
 # scripts/notify/stall.sh sits beside the adapters but has no `send)` arm, so NOTIFY_BACKEND=stall is
 # "no adapter", said once with the available list, not a usage dump from the watchdog.
