@@ -832,6 +832,60 @@ LINK_ROWS
 }
 
 # =============================================================================
+# CASE — THE STAGING DIRECTORY IS NEVER A LINK THE UPGRADE WRITES THROUGH.
+#
+# `.kit-upgrade` in the project is a committed symbolic link to a directory outside it. The run stages its copies of the new
+# kit's version, manifest, notes and scripts/lib there, so each would land outside the project: it is refused before any file
+# is written, naming the link and the way on, and the directory outside stays empty. The same for a link inside a real
+# staging directory, and for --finish over one. (control) The same project with a
+# plain directory stages as before.
+# =============================================================================
+case_kit_upgrade_refuses_a_staging_directory_that_is_a_symbolic_link() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh refuses a .kit-upgrade that is a symbolic link before it writes any file, with the refusal's record and a Next, and nothing lands where the link points; the same project with a directory there stages"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.2.0
+  local o="$SB_TMP/outside-stage"
+  mkdir -p "$o"
+  ln -s "$o" "$KU_T/.kit-upgrade" 2>/dev/null || { skp "$L" "this filesystem takes no symbolic link"; teardown; return; }
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "staging link"; } >/dev/null 2>&1 || _fixture_die "${FUNCNAME[0]}: the link was not committed"
+  KU_RECDIR="$KU_T/.progress-records"
+  _ku_run link --into "$KU_T"
+  [ "$(_ku_rc link)" != 0 ] || cf "the upgrade exited 0 over a linked staging directory: $(_ku_out link)"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -eq 1 ] || cf "no single refusal=upgrade-staging-link record: $(_ku_out link)"
+  grep -F 'Next:' "$SB_TMP/link.out" >/dev/null || cf "the refusal has no Next line: $(_ku_out link)"
+  [ -z "$(ls -A "$o")" ] || cf "files landed where the link points: $(ls -A "$o" | tr '\n' ' ')"
+  [ -L "$KU_T/.kit-upgrade" ] || cf "the link was removed"
+  [ ! -e "$KU_T/$KU_CHECKLIST_REL" ] || cf "a checklist was written though the run refused"
+  # (inside) a real staging directory holding a committed link: refused (as an upgrade in progress, before the link check), nothing outside.
+  _ku_pair 0.1.0 0.2.0
+  rm -rf "${o:?}"; mkdir -p "$o" "$KU_T/.kit-upgrade"
+  ln -s "$o" "$KU_T/.kit-upgrade/lib"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "link inside staging"; } >/dev/null 2>&1 || _fixture_die "${FUNCNAME[0]}: the inner link was not committed"
+  _ku_run inner --into "$KU_T"
+  [ "$(_ku_rc inner)" != 0 ] || cf "(inside) the upgrade exited 0 over a link inside the staging directory: $(_ku_out inner)"
+  [ -z "$(ls -A "$o")" ] || cf "(inside) files landed where the inner link points: $(ls -A "$o" | tr '\n' ' ')"
+  # (finish) a staged upgrade whose staging directory then holds a link: --finish refuses and stamps nothing.
+  _ku_judge_stage fl; printf 'x\n' > "$KU_T/DONE-MARKER"
+  rm -rf "$KU_T/.kit-upgrade/lib"; ln -s "$o" "$KU_T/.kit-upgrade/lib"
+  { git -C "$KU_T" add -A && git -C "$KU_T" commit -qm "marker and a link in staging"; } >/dev/null 2>&1
+  _ku_run fl-fin --finish --into "$KU_T"
+  [ "$(_ku_rc fl-fin)" != 0 ] || cf "(finish) --finish exited 0 over a link inside the staging directory: $(_ku_out fl-fin)"
+  [ "$(_ku_recs "$KU_T/.progress-records" upgrade-staging-link)" -ge 1 ] || cf "(finish) no refusal=upgrade-staging-link record: $(_ku_out fl-fin)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "(finish) the refused --finish stamped the version"
+  # (control) a directory there.
+  _ku_pair 0.1.0 0.2.0
+  _ku_run plain --into "$KU_T"
+  [ "$(_ku_rc plain)" = 0 ] || cf "(control) the upgrade exited $(_ku_rc plain): $(_ku_out plain)"
+  [ -f "$KU_T/.kit-upgrade/KIT-VERSION" ] || cf "(control) the run staged no KIT-VERSION"
+  KU_RECDIR=""
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — "REMOVED UPSTREAM" NEVER SAYS "DELETE IT" ABOUT A FILE THE PROJECT ITSELF CHANGED.
 #
 # c.txt is dropped by the new kit. One target has it unchanged from the old release (today's
@@ -1383,6 +1437,56 @@ case_kit_upgrade_finish_judges_with_the_new_kits_files() {
   [ "$nrc" = 0 ] || cf "n: --finish with no sha256 tool exited $nrc: $(tr '\n' '|' < "$SB_TMP/n-fin.out" | cut -c1-300)"
   grep -F 'Not compared:' "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" >/dev/null || cf "n: the archive does not say what was not compared"
   grep -F 'each equals' "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" >/dev/null && cf "n: the archive heads an empty list as equal to the kit's files"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A REFUSED OR SIGNALLED --finish LEAVES NO SCRATCH DIRECTORY BEHIND.
+#
+# --finish keeps a copy of what the stamp writes in a directory under TMPDIR (kit-upgrade-undo.*). Every way the run
+# can end removes it: (a) the refusal made while it carries out a module's staged record, which no earlier row reached,
+# and (b) a TERM that arrives while the copy is being made. TMPDIR is private to the case, so "empty" is exact.
+# =============================================================================
+case_kit_upgrade_finish_leaves_no_scratch_directory_after_a_refusal_or_a_signal() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh --finish removes its scratch copy of KIT-VERSION and KIT-MANIFEST when it ends in the refusal that finishing a module's staged record makes, and when it is terminated by a signal after the copy is made"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  local tmp="$SB_TMP/undo-tmp" rc left
+  mkdir -p "$tmp" "$SB_TMP/cpshim"
+
+  # (b) a TERM, sent by the copy of KIT-MANIFEST into the scratch directory, to the script that runs it.
+  _ku_judge_stage s; printf 'x\n' > "$KU_T/DONE-MARKER"; git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  mkdir -p "$KU_NEW/scripts/lib"; cp "$REAL_SCRIPTS"/lib/*.sh "$KU_NEW/scripts/lib/"   # the fixture kit is minimal; the exit-trap and modules libraries a real kit carries
+  printf '#!/bin/sh\nfor a in "$@"; do last="$a"; done\ncase "$last" in */kit-upgrade-undo.*/KIT-MANIFEST) : > "$SHIM_FIRED"; kill -TERM $PPID; sleep 2; exit 1 ;; esac\nexec /bin/cp "$@"\n' > "$SB_TMP/cpshim/cp"; chmod +x "$SB_TMP/cpshim/cp"
+  rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" TMPDIR="$tmp" SHIM_FIRED="$SB_TMP/shim-fired" PATH="$SB_TMP/cpshim:$PATH" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/s-fin.out" 2>&1 || rc=$?
+  [ -e "$SB_TMP/shim-fired" ] || cf "(b) (premise) --finish never copied KIT-MANIFEST into its scratch directory, so no signal was sent: $(tr '\n' '|' < "$SB_TMP/s-fin.out" | cut -c1-300)"
+  [ "$rc" != 0 ] || cf "(b) --finish exited 0 though it was terminated: $(tr '\n' '|' < "$SB_TMP/s-fin.out" | cut -c1-300)"
+  left="$(ls "$tmp" 2>/dev/null)"
+  [ -z "$left" ] || cf "(b) a terminated --finish left in TMPDIR: $(printf '%s' "$left" | tr '\n' ' ')"
+  [ ! -e "$KU_T/process/upgrades/0.1.0-to-0.2.0.md" ] || cf "(b) (premise) the terminated run had written the archive"
+
+  # (a) the staged record of an enabled module cannot be carried out: process/ is read-only.
+  if [ "$(id -u)" = 0 ]; then
+    skp "$L" "row (a) cannot run as root, where a read-only directory is still writable"
+    teardown; return
+  fi
+  _ku_judge_stage m; printf 'x\n' > "$KU_T/DONE-MARKER"
+  mkdir -p "$KU_NEW/scripts/lib"; cp "$REAL_SCRIPTS"/lib/*.sh "$KU_NEW/scripts/lib/"
+  { printf 'module example 0.1.0\nfile %064d x.txt\n' 0 > "$KU_T/process/MODULES"
+    mkdir -p "$KU_T/.kit-upgrade/module-records"
+    printf 'file %064d x.txt\n' 1 > "$KU_T/.kit-upgrade/module-records/example.rows"
+    printf '0.1.0 0.2.0\n' > "$KU_T/.kit-upgrade/module-records/example.version"; }
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "marker and a staged module record" >/dev/null 2>&1
+  chmod 555 "$KU_T/process"
+  rc=0; ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR KIT_PROGRESS_DIR="$KU_T/.progress-records" TMPDIR="$tmp" "$KU_NEW/scripts/kit-upgrade.sh" --finish --into "$KU_T" ) >"$SB_TMP/m-fin.out" 2>&1 || rc=$?
+  chmod 755 "$KU_T/process"
+  [ "$rc" != 0 ] || cf "(a) (premise) --finish exited 0 though process/ was read-only: $(tr '\n' '|' < "$SB_TMP/m-fin.out" | cut -c1-300)"
+  grep -F 'to finish the record of module example' "$SB_TMP/m-fin.out" >/dev/null || cf "(a) (premise) the refusal is not the module record's: $(tr '\n' '|' < "$SB_TMP/m-fin.out" | cut -c1-300)"
+  left="$(ls "$tmp" 2>/dev/null)"
+  [ -z "$left" ] || cf "(a) a refused --finish left in TMPDIR: $(printf '%s' "$left" | tr '\n' ' ')"
   finish "$L"
   teardown
 }

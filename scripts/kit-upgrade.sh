@@ -180,7 +180,13 @@ read_version() {  # <file> — its one line, or nothing
 # mod_lib_load — source the modules library when the project records enabled modules (process/MODULES) and point it at the
 # project. Status 1 when the project has none. The library comes from the copy of the kit this script sits in; a copy that
 # lacks it is refused by the caller that needs it, before it writes.
-MODTMP=""; FINISHED_N=0
+MODTMP=""; UNDO_DIR=""; FINISHED_N=0
+# scratch_on_exit — remove the run's scratch directories (the modules library's, and --finish's undo copy) when the script
+# ends, however it ends: a refusal, or a TERM, HUP or INT. One trap owns both, so registering one never drops the other.
+scratch_on_exit() {
+  command -v kit_on_exit >/dev/null 2>&1 || { [ -f "$SCRIPT_DIR/lib/exit-trap.sh" ] && . "$SCRIPT_DIR/lib/exit-trap.sh"; } || return 0   # return-class: internal
+  kit_on_exit 'rm -rf "${MODTMP:-}" "${UNDO_DIR:-}"'
+}
 mod_lib_load() {
   [ -f "$TGT/process/MODULES" ] || return 1   # return-class: predicate
   if [ -z "$MODTMP" ]; then
@@ -190,7 +196,7 @@ mod_lib_load() {
     # shellcheck source=lib/modules.sh
     . "$SCRIPT_DIR/lib/modules.sh"
     MODTMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-modules.XXXXXX")" || { MODTMP=""; return 3; }   # return-class: predicate
-    kit_on_exit 'rm -rf "$MODTMP"'
+    scratch_on_exit
     KIT_MOD_ROOT="$TGT"; KIT_MOD_SRC="${SRC:-$TGT}"; KIT_MOD_TMP="$MODTMP"; KIT_MOD_FAIL_RETURNS=1
   fi
   return 0
@@ -553,11 +559,27 @@ vf_record() {
   [ -z "$ST_NOTE" ] || printf '\nNot compared: %s.\n' "$ST_NOTE"
 }
 
+# staging_link — the staging directory, or the first path inside it, that is a symbolic link; nothing when there is none.
+staging_link() {
+  local l
+  if [ -L "$ST" ]; then printf '%s' "$STAGE_DIR"; return 0; fi
+  [ -d "$ST" ] || return 0
+  l="$(find "$ST" -type l 2>/dev/null | sed -n 1p)"
+  [ -z "$l" ] || printf '%s' "${l#"$TGT"/}"
+  return 0
+}
+refuse_staging_link() {
+  kit_refuse 1 upgrade-staging-link \
+    "Error: $(staging_link) in $TGT is a symbolic link, and the upgrade writes and reads its staged copies through that path, which would reach wherever the link points. Nothing was written." \
+    "Next: remove the link ('git -C $TGT rm -f $(staging_link)' if it is tracked, then commit that), then run this again."
+}
+
 # ── --finish ──────────────────────────────────────────────────────────────────
 if [ "$FINISH" = true ]; then
   [ -f "$CL" ] || kit_refuse 1 upgrade-nothing-to-finish \
     "Error: no upgrade is in progress in $TGT: $UPGRADE_CHECKLIST is absent." \
     "Next: start one with the NEW kit's copy: <scratch>/scripts/kit-upgrade.sh --into $TGT"
+  [ -z "$(staging_link)" ] || refuse_staging_link
   { [ -f "$ST/KIT-VERSION" ] && [ -f "$ST/KIT-MANIFEST" ]; } || kit_refuse 1 upgrade-staging-missing \
     "Error: $UPGRADE_CHECKLIST exists but $STAGE_DIR/ does not hold the new KIT-VERSION and KIT-MANIFEST." \
     "Next: run this, which discards the staged upgrade and commits that (the file that records what the first run wrote is kept), then run the NEW kit's copy again; that re-run starts over:" \
@@ -603,6 +625,7 @@ if [ "$FINISH" = true ]; then
   fi
   # What the stamp writes is saved first, before anything is written: a copy that fails refuses here, with nothing changed.
   UNDO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-undo.XXXXXX" 2>/dev/null)" || UNDO_DIR=""
+  scratch_on_exit
   backed=1
   [ -n "$UNDO_DIR" ] || backed=""
   for f in KIT-VERSION KIT-MANIFEST; do
@@ -1006,6 +1029,8 @@ MODNAMES_EOF
     exit 0
   fi
 fi
+# The staging directory is the run's own: a link in it takes a staged copy, or a copy --finish reads, to wherever it points.
+[ -z "$(staging_link)" ] || refuse_staging_link
 # What arrives is written down BEFORE the first file is: a file this loop has placed reads as current on a re-run, and
 # the "stamp what arrived" item must still count it. The rows replace a killed run's by a rename.
 if [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
@@ -1039,11 +1064,11 @@ while IFS= read -r mn; do
 done <<MODNAMES_EOF
 $MOD_LIVE
 MODNAMES_EOF
-cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
+put "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && put "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
 # The new kit's notes and history, staged: --finish reads each Verify: command from these copies.
-cp "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE_DIR/$STAGED_NOTES"
+put "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE_DIR/$STAGED_NOTES"
 if [ -f "$SRC/process/KIT-RELEASE-HISTORY.md" ]; then
-  cp "$SRC/process/KIT-RELEASE-HISTORY.md" "$ST/$STAGED_HISTORY" || fail_write "$STAGE_DIR/$STAGED_HISTORY"
+  put "$SRC/process/KIT-RELEASE-HISTORY.md" "$ST/$STAGED_HISTORY" || fail_write "$STAGE_DIR/$STAGED_HISTORY"
 fi
 # The key of each Action required item the checklist is about to carry: --finish runs the commands of these, and
 # refuses a checklist that lost one.

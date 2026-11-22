@@ -2337,3 +2337,41 @@ case_marker_block_a_refused_write_takes_back_the_file_the_insert_created() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — a marker-block insert at a host path that is a dangling symlink judges the link, creates nothing through it
+# and leaves the link in place. A link is a path that exists for this purpose, so the insert refuses as it does for any
+# host it cannot read.
+#   (a) a gitignore-slot insert, the link dangling: refused, the link remains, its target is not created;
+#   (b) the same with a scratch directory that does not exist (the rebuild's refusal path): the link remains too;
+#   (c) CONTROL: no link and no file: the insert creates the host, as before.
+# =============================================================================
+case_marker_block_insert_leaves_a_dangling_link_at_the_host_path_alone() {
+  cf_reset
+  local L="a marker-block insert whose host path is a dangling symlink refuses, keeps the link and creates nothing through it; an absent path still gets its host"
+  make_sandbox
+  local d="$SB_TMP/mbl" t="$SB_TMP/mbl-tmp" out rc
+  mkdir -p "$d" "$t"
+  printf 'node_modules/\n' > "$d/one.txt"
+  _mbl() { ( . "$SB_WORK/scripts/lib/marker-block.sh"; export TMPDIR="${MBL_TMP:-$t}"; "$@" ) 2>&1; }
+
+  # (a) the link dangles.
+  ln -s "$d/target-a" "$d/host-a" 2>/dev/null || { skp "$L" "this filesystem takes no symbolic link"; teardown; return; }
+  out="$(_mbl kit_mb_insert "$d/host-a" alpha:gitignore gitignore "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) (premise) the insert exited 0 through a dangling link"
+  [ -L "$d/host-a" ] || cf "(a) the refused insert removed the link"
+  [ ! -e "$d/target-a" ] || cf "(a) the insert created the link's target ($(wc -c < "$d/target-a" | tr -d ' ') bytes)"
+
+  # (b) the link dangles and TMPDIR cannot take the scratch file: nothing of the project's is removed either.
+  ln -s "$d/target-b" "$d/host-b"
+  out="$(MBL_TMP="$d/no-such-dir" _mbl kit_mb_insert "$d/host-b" alpha:gitignore gitignore "$d/one.txt")"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) (premise) the insert exited 0 through a dangling link"
+  [ -L "$d/host-b" ] || cf "(b) the refused insert removed the link"
+  [ ! -e "$d/target-b" ] || cf "(b) the insert created the link's target"
+
+  # (c) control: an absent path gets its host.
+  out="$(_mbl kit_mb_insert "$d/host-c" alpha:gitignore gitignore "$d/one.txt")"; rc=$?
+  { [ "$rc" -eq 0 ] && [ -f "$d/host-c" ]; } || cf "(c) the insert did not create an absent host: rc $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "$L"
+  teardown
+}

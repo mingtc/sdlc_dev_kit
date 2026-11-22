@@ -92,13 +92,16 @@ commit_hint() {
 case "$CMD" in
   list)
     echo "modules this kit ships (modules/):"
-    avail="$(kit_mod_available)"
+    avail="$(kit_mod_available)" || exit "$?"
     if [ -z "$avail" ]; then echo "  none"; else
       while read -r n v p; do
         if kit_mod_is_enabled "$n"; then st="enabled "; elif kit_mod_is_pending "$n"; then st="UNFINISHED"; else st="disabled"; fi
-        kept=""; [ -n "$(kit_mod_kept_version "$n")" ] && kept="  [files kept from an earlier disable: ./scripts/module.sh status $n]"
+        # Assignments, not substitutions inside the printf: a refusal inside a substitution ends only the substitution.
+        kv="$(kit_mod_kept_version "$n")" || exit "$?"
+        needs="$(kit_mod_needs "$n")" || exit "$?"
+        kept=""; [ -z "$kv" ] || kept="  [files kept from an earlier disable: ./scripts/module.sh status $n]"
         printf '  %-16s %-8s %s  %s%s\n' "$n" "$v" "$st" "$p" "$kept"
-        printf '  %-16s needs: %s\n' "" "$(kit_mod_needs "$n")"
+        printf '  %-16s needs: %s\n' "" "$needs"
       done <<< "$avail"
     fi
     echo "Enable one with: ./scripts/module.sh enable <name>   (process/MODULES.md § The catalogue says what each does; enable checks what it needs)" ;;

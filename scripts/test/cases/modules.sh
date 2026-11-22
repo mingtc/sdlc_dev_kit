@@ -943,8 +943,9 @@ case_fixture_library_lists_follow_the_scripts_source_lines() {
 # CASE — A REFUSAL INSIDE module.sh list's LOOP ENDS THE COMMAND WITH ITS CODE.
 #   Operand: module.sh list in a project whose lib/modules.sh is made to refuse while listing one
 #   module, in a call the loop makes itself (not inside a command substitution, whose exit is its
-#   own). The refusal is the command's exit status and nothing is listed after it; without the
-#   stand-in, the same project lists both modules and exits 0.
+#   own), and again in each helper it reads through a command substitution. The refusal is the
+#   command's exit status and nothing is listed after it; without the stand-in, the same project lists
+#   both modules and exits 0.
 # =============================================================================
 case_module_list_ends_with_a_refusal_made_inside_its_loop() {
   cf_reset
@@ -959,12 +960,22 @@ case_module_list_ends_with_a_refusal_made_inside_its_loop() {
   _mx_run "$P" list
   [ "$_mx_rc" -eq 0 ] || cf "(control) module.sh list exited $_mx_rc: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
   case "$_mx_out" in *" ma "*" mz "*"Enable one with"*) ;; *) cf "(control) module.sh list did not list ma and mz: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  cp "$P/scripts/lib/modules.sh" "$P/scripts/lib/modules.sh.orig"
   # (refusal) listing mz refuses: exit 3, the refusal printed, and the list stops there.
   printf '%s\n' 'kit_mod_is_enabled() { [ "$1" != mz ] || kit_refuse 3 module-list-probe "Error: the probe refuses to list mz." "Next: none; this is the self-test'"'"'s stand-in."; return 1; }' >> "$P/scripts/lib/modules.sh"
   _mx_run "$P" list
   [ "$_mx_rc" -eq 3 ] || cf "(refusal) module.sh list exited $_mx_rc, not the refusal's 3: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
   case "$_mx_out" in *"the probe refuses to list mz"*) ;; *) cf "(refusal) the refusal is not in the output: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
   case "$_mx_out" in *"Enable one with"*) cf "(refusal) module.sh list went on past the refusal: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  # (substitution) a refusal inside a helper the loop reads through a command substitution ends the command too.
+  local h
+  for h in kit_mod_kept_version kit_mod_needs; do
+    cp "$P/scripts/lib/modules.sh.orig" "$P/scripts/lib/modules.sh"
+    printf '%s\n' "$h() { [ \"\$1\" != mz ] || kit_refuse 3 module-list-probe \"Error: the probe refuses $h for mz.\" \"Next: none; this is the self-test's stand-in.\"; return 0; }" >> "$P/scripts/lib/modules.sh"
+    _mx_run "$P" list
+    [ "$_mx_rc" -eq 3 ] || cf "(substitution $h) module.sh list exited $_mx_rc, not the refusal's 3: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)"
+    case "$_mx_out" in *"Enable one with"*) cf "(substitution $h) module.sh list went on past the refusal: $(printf '%s' "$_mx_out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  done
   finish "$L"
   teardown
 }
@@ -1254,4 +1265,32 @@ case_the_module_less_skip_reason_names_a_file_that_is_absent_and_the_shape_test_
   _lived_names_a_file "modules/example/module.manifest is absent from this tree" || cf "(shape) a reason naming module.manifest is not read as naming a file"
   rm -rf "$root"
   finish "$L"
+}
+
+# =============================================================================
+# CASE — THE MODULE FILE WRITER REFUSES A DIRECTORY ABOVE ITS DESTINATION THAT IS A LINK, AND WRITES NOTHING THROUGH IT.
+#   Operand: _kit_mod_place_file called directly (the scans refuse such a path first, so no command reaches it) with a
+#   destination under a directory that is a link to one outside the project, and under a plain directory. The link: exit 1,
+#   the rule's record, a Next line, nothing outside. The plain one: the file is placed.
+# =============================================================================
+case_the_module_file_writer_refuses_a_linked_directory_above_its_destination() {
+  cf_reset
+  local L="the module file writer refuses a destination whose parent directory is a symbolic link (exit 1, a record, a Next line, nothing written where the link points) and places a file under a plain directory"
+  [ -f "$REAL_SCRIPTS/lib/modules.sh" ] || { cf "scripts/lib/modules.sh is absent from the tree under test"; finish "$L"; return; }
+  make_sandbox
+  local P="$SB_TMP/pf" o="$SB_TMP/pf-out" out rc
+  mkdir -p "$P/scripts/lib" "$P/plain" "$o"
+  cp "$REAL_SCRIPTS"/lib/*.sh "$P/scripts/lib/"
+  printf 'new\n' > "$SB_TMP/pf-rend"
+  ln -s "$o" "$P/linked" 2>/dev/null || { skp "$L" "this filesystem takes no symbolic link"; teardown; return; }
+  _pf() { ( cd "$P" && . ./scripts/lib/modules.sh && KIT_MOD_ROOT="$P" KIT_PROGRESS_DIR="$SB_TMP/pf-records" _kit_mod_place_file "$SB_TMP/pf-rend" "$P/$1" - ) 2>&1; }
+  out="$(_pf linked/sub/f.txt)"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(link) the writer exited $rc, not 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *"Next:"*) ;; *) cf "(link) the refusal has no Next line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  [ -z "$(ls -A "$o")" ] || cf "(link) something was written where the link points: $(ls -A "$o" | tr '\n' ' ')"
+  [ "$(cat "$SB_TMP"/pf-records/*.tsv 2>/dev/null | grep -c 'refusal=module-path-through-link')" -eq 1 ] || cf "(link) no single refusal=module-path-through-link record"
+  out="$(_pf plain/sub/f.txt)"; rc=$?
+  { [ "$rc" -eq 0 ] && [ "$(cat "$P/plain/sub/f.txt" 2>/dev/null)" = new ]; } || cf "(control) the writer did not place a file under a plain directory: rc $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "$L"
+  teardown
 }

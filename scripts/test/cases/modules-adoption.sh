@@ -1903,6 +1903,50 @@ case_the_missing_things_line_counts_only_a_removal_not_committed() {
 }
 
 # =============================================================================
+# CASE — module.sh enable OF A MODULE WHOSE BLOCK THE PROJECT'S HAND EDIT DELETED DOES NOT SAY "NOTHING TO DO".
+#   Status and enable read the missing things through one reader, so for the same tree they agree: an intact module is
+#   "nothing to do"; a module whose .gitignore block is gone is named as not whole by both, with the route back
+#   (disable, then enable), and following that route puts the block back and leaves status with no missing thing.
+# =============================================================================
+case_module_enable_does_not_say_nothing_to_do_over_a_module_with_a_missing_block() {
+  cf_reset
+  local L="module.sh enable says nothing to do only over an intact module; over one whose .gitignore block was deleted by hand it says the module is not whole, names the same missing things status does and the route back, and that route restores the block"
+  _mu_reason="$(_mu_example_reason)"; if [ -n "$_mu_reason" ]; then skp_lived "$L" "$_mu_reason"; return; fi
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum)"; return; }
+  _mu_subject_ok || { finish "$L"; return; }
+  local rows0 line
+  _mu_pair
+  rows0="$(grep -cE '^(file|block) ' "$SB_WORK/process/MODULES")"
+  grep -F 'KIT-MODULE:example:gitignore BEGIN' "$SB_WORK/.gitignore" >/dev/null || _fixture_die "${FUNCNAME[0]}: the example module placed no .gitignore block, so there is nothing to delete."
+  # (control) intact: nothing to do, and status names nothing missing.
+  _md_mod enable example
+  printf '%s\n' "$_md_out" | grep -F 'nothing to do.' >/dev/null || cf "(control) enable over an intact module does not say nothing to do: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # (a) the block deleted by hand, not committed.
+  awk '/KIT-MODULE:example:gitignore BEGIN/ { s = 1 } !s { print } /KIT-MODULE:example:gitignore END/ { s = 0 }' "$SB_WORK/.gitignore" > "$SB_TMP/gitignore.new" && cp "$SB_TMP/gitignore.new" "$SB_WORK/.gitignore"
+  grep -F 'KIT-MODULE:example:gitignore' "$SB_WORK/.gitignore" >/dev/null && cf "(prereq) the block is still in .gitignore"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F '(block, slot gitignore)' | grep -F 'missing' >/dev/null || cf "(a) (premise) status does not call the .gitignore block missing: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  line="$(printf '%s\n' "$_md_out" | grep -F "1 of $rows0 recorded things are missing")"
+  [ -n "$line" ] || cf "(a) (premise) status does not count the missing block: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || cf "(a) enable exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'nothing to do' >/dev/null && cf "(a) enable says nothing to do over a module with a missing block: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'it is not whole' >/dev/null || cf "(a) enable does not say the module is not whole: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  [ -z "$line" ] || printf '%s\n' "$_md_out" | grep -F "$line" >/dev/null || cf "(a) enable's missing-things line is not status's: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$_md_out" | grep -F 'To put them back: ./scripts/module.sh disable example, then ./scripts/module.sh enable example,' >/dev/null || cf "(a) enable does not name the route back: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  # (b) the route: disable, then enable, puts the block back and status then names nothing missing.
+  _md_mod disable example
+  [ "$_md_rc" -eq 0 ] || cf "(b) the disable of the route exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  _md_mod enable example
+  [ "$_md_rc" -eq 0 ] || cf "(b) the enable of the route exited $_md_rc: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  grep -F 'KIT-MODULE:example:gitignore BEGIN' "$SB_WORK/.gitignore" >/dev/null || cf "(b) the route did not put the .gitignore block back"
+  _md_mod status example
+  printf '%s\n' "$_md_out" | grep -F 'missing' >/dev/null && cf "(b) status still names a missing thing after the route: $(printf '%s' "$_md_out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — module.sh disable WHOSE RECORD CANNOT BE WRITTEN OR DROPPED EXITS 1, SAYS HOW MUCH WAS ALREADY REMOVED, AND THE RE-RUN FINISHES.
 #   (a) The record cannot be dropped after every removal succeeded: the old exit 0 and "record dropped" over a record that
 #   stayed is gone. (b) A removal fails and the record write fails too: the refusal names how many were removed. In
