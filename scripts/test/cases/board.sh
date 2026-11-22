@@ -840,6 +840,7 @@ case_creator_prints_a_commit_line_the_hook_accepts() {
 case_main_checkout_fast_forward_note_names_its_cause() {
   cf_reset
   make_sandbox
+  seed_issue todo "$SB_PREFIX-894" ff-diverged chore "A card moved while the checkout holds a local commit"
   publish_sandbox
   local out rc
 
@@ -854,15 +855,15 @@ case_main_checkout_fast_forward_note_names_its_cause() {
   printf '%s\n' "$out" | grep -F '(diverged)' >/dev/null \
     && cf "(a) the note still calls an untracked-file collision 'diverged': $(printf '%s' "$out" | grep -i 'fast-forward' | tr '\n' '|')"
 
-  # (b) a local commit the trunk lacks: diverged, and counted.
+  # (b) a local commit the trunk lacks: diverged, and counted. A board move lands it (register-commit.sh
+  # refuses a trunk holding unpushed commits, so it cannot reach this state).
   rm -f "$SB_WORK/progress/todo/$SB_PREFIX-892-ff-untracked.md"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   printf 'local only\n' > "$SB_WORK/local-only.txt"
   git -C "$SB_WORK" add local-only.txt >/dev/null 2>&1
   sbcommit -m "[PM] a local commit nobody pushed" --quiet >/dev/null 2>&1
-  printf 'another\n' > "$SB_WORK/progress/todo/$SB_PREFIX-894-ff-diverged.md"
-  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$SB_PREFIX-894: mint" "progress/todo/$SB_PREFIX-894-ff-diverged.md" 2>&1 )" || rc=$?
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-894" in_progress --role Dev --note "picked up" 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -E 'diverged: it has [0-9]+ commit' >/dev/null \
     || cf "(b) a main checkout holding a commit the trunk lacks is not reported as diverged with a count (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
@@ -2945,6 +2946,193 @@ case_register_commit_tags_the_subject_once() {
   [ "$(_subjects | wc -l | tr -d ' ')" = "$before" ] || cf "(c) the refused message reached the trunk"
 
   finish "register-commit.sh adds the --role tag once: a message already carrying it, an untagged one and one that mentions it later each land with a single leading tag; the tag followed by a colon or by no space lands as one tag and a space; a message beginning with another declared role's tag is refused with register-message-tag-mismatch, a Next: line and a record, and nothing lands; a run that publishes does not print 'NOT yet published', and --help carries no origin story"
+  teardown
+}
+
+# =============================================================================
+# CASE — register-commit.sh REFUSES WHILE LOCAL TRUNK HOLDS COMMITS ITS REMOTE LACKS.
+#
+# A landing goes on the remote's tip, so a trunk with unpushed commits ends up beside them: a second
+# history. Rows in the order a project meets them, one case, each with the state built the way it is
+# reached (a hand commit on the trunk; another clone pushing):
+#   (a) equal lands (the control);                    (b) behind only lands;
+#   (c) ahead, a disjoint path: trunk-ahead, its Next names the push; nothing committed or pushed;
+#   (d) ahead, the path the unpushed commit touched: the same refusal;
+#   (e) the printed push, then the same call: lands, and the trunk holds no commit the remote lacks;
+#   (f) diverged: trunk-diverged, its Next names the merge and the push;
+#   (g) that Next as printed, then the same call: lands, and both histories are in the remote's trunk;
+#   (h) the trunk checked out in no worktree: refused ahead and diverged, the local trunk ref untouched, and the
+#       diverged Next merges on the trunk, not on the feature branch;
+#   (i) no kanban worktree yet: the same refusal, and no worktree is made;
+#   (j) the remote unreachable: refused from the last fetch, and says so;
+#   (k) the remote named by KWT_REMOTE: its name is in the Next.
+# ABLATION: with the call removed, (c) (d) (f) (h) (i) (j) (k) land; with the check keyed to the checked-out
+# HEAD, (h) lands; with the call placed after the worktree's bootstrap, (i) gets the sync refusal instead;
+# with `origin` typed in the Next, (k) is red.
+# =============================================================================
+case_register_commit_refuses_a_trunk_its_remote_lacks() {
+  cf_reset
+  make_sandbox
+  local rc_sh="$SB_WORK/scripts/register-commit.sh"
+  [ -x "$rc_sh" ] \
+    || { skp "register-commit.sh: refuses a trunk its remote lacks" "scripts/register-commit.sh is absent from this tree"; teardown; return; }
+  publish_sandbox
+  mkdir -p "$SB_WORK/dev"
+  local other="$SB_TMP/other" out rc n=0 t0 l0 hand next fix
+  git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1 || _fixture_die "case_register_commit_refuses_a_trunk_its_remote_lacks: could not clone the sandbox's remote."
+  git -C "$other" config user.email "other@sandbox.invalid" >/dev/null 2>&1
+  git -C "$other" config user.name "Other Clone" >/dev/null 2>&1
+  _tip()   { git -C "$SB_ORIGIN" rev-parse "refs/heads/$SB_TRUNK"; }
+  _local() { git -C "$SB_WORK" rev-parse "refs/heads/$SB_TRUNK"; }
+  _reset() {   # the main checkout on the trunk, equal to the remote's
+    git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+    git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+    git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  }
+  _hand() {   # a hand-made commit on the local trunk, unpushed; $1 = the file it touches
+    n=$((n+1)); mkdir -p "$(dirname "$SB_WORK/$1")"
+    printf 'hand-made %s\n' "$n" > "$SB_WORK/$1"
+    git -C "$SB_WORK" add "$1" >/dev/null 2>&1
+    sbcommit -m "[$SB_ROLE] hand-made $n" --quiet >/dev/null 2>&1
+  }
+  _theirs() {   # another clone pushes a commit
+    n=$((n+1))
+    git -C "$other" fetch -q origin >/dev/null 2>&1
+    git -C "$other" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+    printf 'theirs %s\n' "$n" > "$other/theirs-$n.txt"
+    git -C "$other" add "theirs-$n.txt" >/dev/null 2>&1
+    git -C "$other" commit -q -m "theirs $n" >/dev/null 2>&1
+    git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1
+  }
+  _land() {   # <label> [VAR=value…] — the call under test; the first line of the file it lands names the label
+    local label="$1"; shift
+    t0="$(_tip)"; l0="$(_local)"
+    printf 'landed %s\n' "$label" > "$SB_WORK/dev/$label.md"
+    rc=0; out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-$label" "$@" ./scripts/register-commit.sh --role "$SB_ROLE" --message "land $label" "dev/$label.md" 2>&1 )" || rc=$?
+    next="$(printf '%s\n' "$out" | sed -n 's/^Next: //p')"
+  }
+  _follow() {   # run the command the refusal's Next: printed, as printed: only after a refusal, never on a landing's output
+    fix=""
+    if [ "$rc" -ne 1 ] || [ -z "$next" ]; then cf "(follow) nothing to follow: the call was not refused (exit $rc)"; rc=1; return 0; fi
+    fix="${next#*:  }"
+    rc=0; env -u MSG_OK GIT_MERGE_AUTOEDIT=no bash -c "$fix" >/dev/null 2>&1 </dev/null || rc=$?
+  }
+  _lands() {   # <row> <label> — it landed on the remote
+    [ "$rc" -eq 0 ] || cf "($1) the landing was refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    origin_has_path "dev/$2.md" || cf "($1) dev/$2.md did not reach the remote's trunk"
+  }
+  _refused() {   # <row> <label> <rule> <literal the Next must carry>…
+    local row="$1" label="$2" rule="$3"; shift 3
+    local lit
+    [ "$rc" -eq 1 ] || cf "($row) the call exited $rc, not the refusal's 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    grep -q "refusal=$rule" "$SB_TMP/rec-$label"/*.tsv 2>/dev/null \
+      || cf "($row) no progress record carries refusal=$rule: $(cat "$SB_TMP/rec-$label"/*.tsv 2>/dev/null | cut -c1-200)"
+    [ -n "$next" ] || cf "($row) the refusal carries no Next: line"
+    for lit in "$@"; do
+      printf '%s' "$next" | grep -F -- "$lit" >/dev/null || cf "($row) the Next does not carry '$lit': $next"
+    done
+    [ "$(_tip)" = "$t0" ] || cf "($row) the remote's trunk moved on a refused call"
+    [ "$(_local)" = "$l0" ] || cf "($row) the local trunk moved on a refused call"
+    printf '%s' "$out" | grep -F 'Published:' >/dev/null && cf "($row) a refused call printed 'Published:'"
+    [ ! -e "$SB_WORK/.kanban-wt.lock" ] || cf "($row) the refused call left the kanban worktree's lock"
+    [ ! -e "$SB_WORK/.kanban-wt/dev/$label.md" ] || cf "($row) the refused call wrote dev/$label.md into the kanban worktree"
+  }
+
+  # (a) equal: the control
+  _land a
+  _lands a a
+
+  # (b) behind only
+  _reset; _theirs
+  _land b
+  _lands b b
+
+  # (c) ahead, a disjoint path
+  _reset; _hand hand-c.txt
+  _land c
+  _refused c c trunk-ahead "push origin $SB_TRUNK"
+  printf '%s' "$out" | grep -F 'hand-made' >/dev/null || cf "(c) the refusal does not list the unpushed commit: $out"
+
+  # (d) ahead, the path the unpushed commit touched
+  _reset; _hand dev/d.md
+  hand="$(_local)"
+  _land d
+  _refused d d trunk-ahead "push origin $SB_TRUNK"
+
+  # (e) the printed push, as printed, then the same call
+  _follow
+  [ "$rc" -eq 0 ] || cf "(e) the push the Next printed failed (exit $rc): $next"
+  _land e
+  _lands e e
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge-base --is-ancestor "$hand" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || cf "(e) the hand-made commit is not in the remote's trunk after the push and the landing"
+  [ "$(git -C "$SB_WORK" rev-list --count "origin/$SB_TRUNK..$SB_TRUNK")" = 0 ] \
+    || cf "(e) the local trunk still holds commits the remote lacks"
+
+  # (f) diverged
+  _reset; _hand hand-f.txt; _theirs
+  _land f
+  _refused f f trunk-diverged "merge origin/$SB_TRUNK" "push origin $SB_TRUNK"
+  hand="$(_local)"
+
+  # (g) that Next as printed, then the same call
+  _follow
+  [ "$rc" -eq 0 ] || cf "(g) the merge and push the Next printed failed (exit $rc): $next"
+  _land g
+  _lands g g
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge-base --is-ancestor "$hand" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || cf "(g) the hand-made commit is not in the remote's trunk"
+  [ "$(git -C "$SB_WORK" rev-list --count "origin/$SB_TRUNK..$SB_TRUNK")" = 0 ] \
+    || cf "(g) the local trunk still holds commits the remote lacks"
+
+  # (h) the trunk checked out in no worktree: the refs are compared, not the checkout's HEAD
+  _reset; _hand hand-h.txt
+  git -C "$SB_WORK" checkout -q -b feature "origin/$SB_TRUNK" >/dev/null 2>&1
+  local feat; feat="$(git -C "$SB_WORK" rev-parse feature)"
+  _land h
+  _refused h h trunk-ahead "push origin $SB_TRUNK"
+  #     and diverged: no worktree holds the trunk, so the Next switches to it before it merges (never into feature)
+  _theirs
+  _land h2
+  _refused h2 h2 trunk-diverged "switch $SB_TRUNK" "merge origin/$SB_TRUNK" "push origin $SB_TRUNK"
+  _follow
+  [ "$rc" -eq 0 ] || cf "(h) the switch, merge and push the Next printed failed (exit $rc): $next"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  [ "$(git -C "$SB_WORK" rev-list --count "origin/$SB_TRUNK..$SB_TRUNK")" = 0 ] \
+    || cf "(h) after the printed route the local trunk still holds commits the remote lacks"
+  [ "$(git -C "$SB_WORK" rev-parse feature)" = "$feat" ] || cf "(h) the printed merge landed on the feature branch"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" branch -q -D feature >/dev/null 2>&1
+
+  # (i) no kanban worktree yet: the same refusal, before one is made
+  _reset; _hand hand-i.txt
+  git -C "$SB_WORK" worktree remove --force .kanban-wt >/dev/null 2>&1
+  git -C "$SB_WORK" worktree prune >/dev/null 2>&1
+  [ ! -e "$SB_WORK/.kanban-wt" ] || _fixture_die "case_register_commit_refuses_a_trunk_its_remote_lacks: the kanban worktree could not be removed, so row (i) has no premise."
+  _land i
+  _refused i i trunk-ahead "push origin $SB_TRUNK"
+  [ ! -e "$SB_WORK/.kanban-wt" ] || cf "(i) the refused call made the kanban worktree"
+  printf '%s' "$out" | grep -F 'kanban-sync-unpushed' >/dev/null && cf "(i) the sync's refusal answered, not the trunk's: $out"
+
+  # (j) the remote unreachable: the last fetch is read, and the refusal says so
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/no-such-remote.git" >/dev/null 2>&1
+  _land j
+  _refused j j trunk-ahead "push origin $SB_TRUNK"
+  printf '%s' "$out" | grep -F 'last fetch' >/dev/null || cf "(j) the refusal does not say it read the last fetch: $out"
+  git -C "$SB_WORK" remote set-url origin "$SB_ORIGIN" >/dev/null 2>&1
+
+  # (k) the remote under another name
+  git -C "$SB_WORK" remote rename origin upstream >/dev/null 2>&1
+  _land k KWT_REMOTE=upstream
+  _refused k k trunk-ahead "push upstream $SB_TRUNK"
+  _follow
+  [ "$rc" -eq 0 ] || cf "(k) the push the Next printed failed (exit $rc): $next"
+  _land k2 KWT_REMOTE=upstream
+  [ "$rc" -eq 0 ] || cf "(k) the landing after the push was refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  finish "register-commit.sh refuses a trunk holding commits its remote lacks, before it touches the kanban worktree: trunk-ahead with the push in its Next, trunk-diverged with the merge, each leaving the trunk and the remote as they were, the checked-out HEAD not consulted, an unreachable remote read from the last fetch, the remote's name taken from KWT_REMOTE; the printed Next clears it; a trunk equal to or behind its remote lands"
   teardown
 }
 

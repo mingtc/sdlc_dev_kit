@@ -344,6 +344,8 @@ columns and never the cards.*
 ### Changed
 
 - **`check-board.sh`'s `TEST_GLOBS vs scripts/test/**` line now says what it is.** It names the kit's own self-test, not your tests, and ends with a `Next:` (add `"scripts/test/*"` to `TEST_GLOBS` to have edits to it ablation-checked, or leave the line). It is still a report and never moves the verdict; `scripts/config.sh`'s `TEST_GLOBS` comment says the same.
+- **Push the commits your local trunk holds before your next `register-commit.sh` landing: it now refuses while the local trunk holds commits its remote lacks (`trunk-ahead`, `trunk-diverged`).** It used to land the commit on the remote's tip and warn afterwards, which left the local trunk diverged from the remote and grew the divergence with each landing. The refusal changes nothing, and its `Next:` names the route: `git push <remote> <trunk>` when the trunk is ahead; a merge of `<remote>/<trunk>` into the local trunk, then the push, when it is diverged. A trunk only behind its remote, or equal to it, lands as before. The remote is `origin` unless `KWT_REMOTE` names another. `move-issue.sh`, `finish-pr.sh`, `subtask.sh` and `archive.sh` are unchanged: they still land and warn.
+  Verify: r="${KWT_REMOTE:-origin}"; t="$(git symbolic-ref --short "refs/remotes/$r/HEAD" 2>/dev/null)"; t="${t#"$r"/}"; [ -n "$t" ] || t="$(git config init.defaultBranch)"; [ -n "$t" ] || t=main; ! git rev-parse -q --verify "refs/heads/$t" > /dev/null || ! git rev-parse -q --verify "refs/remotes/$r/$t" > /dev/null || [ "$(git rev-list --count "refs/remotes/$r/$t..refs/heads/$t")" = 0 ]
 
 ## [0.13.0] — 2026-11-20
 
