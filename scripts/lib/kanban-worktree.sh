@@ -368,7 +368,7 @@ kwt__rebase_is_ours() {
   for f in "$gd/rebase-merge/orig-head" "$gd/rebase-apply/orig-head"; do
     [ -f "$f" ] && { orig="$(cat "$f" 2>/dev/null || true)"; break; }
   done
-  [ -n "$orig" ] && [ -n "${KWT_UNPUSHED:-}" ] || return 1
+  [ -n "$orig" ] && [ -n "${KWT_UNPUSHED:-}" ] || return 1   # return-class: predicate
   [ "$orig" = "$KWT_UNPUSHED" ] && return 0
   git -C "$KWT" merge-base --is-ancestor "$KWT_UNPUSHED" "$orig" 2>/dev/null && return 0
   mine="$(git -C "$KWT" show "$KWT_UNPUSHED" 2>/dev/null | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)"
