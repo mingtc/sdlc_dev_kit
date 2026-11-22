@@ -438,19 +438,13 @@ kwt_unlock() {
 # tree with no error. Created DETACHED at the trunk's tip.
 # ---------------------------------------------------------------------------
 kwt_bootstrap() {
-  if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-       | grep -xF "worktree $KWT" >/dev/null; then
-    kwt__ensure_detached  # detach-by-construction, not assumed.
-    return $?   # return-class: relay
-  fi
-
-  # A leftover directory with no registration (e.g. partial create) blocks
-  # `worktree add`. Prune dead entries, then if the path still exists un-managed,
-  # bail with a clear message rather than clobbering.
+  # Prune dead entries FIRST: a worktree directory removed by hand stays registered (prunable), and
+  # reading it as a live tree makes every later op fail. A leftover directory with no registration
+  # (e.g. partial create) blocks `worktree add`; if it still exists un-managed, bail rather than clobber.
   git -C "$MAIN_ROOT" worktree prune 2>/dev/null || true
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
        | grep -xF "worktree $KWT" >/dev/null; then
-    kwt__ensure_detached
+    kwt__ensure_detached  # detach-by-construction, not assumed.
     return $?   # return-class: relay
   fi
   if [ -e "$KWT" ]; then

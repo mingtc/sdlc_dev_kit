@@ -258,7 +258,7 @@ _rc_case_clash() {   # <rel>… — the tree on stdin; prints "<rel> US <other s
 }
 _rc_tree="$(git -C "$KWT" ls-tree -r -z --name-only HEAD | tr '\0' '\n')" || kit_refuse 1 register-trunk-unreadable \
   "Error: could not read the trunk's file list from the kanban worktree ('$KWT'), so no path could be checked against it. Nothing was changed." \
-  "Next: run ./scripts/check-board.sh to see the state of the kanban worktree, repair it (or remove it so the next run recreates it), and re-run."
+  "Next: run ./scripts/check-board.sh to see the state of the kanban worktree, repair it (or remove it and run git worktree prune, so the next run recreates it), and re-run."
 _rc_clash="$(_rc_case_clash "${PATHS[@]}" <<<"$_rc_tree")"
 if [ -n "$_rc_clash" ]; then
   IFS=$'\037' read -r _rc_bad _rc_part _rc_fix _rc_kind <<<"$_rc_clash"

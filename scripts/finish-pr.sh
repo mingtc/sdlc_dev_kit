@@ -390,11 +390,23 @@ TITLE="$(kit_card_field "$SRC" title --raw)"   # a title is free text: a '#' in 
 # The default Activity note is composed AFTER the delete arms, from what they did (the NOTE_GIVEN
 # block below them). An operator-supplied --note keeps its words; the revision clause is appended.
 
+# The Next: of a refusal for a branch this repository does not hold: the fetch is offered only
+# when the remote has the branch (ls-remote exits 2 when it has not, anything else when it could not be asked).
+_branch_missing_next() {
+  local _bm_rc=0
+  GIT_TERMINAL_PROMPT=0 git -C "$MAIN_ROOT" ls-remote --exit-code --heads "$KWT_REMOTE" "$BRANCH" >/dev/null 2>&1 || _bm_rc=$?
+  case "$_bm_rc" in
+    0) printf '%s' "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run." ;;
+    2) printf '%s' "Next: ${KWT_REMOTE} has no '${BRANCH}' either, so this card has no code to land. If Dev never pushed it, send the card back:  ./scripts/move-issue.sh ${ISSUE_ID} in_progress --role $ROLE --note \"no branch: <what happened>\"  or pass --branch <name> for the branch that holds the work." ;;
+    *) printf '%s' "Next: pass --branch <name> naming the local branch, or, if ${KWT_REMOTE} has it (it could not be asked), create it with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run." ;;
+  esac
+}
+
 # The branch must exist locally (its commits are what we squash).
 if ! BRANCH_REF="$(kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" -)"; then
   kit_refuse 1 branch-not-found \
     "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." \
-    "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
+    "$(_branch_missing_next)"
 fi
 
 # THE REVISION EVERYTHING BELOW READS, resolved once and through refs/heads/…, never the short name
@@ -404,7 +416,7 @@ QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH_REF}^{c
 if [ -z "$QA_READ_FULL" ]; then
   kit_refuse 1 branch-not-found \
     "Error: local branch '$BRANCH' does not resolve to a commit." \
-    "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
+    "$(_branch_missing_next)"
 fi
 
 # ── A STACKED BRANCH LOSES ITS BASE WHEN THE BASE SQUASH-LANDS. `$BRANCH` was branched from
@@ -443,6 +455,15 @@ _stk_refuse_if_squashed() {
       [ -n "$t" ] || continue
       t_pid="$(git -C "$MAIN_ROOT" show "$t" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
       if [ -n "$t_pid" ] && [ "$cand_pid" = "$t_pid" ]; then
+        # The tip itself is the squash: the branch has landed, and a landing cut short after its push leaves exactly this.
+        if [ "$cand" = "$QA_READ_FULL" ]; then
+          kit_refuse 1 branch-already-landed \
+            "Error: '${BRANCH}' has already landed on ${DEFAULT_BRANCH} (as ${t:0:9}): its whole diff is that commit." \
+            "       A landing cut short after its push leaves this state: the commit is on ${DEFAULT_BRANCH} and the card is still in dev_complete/." \
+            "Next: record the landing, then delete '${BRANCH}' if it is still there:" \
+            "         ${SCRIPT_DIR}/move-issue.sh ${ISSUE_ID} qa_complete --role ${ROLE} --landed-at ${t} --note '<what the review found>'" \
+            "       NOTHING WAS CHANGED."
+        fi
         kit_refuse 1 stacked-branch-squashed-base \
           "Error: '${BRANCH}' is stacked on a base that has already squash-landed on ${DEFAULT_BRANCH} (as ${t:0:9})." \
           "       ${BRANCH} still carries that base's own, un-squashed commits up to ${cand:0:9};" \

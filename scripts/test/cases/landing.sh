@@ -796,6 +796,125 @@ case_finish_pr_premerge_gate_reads_the_tree_that_lands() {
 }
 
 # =============================================================================
+# CASE — A REFUSAL'S PRINTED ROUTE LEADS OUT (finish-pr.sh).
+#   (a) a branch whose whole diff is already a squash commit on the trunk (a landing cut short
+#       after the push) is refused as ALREADY LANDED, naming the move that records it
+#       (--landed-at <sha>), and not as stacked with a rebase to run;
+#   (b) a card with no branch anywhere: the fetch is not offered, the refusal says the card has
+#       no code and names the move back to in_progress;
+#   (c) the control: a branch only on the remote still gets the fetch.
+# =============================================================================
+case_finish_pr_refusals_name_a_route_out() {
+  cf_reset
+  local out rc br id
+
+  make_sandbox
+  id="$SB_PREFIX-985"; br="feature/$id-landed"
+  seed_issue dev_complete "$id" landed chore "Interrupted landing" "$br"
+  publish_sandbox
+  seed_branch "$id" landed A985.txt
+  git -C "$SB_WORK" merge --squash "$br" --quiet >/dev/null 2>&1
+  sbcommit -m "[QA] $id: Interrupted landing (squash-merge $br)" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a branch already squash-landed was landed again (rc=0)"
+  printf '%s\n' "$out" | grep -F -- "--landed-at" >/dev/null \
+    || cf "(a) the refusal does not name the --landed-at move that records the landing: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "git rebase --onto" >/dev/null \
+    && cf "(a) the refusal sends a landed branch to a rebase: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-986"; br="feature/$id-nobranch"
+  seed_issue dev_complete "$id" nobranch chore "A card with no branch" "$br"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a card with no branch anywhere landed (rc=0)"
+  printf '%s\n' "$out" | grep -F "git fetch origin" >/dev/null \
+    && cf "(b) the refusal offers a fetch of a branch the remote does not have: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "move-issue.sh $id in_progress" >/dev/null \
+    || cf "(b) the refusal does not name the move back to in_progress: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-987"; br="feature/$id-remote"
+  seed_issue dev_complete "$id" remote chore "A branch only on the remote" "$br"
+  publish_sandbox
+  seed_branch "$id" remote A987.txt
+  git -C "$SB_WORK" branch -D "$br" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || _control_did_not_run "(c) get a card whose branch is only on the remote refused (rc=0)"
+  printf '%s\n' "$out" | grep -F "git fetch origin $br:$br" >/dev/null \
+    || cf "(c) a branch that is on the remote is not offered the fetch: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  teardown
+
+  finish "finish-pr.sh: a branch already squash-landed is refused as landed with the --landed-at move, not a rebase (a); a card with no branch anywhere is not sent to a fetch that fails and is told to move back to in_progress (b); a branch on the remote still gets its fetch (c)"
+}
+
+# =============================================================================
+# CASE — A DELETED BOARD WORKTREE IS RECREATED, AN UNREADABLE ONE IS NAMED, AND THE LOOKS-PUSHED
+# WARNING OF A DIVERGED TRUNK DOES NOT SEND A PUSH THAT IS REJECTED.
+#   (a) `.kanban-wt` removed by hand (still registered, prunable): the next op prunes it and
+#       recreates it, with no "offline" warning and no "no file matching";
+#   (b) `.kanban-wt` with its .git file gone: refused as not a registered worktree, with the move that
+#       clears it, and not read as a failed fetch;
+#   (c) register-commit.sh's advice for a broken board worktree names `git worktree prune`;
+#   (d) local trunk both ahead of and behind the remote: the warning names the merge first;
+#       ahead only keeps the bare push.
+# =============================================================================
+case_a_deleted_board_worktree_is_recreated_and_the_diverged_warning_names_the_merge() {
+  cf_reset
+  local out rc other
+
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-988" first chore "First card"
+  seed_issue todo "$SB_PREFIX-989" second chore "Second card"
+  seed_issue todo "$SB_PREFIX-990" third chore "Third card"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-988" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  { [ "$rc" -eq 0 ] && [ -d "$SB_WORK/.kanban-wt" ]; } \
+    || _control_did_not_run "(a) make the first move and leave a board worktree: rc=$rc $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  rm -rf "$SB_WORK/.kanban-wt"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-989" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the op after a hand-deleted .kanban-wt failed (rc=$rc): $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "offline?" >/dev/null && cf "(a) a deleted board worktree was read as being offline"
+
+  rm -f "$SB_WORK/.kanban-wt/.git"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-990" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an unreadable board worktree was used (rc=0)"
+  printf '%s\n' "$out" | grep -F "offline?" >/dev/null && cf "(b) an unreadable board worktree was read as a failed fetch"
+  printf '%s\n' "$out" | grep -F "not a registered worktree" >/dev/null \
+    || cf "(b) the refusal does not say the directory is not a registered worktree: $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep '^Next: ' >/dev/null || cf "(b) the refusal names no next step"
+
+  grep -F "git worktree prune" "$SB_WORK/scripts/register-commit.sh" >/dev/null \
+    || cf "(c) register-commit.sh's advice for a broken board worktree does not name git worktree prune"
+  teardown
+
+  make_sandbox
+  publish_sandbox
+  other="$SB_TMP/other"
+  git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
+  echo "remote side" > "$other/remote.txt"
+  git -C "$other" add remote.txt >/dev/null 2>&1
+  git -C "$other" -c user.email=o@k.invalid -c user.name=o -c commit.gpgsign=false commit -q -m "remote moves" >/dev/null 2>&1
+  git -C "$other" push -q origin "HEAD:$SB_TRUNK" >/dev/null 2>&1
+  echo "local side" > "$SB_WORK/local.txt"
+  git -C "$SB_WORK" add local.txt >/dev/null 2>&1
+  sbcommit -m "local unpushed" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && bash -c '. scripts/lib/push-retry.sh; git_report_ahead_behind "$1" origin "$2"' _ "$SB_WORK" "$SB_TRUNK" 2>&1 )"
+  printf '%s\n' "$out" | grep -F "merge origin/$SB_TRUNK" >/dev/null \
+    || cf "(d) a trunk both ahead and behind is not told to merge origin/$SB_TRUNK first: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "Push it:" >/dev/null && cf "(d) a trunk behind the remote is sent a bare push"
+  git -C "$SB_WORK" merge -q --no-edit "origin/$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && bash -c '. scripts/lib/push-retry.sh; git_report_ahead_behind "$1" origin "$2"' _ "$SB_WORK" "$SB_TRUNK" 2>&1 )"
+  printf '%s\n' "$out" | grep -F "Push it:" >/dev/null || cf "(d) after the merge the trunk is only ahead and the warning lost its push: $(printf '%s' "$out" | tr '\n' '|')"
+  teardown
+
+  finish "a hand-deleted .kanban-wt is pruned and recreated by the next op (a), one whose .git is gone is refused as not a registered worktree, with a next step, and not read as offline (b), register-commit.sh's advice names the prune (c), and a trunk both ahead of and behind the remote is told to merge first while an ahead-only trunk keeps its push (d)"
+}
+
+# =============================================================================
 # CASE — the branch is checked out in a SECOND WORKTREE: the local delete correctly SKIPS,
 # and the board note must not claim it.
 # =============================================================================
