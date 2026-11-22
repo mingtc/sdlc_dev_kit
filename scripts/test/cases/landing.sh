@@ -142,13 +142,16 @@ case_finish_pr_post_merge_names_its_ref() {
   cf_reset
   make_sandbox
   # The 6th argument is the card's `branch:` frontmatter, which finish-pr.sh reads to find
-  # what to merge; without it the run dies on "local branch 'n/a' not found".
+  # what to merge; without it the run dies on "local branch 'n/a' not found". The gate is a real
+  # runner (a stubbed one reads STUB, not PASS), run from the branch's checkout.
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$SB_WORK/scripts/verify.sh"; chmod +x "$SB_WORK/scripts/verify.sh"
   seed_issue dev_complete "$SB_PREFIX-140" postmerge chore "Post-merge ref naming" "feature/$SB_PREFIX-140-postmerge"
   publish_sandbox
   seed_branch "$SB_PREFIX-140" postmerge "postmerge.txt"
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-140-postmerge" >/dev/null 2>&1
 
   local out rc pass_line
-  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-140" 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$SB_PREFIX-140" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "finish-pr exited $rc on the happy path: $out"
 
   # (1) The HUMAN line names the ref — read that line alone, not the whole run.
@@ -964,6 +967,67 @@ case_a_live_pid_leftover_board_lock_is_reaped_or_names_the_way_out() {
   teardown
 
   finish "kanban-worktree.sh: a lock whose live pid started after the lock was taken is reaped (a); a lock past the age ceiling held by an older live process is refused with the check and the exact removal (b); a young one is not offered for removal (c)"
+}
+
+# =============================================================================
+# CASE — A STUBBED LANDING GATE SAYS STUB, NEVER PASS, AND THE SWITCH IS NOT ADVERTISED.
+#   (a) `finish-pr.sh --help` does not name the test-only marker or the seams it opens;
+#   (b) a landing through both stubbed gates prints `pre-merge verify --quick: STUB` and
+#       `POST_MERGE_GATE: STUB`, no PASS from either; the squash subject and the Activity note
+#       carry the mark, and the subject still ends `(squash-merge <branch>)`;
+#   (c) a stubbed gate that fails is still a refusal (the stub changes the word of a green, not of a red);
+#   (d) an operator-supplied --note carries the mark too.
+# =============================================================================
+case_finish_pr_a_stubbed_gate_says_stub_not_pass() {
+  cf_reset
+  local out rc id br subj card
+
+  make_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh --help 2>&1 )"
+  printf '%s\n' "$out" | grep -F 'ALLOW_STUB' >/dev/null && cf "(a) --help names the test-only marker"
+  printf '%s\n' "$out" | grep -F 'FINISH_PR_PREMERGE_CMD' >/dev/null && cf "(a) --help names the gate-command seams"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-995"; br="feature/$id-stub"
+  seed_issue dev_complete "$id" stub chore "A stubbed landing" "$br"
+  publish_sandbox
+  seed_branch "$id" stub CHANGE995.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the stubbed landing did not complete (rc=$rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -E 'verify --quick: PASS' >/dev/null && cf "(b) a stubbed gate printed PASS: $(printf '%s\n' "$out" | grep -E 'verify --quick' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null && cf "(b) the machine line says PASS for a stubbed gate"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: STUB' >/dev/null || cf "(b) the machine line is not exactly 'POST_MERGE_GATE: STUB': $(printf '%s\n' "$out" | grep POST_MERGE_GATE | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'pre-merge verify --quick: STUB' >/dev/null || cf "(b) the pre-merge line does not say STUB"
+  origin_fetch_or_die
+  subj="$(git -C "$SB_WORK" log "origin/$SB_TRUNK" --format=%s -F --grep="(squash-merge $br)" -1 2>/dev/null)"
+  case "$subj" in *"[STUB gate] (squash-merge $br)") : ;; *) cf "(b) the squash subject does not carry the mark before its suffix: '$subj'" ;; esac
+  card="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$id-stub.md" 2>/dev/null)"
+  printf '%s\n' "$card" | grep -F 'STUB gate' >/dev/null || cf "(b) the Activity note does not carry the mark"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-996"; br="feature/$id-stubred"
+  seed_issue dev_complete "$id" stubred chore "A stubbed red gate" "$br"
+  publish_sandbox
+  seed_branch "$id" stubred CHANGE996.txt
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD=false ./scripts/finish-pr.sh "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a stubbed red pre-merge gate landed"
+  teardown
+
+  make_sandbox
+  id="$SB_PREFIX-997"; br="feature/$id-stubnote"
+  seed_issue dev_complete "$id" stubnote chore "A stubbed landing with a note" "$br"
+  publish_sandbox
+  seed_branch "$id" stubnote CHANGE997.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$id" --note "Reviewed by hand." 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the stubbed landing with --note did not complete (rc=$rc)"
+  origin_fetch_or_die
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$id-stubnote.md" 2>/dev/null | grep -F 'Reviewed by hand.' | grep -F 'STUB gate' >/dev/null \
+    || cf "(d) an operator-supplied note lost the mark of a stubbed gate"
+  teardown
+
+  finish "finish-pr.sh: --help does not name the test-only marker (a); a landing through stubbed gates says STUB on both gate lines, in the squash subject (suffix intact) and in the Activity note, never PASS (b); a stubbed red gate still refuses (c), and an operator's --note carries the mark (d)"
 }
 
 # =============================================================================
@@ -2278,8 +2342,10 @@ case_finish_pr_gate_hardening() {
   out="$( cd "$SB_WORK" && FINISH_PR_PREMERGE_CMD="$SB_TMP/fabricated-gate.sh" \
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-790" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) fabricated stub was ACCEPTED (expected a nonzero refusal), got 0"
-  printf '%s' "$out" | grep -i 'FINISH_PR_TEST_ALLOW_STUB\|refus' >/dev/null \
+  printf '%s' "$out" | grep -i 'refus' >/dev/null \
     || cf "(a) the refusal did not name why it was refused: $out"
+  printf '%s' "$out" | grep -F 'ALLOW_STUB' >/dev/null \
+    && cf "(a) the refusal names the switch that would let the command through: $out"
   assert_landing_untouched "(a)" "$SB_PREFIX-790" sandbox "feature/$SB_PREFIX-790-work" CHANGE.txt
   teardown
 

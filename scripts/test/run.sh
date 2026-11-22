@@ -470,6 +470,7 @@ CASES=(
   case_finish_pr_refusals_name_a_route_out
   case_a_deleted_board_worktree_is_recreated_and_the_diverged_warning_names_the_merge
   case_a_live_pid_leftover_board_lock_is_reaped_or_names_the_way_out
+  case_finish_pr_a_stubbed_gate_says_stub_not_pass
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected

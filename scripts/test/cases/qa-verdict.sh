@@ -1743,7 +1743,7 @@ case_landing_note_always_carries_the_revision_clause() {
   case "$entry" in *"(verdict read at $tipa)"*) : ;; *) cf "(a) the entry does not hold '(verdict read at $tipa)': $entry" ;; esac
   # The plan shows the note as it will be written, clause included; the run's local-commit line does
   # not read as a failure on a run that then publishes.
-  printf '%s\n' "$out" | grep -F 'Activity: "Reviewed by hand, all rows hold. (verdict read at '"$tipa"')"' >/dev/null \
+  printf '%s\n' "$out" | grep -F 'Activity: "Reviewed by hand, all rows hold. (verdict read at '"$tipa"')' >/dev/null \
     || cf "(a) the Plan: line does not show the note with its revision clause: $(printf '%s\n' "$out" | grep -F 'Activity:' | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$out" | grep -F 'NOT yet published' >/dev/null \
     && cf "(a) finish-pr.sh's local-commit line still says NOT yet published on a run that publishes: $(printf '%s\n' "$out" | grep -F 'NOT yet published' | tr '\n' '|')"

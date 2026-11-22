@@ -1141,8 +1141,8 @@ case_release_stub_marker() {
   # --- (i) UNMARKED: each seam alone must be refused, and write nothing -------
   out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(i) RELEASE_VERIFY_CMD was honored with NO marker — an unmarked caller can skip the verify gate on a production cut: $out"
-  printf '%s\n' "$out" | grep 'RELEASE_TEST_ALLOW_STUB' >/dev/null \
-    || cf "(i) the refusal does not name the marker it requires: $out"
+  printf '%s\n' "$out" | grep 'ALLOW_STUB' >/dev/null \
+    && cf "(i) the refusal names the switch that would let the command through: $out"
   printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null \
     || cf "(i) the refusal does not state that nothing was written: $out"
 
@@ -1164,6 +1164,8 @@ case_release_stub_marker() {
   grep -qx '1.1.0' "$SB_WORK/VERSION" || cf "(ii) the marked cut did not bump VERSION: $out"
   [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" = "tag" ] \
     || cf "(ii) the marked cut produced no annotated tag: $out"
+  printf '%s\n' "$out" | grep -E '^\[b\] .*STUB' >/dev/null || cf "(ii) a stubbed verify gate does not say STUB on its line: $(printf '%s' "$out" | grep -E '^\[b\]' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -E '^\[d\] .*STUB' >/dev/null || cf "(ii) a stubbed board gate does not say STUB on its line: $(printf '%s' "$out" | grep -E '^\[d\]' | tr '\n' '|')"
 
   finish "release.sh: RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD are REFUSED without RELEASE_TEST_ALLOW_STUB=1 (no tag, no bump, HEAD still, tree clean) and honored with it"
   teardown

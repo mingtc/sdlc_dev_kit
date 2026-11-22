@@ -27,7 +27,7 @@
 #                    CHECKED against your declared role set before anything moves.
 #
 # A RED POST-MERGE GATE IS NOT A NON-ZERO EXIT: it is a fact about the trunk, not about this
-# landing. It is printed as `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE` for an automation to key on
+# landing. It is printed as `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE|STUB` for an automation to key on
 # (UNRUNNABLE: nothing could be measured). It reads the LANDED COMMIT, and its human line names
 # the sha it read.
 #
@@ -69,9 +69,8 @@
 #   checkout belongs to a parallel leg. The gate ALWAYS runs the trunk's committed
 #   scripts/verify.sh --quick, in a fresh detached worktree at the branch tip (prepared by
 #   POST_MERGE_PREP when config.sh declares one), so nothing uncommitted or untracked in the gate
-#   checkout can green it: the caller names a LOCATION, never a command
-#   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are the self-test's seams, refused unless
-#   FINISH_PR_TEST_ALLOW_STUB=1). After the landing that worktree is left DETACHED AT THE
+#   checkout can green it: the caller names a LOCATION, never a command.
+#   After the landing that worktree is left DETACHED AT THE
 #   LANDED COMMIT, where the post-merge check reads the trunk; if it has uncommitted tracked
 #   changes it is not moved, and a fresh worktree is read instead (prepared by POST_MERGE_PREP when config.sh declares one).
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
@@ -276,11 +275,17 @@ kwt_resolve
 #    production path they are refused before any destructive step. Use --worktree <path>.
 ALLOW_STUB=false
 [ "${FINISH_PR_TEST_ALLOW_STUB:-}" = "1" ] && ALLOW_STUB=true
+# A landing through a stubbed gate is marked wherever it is recorded: the gate lines say STUB, the
+# squash subject and the Activity note carry the clause, so nothing reads it as a measured green.
+_stub_subject=""; _stub_clause=""
+if [ "$ALLOW_STUB" = "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; }; then
+  _stub_subject=" [STUB gate]"
+  _stub_clause=" [STUB gate: a test-only command ran in its place; nothing was measured]"
+fi
 if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; }; then
   kit_refuse 1 gate-command-caller-supplied \
     "Error: refusing a caller-supplied gate command on the production landing path." \
-    "       FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are honored ONLY behind the" \
-    "       test-only marker FINISH_PR_TEST_ALLOW_STUB=1 (set by the self-test only)." \
+    "       The gate command is not a setting: it is not read from the environment on this path." \
     "       The pre-merge gate runs a TRACKED scripts/verify.sh that finish-pr.sh chooses." \
     "Next: unset FINISH_PR_PREMERGE_CMD and FINISH_PR_VERIFY_CMD and re-run; to gate against a parallel leg's checkout, pass --worktree <path>."
 fi
@@ -617,7 +622,7 @@ if [ "$ALLOW_STUB" != "true" ]; then
   fi
 fi
 
-SQUASH_MSG="[$ROLE] ${ISSUE_ID}: ${TITLE} (squash-merge ${BRANCH})"
+SQUASH_MSG="[$ROLE] ${ISSUE_ID}: ${TITLE}${_stub_subject} (squash-merge ${BRANCH})"
 
 # The Activity note names the branch tip the QA Verdict was read at, so a later reader re-resolves the
 # table's pointers at that revision. An operator-supplied --note keeps its words and gets the clause
@@ -629,6 +634,7 @@ if [ "$NOTE_GIVEN" = "true" ]; then
     *"verdict read at"*) : ;;
     *) NOTE="${NOTE}${_rev_clause}" ;;
   esac
+  NOTE="${NOTE}${_stub_clause}"
 fi
 
 echo "Plan:"
@@ -720,7 +726,11 @@ fi
 if "${PREMERGE_CMD[@]}"; then
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
   _pre_cleanup
-  echo "  pre-merge verify --quick: PASS"
+  if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
+    echo "  pre-merge verify --quick: STUB — a test-only command ran in the gate's place; nothing was measured"
+  else
+    echo "  pre-merge verify --quick: PASS"
+  fi
 else
   _pre_rc=$?
   # A runner that refused on an EMPTY gates table is the one refusal with a route out: the table
@@ -1004,7 +1014,7 @@ if [ "$NOTE_GIVEN" != "true" ]; then
   esac
   _squash_clause=""
   [ -z "${KWT_LANDED_SHA:-}" ] || _squash_clause=" as ${KWT_LANDED_SHA}"
-  NOTE="Review — PASS. Squash-merged '${BRANCH}'${_rev_clause} into ${DEFAULT_BRANCH}${_squash_clause}; ${_local_clause}; ${_remote_clause}."
+  NOTE="Review — PASS. Squash-merged '${BRANCH}'${_rev_clause} into ${DEFAULT_BRANCH}${_squash_clause}; ${_local_clause}; ${_remote_clause}.${_stub_clause}"
 fi
 
 # ── Advance the issue dev_complete/ → qa_complete/. move-issue.sh inherits the
@@ -1181,9 +1191,14 @@ elif [ "$_pm_rc" -eq 0 ]; then
   # The clearing line names the ref and the sha read, as the FAIL line does
   # (contracts/landing-gate.md § 4). POST_MERGE_GATE: lines are a machine contract: one fixed
   # prefix, one bare word, nothing appended.
-  echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} at ${PM_READ:-?} (post-merge, in ${PM_TREE} — ${PM_HOW})"
-  # The machine-greppable line, always on stdout; this outcome never moves the exit code.
-  echo "POST_MERGE_GATE: PASS"
+  if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; then
+    echo "  post-merge verify --quick: STUB — a test-only command ran in the gate's place; nothing was measured"
+    echo "POST_MERGE_GATE: STUB"
+  else
+    echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} at ${PM_READ:-?} (post-merge, in ${PM_TREE} — ${PM_HOW})"
+    # The machine-greppable line, always on stdout; this outcome never moves the exit code.
+    echo "POST_MERGE_GATE: PASS"
+  fi
 else
   echo "  post-merge verify --quick: FAIL on ${DEFAULT_BRANCH} at ${PM_READ:-?} (in ${PM_TREE} — ${PM_HOW}) — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
   if [ -n "$PM_FRESH_DIR" ] && [ -z "$_pm_sum" ]; then

@@ -33,6 +33,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   *Why:* a landing gate that accepts an arbitrary command from its caller can be handed a
   command that always succeeds, which turns the strongest control in the process into a
   formality.
+  A refusal does not name the switch, and a run that used a stub says so: its gate lines read
+  STUB (the machine line `POST_MERGE_GATE: STUB`), never PASS, and the squash subject and the
+  Activity note carry the mark.
 - **The gate that runs is the COMMITTED one.** The gate definition must be tracked at the
   revision being landed and free of uncommitted modification, or landing refuses.
   *Why:* an edited-but-uncommitted gate means the proof came from a definition that will not
