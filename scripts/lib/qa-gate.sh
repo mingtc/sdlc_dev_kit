@@ -499,8 +499,7 @@ _qav_ac_bullet_read() {
       }
       function html_start(s,    l) {   # an HTML block start that can interrupt a paragraph (CommonMark start conditions 1 to 6, not 7)
         l = tolower(s); sub(/^[ \t]+/, "", l)
-        if (l ~ /^<(script|pre|style|textarea)([ \t>]|$)/ || l ~ /^<!--/ || l ~ /^<\?/ || l ~ /^<![a-z]/ || l ~ /^<!\[cdata\[/) return 1
-        return (l ~ ("^</?(" TAGS ")([ \t]|/?>|$)"))
+        return (l ~ /^<(script|pre|style|textarea)([ \t>]|$)/ || l ~ /^<!--/ || l ~ /^<\?/ || l ~ /^<![a-z]/ || l ~ /^<!\[cdata\[/ || l ~ ("^</?(" TAGS ")([ \t]|/?>|$)"))
       }
       BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"]
         TAGS = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul" }
