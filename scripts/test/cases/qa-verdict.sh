@@ -1611,16 +1611,16 @@ case_move_issue_qa_complete_runs_the_verdict_check() {
   origin_has_path "progress/qa_complete/$ida-direct.md" && cf "(a) the card reached qa_complete/ despite the refusal"
   origin_has_path "progress/dev_complete/$ida-direct.md" || cf "(a) the card left dev_complete/ during the refusal"
 
-  # (b) filled in a local commit, NOT published.
+  # (b) filled in the checkout, NOT published (a local commit on the trunk is refused earlier, as an unpushed trunk).
   cp "$SB_TMP/$idb.filled" "$fb"
-  git -C "$SB_WORK" add "progress/dev_complete/$idb-subject.md" >/dev/null 2>&1
-  sbcommit -m "[QA] $idb: fill the verdict" --quiet >/dev/null 2>&1
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) the table filled in an unpublished commit — the move exited 0"
   origin_has_path "progress/qa_complete/$idb-subject.md" && cf "(b) the card reached qa_complete/ with the template table on the trunk"
   grep -q 'refusal=qa-verdict-' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries a qa-verdict refusal: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null | cut -c1-200)"
-  # (a failed push here means the trunk moved on, which only an unrefused move above can cause)
+  # publish it the way the refusal says (a commit to the trunk, then a push); a failed push means the trunk moved on, which only an unrefused move above can cause
+  git -C "$SB_WORK" add "progress/dev_complete/$idb-subject.md" >/dev/null 2>&1
+  sbcommit -m "[QA] $idb: fill the verdict" --quiet >/dev/null 2>&1
   if git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1; then
     out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-b2" ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] || cf "(b) the same move after publishing the table exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
@@ -1647,7 +1647,7 @@ case_move_issue_qa_complete_runs_the_verdict_check() {
   [ "$rc" -ne 0 ] || cf "(d) --landed-at naming no commit — the move exited 0"
   origin_has_path "progress/qa_complete/$idd-forged.md" && cf "(d) the template card reached qa_complete/ through a forged --landed-at"
 
-  finish "move-issue.sh <ID> qa_complete refuses a card whose QA Verdict table is the template on the trunk (a), including the table filled in a commit not yet published (b, which lands once published); finish-pr.sh's own landing of a filled card still succeeds and the mover says it skipped the check (c); --landed-at is verified against the card's squash on the trunk and a hand-passed value is refused (d)"
+  finish "move-issue.sh <ID> qa_complete refuses a card whose QA Verdict table is the template on the trunk (a), including the table filled in the checkout but not published (b, which lands once published); finish-pr.sh's own landing of a filled card still succeeds and the mover says it skipped the check (c); --landed-at is verified against the card's squash on the trunk and a hand-passed value is refused (d)"
   teardown
 }
 

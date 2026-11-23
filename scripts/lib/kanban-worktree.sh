@@ -816,7 +816,7 @@ kwt_finalize() {
       # old value named so a commit made meanwhile is not overwritten. A local trunk holding commits the remote lacks is
       # left where it is, and says so: the landers refuse before this point, and this ref rewrite does not rest on that.
       local _kwt_old _kwt_new="refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH"
-      _kwt_old="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$DEFAULT_BRANCH" 2>/dev/null || true)"
+      _kwt_old="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$DEFAULT_BRANCH" 2>/dev/null || true)"   # card-read-exempt: the trunk's own ref, not a card's branch
       if [ -z "$_kwt_old" ] || git -C "$MAIN_ROOT" merge-base --is-ancestor "$_kwt_old" "$_kwt_new" 2>/dev/null; then
         git -C "$MAIN_ROOT" update-ref "refs/heads/$DEFAULT_BRANCH" "$_kwt_new" "$_kwt_old" 2>/dev/null || true
       else

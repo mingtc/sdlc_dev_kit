@@ -1587,16 +1587,22 @@ exit 3
   # (f) THE TRUNK'S CHECKS, NOT THE CHECKOUT'S: a refusing check that is committed but not pushed, and
   #     one that is not committed, are not read; the trunk's own copy is.
   _mc_unland "$dir/10-first.sh"; _mc_unland "$dir/30-third.sh"
+  printf '#!/usr/bin/env bash\nexit 3\n' > "$SB_WORK/$dir/50-uncommitted.sh"
+  _mc_move "$b" in_progress --note x
+  [ "$_mc_rc" -eq 0 ] || cf "(f) an uncommitted check refused a move (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  rm -f "${SB_WORK:?}/$dir/50-uncommitted.sh"
+  # An unpushed check: the trunk holding it is refused before any check is read (trunk-ahead), so it cannot judge a move either;
+  # once pushed it is the trunk's own and refuses.
   _mc_land "$dir/40-local.sh" "#!/usr/bin/env bash
 exit 3
 " local
-  printf '#!/usr/bin/env bash\nexit 3\n' > "$SB_WORK/$dir/50-uncommitted.sh"
-  _mc_move "$b" in_progress --note x
-  [ "$_mc_rc" -eq 0 ] || cf "(f) an unpushed or uncommitted check refused a move (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
-  rm -f "${SB_WORK:?}/$dir/50-uncommitted.sh"
+  _mc_move "$c" in_progress --note x
+  { [ "$_mc_rc" -eq 1 ] && case "$_mc_out" in *"not pushed"*) true ;; *) false ;; esac; } \
+    || cf "(f) a move over an unpushed check was not refused as an unpushed trunk (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
   _mc_sync
   _mc_move "$c" in_progress --note x
-  [ "$_mc_rc" -eq 1 ] || cf "(f) the check once pushed did not refuse (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
+  { [ "$_mc_rc" -eq 1 ] && case "$_mc_out" in *"not pushed"*) false ;; *) true ;; esac; } \
+    || cf "(f) the check once pushed did not refuse as a check (exit $_mc_rc): $(printf '%s' "$_mc_out" | tr '\n' '|' | cut -c1-240)"
 
   # (g) REMOVAL lifts it; a note-only record runs no check at all.
   _mc_land "$dir/10-always.sh" "#!/usr/bin/env bash

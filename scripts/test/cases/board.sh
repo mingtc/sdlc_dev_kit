@@ -860,15 +860,19 @@ case_main_checkout_fast_forward_note_names_its_cause() {
   printf '%s\n' "$out" | grep -F '(diverged)' >/dev/null \
     && cf "(a) the note still calls an untracked-file collision 'diverged': $(printf '%s' "$out" | grep -i 'fast-forward' | tr '\n' '|')"
 
-  # (b) a local commit the trunk lacks: diverged, and counted. A board move lands it (register-commit.sh
-  # refuses a trunk holding unpushed commits, so it cannot reach this state).
+  # (b) a local commit the trunk lacks: diverged, and counted. The landers refuse a trunk holding unpushed commits before they
+  # land, so this note is what is left for a trunk that moved during a landing: kwt_finalize is driven directly.
   rm -f "$SB_WORK/progress/todo/$SB_PREFIX-892-ff-untracked.md"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   printf 'local only\n' > "$SB_WORK/local-only.txt"
   git -C "$SB_WORK" add local-only.txt >/dev/null 2>&1
   sbcommit -m "[PM] a local commit nobody pushed" --quiet >/dev/null 2>&1
-  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-894" in_progress --role Dev --note "picked up" 2>&1 )" || rc=$?
+  rc=0; out="$( cd "$SB_WORK" && MSG_OK=1 bash -c '. scripts/lib/kanban-worktree.sh || exit 9
+    kwt_resolve; kwt_lock; kwt_bootstrap; kwt_sync
+    echo ff-b > "$KWT/ff-b.txt"; git -C "$KWT" add ff-b.txt
+    git -C "$KWT" commit -q -m "[PM] ff note row"
+    kwt_finalize' 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -E 'diverged: it has [0-9]+ commit' >/dev/null \
     || cf "(b) a main checkout holding a commit the trunk lacks is not reported as diverged with a count (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
@@ -3298,7 +3302,9 @@ case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it() {
   git -C "$SB_WORK" add LOCALWORK.txt >/dev/null 2>&1
   sbcommit -q -m "[Dev] local unpushed" >/dev/null 2>&1 || _fixture_die "$me: could not make the local trunk commit"
   o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
-  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-325" in_progress --role Dev --note second 2>&1 )" || rc=$?
+  # The landers refuse a trunk holding unpushed commits before they build the board worktree; the sync's own refusal, which is
+  # this case's subject, is driven directly.
+  rc=0; out="$( cd "$SB_WORK" && MSG_OK=1 bash -c '. scripts/lib/kanban-worktree.sh || exit 9; kwt_resolve; kwt_lock; kwt_bootstrap; kwt_sync' 2>&1 )" || rc=$?
   o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
   [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
   printf '%s\n' "$out" | grep -F 'Sandbox Test [Dev] local unpushed' >/dev/null || cf "(control) the board worktree built from local trunk work did not list the commit: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-400)"
