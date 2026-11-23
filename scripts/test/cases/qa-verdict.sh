@@ -877,6 +877,27 @@ _fence_shape() {
     shell-continue) tail="$(printf '%s\n' "  ${f}sh" '  make \' '  > out.txt' "  $f" '- [ ] AC2 — (UI) b.')" ;;
     quote-item-open) tail="$(printf '%s\n' '  > a banner the page shows' '  The page then shows:' '' "     $f" '     make test' '- [ ] AC2 — (UI) b.')" ;;
     quote-bare-end) tail="$(printf '%s\n' '' '>' '' "     $f" '     make test' '- [ ] AC2 — (UI) b.')" ;;
+    item-fence)    tail="$(printf '%s\n' "- $f" '  code' "  $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-tilde-open) tail="$(printf '%s\n' '- ~~~' '  code' '- [ ] AC2 — (UI) b.')" ;;
+    numbered-fence) tail="$(printf '%s\n' "1. $f" '   code' "   $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-quote-fence) tail="$(printf '%s\n' "- > $f" '  > code' "  > $f" '- [ ] AC2 — (UI) b.')" ;;
+    ten-quote-fence) tail="$(printf '%s\n' "10. >  $f" '    > code' "    > $f" '- [ ] AC2 — (UI) b.')" ;;
+    two-markers)   tail="$(printf '%s\n' "- - ${f}sh" '    code' "    $f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-item-fence) tail="$(printf '%s\n' "> - $f" '>   code' ">   $f" '- [ ] AC2 — (UI) b.')" ;;
+    item-task-box) tail="$(printf '%s\n' "- [ ] $f" '  code' '- [ ] AC2 — (UI) b.')" ;;
+    item-code-five) tail="$(printf '%s\n' "-     $f" '  y' '- [ ] AC2 — (UI) b.')" ;;
+    item-info-tick) tail="$(printf '%s\n' "- $f a\`b" '- [ ] AC2 — (UI) b.')" ;;
+    hr-dashes)     tail="$(printf '%s\n' '- - -' "    $f" '- [ ] AC2 — (UI) b.')" ;;
+    hr-stars)      tail="$(printf '%s\n' '* * *' "    $f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-tab-card) tail="$(printf '%s\n' "$(printf '>\t')$f" '> - [ ] AC9 — (UI) ex.' "$(printf '>\t')$f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-tab-body) tail="$(printf '%s\n' "$(printf '>\t')$f" "$(printf '>\t')code" "$(printf '>\t')$f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-space-tab) tail="$(printf '%s\n' "$(printf '> \t')$f" '> code' "$(printf '> \t')$f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-tab-two) tail="$(printf '%s\n' "$(printf '>\t\t')$f" "$(printf '>\t\t')x" '- [ ] AC2 — (UI) b.')" ;;
+    marker-tab)    tail="$(printf '%s\n' "$(printf -- '-\t')$f" "$(printf '\t')code" "$(printf '\t')$f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-bare-gt) tail="$(printf '%s\n' "> > $f" '> > - [ ] AC9 — (UI) ex.' '>' "> > $f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-blank-hole) tail="$(printf '%s\n' "> $f" '' '> - [ ] AC9 — (UI) quoted.' "> $f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-blank-deep) tail="$(printf '%s\n' "> > $f" '> > x' '' "> > $f" '- [ ] AC2 — (UI) b.')" ;;
+    quote-bare-same) tail="$(printf '%s\n' "> $f" '> x' '>' "> $f" '- [ ] AC2 — (UI) b.')" ;;
     gt-in-fence)   tail="$(printf '%s\n' "${f}text" '>>> f(2)' "> $f" 'still code' "$f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-fence)   tail="$(printf '%s\n' '' "> $f" '> - [ ] AC9 — (UI) ex.' "> $f" '' '- [ ] AC2 — (UI) b.')" ;;
     quote-open)    tail="$(printf '%s\n' '' "> $f" '> make test' '' '- [ ] AC2 — (UI) b.')" ;;
@@ -902,10 +923,28 @@ _fence_shape_ids() {
     item-unclosed) echo "AC1 AC3" ;;
     quote-fence|quote-open|deep-nested|deep-unclosed|frontmatter|doctest|shell-continue|gt-in-fence|quote-item-open|quote-bare-end) echo "AC1 AC2" ;;
     ten-item) echo "AC1 AC3 AC4" ;;
+    item-fence|item-tilde-open|numbered-fence|item-quote-fence|ten-quote-fence|two-markers|quote-item-fence|item-task-box|item-code-five|item-info-tick) echo "AC1 AC2" ;;
+    hr-dashes|hr-stars|quote-tab-card|quote-tab-body|quote-space-tab|quote-tab-two|marker-tab|quote-bare-gt|quote-blank-deep|quote-bare-same) echo "AC1 AC2" ;;
+    quote-blank-hole) echo "AC1 AC2 AC9" ;;
     context-open) echo "" ;;
   esac
 }
-_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter doctest shell-continue gt-in-fence quote-item-open quote-bare-end"
+_fence_shapes="nested-tilde longer-outer unclosed four-indented tab-indented inline-span trailing-text in-item context-open item-four item-five item-tab top-tab quote-fence quote-open deep-nested deep-unclosed ten-item frontmatter doctest shell-continue gt-in-fence quote-item-open quote-bare-end item-fence item-tilde-open numbered-fence item-quote-fence ten-quote-fence two-markers quote-item-fence item-task-box item-code-five item-info-tick hr-dashes hr-stars quote-tab-card quote-tab-body quote-space-tab quote-tab-two marker-tab quote-bare-gt quote-blank-hole quote-blank-deep quote-bare-same"
+# _fence_shape_cm <name> — what a CommonMark parser makes of that shape, for the shapes whose answer shows in the
+# fence lines and not in the ids: one flag per line of the body (1 for a fence delimiter or a line inside a fence),
+# then, after a space, the line the first fence nothing closes opened on. Read off markdown-it's commonmark preset
+# and checked against the spec, not off either reader.
+_fence_shape_cm() {
+  case "$1" in
+    item-fence|numbered-fence|item-quote-fence|ten-quote-fence|two-markers|quote-item-fence|quote-tab-card|quote-tab-body|quote-space-tab|marker-tab) echo "00000001110" ;;
+    item-tilde-open) echo "0000000110 8" ;;
+    item-task-box|item-code-five|hr-dashes|hr-stars|quote-tab-two) echo "0000000000" ;;
+    item-info-tick) echo "000000000" ;;
+    quote-bare-gt|quote-blank-deep) echo "000000011010 8" ;;
+    quote-blank-hole) echo "000000010010 8" ;;
+    quote-bare-same) echo "000000011110" ;;
+  esac
+}
 
 # =============================================================================
 # CASE — THE FENCE RULE IS COMMONMARK'S: an opener indented by at most three spaces (relative to the item, inside a
@@ -929,6 +968,15 @@ case_qa_gate_fence_rule_shapes() {
     got="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_ac_ids "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1 | tr '\n' ' ' | sed 's/ $//')"
     [ "$got" = "$want" ] || cf "($shape) the core reads the ids '$got' from this shape: want '$want'"
   done
+  # (x) the fence lines themselves, for the shapes CommonMark answers in flags: a reader can hide an AC with no refusal
+  # and show the same ids, so the ids above do not say
+  local cm want_f got_f
+  for shape in $_fence_shapes; do
+    cm="$(_fence_shape_cm "$shape")"; [ -n "$cm" ] || continue
+    want_f="${cm%% *}"
+    got_f="$(_fence_shape "$shape" | bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_fence_flags' _ "$REAL_SCRIPTS" 2>&1 | tr -d '\n')"
+    [ "$got_f" = "$want_f" ] || cf "(x, $shape) the core reads the fence lines as '$got_f': CommonMark has '$want_f'"
+  done
   # the forks reader's headings: the flags the derivation reads mark a fence delimiter or a line inside one
   local f="\`\`\`" flags
   flags="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; printf "%s\n" "$2" "## Out of Scope" "- x" | _qav_fence_flags | tr "\n" " "' _ "$REAL_SCRIPTS" "$f" 2>&1)"
@@ -945,11 +993,13 @@ case_qa_gate_fence_rule_shapes() {
   local ul wantl
   for shape in $_fence_shapes item-unclosed; do
     ul="$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
-    case "$shape" in
+    cm="$(_fence_shape_cm "$shape")"
+    if [ -n "$cm" ]; then case "$cm" in *' '*) wantl="${cm#* }" ;; *) wantl="" ;; esac
+    else case "$shape" in
       unclosed|context-open|item-unclosed|quote-open|deep-unclosed|quote-item-open) wantl="$(_fence_shape "$shape" | grep -n '^[ >]*```' | head -1 | cut -d: -f1)" ;;
       four-indented|tab-indented) continue ;;   # an item's fence the next item ends: found too, by the first opener
       *) wantl="" ;;
-    esac
+    esac; fi
     [ "${ul%% *}" = "$wantl" ] || cf "(u, $shape) the unclosed fence is reported at line '$ul': want '$wantl'"
   done
   # (v) the line a container ended a fence on: the unclosed fence's second number is the first line past the item or
@@ -957,7 +1007,11 @@ case_qa_gate_fence_rule_shapes() {
   local uo ue wante msg
   for shape in unclosed item-unclosed quote-open deep-unclosed quote-item-open; do
     read -r uo ue <<< "$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape "$shape")" 2>&1)"
-    if [ "$shape" = unclosed ]; then wante=""; else wante="$(_fence_shape "$shape" | grep -n '^- \[ \] AC' | tail -1 | cut -d: -f1)"; fi
+    case "$shape" in
+      unclosed) wante="" ;;
+      quote-open) wante="$(_fence_shape "$shape" | grep -n '^$' | tail -1 | cut -d: -f1)" ;;   # a quote ends on the first line without '>': the blank one
+      *) wante="$(_fence_shape "$shape" | grep -n '^- \[ \] AC' | tail -1 | cut -d: -f1)" ;;
+    esac
     [ "$ue" = "$wante" ] || cf "(v, $shape) the line the container ended the fence on is '$ue': want '$wante'"
   done
   read -r uo ue <<< "$(bash -c '. "$1/lib/refuse.sh"; . "$1/lib/qa-gate.sh"; _qav_unclosed_fence "$2"' _ "$REAL_SCRIPTS" "$(_fence_shape quote-open)" 2>&1)"
@@ -1029,6 +1083,26 @@ case_qa_gate_ac_bullet_block_is_the_list_item() {
   _pair diff "a lazy line opening with a year, under a bullet AC, changed" "$(printf '%s\n%s' "$line" '2024. was the year')" "$(printf '%s\n%s' "$line" '2025. was the year')"
   _pair diff "a lazy line with the other delimiter, under a numbered AC, changed" "$(printf '%s\n%s' "$n1" '14) only when beta.')" "$(printf '%s\n%s' "$n1" '14) only when NOT beta.')"
   _pair diff "an unquoted numbered line after a quoted numbered AC is a lazy line, and it changed" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '2. only when beta.')" "$(printf '%s\n%s' '> 1. [ ] AC1 — x' '2. only when NOT beta.')"
+  # A thematic break, a setext underline and an HTML block start (CommonMark's types 1 to 6) end the item's paragraph, so the
+  # line after one is no lazy line of it; '===' is no underline from a lazy position, and an HTML start of type 7 ('<span>')
+  # cannot interrupt a paragraph, so each of those lines stays in the item.
+  local hl='- [ ] AC1 — last.' hb
+  for hb in '---' '***' '___' '- - -'; do
+    _pair same "a line after a '$hb' directly under the AC changed" "$(printf '%s\n%s\n%s' "$hl" "$hb" 'Footer text.')" "$(printf '%s\n%s\n%s' "$hl" "$hb" 'Footer text, edited.')"
+  done
+  _pair same "a line after an underline indented to the item changed" "$(printf '%s\n%s\n%s' "$hl" '  ---' 'Footer text.')" "$(printf '%s\n%s\n%s' "$hl" '  ---' 'Footer text, edited.')"
+  _pair diff "a line after '===' under the AC is a lazy line, and it changed" "$(printf '%s\n%s\n%s' "$hl" '===' 'Footer text.')" "$(printf '%s\n%s\n%s' "$hl" '===' 'Footer text, edited.')"
+  local hh
+  for hh in '<div>' '<pre>' '<script>' '<DETAILS>' '<!DOCTYPE html>' '<?php x ?>' '<style>' '<![CDATA[' '</div>' '<p>'; do
+    _pair same "a line after $hh directly under the AC changed" "$(printf '%s\n%s\n%s' "$line" "$hh" 'x')" "$(printf '%s\n%s\n%s' "$line" "$hh" 'y')"
+    _pair same "the HTML start $hh itself, directly under the AC, changed" "$(printf '%s\n%s' "$line" "$hh a")" "$(printf '%s\n%s' "$line" "$hh b")"
+  done
+  _pair diff "a '<span>' line (type 7) under the AC is a lazy line, and it changed" "$(printf '%s\n%s' "$line" '<span> one')" "$(printf '%s\n%s' "$line" '<span> two')"
+  _pair diff "a '<divx>' line (no such block name) under the AC is a lazy line, and it changed" "$(printf '%s\n%s' "$line" '<divx> one')" "$(printf '%s\n%s' "$line" '<divx> two')"
+  # A lazy line two items down keeps the whole chain open, and a break or an HTML start under a nested item ends it
+  _pair diff "a lazy line under a nested item stays in the AC, and it changed" "$(printf '%s\n%s\n%s' "$line" '  - sub' 'lazy one')" "$(printf '%s\n%s\n%s' "$line" '  - sub' 'lazy two')"
+  _pair same "a line after an HTML start under a nested item changed" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" '  - sub' '    - subsub' '<div>' 'x')" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" '  - sub' '    - subsub' '<div>' 'y')"
+  _pair same "a line after a break under a nested item changed" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" '  - sub' '    - subsub' '---' 'foo')" "$(printf '%s\n%s\n%s\n%s\n%s' "$line" '  - sub' '    - subsub' '---' 'bar')"
   finish "an AC's bullet text is its list item: equal for a blank line inserted inside it, a re-wrap, a dedent into a lazy line, a CRLF file with a whitespace-only line, a paragraph after it and the next bullet; different for a changed word, a changed fenced body, an added lazy line, an added blank-separated paragraph and an added HTML comment"
 }
 

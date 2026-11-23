@@ -4998,7 +4998,7 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
   [ "$mine" = "AC1 AC2 AC3 B1" ] || cf "(c) the module reads '$mine' as the (UI) ACs of a card whose ACs are AC1, a numbered AC2, a quoted AC3 and B1, with a Context bullet that says (UI), one that cites a screen and fenced example bullets: want 'AC1 AC2 AC3 B1'"
   [ "$mine" = "$core" ] || cf "(c) the module's AC reader ('$mine') and the core's ('$core') read different bullets"
   # (c2) the fence shapes of the core's fence-rule case: the module and the core read the same ids from each
-  local shp m_ids c_ids m_open c_open
+  local shp m_ids c_ids m_open c_open cm
   for shp in $_fence_shapes; do
     _fence_shape "$shp" > "$cf2"
     _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(' '.join(sorted(a for a, _ in m.card_facts(open('$cf2').read())[0])))"
@@ -5010,6 +5010,23 @@ case_the_card_reader_takes_any_ac_id_and_a_slices_drift_line_names_the_slice() {
     m_open="$_dm_out"
     c_open="$( cd "$SB_WORK" && bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; _qav_unclosed_fence "$(cat "$1")"' _ "$cf2" 2>&1 | cut -d' ' -f1)"
     [ "$m_open" = "$c_open" ] || cf "(c2) fence shape '$shp': the module finds the unclosed fence at '$m_open' and the core at '$c_open'"
+    # the fence lines and the unclosed line CommonMark has, for the shapes that carry them: two readers can agree on the wrong answer
+    cm="$(_fence_shape_cm "$shp")"
+    if [ -n "$cm" ]; then
+      _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); t = open('$cf2').read(); k = {n for n, _ in m.fence_scan(t)[0]}; print(''.join('0' if i in k else '1' for i in range(1, t.count(chr(10)) + 1)))"
+      [ "$_dm_out" = "${cm%% *}" ] || cf "(c2) fence shape '$shp': the module reads the fence lines as '$_dm_out': CommonMark has '${cm%% *}'"
+      case "$cm" in *' '*) cm="${cm#* }" ;; *) cm="" ;; esac
+      [ "$m_open" = "$cm" ] || cf "(c2) fence shape '$shp': the module finds the unclosed fence at '$m_open': CommonMark has '$cm'"
+    fi
+  done
+  # (c3) the line splitter: a line ends at a line feed, a carriage return or both and nowhere else, so a form feed, a vertical tab,
+  # \x1c, U+0085 and U+2028 inside a line leave the line numbers alone (the fence on line 3 below opens there and nothing closes it)
+  local sep sepname
+  for sepname in ff vt fs nel ls; do
+    case "$sepname" in ff) sep="$(printf '\f')" ;; vt) sep="$(printf '\v')" ;; fs) sep="$(printf '\034')" ;; nel) sep="$(printf '\302\205')" ;; ls) sep="$(printf '\342\200\250')" ;; esac
+    printf '%s\n%s\n%s\n%s\n' "x${sep}\`\`\`" '- [ ] AC9 — y' '```' '- [ ] AC1 — z' > "$cf2"
+    _dm_py -c "import importlib.util; s = importlib.util.spec_from_file_location('c', 'scripts/design/check-design-links.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.fence_scan(open('$cf2', encoding='utf-8').read())[1] or '')"
+    [ "$_dm_out" = 3 ] || cf "(c3) a line holding the '$sepname' separator: the module finds the unclosed fence at '$_dm_out', the line the fence opens on is 3"
   done
   finish "$L"
   teardown

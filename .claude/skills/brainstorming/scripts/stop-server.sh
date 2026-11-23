@@ -3,7 +3,7 @@
 # Usage: stop-server.sh <session_dir>
 #
 # Kills the server process. Only deletes session directory if it's
-# under /tmp (ephemeral). Persistent directories (.brainstorm/) are
+# under /tmp, as written and as it resolves (ephemeral). Persistent directories (.brainstorm/) are
 # kept so mockups can be reviewed later. Removes state/server-info and writes state/server-stopped.
 
 SESSION_DIR="$1"
@@ -56,8 +56,11 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE" "${STATE_DIR}/server.log" "${STATE_DIR}/server-info"
   printf '{"reason": "stopped", "timestamp": %s000}\n' "$(date +%s)" > "${STATE_DIR}/server-stopped"
 
-  # Only delete ephemeral /tmp directories
-  if [[ "$SESSION_DIR" == /tmp/* && "$SESSION_DIR" != *..* ]]; then
+  # Only delete ephemeral /tmp directories: the path as written and the directory it resolves to (a link under /tmp
+  # can point anywhere) are both under /tmp
+  phys="$(cd "$SESSION_DIR" 2>/dev/null && pwd -P)"
+  tmp_phys="$(cd /tmp 2>/dev/null && pwd -P)"
+  if [[ "$SESSION_DIR" == /tmp/* && "$SESSION_DIR" != *..* && -n "$phys" && -n "$tmp_phys" && "$phys" == "$tmp_phys"/* ]]; then
     rm -rf "$SESSION_DIR"
   fi
 

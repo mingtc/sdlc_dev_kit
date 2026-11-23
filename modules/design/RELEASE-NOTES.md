@@ -10,6 +10,7 @@ any other heading are not read. Nothing here is read while the module is disable
 ### Fixed
 
 - **The module's self-test case for the local-only pin's Verify line no longer fails on a host whose git carries a built-in config.** It blanked `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` to prove the line reaches the last-resort trunk name, but a git that reads a built-in system config (Apple Git from the Command Line Tools sets `init.defaultBranch = main`) still named `main`, so the check exited 1. The case now also sets `GIT_CONFIG_NOSYSTEM=1`. The Verify line is unchanged.
+- **The link check reads a fence as the AC gate does.** What follows a list marker on its own line is the item's first line, so a fence or quote opened there (`- ```sh`) is read and no longer reported as an open fence; a thematic break (`- - -`) is no item; a tab after `>` counts from the line's start; a form feed or U+2028 inside a line no longer ends it (line numbers were off after one); and a blank line ends a block quote, so a quoted fence holding a blank line without `>` is reported as open.
 
 ## [0.6.3]
 
