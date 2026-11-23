@@ -1043,9 +1043,11 @@ CASES=(
 # THE CORE: the cases `--core` runs, a PARTIAL run like any other selection. A measured list, not a guess: each
 # case below took at most two seconds when the whole list was timed on 2026-11-23 (a 16-core laptop, three or
 # four full runs at once, so a figure on a quiet machine is smaller), plus the shortest case of each cases file
-# that has none, so every file's cases are represented. Together the listed cases took about 336 seconds there
+# that has none, so every file's cases are represented, plus four whole-tree census cases (the exit and refusal
+# classifications, the cited case names, the shipped tree's citation check) that catch what a lane's own cases miss, which
+# took 110 seconds of the total. Together the listed cases took about 446 seconds there
 # (the `case-seconds:` lines of a full run give the figures to re-measure from). Run as `--core` on the same day, beside
-# one video encoder and another full run at a load of about 26, the list took 680 seconds. It is a snapshot: a case added
+# one video encoder and two other full runs at a load of about 30, the list took 772 seconds. It is a snapshot: a case added
 # later is outside it until it is listed here, and a listed name that no longer exists refuses `--core` before
 # anything runs. It leaves out the cases that kill a program at every write and the module-adoption cases, which
 # are most of a full run's time; the full run, which only the full list's exit 0 stands for, still gates a cut.
@@ -1283,6 +1285,7 @@ CORE_CASES=(
   case_move_issue_without_role_prints_one_usage_line
   case_usage_text_states_what_scope_and_approve_shipped_do
   case_no_shipped_file_hard_codes_the_grep_path
+  case_cited_case_names_exist
   case_contract_rule_id_tables_match_the_ids_raised
   case_project_credential_blank_is_countable
   case_leaf_workers_carry_the_common_sections
@@ -1312,6 +1315,8 @@ CORE_CASES=(
   case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet
   case_gates_command_field_is_excluded_from_the_floor
+  case_every_refusal_names_its_next_action
+  case_every_nonzero_exit_is_classified
   case_every_library_return_is_classified
   case_role_set_read_is_one_expression
   case_every_arm_file_seam_is_declared_in_the_contract
@@ -1321,6 +1326,7 @@ CORE_CASES=(
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
   case_finish_pr_help_names_post_merge_prep
+  case_shipped_tree_is_citation_clean_after_kit_init
   case_fixture_append_has_one_authoring_site
   case_population_row_counts_the_defined_cases_not_the_run_list
   case_role_reset_takes_a_narrowed_set
