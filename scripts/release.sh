@@ -735,7 +735,13 @@ if ! grep -q -- 'board-drift: clean' <<< "$board_out"; then
   kit_refuse 1 board-drift \
     "release.sh: check-board.sh reports drift — resolve it before cutting $TAG." \
     "$(printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' || true)" \
-    "Next: resolve the drift check-board.sh reports (./scripts/check-board.sh names each finding), then re-run."
+    "Next: resolve the drift check-board.sh reports (./scripts/check-board.sh names each finding); a published commit that cannot be rewritten (an unprefixed subject, a generated trailer, a commit the rule never reached) is acknowledged with ./scripts/drift-ack.sh <sha> --role <Role> --reason \"<why>\", then re-run."
+fi
+# A clean verdict holds while commits are acknowledged: print each one, so a release never passes over them unseen.
+board_acks="$(grep -F -- 'drift-acknowledged:' <<< "$board_out" || true)"
+if [ -n "$board_acks" ]; then
+  echo "[d] board-drift: clean, with drift acknowledged in progress/drift-acknowledged.tsv:"
+  printf '%s\n' "$board_acks"
 fi
 [ -z "${RELEASE_BOARD_CMD:-}" ] || echo "[d] board-drift: STUB — a test-only command ran in its place; nothing was measured."
 

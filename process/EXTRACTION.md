@@ -438,9 +438,10 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` · `read-verdict.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh` · `register-commit.sh` — the ad hoc metadata
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
-register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
+register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own. `drift-ack.sh` is the one
+writer of `progress/drift-acknowledged.tsv`, which `check-board.sh` reads (`process/contracts/drift-report.md` § 2).
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/hold-output.sh` · `lib/kanban-worktree.sh` · `lib/kit-manifest.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/modules.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/drift-window.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/hold-output.sh` · `lib/kanban-worktree.sh` · `lib/kit-manifest.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/modules.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` and `githooks/prepare-commit-msg` (each delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it

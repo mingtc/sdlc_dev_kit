@@ -121,8 +121,9 @@ done
 #    printed above it). The one
 #    lettered exception is [g]: when it holds no ⚠ and reads graduation COMPLETE, its heading, its
 #    `hooks:` line and its `→ graduation` verdict line print and the rest folds, because
-#    process/MANUAL.md and the start skill send a session to those two lines. Nothing is rewritten:
-#    every line printed is a line --full prints. With no verdict line to anchor on, the child's report
+#    process/MANUAL.md and the start skill send a session to those two lines. An arm that lists
+#    an acknowledged commit (a `drift-acknowledged:` line) is printed in full and never folded, because
+#    release.sh relays those lines from this report. Nothing is rewritten: every line printed is a line --full prints. With no verdict line to anchor on, the child's report
 #    is printed as it came. The folded line names an arm by its heading (`[c: progress.md § Log SLICE]`)
 #    when another heading of the same letter is printed, so no letter is both printed and called quiet.
 #    scripts/hooks/session-start.sh keys on the folded line's lead, and keeps the lines above past its
@@ -152,6 +153,7 @@ if [ "$CB_FULL" -eq 0 ]; then
       if ($0 ~ /^[[:space:]]*(⚠ )?↳ \[\+[^]]+\] status 3/) {
         sn = $0; sub(/^[[:space:]]*(⚠ )?↳ /, "", sn); sub(/\].*$/, "]", sn); st3[sn] = 1; hit3[n] = 1
       }
+      if ($0 ~ /drift-acknowledged:/) ackl[n] = 1
       if ($0 ~ /^[[:space:]]*hooks:/) hooksl[n] = $0
       if ($0 ~ /^[[:space:]]*→ graduation/) arrow[n] = $0
     }
@@ -166,6 +168,7 @@ if [ "$CB_FULL" -eq 0 ]; then
       for (i = 1; i <= n; i++) {
         cls[i] = 2
         if (warn[i] || hit3[i] || (substr(tag[i], 1, 2) == "[+" && st3[tag[i]])) cls[i] = 1
+        else if (ackl[i]) cls[i] = 2
         else if (tag[i] == "[g]" && arrow[i] ~ /graduation COMPLETE/ && !skip[i]) cls[i] = 3
         else if (substr(tag[i], 1, 2) == "[+") { if (ok[i] && !other[i] && !skip[i] && !st3[tag[i]]) cls[i] = 4 }
         else if (!skip[i] && !(unnamed && head[i] !~ /reports only/)) cls[i] = 4
@@ -328,6 +331,14 @@ fi
 # arm [h] to its own narrower, un-normalized pair — never an exit.
 # shellcheck source=lib/attrib-trailer.sh
 [ -f "$CB_LIB_DIR/attrib-trailer.sh" ] && . "$CB_LIB_DIR/attrib-trailer.sh" 2>/dev/null || true
+
+# The drift window and the acknowledgement record, one authoring site shared with scripts/drift-ack.sh.
+# A load failure is announced in [e] and holds the verdict: a window nobody derived is not a clean one.
+CB_DW_ERR=""
+# shellcheck source=lib/drift-window.sh
+if [ ! -f "$CB_LIB_DIR/drift-window.sh" ] || ! . "$CB_LIB_DIR/drift-window.sh" 2>/dev/null || ! command -v kit_drift_window >/dev/null 2>&1; then
+  CB_DW_ERR="scripts/lib/drift-window.sh did not load"
+fi
 
 # The shared PROJECT.md marker-line reader (arm [g]'s (g2d) and scripts/ask.sh read the SAME
 # `principal:`/channel lines the SAME way — a natural fill with no backticks is not unfilled).
@@ -778,34 +789,35 @@ if [ -n "$CB_REF" ]; then
 else
   CB_RULE_REV="HEAD"
 fi
-# THE RULE'S EPOCH — derived ONCE here and shared by every history arm; no arm re-derives it.
-# commit-msg's rules bind from the commit that ADDED the hook file (its EARLIEST add). Earlier
-# commits predate the rule and are not reported: such a finding could only be fixed by rewriting
-# published history. The hook file, not the stamp receipt (a hand-copy adopter has none); wiring
-# core.hooksPath leaves no commit to find.
-# kit-init's attribution filter uses a later boundary on purpose (see its board self-check).
-# On a SHALLOW clone the add resolves to the graft boundary, so no epoch is derived and nothing is
-# excluded: it errs toward reporting.
-CB_RULE_EPOCH=""; CB_RULE_SHALLOW=""; role_why=""
-if [ "$(git -C "$REPO_ROOT" rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
-  CB_RULE_SHALLOW="yes"
-elif git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
-  CB_RULE_EPOCH="$( { git -C "$REPO_ROOT" log --diff-filter=A --format=%H "$CB_RULE_REV" \
-                     -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
+# THE RULE'S EPOCH AND THE WINDOW the history arms walk — derived ONCE here, by lib/drift-window.sh (the
+# one authoring site, shared with scripts/drift-ack.sh), and shared by every history arm; no arm
+# re-derives either. The epoch is the commit that ADDED scripts/githooks/commit-msg, the rule's start:
+# earlier commits predate it and are not read. The hook file, not the stamp receipt (a hand-copy adopter
+# has none); wiring core.hooksPath leaves no commit to find. kit-init's attribution filter uses a later
+# boundary on purpose (see its board self-check). On a SHALLOW clone the add resolves to the graft
+# boundary, so no epoch is derived and nothing is excluded: it errs toward reporting. The window is every
+# commit STRICTLY after the epoch (the day-one `init` commit adds the hook file itself and is unprefixed),
+# else the last ROLE_SCAN_N, and a commit in it stays a finding until it is ACKNOWLEDGED in
+# progress/drift-acknowledged.tsv by scripts/drift-ack.sh (listed by the arm, not counted). Later commits
+# do not forgive it, and nothing short of that record does.
+CB_RULE_EPOCH=""; CB_RULE_SHALLOW=""; role_why=""; CB_RULE_INSCOPE=""; CB_RULE_PRE=0
+CB_RULE_LOG_ARGS=(-n "$ROLE_SCAN_N" "$CB_RULE_REV")
+CB_ACK_ROWS=""
+if [ -z "$CB_DW_ERR" ]; then
+  kit_drift_window "$REPO_ROOT" "$CB_RULE_REV" "$ROLE_SCAN_N"
+  CB_RULE_EPOCH="$KIT_DW_EPOCH"; CB_RULE_SHALLOW="$KIT_DW_SHALLOW"; CB_RULE_INSCOPE="$KIT_DW_INSCOPE"
+  CB_RULE_PRE="$KIT_DW_PRE"; CB_RULE_LOG_ARGS=("${KIT_DW_LOG_ARGS[@]}")
+  CB_ACK_ROWS="$(kit_drift_ack_read "$REPO_ROOT" "$CB_RULE_REV")"
 fi
-# STRICTLY AFTER the epoch: the day-one `init` commit adds the hook file itself and is unprefixed.
-CB_RULE_INSCOPE=""
-if [ -n "$CB_RULE_EPOCH" ]; then
-  CB_RULE_INSCOPE="$(git -C "$REPO_ROOT" rev-list --ancestry-path "$CB_RULE_EPOCH..$CB_RULE_REV" 2>/dev/null || true)"
-fi
-# THE WINDOW the history arms walk, derived once: every commit after the epoch — a bypass is not
-# forgiven because later commits followed it — else the last ROLE_SCAN_N. CB_RULE_PRE counts the
-# commits at or before the epoch, which are not read.
-CB_RULE_LOG_ARGS=(-n "$ROLE_SCAN_N" "$CB_RULE_REV"); CB_RULE_PRE=0
-if [ -n "$CB_RULE_EPOCH" ]; then
-  CB_RULE_LOG_ARGS=("$CB_RULE_EPOCH..$CB_RULE_REV")
-  CB_RULE_PRE="$(git -C "$REPO_ROOT" rev-list --count "$CB_RULE_EPOCH" 2>/dev/null || echo 0)"
-fi
+# cb_ack_note <arm> <sha>… — when an acknowledged row names one of the shas, prints the row's line (the
+# commit is listed, not counted) and succeeds.
+cb_ack_note() {
+  local arm="$1" row; shift
+  [ -z "$CB_DW_ERR" ] || return 1   # return-class: predicate
+  row="$(kit_drift_ack_find "$CB_ACK_ROWS" "$@")"
+  [ -n "$row" ] || return 1   # return-class: predicate
+  kit_drift_ack_line "$arm" "$row"
+}
 # One renderer for the scope lines, used by every history arm.
 cb_rule_scope_lines() {
   if [ -n "$CB_RULE_EPOCH" ]; then
@@ -813,7 +825,9 @@ cb_rule_scope_lines() {
     echo "      caveat: the epoch is the hook FILE's arrival, not the moment core.hooksPath was set — a"
     echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
     echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
-    echo "      board-drift verdict that release.sh gate (d) refuses on."
+    echo "      board-drift verdict that release.sh gate (d) refuses on. A finding that cannot be rewritten"
+    echo "      away (a published commit, or one the rule never reached) is acknowledged with"
+    echo "      ./scripts/drift-ack.sh <sha> --role <Role> --reason \"<why>\" and then listed, not counted."
   elif [ -n "$CB_RULE_SHALLOW" ]; then
     echo "    scope: ALL of the last $ROLE_SCAN_N — THIS IS A SHALLOW CLONE, so the rule's start cannot be"
     echo "      derived: a grafted root has no parents and every file in it reads as ADDED there, which would"
@@ -873,6 +887,12 @@ echo "[e] [Role]-prefix scan (commits of $CB_RULE_REV since the rule began, squa
 role_hits=0
 role_scanned=0
 role_exempt=0
+role_acked=0
+if [ -n "$CB_DW_ERR" ]; then
+  echo "    ⚠ $CB_DW_ERR, so the window and the acknowledgements could not be read — this deciding arm did not run to a verdict"
+  echo "      Next: restore scripts/lib/drift-window.sh from the kit release you run (./scripts/kit-upgrade.sh), then re-run ./scripts/check-board.sh."
+  drift=1
+fi
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   while IFS='|' read -r sha parents subj; do
     [ -z "$sha" ] && continue
@@ -893,6 +913,7 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
     [ -n "$subj" ] || subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
     role_scanned=$((role_scanned+1))
     if [ -z "$subj" ]; then
+      if cb_ack_note e "$target" "$sha"; then role_acked=$((role_acked+1)); continue; fi
       echo "    ⚠ ${target:0:9} has no subject, so it declares no [Role]"
       role_hits=$((role_hits+1)); drift=1
       continue
@@ -915,8 +936,12 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
         role_why=" (a fixup!/squash!/amend! whose target is missing or whose diff leaves the target's files)" ;;
     esac
     if ! printf '%s' "$subj" | grep -qE "^\[(${ROLE_PREFIXES})\] "; then
-      echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj${role_why:-}"
-      role_hits=$((role_hits+1)); drift=1
+      if cb_ack_note e "$target" "$sha"; then
+        role_acked=$((role_acked+1))
+      else
+        echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj${role_why:-}"
+        role_hits=$((role_hits+1)); drift=1
+      fi
     fi
     role_why=""
   done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P|%s' "${CB_RULE_LOG_ARGS[@]}" 2>/dev/null)
@@ -935,7 +960,42 @@ elif [ "$role_scanned" -gt 0 ] && [ "$role_hits" -eq 0 ]; then
   # TWO POPULATIONS, printed apart: role_scanned includes every exempted subject (git's own
   # merge/revert/squash/autosquash shapes), which were never held to the rule — "all N carry"
   # over a count that INCLUDES them is a sentence that claims more than this arm checked.
-  echo "    ✓ $((role_scanned - role_exempt)) subject(s) carry a [Role] prefix; $role_exempt exempt (merge/revert/squash/autosquash) not held to it"
+  role_ack_say=""
+  [ "$role_acked" -eq 0 ] || role_ack_say="; $role_acked acknowledged in progress/drift-acknowledged.tsv, listed above"
+  echo "    ✓ $((role_scanned - role_exempt - role_acked)) subject(s) carry a [Role] prefix; $role_exempt exempt (merge/revert/squash/autosquash) not held to it$role_ack_say"
+fi
+
+# ---------------------------------------------------------------------------
+# [e2] THE ACKNOWLEDGEMENT RECORD (progress/drift-acknowledged.tsv) is written only by scripts/drift-ack.sh.
+#      It is what lets [e] and [h] stop counting a commit nobody can rewrite, so a hand edit of it is a
+#      finding of its own: every commit of the window that touched the file must be one drift-ack.sh made
+#      (lib/drift-window.sh's kit_drift_ack_edits states the shape: the subject, the one file, the one
+#      appended row). Decided from history, never from trust. A commit an acknowledged row names is listed,
+#      not counted, as in [e]; so the finding has the same way out. A deciding arm: a silent hand edit is
+#      the thing a record like this exists to refuse.
+# ---------------------------------------------------------------------------
+echo
+echo "[e2] drift-acknowledged.tsv is written only by drift-ack.sh (commits of $CB_RULE_REV since the rule began):"
+if [ -n "$CB_DW_ERR" ]; then
+  echo "    ⚠ $CB_DW_ERR — this deciding arm did not run to a verdict"
+  drift=1
+elif ! git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
+  echo "    – $CB_RULE_REV does not resolve — no history to scan  (skipped)"
+else
+  e2_hits=0; e2_acked=0; e2_n=0
+  while IFS=$'\t' read -r e2_sha e2_why; do
+    [ -n "$e2_sha" ] || continue
+    e2_n=$((e2_n+1))
+    if cb_ack_note e2 "$e2_sha"; then e2_acked=$((e2_acked+1)); continue; fi
+    echo "    ⚠ ${e2_sha:0:9} touched progress/drift-acknowledged.tsv without being a drift-ack.sh commit: $e2_why"
+    e2_hits=$((e2_hits+1)); drift=1
+  done < <(kit_drift_ack_edits "$REPO_ROOT" "$CB_RULE_REV" "$ROLE_PREFIXES")
+  if [ "$e2_hits" -gt 0 ]; then
+    echo "      Next: a commit that edited the record by hand stays recorded: acknowledge it with ./scripts/drift-ack.sh <sha> --role <Role> --reason \"<why>\", or stop editing the file by hand."
+  else
+    e2_rows="$(printf '%s' "$CB_ACK_ROWS" | awk 'END { print NR }')"
+    echo "    ✓ no commit of the window edited the record by hand ($e2_rows acknowledged row(s) at $CB_RULE_REV; $e2_acked hand edit(s) acknowledged)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -1693,6 +1753,7 @@ fi
 echo "[h] generated-trailer scan (commits of $CB_RULE_REV since the rule began, commit MESSAGES only) — wordings $h_src:"
 h_hits=0
 h_scanned=0
+h_acked=0
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   # Every in-scope commit is COUNTED; only a message that could hold a trailer or a "generated/written"
   # line (a `by:` word or either verb, anywhere in it) is READ. The filter only narrows what the
@@ -1714,8 +1775,12 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
       h_bad="$(printf '%s\n' "$h_body" | kit_attrib_offender "$CB_TREE" 2>/dev/null || true)"
     fi
     if [ -n "$h_bad" ]; then
-      echo "    ⚠ ${h_sha:0:9} carries a generated trailer: $(printf '%s' "$h_bad" | sed 's/^[[:space:]]*//')"
-      h_hits=$((h_hits+1)); drift=1
+      if cb_ack_note h "$h_sha"; then
+        h_acked=$((h_acked+1))
+      else
+        echo "    ⚠ ${h_sha:0:9} carries a generated trailer: $(printf '%s' "$h_bad" | sed 's/^[[:space:]]*//')"
+        h_hits=$((h_hits+1)); drift=1
+      fi
     fi
   done <<< "$h_cand"
 else
@@ -1728,7 +1793,11 @@ fi
 if [ "$h_scanned" -eq 0 ]; then
   echo "    – $CB_RULE_REV resolved but yielded no in-scope commit  (skipped)"
 elif [ "$h_scanned" -gt 0 ] && [ "$h_hits" -eq 0 ]; then
-  echo "    ✓ none of the $h_scanned in-scope commit message(s) carries a generated trailer"
+  if [ "$h_acked" -eq 0 ]; then
+    echo "    ✓ none of the $h_scanned in-scope commit message(s) carries a generated trailer"
+  else
+    echo "    ✓ none of the $h_scanned in-scope commit message(s) carries an unacknowledged generated trailer ($h_acked acknowledged in progress/drift-acknowledged.tsv, listed above)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

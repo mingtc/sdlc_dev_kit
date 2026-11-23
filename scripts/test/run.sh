@@ -786,6 +786,10 @@ CASES=(
   case_check_board_arm_e_merge_commit_quote_boundary
   case_check_board_arm_e_counts_exempt_apart
   case_check_board_arm_e_reads_every_commit_since_the_epoch
+  case_drift_ack_clears_a_stray_commit_and_lists_it
+  case_drift_ack_refuses_what_it_cannot_record
+  case_drift_ack_clears_a_generated_trailer_commit
+  case_drift_ack_record_hand_edit_is_a_finding
   case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches
   case_check_board_register_ruling_changes_need_a_stamp
   case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy
@@ -931,6 +935,7 @@ CASES=(
   case_release_guards
   case_release_preflight_gates
   case_release_board_gate_reads_the_whole_report
+  case_release_gate_d_relays_acknowledged_drift
   case_release_stub_marker
   case_release_doc_arms
   case_release_ship_manifest_is_driven_against_the_bump
