@@ -889,7 +889,7 @@ $pm"
 # =============================================================================
 case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_exit_status() {
   cf_reset
-  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, the full run is unchanged, and every run prints case-seconds: and run-seconds:"
+  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, --core runs the CORE_CASES list as a partial run and refuses a stale name or a second selector, the full run is unchanged, and every run prints case-seconds: and run-seconds:"
   if [ ! -f "$HARNESS_ENTRY" ]; then skp "$L" "scripts/test/run.sh is not where the harness says it is"; return; fi
   local P="case_" fx rc out ca cb cx
   ca="${P}fx_sel_a"; cb="${P}fx_sel_b"; cx="${P}fx_sel_bad"
@@ -902,6 +902,8 @@ case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_ex
   : > "$fx/process/KIT-MANIFEST"
   perl -0pi -e 'BEGIN { $a = shift; $b = shift; $x = shift } s/\nCASES=\(\n.*?\n\)\n/\nCASES=(\n  $a\n  $b\n  $x\n)\n/s' "$ca" "$cb" "$cx" "$fx/scripts/test/run.sh"
   grep -qx "  $cx" "$fx/scripts/test/run.sh" || _fixture_die "${FUNCNAME[0]}: the CASES block of run.sh was not replaced — its shape moved, so no run below tests the real selector."
+  perl -0pi -e 'BEGIN { $a = shift; $x = shift } s/\nCORE_CASES=\(\n.*?\n\)\n/\nCORE_CASES=(\n  $a\n  $x\n)\n/s' "$ca" "$cx" "$fx/scripts/test/run.sh"
+  grep -A2 '^CORE_CASES=(' "$fx/scripts/test/run.sh" | grep -x "  $cx" >/dev/null || _fixture_die "${FUNCNAME[0]}: the CORE_CASES block of run.sh was not replaced — its shape moved, so no run below tests --core."
   # Each definition starts one space in: a definition at column 0 in this file would be counted by the
   # population census. The third stand-in fails only when FX_BAD is set, so one list gives both exits.
   {
@@ -978,6 +980,26 @@ case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_ex
   [ "$rc" -eq 2 ] || cf "(i) an unknown option did not refuse with status 2 (exit $rc)"
   _fx_run "" --cases "$ca" --help
   { [ "$rc" -eq 0 ] && [[ "$out" == *"--cases"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(i) --help after --cases did not print usage naming --cases and exit 0 without running (exit $rc)"
+
+  # (j) --core RUNS THE CORE_CASES LIST, AS A PARTIAL RUN BY --core, AND EXITS 3.
+  _fx_run "" --core
+  { [ "$rc" -eq 3 ] && [ "$(_fx_table)" = "$ca $cx " ]; } || cf "(j) --core did not run exactly the CORE_CASES cases and exit 3 (exit $rc, table: $(_fx_table))"
+  [[ "$out" == *"partial: 2 of 3 case(s) selected by --core"*"NOT a full run"* ]] || cf "(j) no partial: line saying 2 of 3, by --core, not a full run: $(printf '%s' "$out" | grep partial: | head -2 | tr '\n' '|')"
+  _fx_run "FX_BAD=1" --core
+  [ "$rc" -eq 1 ] || cf "(j) a failing core case did not exit 1 (exit $rc)"
+  _fx_run "KIT_TEST_CASES=$cb" --core
+  [ "$rc" -eq 2 ] || cf "(j) --core with KIT_TEST_CASES set did not refuse (exit $rc)"
+
+  # (k) --core WITH A SECOND SELECTOR REFUSES, and says how to run one of them.
+  _fx_run "" --core --cases "$ca"
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"Next:"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(k) --core together with --cases did not refuse with status 2 and a Next: before running anything (exit $rc)"
+
+  # (l) A CORE_CASES NAME THAT IS NOT DEFINED REFUSES BEFORE ANYTHING RUNS: the list is a snapshot and goes stale loudly.
+  cp "$fx/scripts/test/run.sh" "$fx/scripts/test/run-stale.sh"
+  perl -0pi -e 'BEGIN { $n = shift } s/\nCORE_CASES=\(\n.*?\n\)\n/\nCORE_CASES=(\n  $n\n)\n/s' "${P}fx_sel_nonesuch" "$fx/scripts/test/run-stale.sh"
+  rc=0; out="$( cd "$fx" && bash scripts/test/run-stale.sh --core 2>&1 )" || rc=$?
+  out="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"${P}fx_sel_nonesuch"* ]] && [[ "$out" == *"Next:"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(l) a stale CORE_CASES name did not refuse with status 2, the name and a Next: before running anything (exit $rc)"
 
   rm -rf "${fx:?}"
   finish "$L"

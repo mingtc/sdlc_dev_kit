@@ -6,12 +6,18 @@
 # HOW TO RUN
 #   ./scripts/test/run.sh          # run every case; exit 0 iff none FAILed
 #   ./scripts/test/run.sh --cases <name>[,<name>...]   # run only the named cases (or KIT_TEST_CASES=<names>)
+#   ./scripts/test/run.sh --core   # the fast core: a partial run of the CORE_CASES list below (a measured, dated list)
 #   ./scripts/test/run.sh --list   # print the case names, one a line, and run nothing
 #   A SELECTED RUN IS A PARTIAL RUN, AND IS NEVER A GREEN FULL RUN: it prints a `partial:` line, exits 1 when a
 #   selected case FAILs and exits 3 (never 0) when every selected case passed. Exit 0 is the full list's alone.
 #   A name that is not a defined case refuses the run (exit 2) before anything runs. The selection is applied
 #   after the case-list check, so the full run is the same run it always was. Every run prints each case's
 #   seconds in `case-seconds:` lines after its outcome table, and the whole run's in `run-seconds:`.
+#   HOW LONG A FULL RUN TAKES (measured 2026-11-23, a 16-core laptop with three or four full runs at once): about eight
+#   hours of wall time, of which the cases' own seconds sum to about six and a half hours; ten cases (the ones that kill
+#   a program before each of its writes, and the module-adoption ones) are about half of that. `--core` is the list a
+#   change is first checked against: minutes, not hours, and a PARTIAL run. The run's own `case-seconds:` lines give the
+#   figures to re-measure from.
 #   KIT_TEST_KILL_ALL=1 ./scripts/test/run.sh
 #                                  # the cases that kill a program before each of its writes use every write
 #                                  # and every order of enabling, not the bounded set (lib/modules.sh)
@@ -118,15 +124,16 @@ case "${1:-}" in
     exit 0 ;;
 esac
 # THE SELECTOR (the header says what a selected run is). A flag beats the environment variable.
-SEL_VIA=""; SEL_LIST="${KIT_TEST_CASES:-}"; SEL_LISTONLY=""
+SEL_VIA=""; SEL_LIST="${KIT_TEST_CASES:-}"; SEL_LISTONLY=""; SEL_CORE=""
 [ -z "$SEL_LIST" ] || SEL_VIA="KIT_TEST_CASES"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --cases) [ "$#" -ge 2 ] || { echo "run.sh: --cases takes a list of case names, comma or space separated." >&2; echo "        Next: ./scripts/test/run.sh --list prints the names." >&2; exit 2; }
              SEL_VIA="--cases"; SEL_LIST="$2"; shift 2 ;;
     --cases=*) SEL_VIA="--cases"; SEL_LIST="${1#--cases=}"; shift ;;
+    --core) SEL_CORE=1; shift ;;
     --list) SEL_LISTONLY=1; shift ;;
-    *) echo "run.sh: unknown option '$1' — this harness takes --cases <names> and --list, or no arguments." >&2
+    *) echo "run.sh: unknown option '$1' — this harness takes --cases <names>, --core and --list, or no arguments." >&2
        echo "        Run  run.sh --help  for what it does." >&2
        exit 2 ;;
   esac
@@ -1033,6 +1040,315 @@ CASES=(
   case_isolation
 )
 
+# THE CORE: the cases `--core` runs, a PARTIAL run like any other selection. A measured list, not a guess: each
+# case below took at most two seconds when the whole list was timed on 2026-11-23 (a 16-core laptop, three or
+# four full runs at once, so a figure on a quiet machine is smaller), plus the shortest case of each cases file
+# that has none, so every file's cases are represented. Together the listed cases took about 336 seconds there
+# (the `case-seconds:` lines of a full run give the figures to re-measure from). Run as `--core` on the same day, beside
+# one video encoder and another full run at a load of about 26, the list took 680 seconds. It is a snapshot: a case added
+# later is outside it until it is listed here, and a listed name that no longer exists refuses `--core` before
+# anything runs. It leaves out the cases that kill a program at every write and the module-adoption cases, which
+# are most of a full run's time; the full run, which only the full list's exit 0 stands for, still gates a cut.
+CORE_CASES=(
+  case_move_issue
+  case_board_property_i_reads_lists_through_the_one_reader
+  case_creator_prints_a_commit_line_the_hook_accepts
+  case_progress_record_alone_checks_the_declared_role_set
+  case_subtask_qa_verdict_fail_in_backticks_refuses
+  case_subtask_qa_verdict_token_invalid_refuses
+  case_subtask_refuses_its_own_edited_call
+  case_subtask_forks_missing_refuses
+  case_read_verdict_reads_the_trunk_and_writes_nothing
+  case_read_verdict_names_the_deferred_landing
+  case_subtask_qa_verdict_pointer_unresolved_refuses
+  case_role_literals_are_declared
+  case_register_commit_that_carries_the_role_declaration_still_lands
+  case_role_layer_files_with_crlf_lines_are_read
+  case_an_unreadable_base_leaves_the_role_set_empty_whatever_the_layers_hold
+  case_process_roles_ships_with_no_role_line
+  case_session_start_keeps_a_check_board_d_arm_heading_past_the_budget
+  case_marker_block_insert_is_idempotent_and_remove_restores_the_bytes
+  case_marker_block_gitignore_block_goes_at_the_end_and_a_created_file_is_removed
+  case_marker_block_remove_keeps_a_gitignore_that_existed_empty
+  case_marker_block_a_refused_write_leaves_no_scratch_file
+  case_marker_block_a_refused_write_takes_back_the_file_the_insert_created
+  case_marker_block_insert_leaves_a_dangling_link_at_the_host_path_alone
+  case_a_pass_row_whose_cell_check_passed_is_not_the_observed_row
+  case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row_and_only_on_one
+  case_the_kill_stand_ins_kill_only_the_marked_process_and_its_branch
+  case_the_module_less_skip_reason_names_a_file_that_is_absent_and_the_shape_test_reads_a_manifest
+  case_fixture_library_lists_follow_the_scripts_source_lines
+  case_module_list_ends_with_a_refusal_made_inside_its_loop
+  case_the_module_file_writer_refuses_a_linked_directory_above_its_destination
+  case_the_upgrades_module_duties_are_listed_once
+  case_the_catalogue_lists_a_disabled_module_with_what_it_needs
+  case_every_shipped_module_has_setup_steps_and_a_catalogue_row_that_agrees_with_its_manifest
+  case_the_files_an_agent_reads_first_name_the_module_catalogue
+  case_progress_record_one_place_across_worktrees
+  case_refusal_leaves_one_countable_record
+  case_kit_upgrade_merges_by_the_shipped_manifest
+  case_kit_upgrade_stamps_only_when_the_checklist_is_done
+  case_kit_upgrade_refuses_with_a_record
+  case_kit_upgrade_stages_nothing_live
+  case_check_board_upgrade_line_names_the_duty_and_its_source
+  case_member_removed_reads_the_manifest_disposition
+  case_kit_upgrade_blocks_the_stub_over_a_graduated_agents_md
+  case_kit_upgrade_still_replaces_an_ungraduated_stub
+  case_kit_upgrade_removed_upstream_reflects_a_local_edit
+  case_kit_upgrade_finish_archives_the_marked_checklist
+  case_two_same_version_upgrades_with_real_work_archive_under_different_names
+  case_an_arrived_record_alone_is_work_and_is_not_nothing_to_do
+  case_the_upgrade_fixture_carries_the_libraries_the_script_sources_unconditionally_at_start
+  case_kit_upgrade_finish_runs_verify_commands
+  case_kit_upgrade_reads_the_release_history_for_skipped_releases
+  case_kit_upgrade_pointers_name_the_file_that_holds_the_entry
+  case_upgrade_seat_brief_names_the_trunk_route
+  case_ask_help_answers_first
+  case_ask_refuses_with_no_principal
+  case_ask_refuses_when_asker_is_principal
+  case_ask_principal_phrase_is_normalised
+  case_ask_channel_stays_inside_the_repository
+  case_ask_same_second_asks_file_one_question_each
+  case_ask_default_reaches_the_register_byte_for_byte
+  case_ask_channel_through_a_symlink_out_of_the_repository_is_refused
+  case_ask_writes_one_file_and_returns
+  case_ask_never_overwrites_a_standing_ruling
+  case_ask_standing_note_names_no_wrong_direction
+  case_ask_reads_the_withdrawn_token_as_the_format_shows_it
+  case_ask_without_decision_names_the_file_as_the_record
+  case_ask_card_option_records_the_parked_card
+  case_ask_question_file_names_who_lands_the_answer
+  case_answered_question_reconcile_is_named_where_it_is_read
+  case_unattended_profile_denies_the_tool
+  case_orchestrate_has_an_unattended_branch_where_it_is_read
+  case_run_report_template_has_a_no_pack_banner_and_runners_name_it
+  case_stop_ask_hook_classifies_turn_endings
+  case_agent_record_hook_attributes_created_commits
+  case_finish_pr_crash_under_the_lock_is_not_success
+  case_exit_trap_keeps_the_status_the_script_exits_with
+  case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name
+  case_script_wordings_blocked_by_help_and_stacked_routing
+  case_card_branch_resolves_through_one_function
+  case_the_acs_the_kit_teaches_are_lines_the_ac_reader_accepts
+  case_board_property_loader_reads_the_status_folder_set_from_the_trunks_declaration
+  case_check_board_reads_a_card_that_export_ignore_hides
+  case_qa_verdict_shadow_check_fail_token_refuses
+  case_check_board_arm_keeps_the_callers_locale
+  case_verdict_section_and_lived_probe_read_a_byte_wise
+  case_check_board_says_did_not_run_when_mktemp_fails
+  case_a_reader_cut_off_by_its_consumer_is_not_recorded_as_failed
+  case_set_models_writes_an_id_as_given_or_refuses_it_and_pins_only_the_frontmatter
+  case_notify_refuses_the_watchdog_as_a_backend
+  case_hygiene_instruments_refuse_a_missing_root_and_an_absurd_parameter
+  case_staleness_greps_read_a_claim_only_where_it_is_said
+  case_verify_refuses_a_gate_with_a_blank_command
+  case_new_prd_ignores_a_file_that_carries_no_number
+  case_brainstorm_stop_server_does_not_delete_through_a_dotdot_path
+  case_check_board_reads_a_lower_case_id_and_a_quoted_path
+  case_check_board_reads_a_table_row_with_an_escaped_pipe_in_a_cell
+  case_a_grep_failure_is_blamed_on_the_shape_only_when_the_shape_is_bad
+  case_make_sandbox_leaves_the_callers_loop_variable_and_working_directory_alone
+  case_finish_pr_qa_verdict_missing_table_refuses
+  case_finish_pr_qa_verdict_fail_row_on_pass_refuses
+  case_pre_commit_refuses_a_hand_move_with_an_unclosed_fence
+  case_a_pointer_to_the_last_line_of_a_file_with_no_final_newline_resolves
+  case_qa_evidence_kind_sentences_cite_the_declaration
+  case_finish_pr_qa_verdict_self_pointer_refuses
+  case_qa_gate_verdict_set_is_the_ratified_set
+  case_finish_pr_ablation_rename_out_of_globs_refuses
+  case_finish_pr_refuses_a_library_gutted_on_the_branch
+  case_finish_pr_refuses_when_the_refusal_helper_is_gutted_too
+  case_finish_pr_refuses_when_a_library_redefines_exit
+  case_move_issue_refuses_when_a_library_redefines_exit
+  case_the_tools_leave_the_board_worktree_alone_when_there_is_no_trunk_ref
+  case_the_mover_refuses_a_deleted_progress_record_library
+  case_the_held_list_names_every_file_the_landing_and_slice_tools_source
+  case_finish_pr_stacked_branch_unlanded_base_refuses
+  case_archive_apply
+  case_one_member_role_tag_refuses_before_mutating
+  case_archive_index_refuses_malformed
+  case_runner_schema_required_defines
+  case_runner_schemas_agree
+  case_runner_outcome_vocabulary_agrees
+  case_runner_twin_code_is_identical
+  case_runner_goldenpaths_empty_skips
+  case_minted_card_is_unmarked
+  case_shipped_runners_parse
+  case_skills_carry_no_foreign_namespace
+  case_skills_name_no_forge_unconditionally
+  case_project_md_one_row_per_contract_sheet
+  case_upstream_name_only_where_kept
+  case_dev_index_names_its_subdirs
+  case_archive_missing_index_lists_the_store
+  case_archive_feature_branch_clean
+  case_config_seam_refusal
+  case_next_id_outside_a_repository_reports_once
+  case_next_id_reads_the_trunk
+  case_creation_id_check_reads_the_trunk
+  case_commit_msg_attribution_family
+  case_commit_msg_reads_trailers_through_the_one_reader
+  case_check_board_arm_e_reports_an_empty_subject
+  case_pre_commit_undeclared_code_globs_is_a_noop
+  case_pre_commit_refuses_metadata_off_trunk
+  case_pre_commit_judges_an_amend_on_the_commit_being_made
+  case_pre_commit_reads_code_globs_through_the_shared_reader
+  case_pre_commit_allows_metadata_on_trunk
+  case_pre_commit_allows_code_on_a_branch
+  case_pre_commit_refuses_a_commit_with_no_hat
+  case_pre_commit_refuses_a_staged_hat_file
+  case_push_failure
+  case_push_retry_unreachable_remote_names_the_unlanded_commits
+  case_bootstrap_failure_next_names_the_trunk_not_set_head_a
+  case_archive_progress_sections
+  case_rotation_day_uses_the_board_clock
+  case_archive_progress_ordinal_knife
+  case_archive_progress_honest_noop
+  case_archive_progress_dry_run_writes_nothing
+  case_archive_progress_apply_does_not_say_would_write
+  case_settings_example_glosses_only_real_placeholders
+  case_runner_key_guards_admit_every_field_they_read
+  case_downtime_queue_claim_drift
+  case_check_board_arm_j_reads_the_named_source
+  case_check_board_arm_j_finding_is_not_folded
+  case_workflow_briefs_compose_from_a_sparse_payload
+  case_runner_refuses_a_prose_payload_by_name
+  case_runner_no_verdict_is_not_a_failure
+  case_runner_absent_reply_is_named_not_judged
+  case_runner_throwing_leg_is_named_not_dropped
+  case_runner_precondition_failure_has_a_reply
+  case_runner_returns_leg_notes_on_every_outcome
+  case_leg_report_contract_is_in_every_schema
+  case_runner_promotes_only_observed_verdicts
+  case_runner_typed_leg_keeps_its_frontmatter_pin
+  case_wave_brief_matches_the_legs_checkout
+  case_archive_progress_before_must_be_a_calendar_date
+  case_archive_progress_index
+  case_verify_frame
+  case_guard_floor_unenrolled_from_shipped_empty_set
+  case_guard_floor_enumerator_mistyped
+  case_guard_floor_enumerator_succeeds_empty
+  case_guard_floor_unseen_declared_guard
+  case_guard_floor_reconciles_and_says_so
+  case_guard_floor_wholly_empty_shipped_state
+  case_verify_all_core_guard_floor_is_reported_inert
+  case_verdict_enum_projection
+  case_verify_unrunnable_vs_fail
+  case_verify_exit_status_separates_the_reds
+  case_check_board_id_clean
+  case_check_board_without_its_status_folder_library_names_the_control
+  case_check_board_id_duplicate
+  case_check_board_id_mismatch
+  case_check_board_frontmatter_offset
+  case_check_board_register_absent
+  case_check_board_citation_forms_and_population
+  case_set_models_second_call_moves_the_ladder_row
+  case_check_board_arrow_beats_mention
+  case_check_board_declined_is_judged_and_counted
+  case_check_board_reads_the_configured_archive_threshold
+  case_setup_warns_on_a_later_added_column
+  case_setup_reads_the_archived_heading_exactly
+  case_setup_does_not_say_complete_before_it_refuses
+  case_check_board_reads_the_ref
+  case_check_board_arm_e_counts_exempt_apart
+  case_register_format_text_states_the_bold_stamp
+  case_check_board_shallow_clone_does_not_narrow
+  case_kwt_file_mtime_is_one_epoch_number
+  case_check_board_graduation_enabled_without_receipt
+  case_check_board_graduation_not_run_direction
+  case_check_board_graduation_reads_the_trunk
+  case_seed_done_list_names_the_prd_and_the_model_rows
+  case_check_board_replace_population_is_derived
+  case_release_refactor_routes_are_delete_if_unused
+  case_check_board_names_a_detached_head
+  case_check_board_graduation_verdict_is_not_wired
+  case_check_board_graduation_refuses_complete_over_nothing_measured
+  case_card_title_templates_quote_and_the_reader_strips
+  case_archive_index_row_carries_the_bare_title
+  case_check_board_unquoted_title_arm
+  case_subtask_new_quotes_a_colon_title
+  case_day_one_homes_and_role_exception_wordings
+  case_session_start_hook_output_stays_within_the_delivery_budget
+  case_lived_probe_has_one_authoring_site
+  case_kit_init_refuses_lived_board
+  case_kit_init_next_line_repeats_only_the_arguments_given
+  case_the_hooks_act_is_worded_the_same_wherever_the_kit_names_it
+  case_new_prd_failure_leaves_nothing
+  case_creators_build_beside_and_publish_with_the_umask
+  case_kit_init_roles_help_names_the_layer_files_as_the_other_route
+  case_notify_lists_only_adapters
+  case_notify_message_flag_carries_a_leading_dash
+  case_notify_help_is_the_header_and_the_hook_answers_without_stdin
+  case_telegram_chatid_names_a_missing_jq
+  case_creator_usage_prints_one_form_on_every_path
+  case_move_issue_without_role_prints_one_usage_line
+  case_usage_text_states_what_scope_and_approve_shipped_do
+  case_no_shipped_file_hard_codes_the_grep_path
+  case_contract_rule_id_tables_match_the_ids_raised
+  case_project_credential_blank_is_countable
+  case_leaf_workers_carry_the_common_sections
+  case_provisioning_ceiling_keeps_the_seat_rule
+  case_agent_model_pins_match_their_declaration
+  case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused
+  case_model_pins_vs_own_ladder
+  case_set_models_class_rewrites_pin_and_ladder_only
+  case_set_models_all_rewrites_runners_too
+  case_set_models_unknown_class_refuses
+  case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit
+  case_set_models_list_changes_nothing
+  case_doctrine_states_no_rule_count
+  case_release_bash_n
+  case_consumer_updater
+  case_install_skills_writes_nothing_without_a_pack
+  case_updater_help_states_the_check_cost_and_points_to_the_hook_page
+  case_find_polluter_runs_each_path_whole
+  case_find_polluter_refuses_an_unrunnable_test_command
+  case_brainstorm_stop_server_leaves_no_server_info
+  case_brainstorm_foreground_start_records_the_servers_pid
+  case_brainstorm_server_reads_a_zombie_owner_as_exited
+  case_reachability_self_test_fails_when_edge_d_is_ablated
+  case_release_history_action_required_entries_are_read
+  case_cold_signal_reads_non_ascii_paths
+  case_agent_prose_carries_its_riders
+  case_partial_prefix_derivation_says_so
+  case_travelling_scripts_have_a_sheet
+  case_gates_command_field_is_excluded_from_the_floor
+  case_every_library_return_is_classified
+  case_role_set_read_is_one_expression
+  case_every_arm_file_seam_is_declared_in_the_contract
+  case_advisory_headers_carry_the_machine_token
+  case_minting_cases_probe_for_the_template
+  case_shipped_membership_tests_do_not_pipe_a_list
+  case_release_unmutated_names_the_cut
+  case_landing_prologue_is_complete
+  case_finish_pr_help_names_post_merge_prep
+  case_fixture_append_has_one_authoring_site
+  case_population_row_counts_the_defined_cases_not_the_run_list
+  case_role_reset_takes_a_narrowed_set
+  case_shipped_manifest_describes_the_tree
+  case_status_folder_set_is_declared_in_one_shipped_script
+  case_the_design_pass_directory_is_design_passes_and_indexed
+  case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes
+  case_the_harness_runs_an_add_ons_cases_and_refuses_one_that_is_not_listed
+  case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_exit_status
+  case_update_vendored_does_not_print_a_pin_for_an_artifact_it_could_not_write
+  case_archive_progress_finds_a_cut_off_rotation_and_prints_the_row_a_rotation_writes
+  case_register_commit_judges_a_trunk_that_tracks_two_spellings_by_the_exact_one
+  case_ship_state
+  case_isolation_is_read_with_the_machines_git_config_shut_out
+  case_the_ac_lines_the_design_guides_teach_are_read_by_the_qa_gates_own_reader
+  case_the_designer_role_names_each_capability_this_version_lacks_and_drops_the_line_when_it_ships
+  case_no_design_text_tells_a_role_to_render_the_pinned_side_while_the_renderer_is_absent
+  case_the_design_module_cites_no_decision_id_the_project_cannot_hold
+  case_the_wireframe_docs_name_the_mode_and_the_ignore_set_the_checker_holds
+  case_the_token_tools_write_what_the_design_type_reads_and_the_audit_measures_it
+  case_render_py_draws_the_pulled_boards_in_real_chrome_with_the_scheme_and_the_theme_that_were_asked_for
+  case_normalise_canvas_gives_a_page_save_the_spelling_an_agent_writes_and_says_what_it_cannot_read
+  case_the_design_docs_state_what_leaving_takes_what_the_gate_row_needs_and_what_disable_leaves
+  case_the_audit_reads_a_targets_size_as_the_browser_does_a_pair_in_its_own_namespace_and_no_unpaired_overlay_as_unread
+  case_the_example_modules_release_notes_hold_no_action_required_entry_to_copy_as_one
+  case_isolation
+)
+
 # An add-on's cases (modules/<name>/test/, lib/addon-cases.sh) join the list here: each add-on's
 # own test/CASE-LIST is held against what its files define, and a disagreement refuses the run.
 _harness_add_addon_cases "$REAL_REPO_ROOT" || exit 2
@@ -1068,6 +1384,14 @@ echo
 # ── THE SELECTOR. Applied after the check above, so the full run is untouched. ───────────────────────────
 if [ -n "$SEL_LISTONLY" ]; then printf '%s\n' "${CASES[@]}"; exit 0; fi
 PARTIAL=""
+if [ -n "$SEL_CORE" ]; then
+  if [ -n "$SEL_VIA" ]; then
+    echo "run.sh: REFUSING — --core cannot be combined with $SEL_VIA: each selects its own list." >&2
+    echo "        Next: run  run.sh --core  alone, or name the cases with --cases and leave --core out." >&2
+    exit 2
+  fi
+  SEL_VIA="--core"; SEL_LIST="${CORE_CASES[*]}"
+fi
 if [ -n "$SEL_VIA" ]; then
   _sel_names="$SEL_LIST"
   _sel_names="$(printf '%s' "$_sel_names" | tr ',\n\t' '   ' | tr -s ' ')"; _sel_names="${_sel_names# }"; _sel_names="${_sel_names% }"
