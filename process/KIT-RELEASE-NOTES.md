@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`./scripts/pack.sh` lists, verifies, unpacks and removes the packs a project holds, and `./scripts/test/run.sh --list` counts the cases a pack holds.** A pack is a file of kit files shipped packed instead of loose; this release ships none, so `pack.sh list` finds nothing, `pack.sh unpack --all` does nothing and the harness runs the cases it ran before. The `CASES` array in `scripts/test/run.sh` now holds the smoke list, and `scripts/test/CASE-LIST` names the rest; if you added your own cases to that array, keep them in it when the upgrade merges the file.
 
 ## [0.13.1] — 2026-11-24
 
