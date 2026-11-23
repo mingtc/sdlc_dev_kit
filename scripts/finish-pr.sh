@@ -483,7 +483,7 @@ _stk_refuse_if_squashed() {
           "       landing '${BRANCH}' as-is would re-apply them and conflict." \
           ${note:+"$note"} \
           "Next: hand the branch to its Dev to rebase past the squash, then re-run:" \
-          "         git rebase --onto ${DEFAULT_BRANCH} ${cand} ${BRANCH}" \
+          "         git fetch ${KWT_REMOTE} && git rebase --onto ${KWT_REMOTE}/${DEFAULT_BRANCH} ${cand} ${BRANCH}" \
           "       NOTHING WAS CHANGED."
       fi
     done <<< "$_stk_trunk_only"
@@ -516,7 +516,7 @@ if [ -n "$_stk_ahead" ]; then
       "       ${BRANCH} carries ${_stk_old_base}'s commits; landing it now would try to land ${_stk_old_base}'s" \
       "       work too, unreviewed under this issue." \
       "Next: land or drop '${_stk_old_base}', hand the branch to its Dev to rebase, then re-run:" \
-      "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_old_base} ${BRANCH}" \
+      "         git fetch ${KWT_REMOTE} && git rebase --onto ${KWT_REMOTE}/${DEFAULT_BRANCH} ${_stk_old_base} ${BRANCH}" \
       "       NOTHING WAS CHANGED."
   fi
   # (b) SQUASH-LANDED, no base ref left: every prefix of $BRANCH's commits is a candidate.
