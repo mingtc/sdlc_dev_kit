@@ -1084,6 +1084,9 @@ CASES=(
   case_pack_programs_stay_on_the_floor
   case_pack_survives_the_adopters_git_attributes
   case_packs_dir_is_named_once
+  case_pack_unpack_then_remove_leaves_the_tree_as_it_was
+  case_pack_remove_keeps_an_edited_member
+  case_pack_refusals_name_their_next_step
   case_isolation
 )
 

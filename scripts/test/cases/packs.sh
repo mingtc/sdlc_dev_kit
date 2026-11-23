@@ -527,3 +527,158 @@ EOF_PKC_PROGS
 
   finish "the reader assigns the pack directory and extension once each, process/MODULES.md names the directory, no other shipped file outside the pack interface, the file lists and the harness spells either, and none of $n shipped shell programs assigns them itself; a planted doc that names the directory is found"
 }
+
+# _pkc_project <dir> — a project holding scripts/pack.sh and its libraries, one fixture pack of three members
+# (one executable) in the pack directory, and files of its own: one that shares a directory with a member.
+# Sets PKC_ROOT. The pack is built with the reader's own builder.
+_pkc_project() {
+  local d="$1" names pdir pext
+  names="$(_pkc_names)"; pdir="${names%% *}"; pext="${names#* }"; pext="${pext%% *}"
+  mkdir -p "$d/scripts" "$d/$pdir" "$d/src/scripts/ex/sub" "$d/src/docs" "$d/docs" || return 1
+  cp "$REAL_SCRIPTS/pack.sh" "$d/scripts/pack.sh" && cp -R "$REAL_SCRIPTS/lib" "$d/scripts/lib" && chmod +x "$d/scripts/pack.sh" || return 1
+  printf '#!/bin/sh\necho ex\n' > "$d/src/scripts/ex/a.sh"; chmod 755 "$d/src/scripts/ex/a.sh"
+  printf 'sub\n' > "$d/src/scripts/ex/sub/b.txt"
+  printf 'doc\n' > "$d/src/docs/c.md"
+  sh "$REAL_SCRIPTS/lib/kitpack.sh" build "$d/src" "$d/$pdir/fix.$pext" fix 1700000000 >/dev/null 2>&1 || return 1
+  rm -rf "$d/src"
+  printf 'mine\n' > "$d/docs/other.md"
+  PKC_ROOT="$d"; PKC_PDIR="$pdir"; PKC_PEXT="$pext"
+}
+
+# _pkc_pack <args…> — scripts/pack.sh in $PKC_ROOT; sets PKC_OUT (stdout and stderr), PKC_RC.
+_pkc_pack() { PKC_OUT="$( cd "$PKC_ROOT" && ./scripts/pack.sh "$@" </dev/null 2>&1 )"; PKC_RC=$?; }
+
+# =============================================================================
+# CASE — UNPACK THEN REMOVE LEAVES THE TREE AS IT WAS.
+# A project with a pack and a file of its own beside a member. unpack writes the three members (the
+# executable one executable), list and verify say so, remove takes exactly those back and the directories
+# that emptied, the project's own file and its directory stay, and a second remove does nothing and says so.
+# =============================================================================
+case_pack_unpack_then_remove_leaves_the_tree_as_it_was() {
+  cf_reset
+  local t; t="$(mktemp -d)" || _fixture_die "case_pack_unpack_then_remove_leaves_the_tree_as_it_was: no scratch directory"
+  [ -f "$REAL_SCRIPTS/pack.sh" ] || { cf "scripts/pack.sh is absent: there is no verb to drive"; finish "pack.sh unpack then remove leaves the tree as it was"; rm -rf "$t"; return; }
+  _pkc_project "$t/p" || _fixture_die "case_pack_unpack_then_remove_leaves_the_tree_as_it_was: the project was not built"
+  cp -R "$t/p" "$t/before"
+
+  _pkc_pack list
+  [ "$PKC_RC" -eq 0 ] || cf "(a) list exited $PKC_RC: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+  case "$PKC_OUT" in *"fix"*"3 members"*"packed"*) ;; *) cf "(a) list does not show fix, 3 members, packed: $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-200)" ;; esac
+  _pkc_pack verify
+  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"fix: ok: 3 members"*) true ;; *) false ;; esac || cf "(b) verify did not say 'fix: ok: 3 members' (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-200)"
+
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 0 ] || cf "(c) unpack exited $PKC_RC: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|')"
+  [ -x "$t/p/scripts/ex/a.sh" ] && [ "$(cat "$t/p/scripts/ex/sub/b.txt")" = sub ] && [ "$(cat "$t/p/docs/c.md")" = doc ] || cf "(c) the three members are not on disk as the pack holds them"
+  [ "$(cat "$t/p/docs/other.md")" = mine ] || cf "(c) the project's own file changed"
+  case "$PKC_OUT" in *"wrote 3 member"*) ;; *) cf "(c) unpack did not say it wrote 3 members: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')" ;; esac
+  case "$PKC_OUT" in *"Nothing is committed"*) ;; *) cf "(c) unpack did not say nothing is committed" ;; esac
+  _pkc_pack list
+  case "$PKC_OUT" in *"unpacked"*) ;; *) cf "(d) list does not say unpacked after an unpack: $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-200)" ;; esac
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"wrote 0 member"*"3 already on disk"*) true ;; *) false ;; esac || cf "(e) a second unpack did not say it wrote 0 and found 3 on disk (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+
+  _pkc_pack remove fix
+  [ "$PKC_RC" -eq 0 ] || cf "(f) remove exited $PKC_RC: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|')"
+  case "$PKC_OUT" in *"removed 3 member"*"kept 0"*) ;; *) cf "(f) remove did not say it removed 3 and kept 0: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')" ;; esac
+  _pkc_same_tree "$t/before" "$t/p" || cf "(g) after unpack and remove the tree is not as it was: $(diff -r "$t/before" "$t/p" 2>&1 | head -3 | tr '\n' '|')"
+  [ ! -e "$t/p/scripts/ex" ] || cf "(g) the directories the removal emptied (scripts/ex) were left"
+  [ -f "$t/p/docs/other.md" ] || cf "(g) the project's own file, beside a member, went with it"
+
+  _pkc_pack remove fix
+  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"no member is present"*) true ;; *) false ;; esac || cf "(h) a second remove did not say nothing was there to remove (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+
+  finish "unpack writes a pack's three members (the executable one executable) and never overwrites; list and verify report them; remove takes back exactly those and the directories it emptied, leaving the project's own file beside one, so the tree equals the tree before; a second unpack finds all three on disk and a second remove does nothing and says so"
+  rm -rf "$t"
+}
+
+# =============================================================================
+# CASE — REMOVE KEEPS WHAT THE PROJECT CHANGED, AND NAMES IT.
+# After an unpack: one member edited, one replaced by a symlink, a foreign file added beside the third.
+# remove deletes only the member that is byte-equal, keeps and names the other two, keeps the foreign file and
+# its directory, and exits 0; the kept members are the project's now.
+# =============================================================================
+case_pack_remove_keeps_an_edited_member() {
+  cf_reset
+  local t; t="$(mktemp -d)" || _fixture_die "case_pack_remove_keeps_an_edited_member: no scratch directory"
+  [ -f "$REAL_SCRIPTS/pack.sh" ] || { cf "scripts/pack.sh is absent: there is no verb to drive"; finish "pack.sh remove keeps an edited member"; rm -rf "$t"; return; }
+  _pkc_project "$t/p" || _fixture_die "case_pack_remove_keeps_an_edited_member: the project was not built"
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 0 ] || _fixture_die "case_pack_remove_keeps_an_edited_member: the unpack did not work: $PKC_OUT"
+  printf 'edited\n' >> "$t/p/scripts/ex/sub/b.txt"
+  rm "$t/p/docs/c.md"; ln -s ../docs/other.md "$t/p/docs/c.md"
+  printf 'foreign\n' > "$t/p/scripts/ex/foreign.txt"
+
+  _pkc_pack remove fix
+  [ "$PKC_RC" -eq 0 ] || cf "(a) remove exited $PKC_RC: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|')"
+  case "$PKC_OUT" in *"removed 1 member"*"kept 2"*) ;; *) cf "(a) remove did not say it removed 1 and kept 2: $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-240)" ;; esac
+  case "$PKC_OUT" in *"scripts/ex/sub/b.txt (edited"*) ;; *) cf "(b) the edited member is not named as kept: $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-240)" ;; esac
+  case "$PKC_OUT" in *"docs/c.md (a symlink)"*) ;; *) cf "(b) the member replaced by a symlink is not named as kept: $(printf '%s' "$PKC_OUT" | tr '\n' '|' | cut -c1-240)" ;; esac
+  [ ! -e "$t/p/scripts/ex/a.sh" ] || cf "(c) the byte-equal member was not removed"
+  [ "$(tail -1 "$t/p/scripts/ex/sub/b.txt")" = edited ] || cf "(c) the edited member was changed or removed"
+  [ -L "$t/p/docs/c.md" ] || cf "(c) the symlink that replaced a member was removed"
+  [ "$(cat "$t/p/scripts/ex/foreign.txt")" = foreign ] || cf "(c) the project's own file beside a member was removed"
+
+  # A member under a link is not the project's to reach through: nothing is removed through it.
+  mkdir "$t/outside"; printf 'doc\n' > "$t/outside/c.md"
+  rm "$t/p/docs/c.md"; rm -rf "$t/p/docs"; ln -s "$t/outside" "$t/p/docs"
+  _pkc_pack remove fix
+  [ "$(cat "$t/outside/c.md")" = doc ] || cf "(d) remove reached through a symlinked directory and deleted a file outside the project"
+
+  finish "after an unpack, remove deletes only the byte-equal member, keeps and names the edited one and the one replaced by a symlink, leaves the project's own file and its directory, exits 0, and never deletes through a symlinked directory"
+  rm -rf "$t"
+}
+
+# =============================================================================
+# CASE — EVERY pack.sh REFUSAL NAMES ITS NEXT STEP, AND A USAGE REQUEST IS ANSWERED FIRST.
+# Rows: an unknown name, a name that is no name, no command, an unknown command, an unknown option, remove --all,
+# a damaged pack on verify and on unpack, a symlink in the way of a member on unpack — each exits non-zero, carries
+# a `Next:` line, and (for the in-way and damaged rows) names the file; --help answers in any position and
+# writes nothing; a member already on disk is left as it is; a symlink in the way writes nothing.
+# =============================================================================
+case_pack_refusals_name_their_next_step() {
+  cf_reset
+  local t row want rc; t="$(mktemp -d)" || _fixture_die "case_pack_refusals_name_their_next_step: no scratch directory"
+  [ -f "$REAL_SCRIPTS/pack.sh" ] || { cf "scripts/pack.sh is absent: there is no verb to drive"; finish "every pack.sh refusal names its next step"; rm -rf "$t"; return; }
+  _pkc_project "$t/p" || _fixture_die "case_pack_refusals_name_their_next_step: the project was not built"
+  local n0; n0="$(_pkc_nfiles "$t/p/scripts")"
+
+  for row in 'unpack nosuch|1' 'verify nosuch|1' 'unpack Bad_Name|1' 'remove nosuch|1' 'remove --all|1' 'unpack|2' 'remove|2' 'frobnicate|2' '|2' 'list --bogus|2' 'unpack fix extra|1' 'list extra|1'; do
+    _pkc_pack ${row%%|*}; rc="${row##*|}"
+    [ "$PKC_RC" -eq "$rc" ] || cf "(refusal '${row%%|*}') exited $PKC_RC, want $rc: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|' | cut -c1-160)"
+    case "$PKC_OUT" in *"Next: "*) ;; *) cf "(refusal '${row%%|*}') carries no 'Next:' line: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|' | cut -c1-160)" ;; esac
+  done
+  [ "$(_pkc_nfiles "$t/p/scripts")" -eq "$n0" ] || cf "(refusals) a refusal changed the files under scripts/"
+  [ ! -e "$t/p/scripts/ex" ] && [ ! -e "$t/p/docs/c.md" ] || cf "(refusals) a refusal wrote a member"
+
+  for row in '--help' 'unpack --help' 'unpack nosuch --help' 'frobnicate --help'; do
+    _pkc_pack $row
+    [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"Usage:"*) true ;; *) false ;; esac || cf "(help '$row') did not answer with the usage and exit 0 (exit $PKC_RC)"
+  done
+
+  # a damaged pack: verify and unpack refuse, the pack and the next step named, nothing written
+  head -c 300 "$t/p/$PKC_PDIR/fix.$PKC_PEXT" > "$t/p/$PKC_PDIR/broken.$PKC_PEXT"
+  _pkc_pack verify broken
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"broken"*"Next: "*) true ;; *) false ;; esac || cf "(damaged verify) exit $PKC_RC; want 1 naming 'broken' and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
+  _pkc_pack unpack broken
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"broken"*"Next: "*) true ;; *) false ;; esac || cf "(damaged unpack) exit $PKC_RC; want 1 naming 'broken' and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
+  _pkc_pack list
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"fix "*"packed"*) true ;; *) false ;; esac && case "$PKC_OUT" in *"broken"*"NOT USABLE"*) true ;; *) false ;; esac \
+    || cf "(damaged list) exit $PKC_RC; want 1, fix still listed and broken marked: $(printf '%s' "$PKC_OUT" | head -4 | tr '\n' '|' | cut -c1-240)"
+  rm "$t/p/$PKC_PDIR/broken.$PKC_PEXT"
+
+  # a symlink in the way of a member: that pack is refused, the path named, nothing written
+  mkdir "$t/outside"; ln -s "$t/outside" "$t/p/scripts/ex"
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"scripts/ex/a.sh"*"Next: "*) true ;; *) false ;; esac || cf "(link in the way) exit $PKC_RC; want 1 naming the member and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
+  [ "$(_pkc_nfiles "$t/outside")" -eq 0 ] && [ ! -e "$t/p/docs/c.md" ] || cf "(link in the way) files were written through the link or beside the refused pack"
+  rm "$t/p/scripts/ex"
+
+  # a member already on disk is left exactly as it is, and said so
+  mkdir -p "$t/p/docs"; printf 'mine too\n' > "$t/p/docs/c.md"
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 0 ] && [ "$(cat "$t/p/docs/c.md")" = "mine too" ] && case "$PKC_OUT" in *"wrote 2 member"*"1 already on disk"*) true ;; *) false ;; esac || cf "(existing member) exit $PKC_RC; the member was changed or the count is wrong: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|' | cut -c1-200)"
+
+  finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a symlink in the way) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
+  rm -rf "$t"
+}

@@ -430,6 +430,9 @@ module placed, by the sha256 `process/MODULES` records ([`MODULES.md`](MODULES.m
 manifest reader, planner and record (`process/MODULES`), and what `kit-upgrade.sh` calls for an enabled module; `kit-init.sh --with`
 enables one on day one. See [`MODULES.md`](MODULES.md).
 
+**Packs (KIT):** `pack.sh` — lists, verifies, unpacks and removes the packs a project holds; `lib/kitpack.sh` is the format's one reader
+and builder, which the release build calls too. See [`MODULES.md`](MODULES.md) § Packs and [`contracts/pack.md`](contracts/pack.md).
+
 **Provisioning (KIT):** `set-models.sh` — writes a work class's `(model, effort)` pair to its
 leaf-worker pin(s), the ladder row and, for the runner default, the workflow runners together, so
 none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree with another. It
