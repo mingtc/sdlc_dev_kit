@@ -13,11 +13,9 @@
 #   A name that is not a defined case refuses the run (exit 2) before anything runs. The selection is applied
 #   after the case-list check, so the full run is the same run it always was. Every run prints each case's
 #   seconds in `case-seconds:` lines after its outcome table, and the whole run's in `run-seconds:`.
-#   HOW LONG A FULL RUN TAKES (measured 2026-11-23, a 16-core laptop with three or four full runs at once): about eight
-#   hours of wall time, of which the cases' own seconds sum to about six and a half hours; ten cases (the ones that kill
-#   a program before each of its writes, and the module-adoption ones) are about half of that. `--core` is the list a
-#   change is first checked against: minutes, not hours, and a PARTIAL run. The run's own `case-seconds:` lines give the
-#   figures to re-measure from.
+#   A FULL RUN TAKES HOURS (measured 2026-11-23): the cases run one after another, and the ones that kill a program
+#   before each of its writes, and the module-adoption ones, are about half of it. `--core` is the list a change is
+#   first checked against: minutes, and a PARTIAL run. The `case-seconds:` lines give the figures to re-measure from.
 #   KIT_TEST_KILL_ALL=1 ./scripts/test/run.sh
 #                                  # the cases that kill a program before each of its writes use every write
 #                                  # and every order of enabling, not the bounded set (lib/modules.sh)
@@ -1054,17 +1052,12 @@ CASES=(
   case_isolation
 )
 
-# THE CORE: the cases `--core` runs, a PARTIAL run like any other selection. A measured list, not a guess: each
-# case below took at most two seconds when the whole list was timed on 2026-11-23 (a 16-core laptop, three or
-# four full runs at once, so a figure on a quiet machine is smaller), plus the shortest case of each cases file
-# that has none, so every file's cases are represented, plus four whole-tree census cases (the exit and refusal
-# classifications, the cited case names, the shipped tree's citation check) that catch what a lane's own cases miss, which
-# took 110 seconds of the total. Together the listed cases took about 446 seconds there
-# (the `case-seconds:` lines of a full run give the figures to re-measure from). Run as `--core` on the same day, beside
-# one video encoder and two other full runs at a load of about 30, the list took 772 seconds. It is a snapshot: a case added
-# later is outside it until it is listed here, and a listed name that no longer exists refuses `--core` before
-# anything runs. It leaves out the cases that kill a program at every write and the module-adoption cases, which
-# are most of a full run's time; the full run, which only the full list's exit 0 stands for, still gates a cut.
+# THE CORE: the cases `--core` runs, a PARTIAL run like any other selection. A measured list (timed 2026-11-23): every
+# case that took at most two seconds, the shortest case of each cases file that has none, and the whole-tree census
+# cases (the exit and refusal classifications, the cited case names, the shipped tree's citation check), which catch
+# what a change's own cases miss. It is a snapshot: a case added later is outside it until it is listed here, and a
+# listed name that no longer exists refuses `--core` before anything runs. The full run, which only the full list's
+# exit 0 stands for, still gates a cut.
 CORE_CASES=(
   case_move_issue
   case_board_property_i_reads_lists_through_the_one_reader
