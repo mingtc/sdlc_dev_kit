@@ -207,7 +207,7 @@ git_refuse_unpublished_trunk() {
   [ "${ahead:-0}" -gt 0 ] || return 0
   local unpushed; unpushed="$(git -C "$dir" log --format='         %h %s' -n 5 "refs/remotes/$remote/$branch..refs/heads/$branch" 2>/dev/null)" || unpushed=""
   printf -v qd '%q' "$dir"
-  name="$branch-unlanded-$(git -C "$dir" rev-parse --short=7 "refs/heads/$branch" 2>/dev/null)"
+  name="$branch-unlanded-$(git -C "$dir" rev-parse --short=7 "refs/heads/$branch" 2>/dev/null)"   # card-read-exempt: the trunk's own ref, not a card's branch
   aside="$(git__set_aside_cmd "$dir" "$remote" "$branch" "$name")"
   if [ "${behind:-0}" -eq 0 ]; then
     kit_refuse 1 trunk-ahead \
