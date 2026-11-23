@@ -549,10 +549,12 @@ fi
 #     (done/ only, for the time budget). The column list is DERIVED, so a new column is in by
 #     default and a skip owes a reason here. declined/ is walked: a hand-move there is as
 #     invisible as anywhere, and this is the only arm that can see one.
-#     The declared status comes from the last Activity bullet in TWO ORDERED PASSES: a transition
-#     arrow `→ <folder>` (a declaration, what the mover emits) wins; only without one does a
-#     backticked `<folder>` count (a mention). Neither → skipped. A bare `<folder>/` substring is
-#     never read: it matches incidental path mentions.
+#     The declared status comes from the last Activity bullet that carries a transition arrow
+#     `→ <folder>` (a declaration, what the mover emits), so a later `--note-only` entry, which
+#     carries none, does not hide a hand move; only when no bullet carries an arrow does a
+#     backticked `<folder>` in the last bullet count (a mention). A card with neither is not
+#     judgeable, and the arm counts it. A bare `<folder>/` substring is never read: it matches
+#     incidental path mentions.
 # ---------------------------------------------------------------------------
 # done/ only. A column added here owes its reason in the header above.
 A_SKIP_COLS='done'
@@ -560,6 +562,9 @@ echo
 echo "[a] Folder vs last-Activity drift (every column in STATUS_FOLDERS except ${A_SKIP_COLS}/) — $(cb_src):"
 a_hits=0
 a_cols=0
+a_judged=0
+a_unjudged=0
+a_noact=0
 IFS='|' read -r -a a_all_cols <<< "$STATUS_FOLDERS"
 a_cols_list=()
 for folder in ${a_all_cols[@]+"${a_all_cols[@]}"}; do
@@ -582,10 +587,14 @@ for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
   a_cols=$((a_cols+1))
   for f in "$dir"/*.md; do
     [ -e "$f" ] || continue
-    # Last Activity bullet: within the "## Activity" section, the last line that
-    # begins (after optional space) with "- ".
-    last="$(cb_awk '/^##[[:space:]]+Activity/{a=1; next} a && /^[[:space:]]*-[[:space:]]/{l=$0} END{print l}' "$f")"
-    [ -z "$last" ] && continue
+    # The judged bullet: within the "## Activity" section, the last line that begins (after
+    # optional space) with "- " and carries an arrow target; with no such line, the last bullet.
+    last="$(cb_awk -v re="→[[:space:]]*(${STATUS_FOLDERS})" '/^##[[:space:]]+Activity/{a=1; next} a && /^[[:space:]]*-[[:space:]]/{ if ($0 ~ re) { l=$0; arrow=1 } else if (!arrow) l=$0 } END{print l}' "$f")"
+    if [ -z "$last" ]; then
+      a_unjudged=$((a_unjudged+1))
+      grep -qE '^##[[:space:]]+Activity' "$f" 2>/dev/null || a_noact=$((a_noact+1))
+      continue
+    fi
     # PRECEDENCE, NOT A WIDER PATTERN: the arrow first, a backtick only when there is no arrow, so
     # "→ dev_complete: see `blocked`" reads as dev_complete. This arm is the guarantee, not the
     # mover's refusal of status tokens in notes: it reads every card, hand-edited ones included.
@@ -597,19 +606,24 @@ for folder in ${a_cols_list[@]+"${a_cols_list[@]}"}; do
         | grep -oE "\`(${STATUS_FOLDERS})/?\`" 2>/dev/null \
         | grep -oE "(${STATUS_FOLDERS})" 2>/dev/null | tail -1 || true)"
     fi
-    [ -z "$declared" ] && continue
+    if [ -z "$declared" ]; then a_unjudged=$((a_unjudged+1)); continue; fi
+    a_judged=$((a_judged+1))
     if [ "$declared" != "$folder" ]; then
       echo "    ⚠ $(basename "$f"): in $folder/ but last Activity declares → $declared"
       a_hits=$((a_hits+1)); drift=1
     fi
   done
 done
+a_note=""
+[ "$a_noact" -eq 0 ] || a_note=" ($a_noact with no Activity section)"
 if [ "$a_cols" -gt 0 ] && cb_rd_dead; then
   cb_rd_say "    "
 elif [ "$a_cols" -eq 0 ]; then
   echo "    – none of the columns this arm reads exists in this source — nothing was checked  (skipped)"
 elif [ "$a_hits" -eq 0 ]; then
-  echo "    ✓ none across $a_cols column(s) (every judgeable last-Activity entry matches its folder)"
+  echo "    ✓ none across $a_cols column(s): $a_judged judged, $a_unjudged not judgeable$a_note (every judgeable last-Activity entry matches its folder)"
+else
+  echo "    $a_judged judged, $a_unjudged not judgeable$a_note"
 fi
 
 # ---------------------------------------------------------------------------

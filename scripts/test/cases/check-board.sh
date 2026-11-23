@@ -41,6 +41,12 @@ _lived_signals() {  # prints one line per signal present; empty output means "no
 # assertion out of it, and a missing match then reads as a finding. Both stops are needed: the
 # header test alone runs into the verdict when [g] is the last arm, and `──` alone would not
 # stop at a following arm.
+_cb_a_section() {  # reads a check-board report on stdin
+  awk '/^\[a\]/ { f = 1; print; next }
+       f && /^(\[|──)/ { exit }
+       f'
+}
+
 _cb_g_section() {  # reads a check-board report on stdin
   awk '/^\[g\]/ { f = 1 }
        f && /^──/ { exit }
@@ -5957,6 +5963,55 @@ case_check_board_fold_keeps_an_arm_that_signals_without_a_warning() {
   printf '%s\n' "$hout" | grep -F '↳ [+late] status 3' >/dev/null || cf "(8) a late arm's status line was dropped behind a verbose arm"
   printf '%s\n' "$hout" | grep -F 'not shown' >/dev/null || cf "(8) a section the hook cut short does not say so"
   finish "check-board: an arm that returns 3, or prints a skip as 'skipped: <why>', or prints a line without ✓, stays in the default report; only an arm that printed nothing but ✓ lines and returned 0 is folded and named"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [a] JUDGES THE LAST BULLET THAT CARRIES A `→ <folder>` TARGET AND COUNTS WHAT IT COULD NOT
+# JUDGE, a card with no Activity section named apart. The mover's own `--note-only` entry carries no arrow, so a hand move made before it used to read
+# clean. Fixture order follows the real one: the mover's entries, a hand `git mv`, then the note-only entry.
+# =============================================================================
+case_check_board_arm_a_judges_past_a_note_only_entry_and_counts_the_unjudgeable() {
+  cf_reset
+  make_sandbox
+  local ma="$SB_PREFIX-441" mb="$SB_PREFIX-442" mc="$SB_PREFIX-443" md="$SB_PREFIX-444"
+  seed_issue todo "$ma" masked chore "Hand-moved, then noted"
+  seed_issue in_progress "$mb" kept chore "Moved by the mover, then noted"
+  seed_issue todo "$mc" bare chore "Never moved"
+  seed_issue todo "$md" bare-noact chore "No Activity section"
+  sed -i.bak '/^## Activity/,$d' "$SB_WORK/progress/todo/$md-bare-noact.md" && rm -f "$SB_WORK/progress/todo/$md-bare-noact.md.bak"
+  printf -- '- 2026-01-02 [Dev] moved → in_progress\n' >> "$SB_WORK/progress/todo/$ma-masked.md"
+  printf -- '- 2026-01-02 [Dev] moved → in_progress\n' >> "$SB_WORK/progress/in_progress/$mb-kept.md"
+  local noted='- 2026-01-03 [Dev] NOTE: a record made without moving it'
+  # (1) BEFORE the note-only entry: the hand-moved card is already caught, so the check is alive.
+  publish_sandbox
+  local before after
+  before="$(cb_run | _cb_a_section)"
+  printf '%s\n' "$before" | grep -F "$ma-masked.md: in todo/ but last Activity declares → in_progress" >/dev/null \
+    || cf "(control) the card whose last Activity entry declares a move it is not in was not reported before the note: $before"
+  # (2) AFTER the note-only entry: the same card is still reported.
+  printf '%s\n' "$noted" >> "$SB_WORK/progress/todo/$ma-masked.md"
+  printf '%s\n' "$noted" >> "$SB_WORK/progress/in_progress/$mb-kept.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] note without moving" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" >/dev/null 2>&1
+  after="$(cb_run | _cb_a_section)"
+  printf '%s\n' "$after" | grep -F "$ma-masked.md: in todo/ but last Activity declares → in_progress" >/dev/null \
+    || cf "a note-only entry after the hand move hid it: $after"
+  printf '%s\n' "$after" | grep -F "$mb-kept.md" >/dev/null \
+    && cf "the card the mover put in in_progress was reported after a note-only entry: $after"
+  # (3) the count: two cards carry an arrow; the other two have none to judge, one of them with no Activity section.
+  printf '%s\n' "$after" | grep -F '2 judged, 2 not judgeable (1 with no Activity section)' >/dev/null \
+    || cf "the arm did not print '2 judged, 2 not judgeable (1 with no Activity section)': $after"
+  # (4) the clean line carries the count too: the hand-moved card put right.
+  git -C "$SB_WORK" mv "progress/todo/$ma-masked.md" "progress/in_progress/$ma-masked.md" >/dev/null 2>&1
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] put the card back" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" >/dev/null 2>&1
+  after="$(cb_run | _cb_a_section)"
+  printf '%s\n' "$after" | grep -F '✓ none across' | grep -F '2 judged, 2 not judgeable (1 with no Activity section)' >/dev/null \
+    || cf "a clean arm does not print its count: $after"
+  finish "arm [a] reports a hand-moved card after a note-only entry, leaves the mover's own card clean, and prints how many cards it judged and how many it could not"
   teardown
 }
 
