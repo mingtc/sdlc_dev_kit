@@ -5,6 +5,12 @@ Each release is a `## [X.Y.Z]` section, newest first. An entry under `### Action
 the upgrade checklist of a project that has the module enabled and last took an older version; entries under
 any other heading are not read. Nothing here is read while the module is disabled.
 
+## [0.6.4]
+
+### Fixed
+
+- **The module's self-test case for the local-only pin's Verify line no longer fails on a host whose git carries a built-in config.** It blanked `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` to prove the line reaches the last-resort trunk name, but a git that reads a built-in system config (Apple Git from the Command Line Tools sets `init.defaultBranch = main`) still named `main`, so the check exited 1. The case now also sets `GIT_CONFIG_NOSYSTEM=1`. The Verify line is unchanged.
+
 ## [0.6.3]
 
 ### Changed
