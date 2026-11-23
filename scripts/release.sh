@@ -805,7 +805,7 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
       if (inside) { exit }
       if ($0 ~ num_re) {
         inside = 1
-        if (match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+        if (match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
           header = substr($0, RSTART, RLENGTH)
         }
         next
@@ -813,7 +813,7 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
     }
     inside {
       line = $0
-      while (match(line, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+      while (match(line, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
         found = substr(line, RSTART, RLENGTH)
         if (found > newest) { newest = found }
         line = substr(line, RSTART + RLENGTH)

@@ -55,7 +55,8 @@ kit_mb_end_line()   { if _kit_mb_hash "$1"; then printf '# KIT-MODULE:%s END' "$
 # _kit_mb_valid <name-or-slot> — status 0 if it is a legal name/slot.
 _kit_mb_valid() {
   case "$1" in
-    ''|[!a-z]*|*[!a-z0-9-]*) return 1 ;;   # return-class: predicate
+    # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+    ''|[!abcdefghijklmnopqrstuvwxyz]*|*[!abcdefghijklmnopqrstuvwxyz0-9-]*) return 1 ;;   # return-class: predicate
   esac
   return 0
 }

@@ -94,7 +94,8 @@ kit_pm_blank() {
   v="${v%"${v##*[![:space:]]}"}"   # trim trailing whitespace
   [ -n "$v" ] || return 0
   case "$v" in
-    '<'[a-z]*'>') return 0 ;;
+    # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+    '<'[abcdefghijklmnopqrstuvwxyz]*'>') return 0 ;;
     '{{'*'}}') return 0 ;;
   esac
   case "$v" in

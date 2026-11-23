@@ -1068,6 +1068,9 @@ CASES=(
   case_an_issue_id_is_its_integer_not_its_spelling
   case_a_heading_id_ends_at_the_same_place_in_every_reader
   case_ids_widen_past_three_digits
+  case_the_lowercase_name_validators_refuse_a_capital_under_a_utf_8_locale
+  case_a_checkout_through_autocrlf_runs_every_shipped_shell_program
+  case_no_awk_program_in_a_shipped_shell_program_uses_an_interval_expression
   case_ship_state
   case_isolation_is_read_with_the_machines_git_config_shut_out
   case_an_ac_bullet_reader_does_not_fail_when_the_body_runs_on_after_the_bullet
@@ -1413,6 +1416,7 @@ if [ "$_defined_cases" != "$_listed_cases" ]; then
   } >&2
   exit 2
 fi
+echo "locale: LC_ALL=${LC_ALL:-<unset>} LANG=${LANG:-<unset>}  (a bash 3.2 pattern range reads capitals as lowercase under a UTF-8 locale that has a collation)"
 echo "case list: ${#CASES[@]} case(s), and every defined case_* is listed."
 echo
 

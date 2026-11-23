@@ -117,7 +117,8 @@ _kit_mod_armed_component() {
   return 1   # return-class: predicate
 }
 _kit_mod_name_ok() {
-  case "$1" in ''|[!a-z]*|*[!a-z0-9-]*) return 1 ;; esac   # return-class: predicate
+  # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+  case "$1" in ''|[!abcdefghijklmnopqrstuvwxyz]*|*[!abcdefghijklmnopqrstuvwxyz0-9-]*) return 1 ;; esac   # return-class: predicate
   return 0
 }
 
@@ -468,7 +469,8 @@ $(RV="$val" awk 'BEGIN { c = split(ENVIRON["RV"], a, / \| /); for (i = 1; i <= c
 REQ_SPLIT_EOF
   id="${F[1]}"
   case "$id" in
-    ''|[!a-z0-9]*|*[!a-z0-9._-]*) echo "'$id' is not a requirement id (lowercase letters, digits, '.', '_' and '-')."; return 1 ;;   # return-class: predicate
+    # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+    ''|[!abcdefghijklmnopqrstuvwxyz0-9]*|*[!abcdefghijklmnopqrstuvwxyz0-9._-]*) echo "'$id' is not a requirement id (lowercase letters, digits, '.', '_' and '-')."; return 1 ;;   # return-class: predicate
   esac
   if [ "$key" = requires-agent ]; then
     [ "$n" -eq 4 ] || { echo "takes '<id> | <the call> | <what a pass looks like> | <how to get it>': four fields split at ' | ', not $n."; return 1; }   # return-class: predicate

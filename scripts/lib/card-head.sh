@@ -163,10 +163,12 @@ kit_card_fragments() {
       base="${f##*/}"
       [ "$base" != README.md ] || continue
       name="${base%%.*}"; mode="${base#*.}"
-      case "$name" in ''|[!a-z]*|*[!a-z0-9-]*) name="" ;; esac
+      # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+      case "$name" in ''|[!abcdefghijklmnopqrstuvwxyz]*|*[!abcdefghijklmnopqrstuvwxyz0-9-]*) name="" ;; esac
       case "$mode" in
         frontmatter|body-end) ;;
-        slot-[a-z]*) slot="${mode#slot-}"; case "$slot" in *[!a-z0-9-]*) name="" ;; esac ;;
+        # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+        slot-[abcdefghijklmnopqrstuvwxyz]*) slot="${mode#slot-}"; case "$slot" in *[!abcdefghijklmnopqrstuvwxyz0-9-]*) name="" ;; esac ;;
         *) name="" ;;
       esac
       if [ -z "$name" ] || [ "$base" = "$name" ]; then
