@@ -36,8 +36,8 @@
 #   a ruling) while it already sits in the right column; the move refuses that as a no-op.
 #
 # Target folders: @TARGET_FOLDERS@
-#   (done/ is the permanent home for completed stories — normally populated by
-#    archive.sh sweeping qa_complete/, but a valid manual target too.)
+#   (done/ is the permanent home for completed stories, populated by archive.sh sweeping
+#    qa_complete/; a move there from any other column is refused.)
 #   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
@@ -51,7 +51,10 @@
 #    by-hand landing meet the same check finish-pr.sh runs. A table filled in a local commit that is
 #    not on the trunk is the template to this check; commit it to the trunk with
 #    ./scripts/register-commit.sh first. It also refuses an AC bullet whose text changed after the
-#    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check.)
+#    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check. Without
+#    --landed-at it then runs the trunk's `scripts/verify.sh --quick` on the trunk tip in a fresh worktree
+#    and refuses on a red, a runner that did not run or a gate that could not run: a card no finish-pr.sh
+#    landing gated does not reach qa_complete/ over a red trunk.)
 #   (in_progress/ and dev_complete/ warn, never refuse, when a `blocked_by` card is not in
 #    qa_complete/ or done/ on the trunk.)
 #   (a move also runs each scripts/move-check.d/<target>/<NN>-<name>.sh the trunk holds, after the
@@ -482,6 +485,10 @@ if probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ]
   issue_not_found "read the TRUNK's board straight out of $KWT_REMOTE/$DEFAULT_BRANCH, freshly fetched — not your checkout; no kanban worktree was created"
 fi
 
+# A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+# the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
 # Acquire the lock BEFORE touching the worktree (never a half-applied move).
 # trap-release is armed inside kwt_lock.
 kwt_lock
@@ -548,6 +555,16 @@ else
     fi
   fi
 
+  # A CARD REACHES done/ ONLY FROM qa_complete/. done/ is the retired store of reviewed work, written by
+  # archive.sh's sweep of qa_complete/, and it counts as shipped for a dependent's blocked_by: a card moved
+  # there from any other column was never reviewed, whoever moved it.
+  if [ "$TARGET" = "done" ] && [ "$SRC_FOLDER" != "qa_complete" ]; then
+    kit_refuse 1 done-needs-qa-complete \
+      "Error: ${ISSUE_ID} is in progress/${SRC_FOLDER}/, not qa_complete/, so it cannot move to done/." \
+      "       done/ is the retired store of REVIEWED work, written by archive.sh's sweep of qa_complete/; a card moved there from any other column skips the review, and done/ counts as shipped for a dependent's blocked_by." \
+      "Next: take the card through review first (./scripts/move-issue.sh ${ISSUE_ID} qa_complete --role ${ROLE}), then ./scripts/archive.sh sweeps it into done/. NOTHING WAS CHANGED."
+  fi
+
   # A missing target folder ABORTS rather than being created: git does not track an
   # empty directory, so a board whose columns exist only as .gitkeep-less dirs does
   # not survive a clone. kit-init.sh writes one .gitkeep per column for exactly this.
@@ -594,6 +611,8 @@ else
       IFS=$'\t' read -r _mv_leave_c _mv_leave_p <<< "$(kit_card_leave_todo "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk")"
       kit_ac_drift_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_leave_c:-}" "${_mv_leave_p:-}"
       [ -z "$_mv_read" ] || QA_READ_NOTE=" (verdict read at $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
+      # The gate on the trunk tip: this move is the one route the landing's gate did not run for.
+      kit_trunk_gate_check "$MAIN_ROOT" "${_mv_read:-$_mv_trunk}" "$KWT" "$ISSUE_ID" "$ROLE"
     else
       _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"
       _mv_subj=""

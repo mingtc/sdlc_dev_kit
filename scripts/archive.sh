@@ -118,6 +118,10 @@ ROLE="${ARCHIVE_ROLE:-Orchestrator}"
 # detached worktree synced to the trunk. The lock is trap-released on EXIT
 # (armed inside kwt_lock).
 kwt_resolve
+# A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+# the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
 kwt_lock
 kwt_bootstrap
 kwt_sync

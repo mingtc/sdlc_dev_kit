@@ -860,15 +860,19 @@ case_main_checkout_fast_forward_note_names_its_cause() {
   printf '%s\n' "$out" | grep -F '(diverged)' >/dev/null \
     && cf "(a) the note still calls an untracked-file collision 'diverged': $(printf '%s' "$out" | grep -i 'fast-forward' | tr '\n' '|')"
 
-  # (b) a local commit the trunk lacks: diverged, and counted. A board move lands it (register-commit.sh
-  # refuses a trunk holding unpushed commits, so it cannot reach this state).
+  # (b) a local commit the trunk lacks: diverged, and counted. The landers refuse a trunk holding unpushed commits before they
+  # land, so this note is what is left for a trunk that moved during a landing: kwt_finalize is driven directly.
   rm -f "$SB_WORK/progress/todo/$SB_PREFIX-892-ff-untracked.md"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
   printf 'local only\n' > "$SB_WORK/local-only.txt"
   git -C "$SB_WORK" add local-only.txt >/dev/null 2>&1
   sbcommit -m "[PM] a local commit nobody pushed" --quiet >/dev/null 2>&1
-  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$SB_PREFIX-894" in_progress --role Dev --note "picked up" 2>&1 )" || rc=$?
+  rc=0; out="$( cd "$SB_WORK" && MSG_OK=1 bash -c '. scripts/lib/kanban-worktree.sh || exit 9
+    kwt_resolve; kwt_lock; kwt_bootstrap; kwt_sync
+    echo ff-b > "$KWT/ff-b.txt"; git -C "$KWT" add ff-b.txt
+    git -C "$KWT" commit -q -m "[PM] ff note row"
+    kwt_finalize' 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -E 'diverged: it has [0-9]+ commit' >/dev/null \
     || cf "(b) a main checkout holding a commit the trunk lacks is not reported as diverged with a count (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
 
@@ -3298,7 +3302,9 @@ case_board_worktree_built_from_local_trunk_work_names_how_to_recognise_it() {
   git -C "$SB_WORK" add LOCALWORK.txt >/dev/null 2>&1
   sbcommit -q -m "[Dev] local unpushed" >/dev/null 2>&1 || _fixture_die "$me: could not make the local trunk commit"
   o0="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
-  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-325" in_progress --role Dev --note second 2>&1 )" || rc=$?
+  # The landers refuse a trunk holding unpushed commits before they build the board worktree; the sync's own refusal, which is
+  # this case's subject, is driven directly.
+  rc=0; out="$( cd "$SB_WORK" && MSG_OK=1 bash -c '. scripts/lib/kanban-worktree.sh || exit 9; kwt_resolve; kwt_lock; kwt_bootstrap; kwt_sync' 2>&1 )" || rc=$?
   o1="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK" 2>/dev/null)"
   [ "$rc" -eq 1 ] || cf "(control) exit $rc, expected 1: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
   printf '%s\n' "$out" | grep -F 'Sandbox Test [Dev] local unpushed' >/dev/null || cf "(control) the board worktree built from local trunk work did not list the commit: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-400)"
@@ -4542,5 +4548,210 @@ case_prepare_commit_msg_compares_raw_messages() {
   case "$out" in *fb.txt*) : ;; *) cf "(c) git's own account (the file in the way) is not quoted: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
 
   finish "prepare-commit-msg: a wrapped, CRLF, trailing-blank or # first line is still held; a resolution commit inside a stopped rebase --apply gets the ordinary Next and loses nothing; the push retry blames a hook only when a hook refused"
+  teardown
+}
+
+
+# =============================================================================
+# CASE — A CARD REACHES done/ ONLY FROM qa_complete/, AND A SLICE IS NAMED BY ITS FULL ID.
+#
+# `move-issue.sh <id> done` retired a card from any column, by any role: a card never worked, or never
+# reviewed, then counted as shipped (done/ unblocks a dependent's blocked_by) and sat outside the sweep's index.
+# archive.sh, the sweep of qa_complete/, is the writer of done/; a move there from any other column is refused,
+# with the review as the next step. `subtask.sh move <PARENT>` matched every slice of the parent through
+# "<id>-*.md" and moved the first it found, so a parent id could move or decline an arbitrary slice: it now takes
+# only the full slice id (<PARENT>-s<N>) and refuses on more than one card of that id, naming them.
+# Rows: (a) a todo card and a dev_complete card refused, left where they were; (b) the control: a qa_complete
+# card moves; (c) the parent id is refused naming its slices, moving none; (d) the full id moves that slice only;
+# (e) a slice id filed in two columns is refused, naming both, moving neither. Ablation: each check removed from a
+# copy of the script, committed to the sandbox trunk (a lander runs only the trunk's own copy), lets its row through.
+# =============================================================================
+case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
+  cf_reset
+  local L="move-issue.sh refuses a move to done/ from any column but qa_complete/ and leaves the card, a reviewed card still moves, subtask.sh move takes only a full slice id (the parent id is refused naming the slices, one id in two columns is refused naming both), and each check is ablation-proven"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local W="$SB_WORK" t="$SB_PREFIX-801" d="$SB_PREFIX-802" q="$SB_PREFIX-803" p="$SB_PREFIX-810" out rc abl
+  seed_issue todo "$t" fresh chore "Never worked"
+  seed_issue dev_complete "$d" handoff chore "Handed off, not reviewed"
+  seed_issue qa_complete "$q" reviewed chore "Reviewed"
+  seed_issue in_progress "$p" parent chore "A decomposed parent"
+  mkdir -p "$W/progress/subtasks/$p/todo" "$W/progress/subtasks/$p/in_progress"
+  seed_issue "subtasks/$p/todo" "$p-s1" first chore "Slice one"
+  seed_issue "subtasks/$p/in_progress" "$p-s2" second chore "Slice two"
+  seed_issue "subtasks/$p/todo" "$p-s3" twin chore "Slice three, filed in two columns"
+  seed_issue "subtasks/$p/in_progress" "$p-s3" twin chore "Slice three, filed in two columns"
+  publish_sandbox
+  _mvd() { ( cd "$W" && ./scripts/move-issue.sh "$1" done --role QA --note "straight to done" 2>&1 ); }
+  _std() { ( cd "$W" && ./scripts/subtask.sh move "$@" --role Dev --note "move" 2>&1 ); }
+
+  # (a) a card in any column but qa_complete/ is refused, and stays where it was
+  rc=0; out="$(_mvd "$t")" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a todo card moved to done/ (exit 0)"
+  case "$out" in *"qa_complete"*"Next:"*|*"Next:"*"qa_complete"*) : ;; *) cf "(a) the refusal does not name qa_complete as the way: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/todo/$t-fresh.md" || cf "(a) the todo card left todo/ during the refusal"
+  origin_has_path "progress/done/$t-fresh.md" && cf "(a) the todo card reached done/"
+  rc=0; out="$(_mvd "$d")" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a2) a dev_complete card moved to done/ (exit 0)"
+  origin_has_path "progress/dev_complete/$d-handoff.md" || cf "(a2) the dev_complete card left dev_complete/ during the refusal"
+
+  # (b) THE CONTROL: a reviewed card moves
+  rc=0; out="$(_mvd "$q")" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a qa_complete card was refused its move to done/: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/done/$q-reviewed.md" || cf "(b) the reviewed card did not reach done/"
+
+  # (c) the parent id names no slice: refused, naming the slices, moving none
+  rc=0; out="$(_std "$p" in_progress)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) subtask.sh move took the PARENT id and moved a slice (exit 0)"
+  case "$out" in *"$p-s1"*"$p-s2"*|*"$p-s2"*"$p-s1"*) : ;; *) cf "(c) the refusal does not name the parent's slices: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/subtasks/$p/todo/$p-s1-first.md" || cf "(c) slice s1 left todo/ during the refusal"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s2-second.md" || cf "(c) slice s2 left in_progress/ during the refusal"
+  # (d) the full slice id moves that slice, and only it
+  rc=0; out="$(_std "$p-s1" in_progress)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the full slice id was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s1-first.md" || cf "(d) slice s1 did not reach in_progress/"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s2-second.md" || cf "(d) slice s2 was moved with s1"
+  # (e) one id filed in two columns is ambiguous: refused, naming both, moving neither
+  rc=0; out="$(_std "$p-s3" dev_complete)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a slice id filed in two columns moved (exit 0)"
+  case "$out" in *"todo"*"in_progress"*|*"in_progress"*"todo"*) : ;; *) cf "(e) the refusal does not name both cards: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/subtasks/$p/todo/$p-s3-twin.md" || cf "(e) the todo copy moved during the refusal"
+  origin_has_path "progress/subtasks/$p/in_progress/$p-s3-twin.md" || cf "(e) the in_progress copy moved during the refusal"
+
+  # ABLATION: each check removed from a copy, committed to the trunk; its row must then go through.
+  _mvd_abl() {   # <script> <sed expression> <label>
+    abl="$SB_TMP/ablated.sh"
+    sed "$2" "$W/scripts/$1" > "$abl"
+    if cmp -s "$abl" "$W/scripts/$1"; then cf "(ablation) $3 is not in $1 — re-anchor this case"; return 1; fi
+    cp "$abl" "$W/scripts/$1"; chmod +x "$W/scripts/$1"
+    git -C "$W" add "scripts/$1" >/dev/null 2>&1
+    sbcommit -m "[QA] ablate $3" --quiet >/dev/null 2>&1
+    git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  }
+  seed_issue todo "$SB_PREFIX-804" abl chore "The ablation card" && git -C "$W" add -A >/dev/null 2>&1 && sbcommit -m "[PM] seed ablation card" --quiet >/dev/null 2>&1 && git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  if _mvd_abl move-issue.sh 's/\[ "\$TARGET" = "done" \] && \[ "\$SRC_FOLDER" != "qa_complete" \]/false/' "the done-needs-qa_complete condition"; then
+    rc=0; out="$(_mvd "$SB_PREFIX-804")" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(ablation) with the done check removed, a todo card was still refused — the case cannot see the check"
+  fi
+  if _mvd_abl subtask.sh 's/if ! \[\[ "\$ID" =~ -s\[0-9\]+\$ \]\]; then/if false; then/' "the full-slice-id condition"; then
+    # The parent id still names several slices, so the one-card-per-id check may refuse it: what must go is the message
+    # about the SHAPE of the id.
+    rc=0; out="$(_std "$p" in_progress)" || rc=$?
+    case "$out" in *"is not a slice id"*) cf "(ablation) with the slice-id check removed the refusal still says the id is not a slice id — the case cannot see the check" ;; esac
+  fi
+  if _mvd_abl subtask.sh 's/if \[ "\${#_st_hits\[@\]}" -gt 1 \]; then/if false; then/' "the one-card-per-id condition"; then
+    # With two hits and no check there is no card to take, so the move may still be refused (no card found): what must go
+    # is the refusal that says the id names more than one.
+    rc=0; out="$(_std "$p-s3" dev_complete)" || rc=$?
+    case "$out" in *"names more than one card"*) cf "(ablation) with the one-card-per-id check removed the refusal still says the id names more than one card — the case cannot see the check" ;; esac
+  fi
+  unset -f _mvd _std _mvd_abl
+  finish "$L"
+  teardown
+}
+
+
+# =============================================================================
+# CASE — EVERY LANDER REFUSES A TRUNK ITS REMOTE LACKS, AND finalize NEVER REWINDS IT.
+#
+# register-commit.sh refused a local trunk holding commits its remote lacks; move-issue.sh, finish-pr.sh,
+# subtask.sh and archive.sh landed on the remote's tip beside them, and kwt_finalize, with the trunk checked out
+# in no worktree, then reset the local trunk ref to the remote's tip, silently: the commits stayed on no branch.
+# Now all five call git_refuse_unpublished_trunk before the lock, and kwt_finalize moves the local trunk ref only
+# when the remote's trunk descends from it, with the old value named.
+# Rows: (a) per lander (the mover, finish-pr.sh, subtask.sh move, archive.sh): a hand commit on the trunk, unpushed:
+# refused, naming the push; the remote's trunk, the local trunk and the card unchanged, no lock left; the push the
+# Next names, then the same call, lands; (b) every lander carries the call (subtask.sh at both its landings);
+# (c) kwt_finalize driven directly, the trunk checked out in no worktree and the local trunk ahead: the ref stays on
+# the unpushed commit and the report says so. ABLATION: the call removed from a copy of the mover, committed to the
+# trunk (a lander runs the trunk's own copy), lets a trunk-ahead landing through; the ancestry test removed from a
+# copy of the library moves the ref off the commit again: the defect, reproduced.
+# =============================================================================
+case_every_lander_refuses_a_trunk_its_remote_lacks_and_finalize_never_rewinds_it() {
+  cf_reset
+  local L="move-issue.sh, finish-pr.sh, subtask.sh and archive.sh refuse a local trunk holding commits its remote lacks as register-commit.sh does (the remote, the local trunk and the card unchanged, the Next's push then clears it), every lander carries the call, kwt_finalize leaves a local trunk ref that holds such commits where it is and says so, and both the call and the ancestry test are ablation-proven"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local W="$SB_WORK" T="$SB_TRUNK" p="$SB_PREFIX-820" out rc tip0 loc0 n=0 f abl held
+  seed_issue todo "$SB_PREFIX-821" mv chore "The mover row"
+  seed_issue dev_complete "$SB_PREFIX-822" land chore "The finish-pr row" "feature/$SB_PREFIX-822-land"
+  seed_issue in_progress "$p" parent chore "A decomposed parent"
+  mkdir -p "$W/progress/subtasks/$p/todo"
+  seed_issue "subtasks/$p/todo" "$p-s1" slice chore "The subtask row"
+  seed_issue qa_complete "$SB_PREFIX-823" sweep chore "The archive row"
+  seed_issue todo "$SB_PREFIX-826" abl chore "The ablation row"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-822" land CHANGE822.txt
+  _hand() { n=$((n+1)); printf 'hand-made %s\n' "$n" > "$W/hand-$n.txt"; git -C "$W" add "hand-$n.txt" >/dev/null 2>&1; sbcommit -m "[$SB_ROLE] hand-made $n" --quiet >/dev/null 2>&1; }
+  _o() { git -C "$W" fetch -q origin >/dev/null 2>&1; git -C "$W" rev-parse "origin/$T"; }
+  _l() { git -C "$W" rev-parse "refs/heads/$T"; }
+  _lander_row() {   # <label> <card path on the remote's trunk> <command…>
+    local label="$1" card="$2"; shift 2
+    _hand; tip0="$(_o)"; loc0="$(_l)"
+    rc=0; out="$( cd "$W" && "$@" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($label) landed over a trunk holding an unpushed commit (exit 0)"
+    case "$out" in *"not pushed"*) : ;; *) cf "($label) the refusal does not say the commit is not pushed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;; esac
+    case "$out" in *"Next:"*"push"*) : ;; *) cf "($label) the refusal's Next does not name the push: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;; esac
+    [ "$(_o)" = "$tip0" ] || cf "($label) the remote's trunk moved on a refused call"
+    [ "$(_l)" = "$loc0" ] || cf "($label) the local trunk moved on a refused call"
+    [ ! -e "$W/.kanban-wt.lock" ] || cf "($label) the refused call left the lock"
+    origin_has_path "$card" || cf "($label) $card is no longer on the remote's trunk after a refusal"
+    git -C "$W" push -q origin "$T" >/dev/null 2>&1
+    rc=0; out="$( cd "$W" && "$@" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "($label) after the push the same call was still refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+  }
+
+  # (a) the four landers that did not refuse
+  _lander_row mover "progress/todo/$SB_PREFIX-821-mv.md" ./scripts/move-issue.sh "$SB_PREFIX-821" in_progress --role Dev --note go
+  _lander_row finish-pr "progress/dev_complete/$SB_PREFIX-822-land.md" env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-822"
+  _lander_row subtask "progress/subtasks/$p/todo/$p-s1-slice.md" ./scripts/subtask.sh move "$p-s1" in_progress --role Dev --note go
+  _lander_row archive "progress/qa_complete/$SB_PREFIX-823-sweep.md" ./scripts/archive.sh --apply
+
+  # (b) every lander carries the call, subtask.sh at both landings
+  for f in move-issue:1 finish-pr:1 subtask:2 archive:1 register-commit:1; do
+    out="$(grep -c '^ *git_refuse_unpublished_trunk "\$MAIN_ROOT"' "$W/scripts/${f%%:*}.sh")"
+    [ "$out" = "${f##*:}" ] || cf "(b) ${f%%:*}.sh calls git_refuse_unpublished_trunk $out time(s), not ${f##*:}"
+  done
+
+  # (c) kwt_finalize, driven directly: the trunk checked out in no worktree, the local trunk ahead.
+  _fin() {   # <library dir> <label> — a commit made in the kanban worktree, then kwt_finalize, as every lander does
+    ( cd "$W" && MSG_OK=1 bash -c '. "$1/kanban-worktree.sh" || exit 9
+      kwt_resolve; kwt_lock; kwt_bootstrap; kwt_sync
+      echo finalize > "$KWT/finalize-$2.txt"; git -C "$KWT" add "finalize-$2.txt"
+      git -C "$KWT" commit -q -m "[PM] finalize $2"
+      kwt_finalize' _ "$1" "$2" 2>&1 )
+  }
+  git -C "$W" checkout -q "$T" >/dev/null 2>&1
+  _hand; loc0="$(_l)"
+  git -C "$W" fetch -q origin >/dev/null 2>&1
+  git -C "$W" checkout -q -b feature/side "origin/$T" >/dev/null 2>&1
+  out="$(_fin "$W/scripts/lib" c1)"
+  [ "$(_l)" = "$loc0" ] || cf "(c) kwt_finalize moved the local trunk off its unpushed commit: $(_l | cut -c1-9) now, $(printf '%s' "$loc0" | cut -c1-9) before: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  held="$(git -C "$W" branch --contains "$loc0" 2>/dev/null)"; [ -n "$held" ] || cf "(c) the unpushed commit is on no branch"
+  case "$out" in *"was not moved"*) : ;; *) cf "(c) kwt_finalize left the ref alone and said nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+
+  # ABLATION 1: the ancestry test removed from a copy of the library — the original rewind comes back.
+  abl="$SB_TMP/ablib"; cp -R "$W/scripts/lib" "$abl"
+  sed 's/if \[ -z "\$_kwt_old" \] || git -C "\$MAIN_ROOT" merge-base --is-ancestor "\$_kwt_old" "\$_kwt_new" 2>\/dev\/null; then/if true; then/' "$W/scripts/lib/kanban-worktree.sh" > "$abl/kanban-worktree.sh"
+  if cmp -s "$abl/kanban-worktree.sh" "$W/scripts/lib/kanban-worktree.sh"; then cf "(ablation) the ancestry test is not in kanban-worktree.sh — re-anchor this case"
+  else
+    out="$(_fin "$abl" c2)"
+    [ "$(_l)" != "$loc0" ] || cf "(ablation) with the ancestry test removed the local trunk ref was still left on its commit — the case cannot see the guard"
+  fi
+
+  # ABLATION 2: the call removed from a copy of the mover, committed to the trunk — a trunk-ahead landing goes through.
+  git -C "$W" checkout -q "$T" >/dev/null 2>&1; git -C "$W" reset -q --hard "origin/$T" >/dev/null 2>&1
+  sed 's/^git_refuse_unpublished_trunk .*$/:/' "$W/scripts/move-issue.sh" > "$SB_TMP/move-issue.ablated"
+  if cmp -s "$SB_TMP/move-issue.ablated" "$W/scripts/move-issue.sh"; then cf "(ablation) no git_refuse_unpublished_trunk call line in move-issue.sh — re-anchor this case"
+  else
+    cp "$SB_TMP/move-issue.ablated" "$W/scripts/move-issue.sh"; chmod +x "$W/scripts/move-issue.sh"
+    git -C "$W" add scripts/move-issue.sh >/dev/null 2>&1; sbcommit -m "[QA] ablate the mover's trunk-ahead check" --quiet >/dev/null 2>&1
+    git -C "$W" push -q origin "$T" >/dev/null 2>&1
+    _hand
+    rc=0; out="$( cd "$W" && ./scripts/move-issue.sh "$SB_PREFIX-826" in_progress --role Dev --note go 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(ablation) with the call removed the mover still refused a trunk ahead of its remote — the case cannot see the call: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  fi
+  unset -f _hand _o _l _lander_row _fin
+  finish "$L"
   teardown
 }

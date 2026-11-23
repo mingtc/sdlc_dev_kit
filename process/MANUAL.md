@@ -583,7 +583,9 @@ check out** and **no `finish-pr.sh`** (nothing to squash-merge) — and lands th
 `./scripts/move-issue.sh <ID> qa_complete --role QA --note "…"`, which refuses a card whose `## QA
 Verdict` table is not filled on the trunk — commit it first (`./scripts/register-commit.sh`). Steps 2 (read context), 4 (walk
 the AC) and 5 (the binding cross-cut check, where applicable — usually N/A for a metadata
-change) still apply; steps 1/3/6-PASS are the branch-only parts that collapse. Code work keeps
+change) still apply; the branch-only parts collapse (the pushed branch of step 1, step 3's checkout of it, the
+`finish-pr.sh` landing of step 6), but step 3's full `./scripts/verify.sh` run does not: QA runs it on the trunk, and
+the move to `qa_complete/` runs `verify.sh --quick` on the trunk tip and refuses on a red. Code work keeps
 the full branch-based boundary.
 
 ### Bug-severity calibration

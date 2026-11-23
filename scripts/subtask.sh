@@ -328,6 +328,10 @@ case "$CMD" in
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
     # so the create lands on the current <remote>/<trunk> tip.
     kwt_resolve
+    # A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+    # the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+    git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
     kwt_lock
     kwt_bootstrap
     kwt_sync
@@ -520,6 +524,10 @@ case "$CMD" in
     PARENT="${ID%-s*}"
 
     kwt_resolve
+    # A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+    # the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+    git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
     kwt_lock
     kwt_bootstrap
     kwt_sync
@@ -533,12 +541,27 @@ case "$CMD" in
       "Error: no subtask tree at progress/subtasks/${PARENT}/." \
       "Next: check the subtask id (ls progress/subtasks/); a slice exists once  ./scripts/subtask.sh new ${PARENT} s<N> <slug> --title \"…\"  has published it."
 
-    # Locate the file across statuses.
-    SRC=""; SRC_FOLDER=""
+    # THE FULL SLICE ID, AND ONE CARD OF IT. A slice is named <PARENT>-s<N>; "<id>-*.md" with a PARENT id matches
+    # every slice, and taking the first would move or decline a slice nobody named. Nothing moves by guess.
+    if ! [[ "$ID" =~ -s[0-9]+$ ]]; then
+      _st_kids="$(find "$BASE" -mindepth 2 -maxdepth 2 -name "${ID}-*.md" -type f 2>/dev/null | sort | sed "s|^$KWT/|    |")"
+      kit_refuse 1 subtask-id-not-a-slice \
+        "Error: '${ID}' is not a slice id: a slice is named <PARENT>-s<N>, and a parent id matches every one of its slices." \
+        "  The slices under ${PARENT}:"$'\n'"${_st_kids:-    (none)}" \
+        "Next: name one slice, e.g.  ./scripts/subtask.sh move ${PARENT}-s<N> ${TARGET} --role ${ROLE}. NOTHING WAS CHANGED."
+    fi
+    # Locate the file across statuses: exactly one card carries the id.
+    SRC=""; SRC_FOLDER=""; _st_hits=()
     for s in "${STATUSES[@]}"; do
-      m=$(find "$BASE/$s" -name "${ID}-*.md" -type f 2>/dev/null | head -1 || true)
-      [ -n "$m" ] && { SRC="$m"; SRC_FOLDER="$s"; break; }
+      while IFS= read -r m; do [ -n "$m" ] && _st_hits+=("$m"); done < <(find "$BASE/$s" -name "${ID}-*.md" -type f 2>/dev/null | sort)
     done
+    if [ "${#_st_hits[@]}" -gt 1 ]; then
+      kit_refuse 1 subtask-id-ambiguous \
+        "Error: ${ID} names more than one card:" \
+        "$(printf '    %s\n' "${_st_hits[@]#"$KWT"/}")" \
+        "Next: one id must name one slice — keep the real card and remove or renumber the other on the trunk (./scripts/check-board.sh names duplicate ids), then re-run. NOTHING WAS CHANGED."
+    fi
+    if [ "${#_st_hits[@]}" -eq 1 ]; then SRC="${_st_hits[0]}"; SRC_FOLDER="$(basename "$(dirname "$SRC")")"; fi
     [ -n "$SRC" ] || kit_refuse 1 subtask-not-found \
       "Error: no ${ID}-*.md under progress/subtasks/${PARENT}/." \
       "Next: check the subtask id (ls progress/subtasks/${PARENT}/*/); create the slice first with  ./scripts/subtask.sh new ${PARENT} s<N> <slug> --title \"…\"  if it does not exist."

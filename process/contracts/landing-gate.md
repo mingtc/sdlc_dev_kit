@@ -102,7 +102,10 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   filled `shadow-check` row, two rows for one AC id, or AC ids
   that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
   row and, for a quote, its pointer. The board move into the reviewed state runs the same check on an
-  item that did not land through this gate (direct to the trunk, or squash-merged by hand).
+  item that did not land through this gate (direct to the trunk, or squash-merged by hand), and then the
+  trunk's `scripts/verify.sh --quick` on the trunk tip, refusing on a red or a gate that did not run.
+  That route loses the gate on the branch tip before the merge and the post-merge reading; the move's
+  gate is the one measurement left, taken after the change is already on the trunk.
   The kinds are the built-in ones plus one per line of each file under `process/evidence-kinds.d/`
   **on the trunk**, so a branch cannot add one for its own landing; an added kind is read like
   `gate-diff`: no quote, and each `word:number` in its pointer must resolve.

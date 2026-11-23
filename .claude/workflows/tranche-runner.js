@@ -384,7 +384,7 @@ ${COMMON}
 Procedure (the Dev → QA boundary, code-work flavor):
 1. Read the issue file in progress/dev_complete/ (its AC is the contract) and the linked PRD story.
 2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the role-prefixed commits cited in the issue Activity/handoff.` : `git fetch, then git switch ${issue.branch} (from the issue's branch frontmatter).`}
-3. Run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright.
+3. Run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright. This step is UNCONDITIONAL: a docs-path issue has no branch, and it still has a gate.
 4. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence (test name, diff, output). An AC whose deliverable is prose describing code behaviour is graded claim by claim: each behavioural claim tied to a falsifier the suite resolves (name the test) or checked by you at a named file:line. A claim you cannot tie to a test or locate at a file:line leaves the bullet unmet — FAIL_AC, naming the claim; "it is a description" does not excuse it (.claude/roles/qa.md step 4). Record the walk in the card's ## QA Verdict table, one row per AC id plus the shadow-check row (qa.md step 4): both the board move to qa_complete and the landing refuse without it.
 5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 6. Verdict:

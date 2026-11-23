@@ -325,6 +325,10 @@ if [ -n "$WORKTREE" ]; then
   GATE_WORKTREE="$(cd "$WORKTREE" && pwd)"
 fi
 
+# A trunk holding commits its remote lacks is refused BEFORE the lock, the bootstrap and the sync: a landing goes on
+# the remote's tip beside them (lib/push-retry.sh's git_refuse_unpublished_trunk, the one check all five landers share).
+git_refuse_unpublished_trunk "$MAIN_ROOT" "$KWT_REMOTE" "$DEFAULT_BRANCH"
+
 # Take the lock + bootstrap + sync the worktree to <remote>/<trunk> BEFORE reading
 # the issue file, so the branch read sees the current trunk state.
 kwt_lock

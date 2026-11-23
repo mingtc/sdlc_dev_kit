@@ -119,10 +119,11 @@ if [ ! -f "$KWT_LIB_DIR/hold-output.sh" ] || ! . "$KWT_LIB_DIR/hold-output.sh" \
 fi
 # ...and REACHABLE: a file that sources without defining these is the same outage.
 if ! command -v git_push_with_retry >/dev/null 2>&1 \
-   || ! command -v git_report_ahead_behind >/dev/null 2>&1; then
+   || ! command -v git_report_ahead_behind >/dev/null 2>&1 \
+   || ! command -v git_refuse_unpublished_trunk >/dev/null 2>&1; then
   {
-    echo "Error: $KWT_LIB_DIR/push-retry.sh sourced, but git_push_with_retry"
-    echo "       and/or git_report_ahead_behind is NOT DEFINED. The file is"
+    echo "Error: $KWT_LIB_DIR/push-retry.sh sourced, but git_push_with_retry,"
+    echo "       git_report_ahead_behind and/or git_refuse_unpublished_trunk is NOT DEFINED. The file is"
     echo "       present and loadable; it no longer provides what this library"
     echo "       calls, so kwt_finalize would publish without a retry."
   } >&2
@@ -811,7 +812,16 @@ kwt_finalize() {
          | grep -xF "branch refs/heads/$DEFAULT_BRANCH" >/dev/null; then
       echo "Note: $DEFAULT_BRANCH is checked out in another worktree — its local ref left as-is (pull there when ready)." >&2
     else
-      git -C "$MAIN_ROOT" update-ref "refs/heads/$DEFAULT_BRANCH" "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null || true
+      # Moved only when the local trunk holds nothing the remote lacks (it is an ancestor of <remote>/<trunk>), with its
+      # old value named so a commit made meanwhile is not overwritten. A local trunk holding commits the remote lacks is
+      # left where it is, and says so: the landers refuse before this point, and this ref rewrite does not rest on that.
+      local _kwt_old _kwt_new="refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH"
+      _kwt_old="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$DEFAULT_BRANCH" 2>/dev/null || true)"   # card-read-exempt: the trunk's own ref, not a card's branch
+      if [ -z "$_kwt_old" ] || git -C "$MAIN_ROOT" merge-base --is-ancestor "$_kwt_old" "$_kwt_new" 2>/dev/null; then
+        git -C "$MAIN_ROOT" update-ref "refs/heads/$DEFAULT_BRANCH" "$_kwt_new" "$_kwt_old" 2>/dev/null || true
+      else
+        echo "Note: local $DEFAULT_BRANCH holds commit(s) $KWT_REMOTE/$DEFAULT_BRANCH lacks, so its ref was not moved to $KWT_REMOTE/$DEFAULT_BRANCH; push them: git -C '$MAIN_ROOT' push $KWT_REMOTE $DEFAULT_BRANCH" >&2
+      fi
     fi
   fi
   return 0
