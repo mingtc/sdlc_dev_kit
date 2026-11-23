@@ -19,12 +19,13 @@ them on disk and to take them off again without a hand edit and without touching
 - **Members are regular files on a closed alphabet of path characters; a symlink, a gitlink, a `.git` component, a
   `..` component and two paths that differ only by case are refused, when the pack is built and again when it
   is read.**
-  *Why:* git's own object check accepted a pack holding `.git/hooks/…`; a pack that wrote a hook, or wrote
+  *Why:* git's own object check does not refuse every such path on every version, and a pack that wrote a hook, or wrote
   through a link, would run code at the next commit.
 - **Reading a pack changes no byte of it, and unpacking changes no byte of a member.** Members are written
   with no filter, no line-ending conversion and no attribute; a pack that does not verify is refused, never
   repaired.
-  *Why:* a root `.gitattributes` rule that rewrites line endings changed a pack's bytes on checkout.
+  *Why:* a root `.gitattributes` rule that rewrites line endings changes a pack's bytes on checkout, so the pack directory carries
+  its own attributes file.
 - **Unpack checks everything before it writes anything, and never overwrites.** A member already on disk
   is left exactly as it is and counted; a symlink or a file where a directory must go refuses that pack with
   nothing written for it.
