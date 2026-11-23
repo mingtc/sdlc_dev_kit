@@ -756,7 +756,7 @@ case_the_link_check_reports_each_gap_in_both_directions_and_is_quiet_about_a_roo
   printf '\n### F2 — Later\n\n**Design:** pending\n\n##### F2-S1 — Later\n\n**UI:** default\n\n- [ ] AC1: (UI) already designed. [design: UX-002#default]\n' >> "$SB_WORK/requirements/PRD-001-app.md"
   printf '| UX-003 | C.dc.html | t | phone |  | default |  | open | approved |\n' >> "$SB_WORK/requirements/design/app/CANVAS.md"
   _dm_art "$D/C.dc.html" 003 '--color-primary: #485d92;' '<h1 id="ux-003-title" style="color: #ff0000">Lit</h1>'
-  printf '| UX-004 | D.dc.html | t | phone |  | default | PRD-001-F1-S2 | approved@%s (ming) | approved (pending) |\n' "$X" >> "$SB_WORK/requirements/design/app/CANVAS.md"
+  printf '| UX-004 | D.dc.html | t | phone |  | default | PRD-001-F1-S2 | approved@%s (owner) | approved (pending) |\n' "$X" >> "$SB_WORK/requirements/design/app/CANVAS.md"
   printf '| UX-005 | E.dc.html | t | phone |  | default | PRD-001-F1-S2 | approved@deadbee | open |\n' >> "$SB_WORK/requirements/design/app/CANVAS.md"
   printf '| UX-006 | Zmissing.dc.html | t | phone |  | default | PRD-001-F1-S2 | approved@%s | open |\n' "$X" >> "$SB_WORK/requirements/design/app/CANVAS.md"
   _dm_card 901 in_progress "design: [ux-001#default]"
