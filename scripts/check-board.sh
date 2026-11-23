@@ -1748,7 +1748,7 @@ else
   cb_rd_begin
   # The prefix this board mints ids by (read, never sourced): the one id a row may name without saying "claimed by".
   j_prefix="$(kit_config_scalar "$CB_TREE/scripts/config.sh" ISSUE_PREFIX 2>/dev/null || true)"
-  printf '%s' "$j_prefix" | grep -qE '^[A-Za-z][A-Za-z0-9]*$' || j_prefix=""
+  grep -qE '^[A-Za-z][A-Za-z0-9]*$' <<< "$j_prefix" || j_prefix=""
   j_out="$(
     cb_awk -v folders="$STATUS_FOLDERS" -v prefix="$j_prefix" "$BP_AWK_CELLS"'
       /^\|/ {
