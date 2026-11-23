@@ -588,6 +588,38 @@ case_release_board_gate_reads_the_whole_report() {
 }
 
 # =============================================================================
+# CASE — GATE (d) RELAYS THE ACKNOWLEDGED DRIFT, and its refusal names the way out.
+#
+# A clean verdict holds while commits are acknowledged in progress/drift-acknowledged.tsv; the cut
+# prints each one the report lists, so a release never passes over them unseen. The refusal for a
+# board that is not clean names scripts/drift-ack.sh.
+# =============================================================================
+case_release_gate_d_relays_acknowledged_drift() {
+  cf_reset
+  if ! has_release; then skp "release.sh gate (d): acknowledged drift" "scripts/release.sh absent"; return; fi
+  local out rc=0 clean
+  clean="$(_board_verdict clean)"
+  [ -n "$clean" ] || _fixture_die "case_release_gate_d_relays_acknowledged_drift: could not derive the clean verdict line from check-board.sh."
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  printf '#!/usr/bin/env bash\necho "[e] a header"\necho "    drift-acknowledged: 0123abcd4 [e] by PM on 2026-01-02 — a branch begun before adoption"\necho "%s"\n' "$clean" > "$SB_TMP/board-acked.sh"
+  chmod +x "$SB_TMP/board-acked.sh"
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-acked.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(1) a clean verdict with an acknowledged commit refused the cut (rc=$rc): $(printf '%s' "$out" | grep 'board-drift' | head -2 | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -F 'drift-acknowledged: 0123abcd4 [e] by PM on 2026-01-02 — a branch begun before adoption' >/dev/null \
+    || cf "(2) the cut does not print the acknowledged commit: $(printf '%s' "$out" | grep -F '[d]' | tr '\n' '|' | cut -c1-300)"
+  write_board_stub "$SB_TMP/board-drift.sh" drift
+  rc=0
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-drift.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(3) (control) a board that is not clean did not refuse"
+  printf '%s\n' "$out" | grep '^Next: ' | grep -F './scripts/drift-ack.sh' >/dev/null \
+    || cf "(4) the refusal's Next: does not name scripts/drift-ack.sh: $(printf '%s' "$out" | grep -F 'Next:' | tr '\n' '|' | cut -c1-300)"
+  finish "release.sh gate (d): a clean verdict prints each acknowledged commit the report lists, and the drift refusal's Next: names scripts/drift-ack.sh"
+  teardown
+}
+
+# =============================================================================
 # CASE — the release-document arms are INDEPENDENT, with DISTINCT refusals, and the
 # header-date gate bites: a section dated before the newest date in its own body refuses.
 # =============================================================================

@@ -19,7 +19,8 @@ your memory of it.
   version does not read a lone `AGENTS.md`, so every session there starts with no instructions and
   nothing says so. If it is older, stop here and tell the human to update Claude Code first.
 - **The Claude Code hooks are opt-in.** Until `.claude/settings.json` exists, the editor-tool hat gate and the
-  agent record are off, while the git commit guard still refuses a commit without a hat (`process/MANUAL.md` § The default path is lite says what it wires).
+  agent record are off. The git commit guard still refuses a commit without a hat, but only where `core.hooksPath` is `scripts/githooks`:
+  `./scripts/check-board.sh` reads it back, and in a clone `./setup.sh --kit-only` sets it (`process/MANUAL.md` § The default path is lite says what it wires).
   Activating them is the human's decision, not yours, and the harness will refuse your own write of
   that file. Hand the human this act: in your own terminal, at the project root, run
   `cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve
@@ -38,8 +39,8 @@ your memory of it.
   `<Role> <scope>` (`process/MANUAL.md` § Session start; the rule is
   `process/contracts/role-gate.md`). Create `.kit/` if it is absent. With the Claude Code hooks on
   (`.claude/settings.json` present) the SessionStart hook clears it each session; with them off
-  nothing does, so read whose a standing one is and overwrite it with yours. The git commit guard
-  refuses a commit without it either way.
+  nothing does, so read whose a standing one is and overwrite it with yours. Where `core.hooksPath`
+  is wired (above), the git commit guard refuses a commit without it either way.
 - **Run `./scripts/check-board.sh`** if it exists at the repo root. It is the kit's own drift
   report and graduation check — read its output rather than re-deriving any of what it already
   answers. If the script is missing entirely, the kit has not been copied in yet; say so and stop.

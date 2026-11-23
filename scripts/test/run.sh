@@ -160,7 +160,11 @@ if [ ! -f "$REAL_REPO_ROOT/process/KIT-MANIFEST" ]; then
     echo
     echo "  This harness is a witness only when it runs from a BUILT KIT: an unzipped release"
     echo "  given day-one git topology. The manifest is written by the build and is never"
-    echo "  tracked, so its absence means one of three things, and none of them is runnable:"
+    echo "  tracked, so its absence means one of four things, and none of them is runnable:"
+    echo
+    echo "    * this is a clone of the kit's repository. A clone has no manifest. In an unmodified"
+    echo "      clone, ./scripts/kit-manifest.sh writes it from the commit, and this runs again;"
+    echo "      or run the harness from an unzipped release instead."
     echo
     echo "    * this is the kit's own source repository. Running here is unsupported — the kit"
     echo "      is stored disarmed, so the day-one cases skip on paths that exist under another"
@@ -785,7 +789,9 @@ CASES=(
   case_check_board_report_prints_findings_first_and_folds_clean_arms
   case_check_board_fold_keeps_an_arm_that_signals_without_a_warning
   case_check_board_fold_keeps_the_graduation_verdict_and_the_hooks_line
+  case_check_board_arm_a_judges_past_a_note_only_entry_and_counts_the_unjudgeable
   case_check_board_answered_question_arm
+  case_a_line_in_a_questions_text_is_no_answer
   case_check_board_reports_what_only_this_checkout_holds
   case_check_board_answered_question_cited_before_the_answer
   case_check_board_answered_question_discharged_in_place
@@ -802,6 +808,10 @@ CASES=(
   case_check_board_arm_e_merge_commit_quote_boundary
   case_check_board_arm_e_counts_exempt_apart
   case_check_board_arm_e_reads_every_commit_since_the_epoch
+  case_drift_ack_clears_a_stray_commit_and_lists_it
+  case_drift_ack_refuses_what_it_cannot_record
+  case_drift_ack_clears_a_generated_trailer_commit
+  case_drift_ack_record_hand_edit_is_a_finding
   case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches
   case_check_board_register_ruling_changes_need_a_stamp
   case_check_board_arm_q_ruling_history_says_did_not_run_when_git_cannot_read_a_copy
@@ -843,6 +853,7 @@ CASES=(
   case_check_board_graduation_refuses_complete_over_nothing_measured
   case_check_board_graduation_non_markdown_fill_members
   case_check_board_graduation_reports_hooks_off
+  case_check_board_graduation_reads_the_hooks_path_back
   case_card_title_templates_quote_and_the_reader_strips
   case_archive_index_row_carries_the_bare_title
   case_check_board_unquoted_title_arm
@@ -946,6 +957,7 @@ CASES=(
   case_release_guards
   case_release_preflight_gates
   case_release_board_gate_reads_the_whole_report
+  case_release_gate_d_relays_acknowledged_drift
   case_release_stub_marker
   case_release_doc_arms
   case_release_ship_manifest_is_driven_against_the_bump
@@ -1010,6 +1022,7 @@ CASES=(
   case_seam_shape_reformat_is_loud
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
+  case_kit_manifest_script_writes_a_clones_manifest
   case_status_folder_set_is_declared_in_one_shipped_script
   case_the_design_pass_directory_is_design_passes_and_indexed
   case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enabled

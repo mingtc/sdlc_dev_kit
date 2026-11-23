@@ -307,6 +307,22 @@ case_kit_upgrade_refuses_with_a_record() {
   cp "$KU_NEW/scripts/kit-upgrade.sh" "$SB_TMP/nokit/scripts/"; cp "$KU_NEW/scripts/lib/"*.sh "$SB_TMP/nokit/scripts/lib/"
   rc=0; ( cd "$KU_ELSE" && KIT_PROGRESS_DIR="$R" "$SB_TMP/nokit/scripts/kit-upgrade.sh" --into "$KU_T" ) >"$SB_TMP/c.out" 2>&1 || rc=$?
   printf '%s' "$rc" > "$SB_TMP/c.rc";                             _ku_refused c upgrade-source-not-a-kit nz
+  grep -F 'it has no process/KIT-MANIFEST and process/KIT-VERSION' "$SB_TMP/c.out" >/dev/null \
+    || cf "(c) a source with neither file does not name both: $(_ku_out c)"
+
+  # a clone of the kit's repository: process/KIT-VERSION is there, process/KIT-MANIFEST is not. The refusal names
+  # the file actually missing, the clone case and the command that writes it.
+  mkdir -p "$SB_TMP/nokit2/scripts/lib" "$SB_TMP/nokit2/process"
+  cp "$KU_NEW/scripts/kit-upgrade.sh" "$SB_TMP/nokit2/scripts/"; cp "$KU_NEW/scripts/lib/"*.sh "$SB_TMP/nokit2/scripts/lib/"
+  cp "$KU_NEW/process/KIT-VERSION" "$SB_TMP/nokit2/process/"
+  rc=0; ( cd "$KU_ELSE" && KIT_PROGRESS_DIR="$R" "$SB_TMP/nokit2/scripts/kit-upgrade.sh" --into "$KU_T" ) >"$SB_TMP/c2.out" 2>&1 || rc=$?
+  printf '%s' "$rc" > "$SB_TMP/c2.rc";                            _ku_refused c2 upgrade-source-not-a-kit nz
+  grep -F 'it has no process/KIT-MANIFEST.' "$SB_TMP/c2.out" >/dev/null \
+    || cf "(c2) a clone's refusal does not name only the file missing: $(_ku_out c2)"
+  grep -F 'process/KIT-VERSION.' "$SB_TMP/c2.out" >/dev/null \
+    && cf "(c2) a clone's refusal names process/KIT-VERSION, which the clone has: $(_ku_out c2)"
+  grep -F './scripts/kit-manifest.sh' "$SB_TMP/c2.out" >/dev/null \
+    || cf "(c2) a clone's refusal does not name the command that writes the manifest: $(_ku_out c2)"
 
   # the source is the target: the adopter's own copy, after a first upgrade, run at its own tree
   local self="$SB_TMP/selfkit"; cp -R "$KU_NEW" "$self"

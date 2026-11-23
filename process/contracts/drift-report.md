@@ -58,11 +58,40 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   *Deliberately not enumerated here:* which spaces a project has. The kit's own implementation
   names the board and one register because it ships those two; a project that keeps a third owes
   it a reading, and this sheet would be wrong rather than general if it fixed the number.
-- **5 — Recent history is attributed.** Every commit subject in a recent window carries a
+- **5 — Recent history is attributed.** Every commit subject in the window carries a
   declared role, and the check understands collapsed commits so a landing is judged by its own
-  subject.
+  subject. **The window is every commit after the one that added the commit hook** (the rule's
+  epoch), else the last few; `scripts/lib/drift-window.sh` derives it once, for this check and for
+  `scripts/drift-ack.sh`.
   *Why:* attribution erodes one unnoticed commit at a time; a periodic count is what makes the
   erosion visible while it is still small.
+  **A commit the check reports stays reported until it is ACKNOWLEDGED, and an acknowledged commit
+  is listed, never counted.** A later commit does not forgive an earlier one: it is nobody's decision
+  about it. A row names who decided, when and why.
+  *Why a route out exists:* published history is not rewritten, so a finding that only a rewrite
+  clears holds the release gate shut for good, and a report that is red for good is the one that
+  stops being read. This is the recorded route; it is not silence.
+  - **The record** is `progress/drift-acknowledged.tsv`: a header row, then one row per commit with
+    the columns `sha`, `role`, `date` and `reason`. It is written only by `scripts/drift-ack.sh
+    <sha> --role <Role> --reason "<why>"`, which lands the row through `scripts/register-commit.sh`
+    as `[<Role>] drift-ack: <12 hex>`. It refuses a sha outside the window, a reason that is missing
+    or empty, a role the project does not declare, and a sha already acknowledged, and each refusal
+    names its `Next:`.
+  - **One record covers two cases**, and the reason says which: a commit that bypassed the rule, and
+    a commit the rule never reached (a branch begun before the kit was adopted and merged after, or
+    a clone whose commit hook was not wired). In neither does the record say the commit is right.
+  - **The arms that read history print each acknowledged commit** as `drift-acknowledged: <sha>
+    [<arm>] by <role> on <date> — <reason>` and do not count it, so the verdict `board-drift: clean`
+    holds while the acknowledgements stay on show; the release gate prints them as it passes. A
+    report that folds clean arms never folds one that holds such a line.
+  - **A hand edit of the record is itself a finding**, an arm of its own (`[e2]`), decided from
+    history and never from trust: every commit of the window that touches the file must be one
+    `scripts/drift-ack.sh` makes, that is the subject `[<Role>] drift-ack: <12 hex>` of a declared
+    role, that file alone, and exactly one row appended (with the header, when the commit creates the
+    file), the row beginning with the subject's sha and role. A merge is judged by its lines: each
+    line it leaves must exist in one of its parents. The finding has the same way out: acknowledging
+    the commit that made the edit.
+    *Why:* a record that anyone can write by hand is the silence it replaces, one commit away.
 - **6 — NO HOME the process writes to is holding unpublished work — EVERY such home, each named
   separately — and the check states which kind of stranding it looked for.** A project has more
   than one surface from which work reaches the trunk: whatever mechanism publishes board changes,
@@ -172,6 +201,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   *And the epoch is part of the invariant, not an implementation detail:* a rule cannot be violated
   before it existed, so a reading that does not say where it started reports pre-adoption history as
   drift and becomes a finding nobody can act on — which is how a report stops being read at all.
+  *A commit that carries the trailer and cannot be rewritten is acknowledged as invariant 5 says; the
+  reading lists it and does not count it.*
   **The span is commit MESSAGES**, and the reading says so: § A.1 of `doctrine/commit-hygiene.md`
   covers specs, issue activity entries and review notes too, and a clean reading here is not a
   statement about any of them.

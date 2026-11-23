@@ -1466,6 +1466,8 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
       # register-commit.sh validates --role BEFORE kwt_resolve/the worktree, so a placeholder
       # path still reaches the whitelist untouched.
       register-commit.sh) probe_cmd=(./scripts/register-commit.sh --message n a-placeholder-path.md --role) ;;
+      # drift-ack.sh validates --reason, then --role, before it reads the sha or the trunk.
+      drift-ack.sh)  probe_cmd=(./scripts/drift-ack.sh 0000000 --reason n --role) ;;
       *) _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: '$t' joined the derived population and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
     esac
     probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$kept" 2>&1 || true )"

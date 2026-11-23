@@ -574,7 +574,7 @@ if [ -f "$KIT_MANIFEST_FILE" ] && git -C "$ROOT" rev-parse --verify --quiet HEAD
     fi
   fi
 elif [ ! -f "$KIT_MANIFEST_FILE" ]; then
-  say "  ℹ no process/KIT-MANIFEST — the uncommitted-kit check is skipped (it reads that file)."
+  say "  ℹ no process/KIT-MANIFEST — the uncommitted-kit check is skipped (it reads that file). A clone of the kit has none: ./scripts/kit-manifest.sh writes it in an unmodified clone; copy it here and run this again."
 fi
 
 # --- every path § 5 will commit must be ADDABLE: none of them ignored ---

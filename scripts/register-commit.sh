@@ -389,8 +389,8 @@ UG_REGS
         [ -f "$_ug_q" ] || continue
         _ug_qrel="$_ug_dir/${_ug_q##*/}"
         grep -qF -- "$_ug_qrel" "$_ug_added" || continue
-        grep -qE '^\*\*Answer' "$_ug_q" || continue
-        if [ -f "$KWT/$_ug_qrel" ] && grep -qE '^\*\*Answer' "$KWT/$_ug_qrel"; then continue; fi
+        [ -n "$(kit_answer_present "$_ug_q")" ] || continue
+        if [ -f "$KWT/$_ug_qrel" ] && [ -n "$(kit_answer_present "$KWT/$_ug_qrel")" ]; then continue; fi
         _ug_in=""
         for _ug_p in "${PATHS[@]}"; do if [ "$_ug_p" = "$_ug_qrel" ]; then _ug_in=1; fi; done
         [ -z "$_ug_in" ] || continue

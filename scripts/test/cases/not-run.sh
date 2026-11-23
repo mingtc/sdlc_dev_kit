@@ -455,8 +455,8 @@ case_check_board_other_arms_say_did_not_run_when_their_reader_failed() {
   { _ask_pm_section 'Nadia, shop manager' 'dev/questions/'; printf -- '- `kit-feedback: auto` — the kit default\n'; } > "$SB_WORK/PROJECT.md"
   printf '# progress.md\n\n## Log\n\n### 2026-01-02 [Dev] a session\n\n- did the work.\n- `kit-feedback: none`\n' > "$SB_WORK/progress.md"
   printf '| Item | Origin | Size | Why deferred | Wake condition | Status |\n|---|---|---|---|---|---|\n| **Live** | audit | S | — | now | open (claimed by %s) |\n' "$id" > "$SB_WORK/dev/downtime-queue.md"
-  printf '# a question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** Yes.\n' "$id" > "$SB_WORK/dev/questions/2026-01-01-q-ask.md"
-  printf '# another question\n\n**Parks card:** %s\n\n**Answer (2026-01-02, Nadia):** No.\n' "$SB_PREFIX-952" > "$SB_WORK/dev/questions/2026-01-02-r-ask.md"
+  printf '# a question\n\n**Parks card:** %s\n\n**To answer:** add a block below.\n\n**Answer (2026-01-02, Nadia):** Yes.\n' "$id" > "$SB_WORK/dev/questions/2026-01-01-q-ask.md"
+  printf '# another question\n\n**Parks card:** %s\n\n**To answer:** add a block below.\n\n**Answer (2026-01-02, Nadia):** No.\n' "$SB_PREFIX-952" > "$SB_WORK/dev/questions/2026-01-02-r-ask.md"
   _cb_seed_manifest
   publish_sandbox
 

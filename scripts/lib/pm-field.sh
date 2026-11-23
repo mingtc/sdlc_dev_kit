@@ -6,7 +6,8 @@
 # kit_pm_field, and both judge whether a value is filled through kit_pm_blank, so the two can
 # never disagree about either. The channel's path is read from that line by kit_pm_channel_token,
 # and kit_pm_channel_dir judges whether it is a directory; ask.sh, register-commit.sh and
-# check-board.sh's answered-question arm share both.
+# check-board.sh's answered-question arm share both, and kit_answer_present decides whether a
+# question file holds an answer, so the two readers of an `**Answer` line cannot disagree.
 #
 # kit_pm_field <marker-regex> <file>
 #   Reads the FIRST line in <file> matching <marker-regex> (an awk ERE, the same shape both
@@ -31,6 +32,19 @@ kit_pm_field() {
       print v
       exit
     }' "$2"
+}
+
+# kit_answer_present [file]
+#   Prints 1 when a question file (stdin when no file is given) carries an answer: a line opening
+#   `**Answer` AFTER the file's own `**To answer:**` line, the one scripts/ask.sh writes below the
+#   question. Text above that line is the question's, and anything quoted into a question can open a
+#   line the same way, so only the block added below it counts. The last such line is the file's own
+#   (ask.sh writes it last). Prints nothing otherwise, and nothing for a file with no such line.
+kit_answer_present() {
+  awk '
+    /^\*\*To answer:\*\*/ { open = 1; found = 0; next }
+    open && /^\*\*Answer/ { found = 1 }
+    END { if (found) print 1 }' ${1+"$1"}
 }
 
 # kit_pm_channel_token <channel-line-value>
