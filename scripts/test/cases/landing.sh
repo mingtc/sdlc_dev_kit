@@ -2830,7 +2830,7 @@ case_finish_pr_stacked_branch_unlanded_base_refuses() {
   [ "$rc" -eq 1 ] || cf "finish-pr exited $rc (expected 1 — refused): $out"
   printf '%s\n' "$out" | grep -F "stacked on 'feature/$SB_PREFIX-820-a'" >/dev/null \
     || cf "refusal does not name the unlanded base branch: $out"
-  printf '%s\n' "$out" | grep -F "git rebase --onto $SB_TRUNK feature/$SB_PREFIX-820-a feature/$SB_PREFIX-820-b" >/dev/null \
+  printf '%s\n' "$out" | grep -F "git fetch origin && git rebase --onto origin/$SB_TRUNK feature/$SB_PREFIX-820-a feature/$SB_PREFIX-820-b" >/dev/null \
     || cf "refusal does not print the exact rebase --onto step: $out"
   origin_has_path "progress/qa_complete/$SB_PREFIX-820-stacked.md" \
     && cf "NOTHING WAS CHANGED was violated — the issue advanced anyway"
@@ -2881,6 +2881,11 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
   git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push origin --delete "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" branch -D "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
+  # A STALE LOCAL TRUNK, the common case: the squash is on the remote, and a fetch never moves the
+  # local trunk. The printed route must still give a branch that contains the squash.
+  git -C "$SB_WORK" reset --hard -q HEAD~1 >/dev/null 2>&1
+  git -C "$SB_WORK" merge-base --is-ancestor "origin/$SB_TRUNK" "$SB_TRUNK" 2>/dev/null \
+    && _control_did_not_run "leave the local trunk behind origin/$SB_TRUNK"
 
   local out rc
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-822" 2>&1 )"; rc=$?
@@ -2891,7 +2896,8 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
   printf '%s\n' "$out" | grep -F "already squash-landed on $SB_TRUNK" >/dev/null \
     || cf "(red) refusal does not say the base already squash-landed: $out"
   local rebase_cmd
-  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "git rebase --onto $SB_TRUNK [0-9a-f]+ feature/$SB_PREFIX-821-b" | head -1)"
+  # Either spelling is taken, so the STALE row below, not this pattern, decides where it rebases onto.
+  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "(git fetch origin && )?git rebase --onto [^ ]+ [0-9a-f]+ feature/$SB_PREFIX-821-b" | head -1)"
   [ -n "$rebase_cmd" ] || cf "(red) refusal does not print a git rebase --onto step naming the branch: $out"
   origin_has_path "progress/qa_complete/$SB_PREFIX-822-bstacked.md" \
     && cf "(red) NOTHING WAS CHANGED was violated — the issue advanced anyway"
@@ -2900,6 +2906,8 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
   if [ -n "$rebase_cmd" ]; then
     ( cd "$SB_WORK" && eval "$rebase_cmd" ) >/dev/null 2>&1 \
       || cf "(green) the printed rebase --onto command itself failed"
+    git -C "$SB_WORK" merge-base --is-ancestor "$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")" "feature/$SB_PREFIX-821-b" 2>/dev/null \
+      || cf "(stale) after the printed route, feature/$SB_PREFIX-821-b does not contain origin/$SB_TRUNK's squash: it was rebased onto the stale local trunk ($rebase_cmd)"
     git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-821-b" --force --quiet >/dev/null 2>&1
     out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-822" 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] || cf "(green) finish-pr still refused after the rebase (rc=$rc): $out"
@@ -2908,7 +2916,7 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
     origin_has_path "B.txt" || cf "(green) the rebased branch's own change did not land"
   fi
 
-  finish "finish-pr.sh refuses a branch stacked on a since-squash-landed base (detected by patch-id, no live ref needed), names the rebase --onto step, and lands cleanly once it is run"
+  finish "finish-pr.sh refuses a branch stacked on a since-squash-landed base (detected by patch-id, no live ref needed), names the rebase --onto step onto the remote's trunk, and lands cleanly once it is run, from a stale local trunk too"
   teardown
 }
 
@@ -2954,7 +2962,7 @@ case_finish_pr_stacked_branch_landed_base_ref_kept_refuses_as_squash_landed() {
   printf '%s\n' "$out" | grep -F "feature/$SB_PREFIX-823-a" >/dev/null \
     || cf "refusal does not name the surviving base branch: $out"
   local rebase_cmd
-  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "git rebase --onto $SB_TRUNK [0-9a-f]+ feature/$SB_PREFIX-823-b" | head -1)"
+  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "git fetch origin && git rebase --onto origin/$SB_TRUNK [0-9a-f]+ feature/$SB_PREFIX-823-b" | head -1)"
   [ -n "$rebase_cmd" ] || cf "refusal does not print a git rebase --onto step naming the branch: $out"
   origin_has_path "progress/qa_complete/$SB_PREFIX-824-ktop.md" \
     && cf "NOTHING WAS CHANGED was violated — the issue advanced anyway"
