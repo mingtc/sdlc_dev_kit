@@ -126,12 +126,32 @@ git_push_with_retry() {
   return 1   # return-class: internal
 }
 
+# git__worktree_holding <dir> <branch> — prints the path of the worktree that has <branch> checked out, or nothing.
+git__worktree_holding() {
+  git -C "$1" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$2" '!d && /^worktree /{p=substr($0,10)} !d && $0 == "branch " b {print p; d=1}'
+}
+
+# git__set_aside_cmd <dir> <remote> <branch> <name> — prints the command that keeps local <branch>'s commits on a new
+# branch <name> and puts local <branch> back on <remote>/<branch>: reset --keep in the worktree that holds <branch>,
+# else a ref move (no checkout holds it, so a reset would move the wrong branch).
+git__set_aside_cmd() {
+  local dir="$1" remote="$2" branch="$3" name="$4" holder qd qh
+  printf -v qd '%q' "$dir"
+  holder="$(git__worktree_holding "$dir" "$branch")"
+  if [ -n "$holder" ]; then
+    printf -v qh '%q' "$holder"
+    printf '%s' "git -C $qd branch $name $branch && git -C $qh reset --keep $remote/$branch"
+  else
+    printf '%s' "git -C $qd branch $name $branch && git -C $qd branch -f $branch $remote/$branch"
+  fi
+}
+
 # git__merge_then_push_cmd <dir> <remote> <branch> — prints the command that merges <remote>/<branch> into local
 # <branch> and pushes it: in the worktree that holds <branch>, else after switching <dir>'s checkout to it.
 git__merge_then_push_cmd() {
   local dir="$1" remote="$2" branch="$3" holder qd qh
   printf -v qd '%q' "$dir"
-  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '!d && /^worktree /{p=substr($0,10)} !d && $0 == "branch " b {print p; d=1}')"
+  holder="$(git__worktree_holding "$dir" "$branch")"
   if [ -n "$holder" ]; then
     printf -v qh '%q' "$holder"
     printf '%s' "git -C $qh merge $remote/$branch && git -C $qh push $remote $branch"
@@ -169,14 +189,16 @@ git_report_ahead_behind() {
 # git_refuse_unpublished_trunk <dir> <remote> <branch> — the same question as the check above, asked
 # BEFORE a landing: refuses (kit_refuse, status 1) while local <branch> holds commits <remote>/<branch>
 # lacks, because the landing goes on the remote's tip beside them and local <branch> then cannot follow
-# it. `trunk-ahead` when the remote holds nothing local lacks, `trunk-diverged` when it holds some.
+# it. `trunk-ahead` when the remote holds nothing local lacks, `trunk-diverged` when it holds some. The refusal cannot
+# know whether those commits were reviewed, so its Next: sets them aside on a branch to land through finish-pr.sh
+# (a hand merge into the trunk must not reach the remote past the gate), and only its second route pushes them.
 # Compares the two REFS in <dir> after a fetch, never <dir>'s checked-out HEAD, so it reads the same
 # wherever <branch> is checked out. A diverged Next: runs the merge in the worktree that holds <branch>;
 # where none does, it switches <dir>'s checkout to <branch> first (git refuses if that would lose edits). Offline it reads the last fetched ref and says so. Behind-only and
 # equal return 0, as does a repository with no local <branch> or no <remote>/<branch> to compare.
 # Changes nothing. Needs lib/refuse.sh loaded (kanban-worktree.sh sources it).
 git_refuse_unpublished_trunk() {
-  local dir="$1" remote="$2" branch="$3" stale="" counts behind ahead fix qd
+  local dir="$1" remote="$2" branch="$3" stale="" counts behind ahead fix qd name aside
   GIT_TERMINAL_PROMPT=0 git -C "$dir" fetch "$remote" "$branch" --quiet 2>/dev/null \
     || stale=" (read from the last fetch: the fetch of $remote/$branch failed)"
   counts="$(git -C "$dir" rev-list --left-right --count "refs/remotes/$remote/$branch...refs/heads/$branch" 2>/dev/null)" || return 0
@@ -185,17 +207,21 @@ git_refuse_unpublished_trunk() {
   [ "${ahead:-0}" -gt 0 ] || return 0
   local unpushed; unpushed="$(git -C "$dir" log --format='         %h %s' -n 5 "refs/remotes/$remote/$branch..refs/heads/$branch" 2>/dev/null)" || unpushed=""
   printf -v qd '%q' "$dir"
+  name="$branch-unlanded-$(git -C "$dir" rev-parse --short=7 "refs/heads/$branch" 2>/dev/null)"
+  aside="$(git__set_aside_cmd "$dir" "$remote" "$branch" "$name")"
   if [ "${behind:-0}" -eq 0 ]; then
     kit_refuse 1 trunk-ahead \
       "Error: local '$branch' is $ahead commit(s) ahead of $remote/$branch and not pushed$stale. A landing now goes on $remote/$branch's tip beside them: a second history, and local '$branch' then diverges from it. Nothing was changed." \
       "       Unpushed, newest first, up to 5:" \
       "$unpushed" \
-      "Next: push them, then run the same command again:  git -C $qd push $remote $branch"
+      "Next: if any of them did not land through the gate (a branch merged into local '$branch' by hand, or anything unreviewed), set them aside on '$name', put local '$branch' back on $remote/$branch, run the same command again, and land '$name' with ./scripts/finish-pr.sh <ID> --branch $name:  $aside" \
+      "       Only if every listed commit was meant for '$branch' as it is: push them, then run the same command again:  git -C $qd push $remote $branch"
   fi
   fix="$(git__merge_then_push_cmd "$dir" "$remote" "$branch")"
   kit_refuse 1 trunk-diverged \
     "Error: local '$branch' has $ahead commit(s) $remote/$branch lacks, and $remote/$branch has $behind that local '$branch' lacks$stale. A landing now goes on $remote/$branch's tip and cannot be fast-forwarded into local '$branch'. Nothing was changed." \
     "       Unpushed, newest first, up to 5:" \
     "$unpushed" \
-    "Next: merge $remote/$branch into local '$branch', push, then run the same command again:  $fix"
+    "Next: if any of them did not land through the gate (a branch merged into local '$branch' by hand, or anything unreviewed), set them aside on '$name', put local '$branch' back on $remote/$branch, run the same command again, and land '$name' with ./scripts/finish-pr.sh <ID> --branch $name:  $aside" \
+    "       Only if every listed commit was meant for '$branch' as it is: merge $remote/$branch into local '$branch', push, then run the same command again:  $fix"
 }
