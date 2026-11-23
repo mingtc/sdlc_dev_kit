@@ -46,6 +46,13 @@ the invariants below reach it while the tooling does not.
   the prefix comes from one declared setting.
   *Why:* an adopter who cannot change the prefix inherits somebody else's project name in every
   identifier forever.
+- **The number starts at three digits and widens; `NNN` means "the number", not three digits.** It
+  starts at three digits (zero-padded to three), is never padded further and never renumbered, and
+  gets a digit when its space outgrows the width (999, then 1000). `NNN` in prose, usage text and
+  templates names the number. A comparison is numeric, so `ABC-1`, `ABC-001` and `ABC-0001` are one number (as
+  `config.sh` already says).
+  *Why:* a width assumed in a regex or a sort is correct on every id that exists the day it is
+  written and wrong on the first id past it.
 - **Minting reads; it never writes.** Asking for the next identifier changes nothing, so asking
   twice is safe and asking is never a commitment.
   *Why:* a reserving mint leaks numbers on every abandoned session, and gaps then look like lost

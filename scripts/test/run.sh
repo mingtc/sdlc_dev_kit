@@ -1067,6 +1067,7 @@ CASES=(
   case_the_movers_refuse_a_bare_prefix_for_an_issue_id
   case_an_issue_id_is_its_integer_not_its_spelling
   case_a_heading_id_ends_at_the_same_place_in_every_reader
+  case_ids_widen_past_three_digits
   case_ship_state
   case_isolation_is_read_with_the_machines_git_config_shut_out
   case_isolation

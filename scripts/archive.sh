@@ -190,12 +190,13 @@ $(printf '%s\n' "$_held" | sed 's|^.*/|      |')
   kit_refuse 1 archive-index-missing "$_idx_what" ${_idx_state:+"$_idx_state"} "$_idx_next"
 fi
 
-# Collect issue files. Sort descending so the highest IDs (newest) appear
-# first in the prepended block.
+# Collect issue files. Sort descending BY THE ID'S NUMBER so the highest IDs (newest) appear first
+# in the prepended block: a name sort puts -999 above -1000, and an id widens past three digits
+# (process/contracts/id-minting.md § 2). The key is the digits after "<prefix>-", the name breaks a tie.
 FILES=()
 while IFS= read -r f; do
   FILES+=("$f")
-done < <(find "$QA_DIR" -maxdepth 1 -name "${ISSUE_PREFIX}-*.md" -type f | sort -r)
+done < <(find "$QA_DIR" -maxdepth 1 -name "${ISSUE_PREFIX}-*.md" -type f | awk -v pfx="${ISSUE_PREFIX}-" -F/ '{ n = substr($NF, length(pfx) + 1); sub(/[^0-9].*$/, "", n); print n "\t" $0 }' | sort -t "$(printf '\t')" -k1,1nr -k2,2r | cut -f2-)
 
 if [ ${#FILES[@]} -eq 0 ]; then
   echo "Nothing to sweep in progress/qa_complete/ (looking for ${ISSUE_PREFIX}-*.md)."

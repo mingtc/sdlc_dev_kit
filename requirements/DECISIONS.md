@@ -64,8 +64,10 @@ first writing. A change committed without it stays reported, because history is 
 
 **Ids are stable.** `D-NN` is a permanent handle. When a ruling is removed the id is **retired,
 never reused**, so a citation elsewhere can never silently come to mean something else.
-<!-- ID WIDTH: zero-padded to TWO digits until the register passes 99, then plain three digits.
-     Do not re-pad the old ids when that happens; the handle is the string.
+<!-- ID WIDTH: the number starts at three digits (zero-padded to three) and widens when the register
+     passes 999. Never re-pad an id, never renumber one; the handle is the string, so an id minted
+     with two digits under the older rule stays as it was written.
+     (Contract: process/contracts/id-minting.md § 2, which states the width for every id.)
      NO LITERAL ID APPEARS IN THIS FILE'S PROSE (ids are written `D-NN`): the drift report reads a
      register with no entry headings but an id elsewhere as a register whose shape has drifted.
      MINTING IS A READ, NOT A GUESS: a concurrent landing must check the file's actual next-free
