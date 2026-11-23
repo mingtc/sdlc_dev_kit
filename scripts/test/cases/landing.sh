@@ -5,44 +5,6 @@
 # =============================================================================
 
 # =============================================================================
-# CASE — finish-pr.sh happy path (squash-merge, delete branch, advance)
-#
-# It asserts the STATE (both refs gone) AND THE CLAIM (what the board note says happened):
-# a note composed before the deletes can report a deletion that did not happen. A branch
-# held by a second worktree and a delete that cannot succeed are the sibling cases below.
-# =============================================================================
-case_finish_pr_happy() {
-  cf_reset
-  make_sandbox
-  seed_issue dev_complete "$SB_PREFIX-777" sandbox chore "Happy path" "feature/$SB_PREFIX-777-work"
-  publish_sandbox
-  seed_branch "$SB_PREFIX-777" work CHANGE.txt
-
-  local out rc
-  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-777" 2>&1 )"; rc=$?
-
-  [ "$rc" -eq 0 ] || cf "finish-pr exited $rc (expected 0): $out"
-  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-777-work" >/dev/null 2>&1 \
-    && cf "local branch not deleted"
-  [ -z "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-777-work" 2>/dev/null)" ] \
-    || cf "remote branch not deleted"
-  origin_has_path "progress/qa_complete/$SB_PREFIX-777-sandbox.md" \
-    || cf "issue not advanced to qa_complete/ on the trunk"
-  origin_has_path "CHANGE.txt" || cf "squash-merged change not on the trunk"
-
-  # THE CLAIM. These strings are produced only by the arms that MEASURED a confirmed deletion.
-  origin_file_contains "progress/qa_complete/$SB_PREFIX-777-sandbox.md" "local branch deleted" \
-    || cf "board note does not report the local delete it performed"
-  origin_file_contains "progress/qa_complete/$SB_PREFIX-777-sandbox.md" "branch deleted (confirmed gone)" \
-    || cf "board note does not report the CONFIRMED remote delete it performed"
-  printf '%s' "$out" | grep "confirmed gone by ls-remote" >/dev/null \
-    || cf "run output does not show the remote delete being confirmed by re-measurement"
-
-  finish "finish-pr.sh happy path: squash-merge + delete branch + advance, and the board note reports BOTH deletes truthfully"
-  teardown
-}
-
-# =============================================================================
 # CASE — A CRASH UNDER THE LOCK IS NOT A SUCCESS.
 #
 # bash 3.2 (macOS /bin/bash), under `set -e`, gives an EXIT trap status 0 after an
@@ -3446,31 +3408,6 @@ case_finish_pr_board_property_check_reads_the_branch_not_a_tag_of_its_name() {
   teardown
 }
 
-
-# =============================================================================
-# CASE — A MOVE TO qa_complete THAT NO finish-pr.sh LANDING VOUCHES FOR RUNS THE GATE ON THE TRUNK TIP.
-#
-# Two documented routes put a change on the trunk without the landing gate: QA's by-hand squash-merge and
-# the direct-to-trunk close. The mover then ran only the QA Verdict check, so a red trunk reached qa_complete/
-# with exit 0. A move to qa_complete/ with no verified --landed-at now runs the trunk's committed
-# `verify.sh --quick`, in a fresh detached worktree at the trunk tip, and refuses on a red (1), on a runner
-# that did not run (2) and on a gate that could not run (3), each named apart, with the move undone.
-#
-# THE FIXTURE: a real gate on the trunk, red exactly when marker.txt reads `red`. The harness defaults the
-# mover's test seam ON (MOVE_ISSUE_TEST_ALLOW_STUB=1, MOVE_ISSUE_GATE_CMD=true) so the cases that only need a
-# card to move stay about their own subject; every row here runs the mover with both unset (_mvg_run) unless it
-# is the row about the seam. Rows: (a) a branch card landed by hand on a red trunk; (b) a branchless card closed
-# direct on a red trunk; (c) the green control moves, and the refused card of (a) moves once the trunk is fixed;
-# (d) a command in MOVE_ISSUE_GATE_CMD without the allow flag is ignored (the red still refuses); (e) with the
-# flag, the seam's exit statuses 1, 2 and 3 are refused apart and `true` moves the card and says STUB.
-# RED FIRST: on a mover with no such check, (a) and (b) move the card. Ablation: the call removed from a
-# copy of the mover, committed to the sandbox trunk (a lander runs only the trunk's own copy), must let (f)'s
-# red-trunk card through.
-# =============================================================================
-_mvg_run() {   # <id> [VAR=value…] — the mover to qa_complete, the harness's seam OFF unless the caller sets it. Sets MVG_OUT, MVG_RC.
-  local id="$1"; shift
-  MVG_OUT="$( cd "$SB_WORK" && env -u MOVE_ISSUE_GATE_CMD -u MOVE_ISSUE_TEST_ALLOW_STUB "$@" ./scripts/move-issue.sh "$SB_PREFIX-$id" qa_complete --role QA --note "review" 2>&1 )"; MVG_RC=$?
-}
 _mvg_marker() {   # <red|green> <subject> — commit marker.txt on the trunk and push it
   printf '%s\n' "$1" > "$SB_WORK/marker.txt"
   git -C "$SB_WORK" add marker.txt >/dev/null 2>&1

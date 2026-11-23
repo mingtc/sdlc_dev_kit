@@ -2,64 +2,8 @@
 # =============================================================================
 # scripts/test/cases/kit-init.sh — sourced by scripts/test/run.sh, never run on its own.
 # kit-init.sh, the creation scripts and the role set: first mile, option parsing, minted
-# cards, role enforcement — and kit_init_sandbox / has_issue_template, which other families call.
+# cards, role enforcement. kit_init_sandbox and has_issue_template, which other families call, are in smoke.sh.
 # =============================================================================
-
-# =============================================================================
-# POST-INIT, THE KIT-CLASS MARKERS ARE INTACT — not rewritten and not deleted
-# =============================================================================
-# Both directions, because either alone passes on a tree whose markers were deleted: "no
-# <PREFIX>-CLASS" holds with no marker at all, and "KIT-CLASS present" holds if one file kept it.
-# The defect guarded: the prefix substitution rewriting the marker KEY (SBX-CLASS).
-case_kit_init_markers_intact() {
-  cf_reset
-  if ! has_kit_init; then skp "kit-init: KIT-CLASS markers survive the stamp" "scripts/kit-init.sh absent"; return; fi
-  if ! has_issue_template; then skp "kit-init: KIT-CLASS markers survive the stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  # kit-init needs a prepared .claude/ and a published trunk; a bare make_sandbox exits 1 with
-  # no output, which reads as a defect in the subject.
-  kit_init_sandbox
-  publish_sandbox
-
-  local out rc
-  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "kit-init: KIT-CLASS markers survive the stamp"; teardown; return; }
-
-  local dirs=() d
-  for d in "$SB_WORK/.claude/templates" "$SB_WORK/.claude/roles"; do [ -d "$d" ] && dirs+=("$d"); done
-  [ "${#dirs[@]}" -gt 0 ] || cf "neither .claude/templates nor .claude/roles exists post-init — the assertion has no operand"
-
-  if [ "${#dirs[@]}" -gt 0 ]; then
-    # DIRECTION 1 — the marker is still THERE. Catches deletion, and catches a rewrite.
-    local kept; kept="$(grep -rl 'KIT-CLASS' "${dirs[@]}" 2>/dev/null | wc -l | tr -d ' ')"
-    [ "$kept" -gt 0 ] \
-      || cf "post-init, NO file under .claude/{templates,roles} carries a KIT-CLASS marker — the stamp removed or rewrote the classification off every one"
-
-    # DIRECTION 2 — no PREFIXED variant exists. Names the rewrite specifically; without
-    # it, direction 1 alone reports "markers gone" and not "the key was substituted".
-    local rewritten; rewritten="$(grep -rn 'SBX-CLASS' "${dirs[@]}" 2>/dev/null || true)"
-    [ -z "$rewritten" ] \
-      || cf "the prefix substitution rewrote the marker's KEY — a grep for KIT-CLASS will find nothing:
-$(printf '%s' "$rewritten" | sed 's/^/      /')"
-
-    # ── REDDENING CONTROL, on a COPY: reproduce the substitution and confirm BOTH arms fire.
-    local probe="$SB_TMP/mkprobe"; rm -rf "$probe"; mkdir -p "$probe"
-    cp -R "${dirs[0]}" "$probe/" 2>/dev/null || true
-    local pd; pd="$(probe_pick "$probe" -mindepth 1 -maxdepth 1 -type d)"
-    if [ -z "$pd" ]; then
-      _control_did_not_run "copy a marker directory to plant into"
-    else
-      find "$pd" -type f -name '*.md' -exec sed -i.bak 's/KIT-CLASS/SBX-CLASS/g' {} \; 2>/dev/null
-      find "$pd" -name '*.bak' -delete 2>/dev/null
-      [ -z "$(grep -rl 'KIT-CLASS' "$pd" 2>/dev/null)" ] \
-        || cf "(control) the planted substitution left KIT-CLASS behind — the control did not reproduce the defect"
-      [ -n "$(grep -rn 'SBX-CLASS' "$pd" 2>/dev/null)" ] \
-        || cf "(control) the planted substitution produced no SBX-CLASS — direction 2 would never fire"
-    fi
-  fi
-
-  finish "kit-init: KIT-CLASS markers survive the stamp — present under .claude/{templates,roles} AND no <PREFIX>-CLASS variant (both directions, deletion and rewrite)"
-  teardown
-}
 
 # =============================================================================
 # POST-INIT, EVERY KIT-DISPOSITION: DECLARATION THE SHIPPED TREE CARRIES SURVIVES UNCHANGED
@@ -318,40 +262,6 @@ case_release_notes_roles_stamp_check_works_on_both_routes() {
     || cf "(control) the check did not name exactly the script that carries the shipped set again: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"
 
   finish "$title (command read from the notes at run time)"
-  teardown
-}
-
-# =============================================================================
-# kit-init's OWN COMMITS DECLARE THE PRE-ROLE HAT. A day-one tree has no session hat and the
-# commit guard refuses a commit with none, so the initializer declares its hat (the pre-role hat
-# the subject names) for each commit it makes: the initialization commit and the self-check's.
-# The sandbox is a day-one tree (kit_init_sandbox clears the hat); a raw commit afterwards is the
-# control that the tree really had none, so the initializer's success is not an artefact.
-# RED FIRST: with the declaration removed from kit-init.sh, its first commit is refused.
-# =============================================================================
-case_kit_init_commits_under_the_pre_role_hat() {
-  cf_reset
-  if ! has_kit_init; then skp "kit-init: its own commits declare the pre-role hat" "scripts/kit-init.sh absent"; return; fi
-  if ! has_issue_template; then skp "kit-init: its own commits declare the pre-role hat" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  kit_init_sandbox
-  publish_sandbox
-  local rel; rel="$(_sandbox_hat_file)"
-  [ -n "$rel" ] && [ ! -e "$SB_WORK/$rel" ] \
-    || _fixture_die "case_kit_init_commits_under_the_pre_role_hat: the day-one sandbox holds a hat file (or none could be named), so kit-init's success below would prove nothing."
-
-  local out rc
-  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ] || cf "kit-init with no hat file declared exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
-  origin_log_has_subject 'kit-init: initialize the kit' || cf "the initialization commit is not on the trunk"
-  origin_log_has_subject 'kit-init self-check: mint scratch card' || cf "the self-check's mint commit is not on the trunk"
-  [ ! -e "$SB_WORK/$rel" ] || cf "kit-init left a hat file declared for the session"
-
-  # (control) the tree really had no hat: a raw commit is refused now.
-  printf 'x\n' > "$SB_WORK/after-init.txt"; git -C "$SB_WORK" add after-init.txt
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[PM] after init" 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "(control) a raw commit after kit-init with no hat was ACCEPTED, so the success above was not a declaration's work"
-
-  finish "kit-init: its initialization and self-check commits declare the pre-role hat, so a day-one tree with no session hat initializes; a raw commit there is refused"
   teardown
 }
 
@@ -626,34 +536,11 @@ case_kit_init_still_fails_on_a_real_finding() {
 # `.claude/templates` from a BUILT kit, so an unbuilt `_claude/` tree is not these cases'
 # operand. Sites that read whichever spelling exists read the shipped tree in place (run.sh's
 # header says why that is only a convenience).
-ISSUE_TEMPLATE_REL='.claude/templates/ISSUE.template.md'
-ISSUE_TEMPLATE_ABSENT="$ISSUE_TEMPLATE_REL absent (copy-list incomplete)"
-has_issue_template() { [ -f "$REAL_REPO_ROOT/$ISSUE_TEMPLATE_REL" ]; }
 
 # THE HAT-FILE PATH, derived from the one lib that defines it. An empty derivation is refused by
 # every caller, because an empty path would make a grep match every line and pass on nothing.
 _role_rel() {   # -> KIT_HAT_FILE_REL as lib/hat-file.sh declares it, or empty if it cannot be read
   sed -n 's/^KIT_HAT_FILE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/lib/hat-file.sh" 2>/dev/null
-}
-
-has_kit_init() { [ -f "$REAL_SCRIPTS/kit-init.sh" ]; }
-
-kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
-  make_sandbox "$@"
-  mkdir -p "$SB_WORK/.claude"
-  if [ -d "$REAL_REPO_ROOT/.claude/templates" ]; then
-    cp -R "$REAL_REPO_ROOT/.claude/templates" "$SB_WORK/.claude/templates"
-  fi
-  # The role docs are in the substitution pass; copying them gives the census an operand.
-  if [ -d "$REAL_REPO_ROOT/.claude/roles" ]; then
-    cp -R "$REAL_REPO_ROOT/.claude/roles" "$SB_WORK/.claude/roles"
-  fi
-  # Then take the adopter's stamp back out, as make_sandbox does for scripts/. After BOTH
-  # copies: the neutralizer walks all of .claude/, so a call between them leaves the role docs
-  # stamped.
-  _kit_neutral_claude
-  # A day-one tree has no session hat: kit-init's own commits must declare theirs.
-  sandbox_hat_clear
 }
 
 # THE OLD-LITERAL SCAN, over the kit's own files only. Operand: the shipped sha256 in process/KIT-MANIFEST.
@@ -663,10 +550,6 @@ kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
 # literal, space-led, and _OLD_N_MAN (rows read) and _OLD_N_JUDGED (rows judged); called without a subshell. With no sha256 tool every
 # path is judged, because nothing can tell edited from shipped.
 _OLD_N_MAN=0; _OLD_N_JUDGED=0; _OLD_HITS=""
-_old_sha() {
-  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
-  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" 2>/dev/null | awk '{print $1}'; fi
-}
 _old_literal_hits() {   # <tree root> <literal>
   local root="$1" lit="$2" h mrel f got out=""
   _OLD_N_MAN=0; _OLD_N_JUDGED=0
@@ -2574,46 +2457,6 @@ case_creation_slug_shape_is_one_rule() {
 }
 
 # =============================================================================
-# CASE — new-prd.sh publishes a whole PRD or nothing: a failed step must not leave a
-# half-made file in requirements/, where it spends the id.
-# =============================================================================
-case_new_prd_failure_leaves_nothing() {
-  cf_reset
-  if ! has_issue_template; then skp "new-prd.sh: a failed mint leaves nothing" "$ISSUE_TEMPLATE_ABSENT"; return; fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then
-    skp "new-prd.sh: a failed mint leaves nothing" ".claude/templates/PRD.template.md absent — new-prd.sh exits at its template check"
-    return
-  fi
-  make_sandbox
-  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
-  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
-  _kit_neutral_claude
-
-  local lib="$SB_WORK/scripts/lib/card-head.sh" out rc
-  cp "$lib" "$SB_TMP/card-head.real"
-  # The re-head is the last step before publishing; a stub that fails it stands for any late failure.
-  # Appended, so the library's other functions stay defined.
-  { cat "$SB_TMP/card-head.real"; printf '%s\n' 'kit_rehead_card() { echo "stub: re-head failed" >&2; return 1; }'; } > "$lib"
-
-  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe 2>&1 )" || rc=$?
-  [ "$rc" -ne 0 ] || cf "new-prd.sh exited 0 with a failing re-head: $(printf '%s' "$out" | tr '\n' '|')"
-  printf '%s' "$out" | grep -F 'stub: re-head failed' >/dev/null \
-    || cf "new-prd.sh failed before reaching the re-head, so this proves nothing about a late failure: $(printf '%s' "$out" | tr '\n' '|')"
-  [ -z "$(find "$SB_WORK/requirements" -type f 2>/dev/null)" ] \
-    || cf "a failed new-prd.sh left file(s) in requirements/ — the id is spent: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
-
-  # CONTROL: with the real re-head the same call mints, and at the first number.
-  cp "$SB_TMP/card-head.real" "$lib"
-  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe 2>&1 )" || rc=$?
-  [ "$rc" -eq 0 ] || cf "(control) new-prd.sh failed with the real re-head (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
-  [ -f "$SB_WORK/requirements/$KIT_NEUTRAL_PRD_PREFIX-001-probe.md" ] \
-    || cf "(control) the retry did not mint $KIT_NEUTRAL_PRD_PREFIX-001-probe.md: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
-
-  finish "new-prd.sh: a failed re-head leaves requirements/ empty, and the retry mints the first id"
-  teardown
-}
-
-# =============================================================================
 # CASE — every creator builds its file beside the destination (so publishing is a rename) and
 # publishes it with the umask's mode; neither a success nor a failure leaves a temp file there.
 # =============================================================================
@@ -2996,7 +2839,6 @@ case_creation_scripts_substitute_hostile_values() {
   finish "creation scripts (subtask.sh included): a value carrying sed's delimiter or its whole-match metacharacter lands VERBATIM in the card, no .bak is ever left on the board, and a refusal after id validation creates nothing"
   teardown
 }
-
 
 # =============================================================================
 # CASE — THE FIRST MILE, pinned end to end.

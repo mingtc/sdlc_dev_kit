@@ -682,3 +682,251 @@ case_pack_refusals_name_their_next_step() {
   finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a symlink in the way) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
   rm -rf "$t"
 }
+
+# =============================================================================
+# THE SMOKE LIST, AND HOW run.sh COMPOSES ITS CASE LIST FROM IT AND scripts/test/CASE-LIST.
+# The cases below drive the REAL run.sh over a miniature harness each builds, because the composition cannot be
+# driven from inside a run that has already loaded its cases. Names a fixture defines are built from $P, never
+# written: the census of case names the shipped files cite reads every case_ token in this file.
+# =============================================================================
+
+# _smk_array — the names in run.sh's CASES array, one a line.
+_smk_array() { awk '/^CASES=\(/ { f = 1; next } f && /^\)$/ { exit } f { gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 != "") print }' "$HARNESS_ENTRY"; }
+
+# _smk_names <file> — the names a case-list file holds, one a line.
+_smk_names() { sed 's/\r$//; s/#.*//; s/^[[:space:]]*//; s/[[:space:]]*$//' "$1" | grep . || true; }
+
+# _smk_mini <dir> <case name>… — a miniature harness: the real run.sh and libraries and scripts/pack.sh, CASES replaced by the
+# names given (the last is the isolation stand-in), each defined one space in as a case that passes.
+_smk_mini() {
+  local fx="$1" n blk=""; shift
+  mkdir -p "$fx/scripts/test/lib" "$fx/scripts/test/cases" "$fx/process" || return 1
+  cp "$HARNESS_ENTRY" "$fx/scripts/test/run.sh" && cp "$HARNESS_DIR"/lib/*.sh "$fx/scripts/test/lib/" \
+    && cp -R "$REAL_SCRIPTS/lib" "$fx/scripts/" && cp "$REAL_SCRIPTS/config.sh" "$REAL_SCRIPTS/pack.sh" "$fx/scripts/" || return 1
+  : > "$fx/process/KIT-MANIFEST"
+  { printf ' isolation_snapshot() { :; }\n'; for n in "$@"; do printf ' %s() { ok "fx %s ran"; }\n' "$n" "$n"; done; } > "$fx/scripts/test/cases/mini.sh"
+  for n in "$@"; do blk="$blk  $n
+"; done
+  BLK="CASES=(
+$blk)
+" perl -0pi -e 's/\nCASES=\(\n.*?\n\)\n/\n$ENV{BLK}/s' "$fx/scripts/test/run.sh" || return 1
+  grep -qx "  $1" "$fx/scripts/test/run.sh"
+}
+
+# _smk_run <dir> <run.sh args…> — the miniature's run.sh; sets SMK_OUT (stdout and stderr, colour stripped) and SMK_RC.
+_smk_run() {
+  local fx="$1"; shift
+  SMK_OUT="$( cd "$fx" && env -u KIT_TEST_CASES bash scripts/test/run.sh "$@" 2>&1 )"; SMK_RC=$?
+  SMK_OUT="$(printf '%s' "$SMK_OUT" | sed $'s/\x1b\\[[0-9;]*m//g')"
+}
+
+# _smk_pack <dir> <name> <fixture dir> — a pack of the files under <fixture dir>, in <dir>'s pack directory.
+_smk_pack() {
+  local names pdir pext; names="$(_pkc_names)"; pdir="${names%% *}"; pext="${names#* }"; pext="${pext%% *}"
+  mkdir -p "$1/$pdir" && sh "$REAL_SCRIPTS/lib/kitpack.sh" build "$3" "$1/$pdir/$2.$pext" "$2" 1700000000 >/dev/null 2>&1
+}
+
+# =============================================================================
+# CASE — run.sh SAYS HOW MANY CASES ARE IN A PACK, AND ONLY WHEN A PACK HOLDS A CASE LIST.
+# A miniature harness with two cases loose, a tree pack holding five more and their list, a module pack holding
+# three and theirs, and a pack holding no list. --list and the run's summary name each pack with its count, the
+# counts equal a separate count over the fixture the case built, the list holds the loose names alone, and after
+# `pack.sh unpack --all` the line is gone and every case is listed and runs.
+# =============================================================================
+case_run_says_how_many_cases_are_in_a_pack() {
+  cf_reset
+  local P="case_" t fx names dir ext core iso i n m after rc
+  names="$(_pkc_names)"; dir="${names%% *}"; ext="${names#* }"; ext="${ext%% *}"
+  t="$(mktemp -d)" || _fixture_die "case_run_says_how_many_cases_are_in_a_pack: no scratch directory"
+  core="${P}fx_core"; iso="${P}isolation"; fx="$t/fx"
+  _smk_mini "$fx" "$core" "$iso" || _fixture_die "case_run_says_how_many_cases_are_in_a_pack: the miniature harness was not built (run.sh's CASES block moved?)"
+  mkdir -p "$t/s1/scripts/test/cases" "$t/s2/modules/fxm/test/cases" "$t/s3/docs"
+  { printf '# the cases in the pack\n\n'; for i in 1 2 3 4 5; do printf '%sfx_rest_%s\n' "$P" "$i"; done; } > "$t/s1/scripts/test/CASE-LIST"
+  for i in 1 2 3 4 5; do printf ' %sfx_rest_%s() { ok "fx rest %s ran"; }\n' "$P" "$i" "$i"; done > "$t/s1/scripts/test/cases/rest.sh"
+  { printf '# the cases of fxm\n'; for i in 1 2 3; do printf '%sfx_mod_%s\n' "$P" "$i"; done; } > "$t/s2/modules/fxm/test/CASE-LIST"
+  for i in 1 2 3; do printf '%sfx_mod_%s() { ok "fx mod %s ran"; }\n' "$P" "$i" "$i"; done > "$t/s2/modules/fxm/test/cases/m.sh"
+  printf 'no case list in this one\n' > "$t/s3/docs/x.md"
+  # the expected counts come from the fixture's own text, by a different reader than run.sh's
+  n="$(grep -c "^${P}fx_rest_" "$t/s1/scripts/test/CASE-LIST")"; m="$(grep -c "^${P}fx_mod_" "$t/s2/modules/fxm/test/CASE-LIST")"
+  { [ "$n" = 5 ] && [ "$m" = 3 ]; } || _fixture_die "case_run_says_how_many_cases_are_in_a_pack: the fixture counts read $n and $m, not 5 and 3"
+  _smk_pack "$fx" fxrest "$t/s1" && _smk_pack "$fx" fxmod "$t/s2" && _smk_pack "$fx" fxdoc "$t/s3" || _fixture_die "case_run_says_how_many_cases_are_in_a_pack: a fixture pack was not built"
+
+  _smk_run "$fx" --list
+  [ "$SMK_RC" -eq 0 ] || cf "(a) --list exited $SMK_RC: $(printf '%s' "$SMK_OUT" | tail -3 | tr '\n' '|' | cut -c1-200)"
+  case "$SMK_OUT" in *"$n in $dir/fxrest.$ext"*) ;; *) cf "(a) --list does not say $n case(s) are in $dir/fxrest.$ext: $(printf '%s' "$SMK_OUT" | grep 'in packs' | cut -c1-200)" ;; esac
+  case "$SMK_OUT" in *"$m in $dir/fxmod.$ext"*) ;; *) cf "(a) --list does not say $m case(s) are in $dir/fxmod.$ext" ;; esac
+  case "$SMK_OUT" in *"fxdoc"*) cf "(a) --list names a pack that holds no case list" ;; esac
+  case "$SMK_OUT" in *"case list: 2 case(s)"*) ;; *) cf "(a) the case list line does not count the two loose cases alone" ;; esac
+  [ "$(printf '%s\n' "$SMK_OUT" | grep -c "^$P")" -eq 2 ] || cf "(a) --list prints a case that is in a pack, or misses a loose one: $(printf '%s' "$SMK_OUT" | grep "^$P" | tr '\n' ' ')"
+  # the run's summary names them too, on the line that follows it, and the exit status is the run's alone
+  _smk_run "$fx"
+  after="$(printf '%s\n' "$SMK_OUT" | grep -A1 '^summary:' | tail -1)"
+  { [ "$SMK_RC" -eq 0 ] && case "$after" in *"$n in $dir/fxrest.$ext"*) true ;; *) false ;; esac && case "$after" in *"$m in $dir/fxmod.$ext"*) true ;; *) false ;; esac; } \
+    || cf "(b) the run (exit $SMK_RC) does not say, on the line after its summary, what is in the packs: [$after]"
+  case "$SMK_OUT" in *"2 PASS, 0 FAIL"*) ;; *) cf "(b) the run's tally is not the two loose cases'" ;; esac
+
+  rc=0; ( cd "$fx" && ./scripts/pack.sh unpack --all >/dev/null 2>&1 ) || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_run_says_how_many_cases_are_in_a_pack: pack.sh unpack --all exited $rc in the miniature"
+  _smk_run "$fx" --list
+  case "$SMK_OUT" in *"in packs"*) cf "(c) after the unpack the line is still printed: $(printf '%s' "$SMK_OUT" | grep 'in packs' | cut -c1-200)" ;; esac
+  [ "$(printf '%s\n' "$SMK_OUT" | grep -c "^$P")" -eq $(( 2 + n + m )) ] || cf "(c) after the unpack --list prints $(printf '%s\n' "$SMK_OUT" | grep -c "^$P") cases, want $(( 2 + n + m )): $(printf '%s' "$SMK_OUT" | tail -4 | tr '\n' '|' | cut -c1-240)"
+  _smk_run "$fx"
+  case "$SMK_OUT" in *"$(( 2 + n + m )) PASS, 0 FAIL"*) ;; *) cf "(c) the unpacked run does not run every case: $(printf '%s' "$SMK_OUT" | grep '^summary:')" ;; esac
+
+  finish "run.sh --list and the line after the run's summary name each pack that holds a case list, with the count a separate reader finds in the fixture, name no pack that holds none, list and run only the loose cases while they are packed, and print nothing about packs once pack.sh unpack --all has put them on disk, when every case is listed and runs"
+  rm -rf "$t"
+}
+
+# =============================================================================
+# CASE — A CASE IS DEFINED AND LISTED PER POPULATION, AND STRICTLY.
+# On a miniature harness with scripts/test/CASE-LIST on disk: a case defined and not listed, one listed and not
+# defined, one named in both the CASES array and CASE-LIST, a name that is not a case's and one listed twice each
+# refuse the run (status 2) naming the name; a well-formed list runs in the order array, list, isolation; and with
+# the list inside a pack that is not unpacked, names that nothing on disk defines do not refuse.
+# =============================================================================
+case_defined_equals_listed_per_population() {
+  cf_reset
+  local P="case_" t fx core iso a b ghost orphan row want
+  t="$(mktemp -d)" || _fixture_die "case_defined_equals_listed_per_population: no scratch directory"
+  core="${P}fx_core"; iso="${P}isolation"; a="${P}fx_list_a"; b="${P}fx_list_b"; ghost="${P}fx_ghost"; orphan="${P}fx_orphan"
+  fx="$t/fx"; _smk_mini "$fx" "$core" "$iso" || _fixture_die "case_defined_equals_listed_per_population: the miniature harness was not built (run.sh's CASES block moved?)"
+  printf ' %s() { ok "fx a ran"; }\n %s() { ok "fx b ran"; }\n' "$a" "$b" >> "$fx/scripts/test/cases/mini.sh"
+  _smk_refuses() {  # <label> <name the refusal must show> [<file it must name>] — the run refused with status 2 and said the name
+    [ "$SMK_RC" -eq 2 ] && case "$SMK_OUT" in *"REFUSING"*"$2"*) true ;; *) false ;; esac && case "$SMK_OUT" in *"${3:-}"*) true ;; *) false ;; esac \
+      || cf "($1) exit $SMK_RC; want a refusal (2) naming $2${3:+ and $3}: $(printf '%s' "$SMK_OUT" | tail -4 | tr '\n' '|' | cut -c1-220)"
+  }
+  # the control: listed and defined once each runs, in the order array, list, isolation
+  printf '%s\n%s\n' "$a" "$b" > "$fx/scripts/test/CASE-LIST"
+  _smk_run "$fx"
+  [ "$SMK_RC" -eq 0 ] && [ "$(printf '%s\n' "$SMK_OUT" | grep '^case-outcome:' | awk '{print $2}' | tr '\n' ' ')" = "$core $a $b $iso " ] \
+    || cf "(control) a well-formed list did not run array, list, isolation (exit $SMK_RC): $(printf '%s' "$SMK_OUT" | grep '^case-outcome:' | awk '{print $2}' | tr '\n' ' ')"
+  # a case defined and not listed
+  printf '%s\n' "$a" > "$fx/scripts/test/CASE-LIST"; _smk_run "$fx"; _smk_refuses "defined, not listed" "$b"
+  # a case listed and not defined
+  printf '%s\n%s\n%s\n' "$a" "$b" "$ghost" > "$fx/scripts/test/CASE-LIST"; _smk_run "$fx"; _smk_refuses "listed, not defined" "$ghost"
+  # one function named by both populations
+  printf '%s\n%s\n%s\n' "$a" "$b" "$core" > "$fx/scripts/test/CASE-LIST"; _smk_run "$fx"; _smk_refuses "in both" "$core" "scripts/test/CASE-LIST"
+  case "$SMK_OUT" in *"Fix:"*) ;; *) cf "(in both) the refusal names no fix" ;; esac
+  # a name that is not a case's, and a name twice
+  printf '%s\n%s\nNot_A_Case\n' "$a" "$b" > "$fx/scripts/test/CASE-LIST"; _smk_run "$fx"; _smk_refuses "bad name" "Not_A_Case" "scripts/test/CASE-LIST"
+  printf '%s\n%s\n%s\n' "$a" "$b" "$a" > "$fx/scripts/test/CASE-LIST"; _smk_run "$fx"; _smk_refuses "twice" "$a" "scripts/test/CASE-LIST"
+  # the list is in a pack that is not unpacked: names nothing on disk defines are not a refusal, and the run is the smoke's
+  rm -f "$fx/scripts/test/CASE-LIST"
+  { printf ' isolation_snapshot() { :; }\n'; for row in "$core" "$iso"; do printf ' %s() { ok "fx %s ran"; }\n' "$row" "$row"; done; } > "$fx/scripts/test/cases/mini.sh"
+  mkdir -p "$t/s/scripts/test"; printf '%s\n%s\n' "$ghost" "$orphan" > "$t/s/scripts/test/CASE-LIST"
+  _smk_pack "$fx" fxlist "$t/s" || _fixture_die "case_defined_equals_listed_per_population: the fixture pack was not built"
+  _smk_run "$fx"
+  { [ "$SMK_RC" -eq 0 ] && case "$SMK_OUT" in *"2 in "*) true ;; *) false ;; esac; } \
+    || cf "(packed) names held in a pack that is not unpacked refused or were not counted (exit $SMK_RC): $(printf '%s' "$SMK_OUT" | tail -3 | tr '\n' '|' | cut -c1-200)"
+  # an unlisted definition is still a refusal while the list is in a pack: the smoke population is checked on its own
+  printf ' %s() { ok "fx orphan ran"; }\n' "$orphan" >> "$fx/scripts/test/cases/mini.sh"; _smk_run "$fx"; _smk_refuses "packed, unlisted definition" "$orphan"
+  unset -f _smk_refuses
+
+  finish "a case defined and not listed, one listed and not defined, a name in both the CASES array and scripts/test/CASE-LIST, a name that is not a case's and one listed twice each refuse the run naming the name; a well-formed list runs array, list, isolation; names held in a pack that is not unpacked do not refuse, and a definition no list names still does"
+  rm -rf "$t"
+}
+
+# =============================================================================
+# CASE — AFTER pack.sh unpack --all THE FULL POPULATION IS BACK: every case the harness ran before the list was split.
+# The operand is scripts/test/full-case-names.tsv, a tracked file of names, never read back from run.sh or CASE-LIST.
+# A miniature of the real harness holds the loose files, the case list and the case files in a pack; --list says what
+# is in the pack, and after the unpack it lists every name of the operand once and runs no case twice.
+# =============================================================================
+case_unpack_all_restores_the_full_population() {
+  cf_reset
+  local t fx f rel names dir ext op="$HARNESS_DIR/full-case-names.tsv" want got n_list n_arr
+  local L="after pack.sh unpack --all, run.sh --list prints every name of scripts/test/full-case-names.tsv once, and before it, only the loose list and a count of what the pack holds"
+  [ -f "$op" ] || { cf "scripts/test/full-case-names.tsv, this case's operand, is absent"; finish "$L"; return; }
+  if [ ! -f "$HARNESS_DIR/CASE-LIST" ]; then skp "$L" "scripts/test/CASE-LIST is not on disk: the cases it lists are in a pack. Next: ./scripts/pack.sh unpack --all, then run this case again."; return; fi
+  names="$(_pkc_names)"; dir="${names%% *}"; ext="${names#* }"; ext="${ext%% *}"
+  t="$(mktemp -d)" || _fixture_die "case_unpack_all_restores_the_full_population: no scratch directory"
+  fx="$t/fx"; mkdir -p "$fx/scripts" "$fx/process" "$t/src/scripts/test/cases" || _fixture_die "case_unpack_all_restores_the_full_population: no fixture directory"
+  cp -R "$HARNESS_DIR" "$fx/scripts/test" && cp -R "$REAL_SCRIPTS/lib" "$fx/scripts/" && cp "$REAL_SCRIPTS/config.sh" "$REAL_SCRIPTS/pack.sh" "$fx/scripts/" || _fixture_die "case_unpack_all_restores_the_full_population: the harness was not copied"
+  : > "$fx/process/KIT-MANIFEST"
+  # What leaves for the pack: the case list and every case file but the two that stay loose.
+  cp "$fx/scripts/test/CASE-LIST" "$t/src/scripts/test/CASE-LIST" && rm "$fx/scripts/test/CASE-LIST"
+  for f in "$fx"/scripts/test/cases/*.sh; do
+    case "${f##*/}" in smoke.sh|packs.sh) continue ;; esac
+    mv "$f" "$t/src/scripts/test/cases/" || _fixture_die "case_unpack_all_restores_the_full_population: could not move ${f##*/}"
+  done
+  _smk_pack "$fx" fxselftest "$t/src" || _fixture_die "case_unpack_all_restores_the_full_population: the fixture pack was not built"
+  ( cd "$fx" && git init -q . >/dev/null 2>&1 )
+
+  n_arr="$(_smk_array | wc -l | tr -d ' ')"; n_list="$(_smk_names "$t/src/scripts/test/CASE-LIST" | wc -l | tr -d ' ')"
+  _smk_run "$fx" --list
+  [ "$SMK_RC" -eq 0 ] || cf "(a) --list with the cases packed exited $SMK_RC: $(printf '%s' "$SMK_OUT" | tail -3 | tr '\n' '|' | cut -c1-200)"
+  case "$SMK_OUT" in *"$n_list in $dir/fxselftest.$ext"*) ;; *) cf "(a) --list does not say $n_list case(s) are in $dir/fxselftest.$ext" ;; esac
+  [ "$(printf '%s\n' "$SMK_OUT" | grep -c '^case_')" -eq "$n_arr" ] || cf "(a) with the cases packed --list prints $(printf '%s\n' "$SMK_OUT" | grep -c '^case_') names, want the array's $n_arr"
+
+  ( cd "$fx" && ./scripts/pack.sh unpack --all >/dev/null 2>&1 ) || _fixture_die "case_unpack_all_restores_the_full_population: pack.sh unpack --all failed in the miniature"
+  _smk_run "$fx" --list
+  [ "$SMK_RC" -eq 0 ] || cf "(b) --list after the unpack exited $SMK_RC: $(printf '%s' "$SMK_OUT" | tail -3 | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$SMK_OUT" | grep '^case_' | sort > "$t/got"
+  _smk_names "$op" | sort > "$t/want"
+  [ -s "$t/want" ] && [ -s "$t/got" ] || _fixture_die "case_unpack_all_restores_the_full_population: an empty list was read (operand $(wc -l < "$t/want" | tr -d ' ') names, --list $(wc -l < "$t/got" | tr -d ' '))"
+  got="$(comm -13 "$t/got" "$t/want" | head -5 | tr '\n' ' ')"; [ -z "$got" ] || cf "(b) after the unpack --list lacks case(s) of the operand: $got"
+  got="$(uniq -d "$t/got" | head -5 | tr '\n' ' ')"; [ -z "$got" ] || cf "(b) --list prints a case twice: $got"
+  [ "$(wc -l < "$t/got" | tr -d ' ')" -eq $(( n_arr + n_list )) ] || cf "(b) after the unpack --list prints $(wc -l < "$t/got" | tr -d ' ') names, want the array's $n_arr and the list's $n_list"
+  case "$SMK_OUT" in *"in packs"*) cf "(b) after the unpack the packs line is still printed" ;; esac
+
+  finish "$L"
+  rm -rf "$t"
+}
+
+# =============================================================================
+# CASE — THE SMOKE LIST IS DEFINED, MOVED NOT COPIED, AND ALONE SUFFICIENT.
+# Every name in run.sh's CASES array is defined in a file that is on disk and none is also in CASE-LIST. The sixteen
+# install cases are each defined once, in cases/smoke.sh. The three census cases among them then pass when run
+# alone in a copy of the shipped tree that holds only the loose case files: the operand is that tree, not the full harness.
+# =============================================================================
+case_smoke_list_is_defined_and_alone_sufficient() {
+  cf_reset
+  local t F rel man="$REAL_REPO_ROOT/process/KIT-MANIFEST" smoke="$HARNESS_DIR/cases/smoke.sh" n c f cnt census listed
+  local L="the CASES array names only cases defined in files on disk and none CASE-LIST lists; the sixteen install cases are defined once each, in cases/smoke.sh; and the census cases among them pass alone in a copy of the tree that holds only the loose case files"
+  local install="case_kit_init_markers_intact case_kit_init_commits_under_the_pre_role_hat case_new_prd_failure_leaves_nothing case_next_id case_move_issue case_finish_pr_happy case_commit_msg case_pre_commit_refuses_metadata_off_trunk case_check_board_graduation_requires_the_day_one_work case_module_enable_and_disable_are_inverse_and_idempotent case_every_shipped_module_is_indexed_and_enables_and_disables_cleanly case_shipped_manifest_describes_the_tree case_shipped_scripts_stay_on_the_floor case_template_links_resolve_from_their_destination case_kit_upgrade_merges_by_the_shipped_manifest case_isolation"
+  census="case_shipped_manifest_describes_the_tree,case_shipped_scripts_stay_on_the_floor,case_template_links_resolve_from_their_destination"
+  [ -f "$man" ] || _fixture_die "case_smoke_list_is_defined_and_alone_sufficient: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  [ -f "$smoke" ] || { cf "scripts/test/cases/smoke.sh is absent: the install cases are not in one loose file"; finish "$L"; return; }
+  # (a) each name of the array is defined in a file on disk, and listed once
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    cnt="$(cat "$HARNESS_DIR"/cases/*.sh "$REAL_REPO_ROOT"/modules/*/test/cases/*.sh 2>/dev/null | grep -c "^$c() {" || true)"
+    [ "$cnt" -eq 1 ] || cf "(a) the CASES array names $c, which $cnt file(s) define; want one"
+  done <<EOF_SMK_ARRAY
+$(_smk_array)
+EOF_SMK_ARRAY
+  if [ -f "$HARNESS_DIR/CASE-LIST" ]; then
+    listed="$(comm -12 <(_smk_array | sort) <(_smk_names "$HARNESS_DIR/CASE-LIST" | sort) | head -5 | tr '\n' ' ')"
+    [ -z "$listed" ] || cf "(a) the CASES array and CASE-LIST both name: $listed"
+  fi
+  # (b) moved, not copied: each install case is defined in smoke.sh and in no other file
+  for c in $install; do
+    [ "$(grep -c "^$c() {" "$smoke" || true)" -eq 1 ] || cf "(b) $c is not defined once in cases/smoke.sh"
+    for f in "$HARNESS_DIR"/cases/*.sh; do
+      [ "$f" -ef "$smoke" ] && continue
+      if grep -q "^$c() {" "$f"; then cf "(b) $c is also defined in cases/${f##*/}: moved means one definition"; fi
+    done
+    _smk_array | grep -x "$c" >/dev/null || cf "(b) $c is not in the CASES array"
+  done
+  # (c) the tree that holds only what stays loose: the shipped files less every other case file and the lists of cases
+  t="$(mktemp -d)" || _fixture_die "case_smoke_list_is_defined_and_alone_sufficient: no scratch directory"
+  F="$t/smoke"; mkdir -p "$F/process"
+  while IFS= read -r rel; do
+    [ -f "$REAL_REPO_ROOT/$rel" ] || continue
+    case "$rel" in
+      scripts/test/cases/smoke.sh|scripts/test/cases/packs.sh) ;;
+      scripts/test/cases/*|scripts/test/CASE-LIST|scripts/test/full-case-names.tsv) continue ;;
+    esac
+    mkdir -p "$F/$(dirname "$rel")" && cp -p "$REAL_REPO_ROOT/$rel" "$F/$rel" || _fixture_die "case_smoke_list_is_defined_and_alone_sufficient: could not copy $rel"
+    printf '%s\n' "$rel" >> "$t/kept"
+  done <<EOF_SMK_MAN
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF_SMK_MAN
+  awk 'NR == FNR { k[$0] = 1; next } /^#/ || ($2 in k)' "$t/kept" "$man" > "$F/process/KIT-MANIFEST"
+  n="$(cd "$F" && env -u KIT_TEST_CASES bash scripts/test/run.sh --cases "$census" 2>&1 | sed $'s/\x1b\\[[0-9;]*m//g')"
+  for c in ${census//,/ }; do
+    case "$n" in *"case-outcome: $c PASS"*) ;; *) cf "(c) $c did not pass alone in the loose-only tree: $(printf '%s' "$n" | grep -E "^  (FAIL|SKIP)|REFUSING|^case-outcome: $c" | head -3 | cut -c1-260 | tr '\n' '|')" ;; esac
+  done
+  finish "$L"
+  rm -rf "$t"
+}

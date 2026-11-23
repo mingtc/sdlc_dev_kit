@@ -1,7 +1,8 @@
 # KIT-CLASS: MIXED — self-test harness, check-board cases. See process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/check-board.sh — sourced by scripts/test/run.sh, never run on its own.
-# check-board.sh's arms, and the cb_* / _lived_signals helpers other families call.
+# check-board.sh's arms, and the cb_* / _lived_signals helpers other families call (cb_run and
+# cb_default_seam, which the install cases use, are in smoke.sh).
 # =============================================================================
 
 # _lived_signals — the signals arm [g] reads to decide whether this repository has STARTED,
@@ -46,99 +47,10 @@ _cb_a_section() {  # reads a check-board report on stdin
        f && /^(\[|──)/ { exit }
        f'
 }
-
-_cb_g_section() {  # reads a check-board report on stdin
-  awk '/^\[g\]/ { f = 1 }
-       f && /^──/ { exit }
-       f && /^\[[a-z]\]/ && !/^\[g\]/ { exit }
-       f'
-}
-
-# _cb_g_declare_empty_seams — declares $SB_WORK/scripts/config.sh's CODE_GLOBS and TEST_GLOBS
-# deliberately empty (the `# DECLARED EMPTY —` mechanical form). Every case that graduates the
-# sandbox (fills PROJECT.md, replaces AGENTS.md/README.md) needs this too, or [g]'s new
-# CODE_GLOBS/TEST_GLOBS members report unfilled and graduation never reads COMPLETE (which also
-# needs `_cb_g_land_day_one_work`: a PRD and a card past QA) — the same transition
-# case_check_board_graduation exercises directly; the callers here only need [g] clear, not the
-# glob content itself. ONE caller, not three copies: _fixture_die names which
-# anchor moved if either does not match.
-_cb_g_declare_empty_seams() {
-  local _arr
-  for _arr in CODE_GLOBS TEST_GLOBS; do
-    _cb_g_fill_glob_array "$_arr" "  # DECLARED EMPTY -- fixture ($_arr)."
-  done
-}
-
-# _cb_g_fill_glob_array <array-name> <entry-line> — the ONE authoring site for inserting a line
-# (a real glob entry, or a `# DECLARED EMPTY —` sentinel) right after an array's opening paren in
-# $SB_WORK/scripts/config.sh. Shared by every case exercising CODE_GLOBS/TEST_GLOBS, so a moved
-# anchor is caught once, not per call site.
-_cb_g_fill_glob_array() {
-  local _arr="$1" _entry="$2" _cfg="$SB_WORK/scripts/config.sh"
-  grep -qE "^${_arr}=\($" "$_cfg" \
-    || _fixture_die "_cb_g_fill_glob_array: no '^${_arr}=(' line in the sandbox's scripts/config.sh — the anchor moved."
-  perl -i -pe 'BEGIN{$c=0; $a=shift; $e=shift} if (!$c && /^\Q$a\E=\($/) { $_ .= "$e\n"; $c=1 }' \
-    "$_arr" "$_entry" "$_cfg"
-  grep -qxF "$_entry" "$_cfg" \
-    || _fixture_die "_cb_g_fill_glob_array: ${_arr}'s entry was NOT inserted."
-}
-
-# _cb_g_discharge_gitignore_env — fills $SB_WORK/.gitignore's build-artifact section and
-# $SB_WORK/.env.example's credentials block with a minimal real entry, clearing their `FILL ME.`
-# sentinel. make_sandbox never seeds either (the real kit ships both, filled, on day one), so a
-# case that graduates the sandbox needs this too, or [g]'s FILL (.gitignore)/(.env.example)
-# members read ABSENT — unmeasured, never clean — and graduation never reaches COMPLETE.
-_cb_g_discharge_gitignore_env() {
-  printf '# .gitignore\n# ── build artifacts ──\n# produced by this fixture build\ndist/\n' \
-    > "$SB_WORK/.gitignore"
-  printf '# .env.example\n# ── project credentials ──\n# READ_TOKEN=   # read-only\n' \
-    > "$SB_WORK/.env.example"
-}
-
-# _cb_g_seed_prd / _cb_g_seed_landed_card <folder> — the day-one work arm [g] asks for (SEED steps 6
-# and 7), one half each: a file matching the PRD surface, and one card in the named column. The PRD
-# glob is written out here, never read from check-board.sh (a fixture that derives its operand from
-# the arm it judges agrees with it by construction); the card goes through seed_issue, the harness's
-# one card writer.
-_cb_g_seed_prd() {
-  mkdir -p "$SB_WORK/requirements"
-  printf '# PRD-001 — fixture product\n\nOne spec, scoped on day one.\n' > "$SB_WORK/requirements/PRD-001-fixture.md"
-}
-_cb_g_seed_landed_card() {  # <qa_complete|done>
-  seed_issue "$1" "$SB_PREFIX-899" day-one-card chore "The first card through the boundary"
-}
 # _cb_g_land_day_one_work — both halves, for a case that graduates the sandbox and expects COMPLETE.
 _cb_g_land_day_one_work() {
   _cb_g_seed_prd
   _cb_g_seed_landed_card qa_complete
-}
-
-# _cb_g_discharge_delete_if_unused — records a KEPT-ON-PURPOSE decision in
-# $SB_WORK/process/LOCAL-PROCEDURES.md for every file the sandbox carries that declares
-# KIT-DISPOSITION: DELETE-IF-UNUSED, in arm [g]'s own exact form. make_sandbox copies the REAL
-# scripts/ tree (so every script that declares the marker arrives carrying it) and conditionally the real consumers/ tree; every case that graduates the sandbox needs
-# this too, or [g]'s new DELETE-IF-UNUSED class reports unfilled and graduation never reads
-# COMPLETE — the same transition case_check_board_graduation exercises directly, mirroring
-# _cb_g_declare_empty_seams for CODE_GLOBS/TEST_GLOBS above. DERIVED from the sandbox's own
-# markers, never a literal copy of the member list: a member added or dropped from the real kit
-# changes what this discharges without this helper having to change to match.
-_cb_g_discharge_delete_if_unused() {
-  local _decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
-  mkdir -p "$SB_WORK/process"
-  [ -f "$SB_WORK/process/LOCAL-PROCEDURES.md" ] || printf '# LOCAL-PROCEDURES.md\n\n' > "$SB_WORK/process/LOCAL-PROCEDURES.md"
-  local _f _n=0
-  while IFS= read -r -d '' _f; do
-    [ -f "$SB_WORK/$_f" ] || continue
-    sed -n '1,12p' "$SB_WORK/$_f" | grep -E "$_decl" >/dev/null || continue
-    printf -- '- **`%s` (DELETE-IF-UNUSED) kept, on purpose.** Fixture discharge.\n' "$_f" >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
-    _n=$((_n+1))
-  # --untracked: this helper may run before the sandbox's first commit (a case that discharges
-  # before its first publish_sandbox), when the copied scripts/notify*.sh are not yet tracked —
-  # a plain `git grep` sees only tracked files and would find nothing on such a tree.
-  done < <(git -C "$SB_WORK" grep --untracked -lzE "$_decl" -- 2>/dev/null || true)
-  # Nothing to discharge is right only on a tree whose every DELETE-IF-UNUSED member was removed.
-  [ "$_n" -gt 0 ] || _delete_if_unused_members_all_removed \
-    || _fixture_die "_cb_g_discharge_delete_if_unused: no file in the sandbox declares KIT-DISPOSITION: DELETE-IF-UNUSED — the real scripts/notify*.sh marker this helper relies on has moved or been removed."
 }
 
 # _cb_g_a_declaring_file — one file the sandbox still carries that declares DELETE-IF-UNUSED, for a
@@ -221,10 +133,6 @@ cb_set_dep() {
   grep -qF "$key: [$target]" "$f" \
     || _fixture_die "cb_set_dep: '$key: [$target]' did not land in $f — the symmetry case would run against a board with no dependency declared and would report PASS about nothing."
 }
-
-# Run the SANDBOX copy of check-board.sh with CLAUDE_PROJECT_DIR unset: inherited, it would point
-# the copy at the REAL board.
-cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" --full "$@" 2>&1 ); }
 # The report as the SessionStart hook and a session close read it: findings first, clean arms folded.
 cb_run_default() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
@@ -370,12 +278,6 @@ cb_default() {  # <VAR_NAME>
 # cb_status_folders — the status folder set, from the one file that declares it (lib/status-folders.sh).
 cb_status_folders() {
   sed -n "s/^KIT_STATUS_FOLDERS='\(.*\)'/\1/p" "$REAL_SCRIPTS/lib/status-folders.sh" 2>/dev/null | head -1
-}
-
-# cb_default_seam <VAR_NAME> — for the OTHER shape a default takes, the repointable-seam form
-# `NAME="${NAME:-path}"` (DQ_FILE, CORPUS_FILE): cb_default's quoting does not match it.
-cb_default_seam() {  # <VAR_NAME>
-  sed -n "s/^$1=\"\\\${$1:-\\([^}\"]*\\)}\".*/\\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }
 
 # seed_issue_mismatched <folder> <filename_id> <slug> <frontmatter_id>
@@ -1287,100 +1189,6 @@ EOF
     || cf "(control) without arm (p) the board did not read clean, so the findings above are not attributable to it: $out"
 
   finish "arm (p): a dangling forward-referenced id and a landed-but-unflipped one are reported and DECIDE the verdict; a still-open correctly-marked id is silent; a SEED-step marker is silent before day one closes; ablation-proven"
-  teardown
-}
-
-# =============================================================================
-# CASE — arm [g] reads COMPLETE only once the day-one WORK exists: a PRD (SEED step 6) and a card
-# that has passed QA (step 7), beside the filled blanks. A tree whose blanks are all filled, with no
-# PRD and no landed card, is not finished, and arm [p] — which reads [g]'s verdict — stays silent
-# on the SEED-step marker CORPUS.md told the adopter to write. The operands are fixed in this case:
-# one PRD, one card in qa_complete/ or done/, never read back from the arm.
-# =============================================================================
-case_check_board_graduation_requires_the_day_one_work() {
-  cf_reset
-  make_sandbox
-  local out corpus_file
-  corpus_file="$(cb_default_seam CORPUS_FILE)"
-  [ -n "$corpus_file" ] || _fixture_die "case_check_board_graduation_requires_the_day_one_work: could not derive CORPUS_FILE."
-  mkdir -p "$SB_WORK/$(dirname "$corpus_file")"
-  cat > "$SB_WORK/$corpus_file" <<CORPUS_EOF
-# CORPUS.md
-
-| Entry | Kind | Status | Why it is corpus |
-|---|---|---|---|
-| \`src/\` | dir | forward-referenced (SEED step 6) | the code lands with the first card |
-CORPUS_EOF
-  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
-    >> "$SB_WORK/scripts/config.sh"
-  printf '# my project\n' > "$SB_WORK/AGENTS.md"
-  printf '# my project\n' > "$SB_WORK/README.md"
-  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
-    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
-  _cb_g_declare_empty_seams
-  _cb_g_discharge_delete_if_unused
-  _cb_g_discharge_gitignore_env
-  publish_sandbox
-
-  # (a) every blank filled, no PRD, no card: not COMPLETE, the missing work is NAMED, and [p] is silent.
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'PROJECT.md principal:.*declared' >/dev/null \
-    || _fixture_die "case_check_board_graduation_requires_the_day_one_work: the blanks are not all filled, so (a) would not isolate the day-one work: $(printf '%s\n' "$out" | _cb_g_section)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    && cf "(a) graduation COMPLETE with no PRD and no landed card: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'day one is not finished' | grep 'no PRD' | grep 'no card has passed QA' | grep 'steps 6-7' >/dev/null \
-    || cf "(a) the arm did not name both missing pieces and the SEED steps: $(printf '%s\n' "$out" | _cb_g_section)"
-  printf '%s\n' "$out" | grep '⚠' | grep 'does not outlive day one' >/dev/null \
-    && cf "(a) arm [p] flagged the SEED-step marker while arm [g] had not read COMPLETE: $out"
-
-  # (b) a PRD alone: still not COMPLETE, and only the card is named.
-  _cb_g_seed_prd
-  publish_sandbox
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    && cf "(b) graduation COMPLETE with a PRD and no landed card: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'day one is not finished' | grep 'no card has passed QA' >/dev/null \
-    || cf "(b) a missing landed card was not named: $(printf '%s\n' "$out" | _cb_g_section)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'day one is not finished' | grep 'no PRD' >/dev/null \
-    && cf "(b) a PRD exists, yet the arm still says there is none: $(printf '%s\n' "$out" | _cb_g_section)"
-
-  # (c) a card still in todo/ is not a card that passed QA.
-  seed_issue todo "$SB_PREFIX-898" open-card chore "Still open"
-  publish_sandbox
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    && cf "(c) graduation COMPLETE with only an open card: $out"
-
-  # (d) a card alone, no PRD: not COMPLETE, and only the PRD is named.
-  rm -f "$SB_WORK/requirements/PRD-001-fixture.md"
-  _cb_g_seed_landed_card qa_complete
-  publish_sandbox
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    && cf "(d) graduation COMPLETE with a landed card and no PRD: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'day one is not finished' | grep 'no PRD' >/dev/null \
-    || cf "(d) a missing PRD was not named: $(printf '%s\n' "$out" | _cb_g_section)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'day one is not finished' | grep 'no card has passed QA' >/dev/null \
-    && cf "(d) a card sits in qa_complete/, yet the arm still says none has passed QA: $(printf '%s\n' "$out" | _cb_g_section)"
-
-  # (e) both: COMPLETE, and [p] now flags the marker it was silent on.
-  _cb_g_seed_prd
-  publish_sandbox
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    || cf "(e) a PRD and a card in qa_complete/ did not reach graduation COMPLETE: $out"
-  printf '%s\n' "$out" | grep '⚠' | grep 'does not outlive day one' >/dev/null \
-    || cf "(e) [g] reads COMPLETE, but the standing SEED-step marker was not reported: $out"
-
-  # (f) the card archived to done/ (archive.sh sweeps landed cards there) still counts.
-  git -C "$SB_WORK" mv "progress/qa_complete/$SB_PREFIX-899-day-one-card.md" "progress/done/$SB_PREFIX-899-day-one-card.md" >/dev/null 2>&1 \
-    || _fixture_die "case_check_board_graduation_requires_the_day_one_work: could not archive the card to done/"
-  publish_sandbox
-  out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    || cf "(f) a PRD and a card in done/ did not reach graduation COMPLETE: $out"
-
-  finish "arm [g]: graduation COMPLETE needs a PRD and a card in qa_complete/ or done/ beside the filled blanks, names whichever is missing, and arm [p]'s SEED-step finding follows that verdict"
   teardown
 }
 
@@ -2726,7 +2534,6 @@ case_check_board_graduation() {
     && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     && cf "(a) the arm claimed graduation on a tree with no sign of having started: $out"
-
 
   # ── (b) RECEIPT + SCAFFOLDING: it reports, and names the files. ──────────────
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
