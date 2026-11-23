@@ -32,6 +32,7 @@
 #
 # Example:
 #   ./scripts/drift-ack.sh 9d4d3261 --role PM --reason "branch begun before the kit was adopted; merged unrewritten"
+#   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`.
 
 set -euo pipefail
 
