@@ -1,0 +1,5 @@
+# What a zip unpacks to without a pack: files, bytes, and text tokens (bytes / 4, the pack directory left out). The default unpack stays at or under each.
+# case_default_unpack_stays_inside_its_budget prints the figures to put here when it is over; raising one is a decision about what an adopter first reads.
+files	388
+bytes	9190421
+text-tokens	2297579
