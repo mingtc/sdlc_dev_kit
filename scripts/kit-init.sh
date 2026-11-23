@@ -358,7 +358,7 @@ fi
 # cut off mid-stamp has already written the user's own prefix there. A committed copy that carries the stamp is a
 # lived repository, which its own refusal below names.
 _cfg_head="$(git -C "$ROOT" show HEAD:scripts/config.sh 2>/dev/null || true)"
-_cfg_stamped="$(printf '%s\n' "$_cfg_head" | awk -v m="$STAMP_MARK" 'index($0, m) == 1 { print "yes"; exit }')"   # at the start of a line, as the lived probe matches it
+_cfg_stamped="$(printf '%s\n' "$_cfg_head" | awk -v m="$STAMP_MARK" '!d && index($0, m) == 1 { print "yes"; d = 1 }')"   # at the start of a line, as the lived probe matches it
 if [ -n "$PREFIX" ] && [ -n "$_cfg_head" ] && [ -z "$_cfg_stamped" ]; then
   _shipped_prefix="$(printf '%s\n' "$_cfg_head" | sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' | head -1)"
   if [ -n "$_shipped_prefix" ] && [ "$PREFIX" = "$_shipped_prefix" ]; then
@@ -508,7 +508,7 @@ else
   # The local refs/remotes/$REMOTE/HEAD is written by 'git remote set-head' and says nothing about the remote:
   # ask the remote itself, so a trunk the forge does not default to is not read as agreeing.
   if [ -n "$TRUNK" ]; then
-    _own_head="$(git -C "$ROOT" ls-remote --symref "$REMOTE" HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "", $2); print $2; exit }' || true)"
+    _own_head="$(git -C "$ROOT" ls-remote --symref "$REMOTE" HEAD 2>/dev/null | awk '!d && $1 == "ref:" { sub("^refs/heads/", "", $2); print $2; d = 1 }' || true)"
     if [ -z "$_own_head" ]; then
       pft "cannot read the remote's own HEAD from '$REMOTE' ('git ls-remote --symref $REMOTE HEAD' printed none) — the trunk cannot be confirmed against the remote. Check the URL and your access, then re-run."
     elif [ "$_own_head" != "$TRUNK" ]; then
@@ -635,7 +635,7 @@ fi
 # A STAMP THAT IS ONLY IN THE WORKING TREE is a run that was cut off before its commit: no initialization commit exists
 # to revert, and the way out is to set the half-run aside.
 if [ ${#LIVED[@]} -eq 1 ] && [ "${LIVED[0]#scripts/config.sh: }" != "${LIVED[0]}" ] \
-   && [ -z "$(git -C "$ROOT" show HEAD:scripts/config.sh 2>/dev/null | awk -v m="$STAMP_MARK" 'index($0, m) == 1 { print "yes"; exit }')" ]; then
+   && [ -z "$(git -C "$ROOT" show HEAD:scripts/config.sh 2>/dev/null | awk -v m="$STAMP_MARK" '!d && index($0, m) == 1 { print "yes"; d = 1 }')" ]; then
   kit_refuse 1 repository-half-initialized \
     "✗ kit-init REFUSES: scripts/config.sh carries kit-init's stamp, but no commit does — an earlier run was cut off before it committed." \
     "" \

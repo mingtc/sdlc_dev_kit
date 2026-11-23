@@ -641,7 +641,7 @@ kit_bp_register_shape() {
       # separate it from the Ruling above and the Provenance below are not inside it.
       if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
         q_why_body="$(printf '%s\n' "$qbody" | sed -n "${w_line},$((p_line-1))p" | sed '1s/^\*\*Why\.\*\*//' \
-                      | _bp_awk '/^[[:space:]]*$/ { if (seen) gap=1; next } { if (gap) { print "split"; exit } seen=1 }')"
+                      | _bp_awk '/^[[:space:]]*$/ { if (seen) gap=1; next } !d { if (gap) { print "split"; d=1 } seen=1 }')"
         if [ -n "$q_why_body" ]; then
           _bp_hit "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph" "q:$qreg_path:$qid:whypara"
         fi
@@ -650,7 +650,7 @@ kit_bp_register_shape() {
       # Nothing after Provenance's own paragraph before the entry ends.
       if [ -n "$p_line" ]; then
         q_after="$(printf '%s\n' "$qbody" | sed -n "$((p_line+1)),\$p")"
-        q_trailing="$(printf '%s\n' "$q_after" | _bp_awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (seen && NF) {print; exit} }')"
+        q_trailing="$(printf '%s\n' "$q_after" | _bp_awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (!d && seen && NF) {print; d=1} }')"
         if [ -n "$q_trailing" ]; then
           _bp_hit "      ⚠ $qreg_path $qid — content follows Provenance's own paragraph: \"$q_trailing\"" "q:$qreg_path:$qid:trailing:$q_trailing"
         fi

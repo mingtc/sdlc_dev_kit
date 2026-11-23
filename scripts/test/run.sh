@@ -1069,6 +1069,7 @@ CASES=(
   case_a_heading_id_ends_at_the_same_place_in_every_reader
   case_ship_state
   case_isolation_is_read_with_the_machines_git_config_shut_out
+  case_an_ac_bullet_reader_does_not_fail_when_the_body_runs_on_after_the_bullet
   case_isolation
 )
 

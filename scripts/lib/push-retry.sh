@@ -131,7 +131,7 @@ git_push_with_retry() {
 git__merge_then_push_cmd() {
   local dir="$1" remote="$2" branch="$3" holder qd qh
   printf -v qd '%q' "$dir"
-  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '/^worktree /{p=substr($0,10)} $0 == "branch " b {print p; exit}')"
+  holder="$(git -C "$dir" worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$branch" '!d && /^worktree /{p=substr($0,10)} !d && $0 == "branch " b {print p; d=1}')"
   if [ -n "$holder" ]; then
     printf -v qh '%q' "$holder"
     printf '%s' "git -C $qh merge $remote/$branch && git -C $qh push $remote $branch"

@@ -658,7 +658,7 @@ else
       _mv_warned=0
       while IFS= read -r _mv_b; do
         [ -n "$_mv_b" ] || continue
-        _mv_col="$(printf '%s\n' "$_mv_tree" | LC_ALL=C awk -F/ -v id="$_mv_b" 'NF == 3 && index($3, id "-") == 1 { print $2; exit }')"
+        _mv_col="$(printf '%s\n' "$_mv_tree" | LC_ALL=C awk -F/ -v id="$_mv_b" '!done && NF == 3 && index($3, id "-") == 1 { print $2; done = 1 }')"
         case "$_mv_col" in qa_complete|done) continue ;; esac
         if [ -n "$_mv_col" ]; then _mv_where="found in ${_mv_col}/"; else _mv_where="not found on the trunk"; fi
         echo "Warning: ${ISSUE_ID} is blocked_by ${_mv_b}, which is not in qa_complete/ or done/ on ${KWT_REMOTE}/${DEFAULT_BRANCH} (${_mv_where})." >&2

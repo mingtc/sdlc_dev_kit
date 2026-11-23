@@ -912,7 +912,7 @@ LOCAL_DELETE_STATE="unknown"
 if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch refs/heads/$BRANCH" >/dev/null; then
   LOCAL_DELETE_STATE="worktree-held"
   _wt_holder="$(git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-    | awk -v b="branch refs/heads/$BRANCH" '/^worktree /{w=substr($0,10)} $0==b{print w; exit}')"
+    | awk -v b="branch refs/heads/$BRANCH" '!d && /^worktree /{w=substr($0,10)} !d && $0==b{print w; d=1}')"
   {
     echo "Note: local branch '${BRANCH}' was NOT deleted — it is checked out in a worktree:"
     echo "        ${_wt_holder:-(unknown worktree)}"

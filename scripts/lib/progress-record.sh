@@ -67,7 +67,7 @@ kit_progress_dir() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
   [ -n "$root" ] || root="$PWD"
   main="$(git worktree list --porcelain 2>/dev/null \
-    | awk 'NR==1 && /^worktree /{p=substr($0,10)} /^$/{exit} /^bare$/{p=""} END{print p}')"
+    | awk 'NR==1 && /^worktree /{p=substr($0,10)} /^$/{d=1} !d && /^bare$/{p=""} END{print p}')"
   if [ -n "$main" ] && [ "$(unset GIT_DIR GIT_WORK_TREE; git -C "$main" rev-parse --show-toplevel 2>/dev/null)" = "$main" ]; then
     root="$main"
   fi

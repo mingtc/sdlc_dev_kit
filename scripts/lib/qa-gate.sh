@@ -509,6 +509,7 @@ _qav_ac_bullet_read() {
       }
       BEGIN { start = ENVIRON["KAB_START"]; lead = ENVIRON["KAB_LEAD"]; mode = ENVIRON["KAB_MODE"]
         TAGS = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul" }
+      fin { next }
       { line = $0; sub(/\r$/, "", line) }
       !on {
         if (fence_line(line)) next
@@ -522,7 +523,7 @@ _qav_ac_bullet_read() {
         if (fch == "" && !pend && para && pd <= qd && !(adel != "" && pd == qd && ordsib(ps, adel)) && (pd < qd || (isp > 0 && iq[isp] == pd && pind < icol[isp])) && (pind - (isp > 0 && iq[isp] == pd ? icol[isp] : 0) > 3 || !(ps ~ /^[ \t]*(#|>|[-*+]([ \t]|$)|1[.)]([ \t]|$)|```|~~~)/ || html_start(ps) || is_hr(ps)))) {
           t = t " " line; ln = ln " " NR; next }
         r = fence_line(line)
-        if (isp < base || iser[base] != aid) exit
+        if (isp < base || iser[base] != aid) { fin = 1; next }
         t = t " " line; ln = ln " " NR
         para = (r || is_hr(ps) || html_start(ps) || ps ~ /^[ \t]*(#+([ \t]|$)|=+[ \t]*$)/ ? 0 : 1); pend = 0 }
       END { if (on) print (mode == "lines" ? ln : t) }' \
@@ -1287,10 +1288,11 @@ _forks_window_entries() {
   while IFS= read -r d; do
     [ -n "$d" ] || continue
     prov="$(printf '%s\n' "$tipcopy" | LC_ALL=C awk -v m="$mark" -v d="$d" '
-      index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); if (f) exit; f=(id==d); next }
-      f && /^## / { exit }
+      fin { next }
+      index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); if (f) { fin=1; next } f=(id==d); next }
+      f && /^## / { fin=1; next }
       f && !p && /^\*\*Provenance\.\*\*/ { p=1; print; next }
-      f && p { if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^\*\*[^*]+\*\*/) exit; print }')"
+      f && p { if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^\*\*[^*]+\*\*/) { fin=1; next } print }')"
     kept="$(_forks_cards_on "$files" "$(grep -oE "$tokre" <<< "$prov" || true)")"
     if [ -z "$kept" ] && [ "$(grep -ciE 'no work item' <<< "$prov" || true)" -gt 0 ]; then continue; fi
     last_c=""; last_s=""; add_c=""; add_s=""; subjects=""
@@ -1446,7 +1448,7 @@ kit_ac_drift_check() {
     return 0
   fi
   old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
-    | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+    | LC_ALL=C awk '/^## QA Verdict[[:space:]]*$/{stop=1} !stop{print}')"
   # A changed bullet answers for itself: the citation must be ON that bullet's checklist line
   # (the text _qav_ac_bullet_text reads; what changed is _qav_ac_bullet_block's), so a citation elsewhere on the card — in
   # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
