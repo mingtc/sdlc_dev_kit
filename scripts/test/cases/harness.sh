@@ -889,7 +889,7 @@ $pm"
 # =============================================================================
 case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_exit_status() {
   cf_reset
-  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, --core runs the CORE_CASES list as a partial run and refuses a stale name or a second selector, the full run is unchanged, and every run prints case-seconds: and run-seconds:"
+  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, --core runs the CORE_CASES list as a partial run, leaves out and names a listed case this tree does not define, and refuses a second selector, the full run is unchanged, and every run prints case-seconds: and run-seconds:"
   if [ ! -f "$HARNESS_ENTRY" ]; then skp "$L" "scripts/test/run.sh is not where the harness says it is"; return; fi
   local P="case_" fx rc out ca cb cx
   ca="${P}fx_sel_a"; cb="${P}fx_sel_b"; cx="${P}fx_sel_bad"
@@ -994,13 +994,53 @@ case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_ex
   _fx_run "" --core --cases "$ca"
   { [ "$rc" -eq 2 ] && [[ "$out" == *"Next:"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(k) --core together with --cases did not refuse with status 2 and a Next: before running anything (exit $rc)"
 
-  # (l) A CORE_CASES NAME THAT IS NOT DEFINED REFUSES BEFORE ANYTHING RUNS: the list is a snapshot and goes stale loudly.
+  # (l) A CORE_CASES NAME THIS TREE DOES NOT DEFINE (an add-on's case, its directory removed) IS LEFT OUT AND NAMED, NOT REFUSED:
+  # the route a refusal printed (copy a name from --list) cannot lead out of a list fixed in the script.
   cp "$fx/scripts/test/run.sh" "$fx/scripts/test/run-stale.sh"
-  perl -0pi -e 'BEGIN { $n = shift } s/\nCORE_CASES=\(\n.*?\n\)\n/\nCORE_CASES=(\n  $n\n)\n/s' "${P}fx_sel_nonesuch" "$fx/scripts/test/run-stale.sh"
+  perl -0pi -e 'BEGIN { $a = shift; $n = shift } s/\nCORE_CASES=\(\n.*?\n\)\n/\nCORE_CASES=(\n  $a\n  $n\n)\n/s' "$ca" "${P}fx_sel_nonesuch" "$fx/scripts/test/run-stale.sh"
   rc=0; out="$( cd "$fx" && bash scripts/test/run-stale.sh --core 2>&1 )" || rc=$?
   out="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"
-  { [ "$rc" -eq 2 ] && [[ "$out" == *"${P}fx_sel_nonesuch"* ]] && [[ "$out" == *"Next:"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(l) a stale CORE_CASES name did not refuse with status 2, the name and a Next: before running anything (exit $rc)"
+  { [ "$rc" -eq 3 ] && [ "$(_fx_table)" = "$ca " ]; } || cf "(l) --core with one undefined name in the list did not run the defined one and exit 3 (exit $rc, table: $(_fx_table))"
+  [[ "$out" == *"core: left out 1 listed case(s)"*"${P}fx_sel_nonesuch"* ]] || cf "(l) no core: line naming the one case left out: $(printf '%s' "$out" | grep -E '^core:|REFUSING' | head -2 | tr '\n' '|')"
+  [[ "$out" != *"REFUSING"* ]] || cf "(l) --core refused over a name this tree does not define"
+  # (l2) --cases keeps refusing a name nobody defined: a person typed it.
+  rc=0; out="$( cd "$fx" && bash scripts/test/run.sh --cases "$ca,${P}fx_sel_nonesuch" 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "(l2) --cases with an undefined name did not refuse with status 2 (exit $rc)"
+  # (m) A LIST WHOSE EVERY NAME IS UNDEFINED RUNS NOTHING, SO IT REFUSES: a run of nothing must not read as a pass.
+  cp "$fx/scripts/test/run.sh" "$fx/scripts/test/run-none.sh"
+  perl -0pi -e 'BEGIN { $n = shift } s/\nCORE_CASES=\(\n.*?\n\)\n/\nCORE_CASES=(\n  $n\n)\n/s' "${P}fx_sel_nonesuch" "$fx/scripts/test/run-none.sh"
+  rc=0; out="$( cd "$fx" && bash scripts/test/run-none.sh --core 2>&1 )" || rc=$?
+  out="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"
+  { [ "$rc" -eq 2 ] && [[ "$out" == *"Next:"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(m) a core list with no defined case did not refuse with status 2 and a Next: (exit $rc)"
 
   rm -rf "${fx:?}"
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — EVERY NAME IN CORE_CASES IS DEFINED WHERE THE SHIPPED ADD-ONS ARE. `--core` leaves out a listed case its
+# tree does not define, because a project may delete an add-on's directory; that is how a renamed or removed case
+# would go unnoticed, so the list is held to the shipped tree here, in this repository's runs, and not in an
+# adopter's. In a tree that has lost an add-on this case SKIPs and says which: the list cannot be judged there.
+# Rows: every listed name is a defined case function, and no name is listed twice.
+# =============================================================================
+case_every_core_case_is_defined_where_the_shipped_add_ons_are() {
+  cf_reset
+  local L="every name in CORE_CASES is a defined case function when every add-on the manifest lists is present, and none is listed twice"
+  if [ ! -f "$HARNESS_ENTRY" ]; then skp "$L" "scripts/test/run.sh is not where the harness says it is"; return; fi
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" m gone="" names n dup="" miss=""
+  if [ -f "$man" ]; then
+    while IFS= read -r m; do
+      [ -n "$m" ] || continue
+      [ -d "$REAL_REPO_ROOT/modules/$m" ] || gone="$gone $m"
+    done < <(awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^modules\/[^\/]+\//) { split($i, p, "/"); print p[2]; break } }' "$man" | sort -u)
+  fi
+  if [ -n "$gone" ]; then skp "$L" "the add-on(s)$gone this kit ships are absent from this tree, so which listed cases they define cannot be judged here"; return; fi
+  names="$(awk '/^CORE_CASES=\(/ { f = 1; next } f && /^\)/ { exit } f { gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 != "") print }' "$HARNESS_ENTRY")"
+  [ -n "$names" ] || _fixture_die "${FUNCNAME[0]}: no CORE_CASES block was read from run.sh — its shape moved."
+  for n in $names; do declare -F "$n" >/dev/null 2>&1 || miss="$miss $n"; done
+  [ -z "$miss" ] || cf "(a) CORE_CASES lists a case no file defines (renamed or removed?):$miss"
+  dup="$(printf '%s\n' "$names" | sort | uniq -d | tr '\n' ' ')"
+  [ -z "$dup" ] || cf "(b) CORE_CASES lists a case twice: $dup"
   finish "$L"
 }

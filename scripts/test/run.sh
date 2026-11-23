@@ -6,7 +6,8 @@
 # HOW TO RUN
 #   ./scripts/test/run.sh          # run every case; exit 0 iff none FAILed
 #   ./scripts/test/run.sh --cases <name>[,<name>...]   # run only the named cases (or KIT_TEST_CASES=<names>)
-#   ./scripts/test/run.sh --core   # the fast core: a partial run of the CORE_CASES list below (a measured, dated list)
+#   ./scripts/test/run.sh --core   # the fast core: a partial run of the CORE_CASES list below (a measured, dated list);
+#                                  # a listed case this tree does not define (a removed add-on's) is left out and named
 #   ./scripts/test/run.sh --list   # print the case names, one a line, and run nothing
 #   A SELECTED RUN IS A PARTIAL RUN, AND IS NEVER A GREEN FULL RUN: it prints a `partial:` line, exits 1 when a
 #   selected case FAILs and exits 3 (never 0) when every selected case passed. Exit 0 is the full list's alone.
@@ -1074,6 +1075,7 @@ CASES=(
   case_ship_state
   case_isolation_is_read_with_the_machines_git_config_shut_out
   case_an_ac_bullet_reader_does_not_fail_when_the_body_runs_on_after_the_bullet
+  case_every_core_case_is_defined_where_the_shipped_add_ons_are
   case_isolation
 )
 
@@ -1081,7 +1083,8 @@ CASES=(
 # case that took at most two seconds, the shortest case of each cases file that has none, and the whole-tree census
 # cases (the exit and refusal classifications, the cited case names, the shipped tree's citation check), which catch
 # what a change's own cases miss. It is a snapshot: a case added later is outside it until it is listed here, and a
-# listed name that no longer exists refuses `--core` before anything runs. The full run, which only the full list's
+# listed name this tree does not define (a removed add-on's case) is left out of `--core` and named, and the self-test
+# holds the list to the shipped tree. The full run, which only the full list's
 # exit 0 stands for, still gates a cut.
 CORE_CASES=(
   case_move_issue
@@ -1429,7 +1432,18 @@ if [ -n "$SEL_CORE" ]; then
     echo "        Next: run  run.sh --core  alone, or name the cases with --cases and leave --core out." >&2
     exit 2
   fi
-  SEL_VIA="--core"; SEL_LIST="${CORE_CASES[*]}"
+  # The list names the cases of add-ons as well as core cases, and a project may delete an add-on's directory
+  # (process/MODULES.md): a listed case this tree does not define is left out and named, never a refusal whose
+  # route (copy a name from --list) cannot lead out. The list's freshness is held where the add-ons are, by
+  # case_every_core_case_is_defined_where_the_shipped_add_ons_are. A name typed to --cases still refuses.
+  _core_keep=""; _core_out=""; _core_n_out=0
+  for _n in "${CORE_CASES[@]}"; do
+    _found=""
+    for _c in "${CASES[@]}"; do [ "$_c" = "$_n" ] && { _found=1; break; }; done
+    if [ -n "$_found" ]; then _core_keep="$_core_keep $_n"; else _core_out="$_core_out $_n"; _core_n_out=$(( _core_n_out + 1 )); fi
+  done
+  SEL_VIA="--core"; SEL_LIST="${_core_keep# }"
+  [ "$_core_n_out" -eq 0 ] || echo "core: left out $_core_n_out listed case(s) this tree does not define (an add-on whose directory was removed):$_core_out"
 fi
 if [ -n "$SEL_VIA" ]; then
   _sel_names="$SEL_LIST"
