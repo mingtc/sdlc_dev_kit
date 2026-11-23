@@ -4562,6 +4562,8 @@ case_prepare_commit_msg_compares_raw_messages() {
 # =============================================================================
 case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
   cf_reset
+  local L="move-issue.sh refuses a move to done/ from any column but qa_complete/ and leaves the card, a reviewed card still moves, subtask.sh move takes only a full slice id (the parent id is refused naming the slices, one id in two columns is refused naming both), and each check is ablation-proven"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   local W="$SB_WORK" t="$SB_PREFIX-801" d="$SB_PREFIX-802" q="$SB_PREFIX-803" p="$SB_PREFIX-810" out rc abl
   seed_issue todo "$t" fresh chore "Never worked"
@@ -4630,7 +4632,7 @@ case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
     [ "$rc" -eq 0 ] || cf "(ablation) with the slice-id check removed, the parent id was still refused — the case cannot see the check"
   fi
   unset -f _mvd _std _mvd_abl
-  finish "move-issue.sh refuses a move to done/ from any column but qa_complete/ and leaves the card, a reviewed card still moves, subtask.sh move takes only a full slice id (the parent id is refused naming the slices, one id in two columns is refused naming both), and each check is ablation-proven"
+  finish "$L"
   teardown
 }
 
@@ -4653,8 +4655,10 @@ case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
 # =============================================================================
 case_every_lander_refuses_a_trunk_its_remote_lacks_and_finalize_never_rewinds_it() {
   cf_reset
+  local L="move-issue.sh, finish-pr.sh, subtask.sh and archive.sh refuse a local trunk holding commits its remote lacks as register-commit.sh does (the remote, the local trunk and the card unchanged, the Next's push then clears it), every lander carries the call, kwt_finalize leaves a local trunk ref that holds such commits where it is and says so, and both the call and the ancestry test are ablation-proven"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
-  local W="$SB_WORK" T="$SB_TRUNK" p="$SB_PREFIX-820" out rc tip0 loc0 n=0 f abl
+  local W="$SB_WORK" T="$SB_TRUNK" p="$SB_PREFIX-820" out rc tip0 loc0 n=0 f abl held
   seed_issue todo "$SB_PREFIX-821" mv chore "The mover row"
   seed_issue dev_complete "$SB_PREFIX-822" land chore "The finish-pr row" "feature/$SB_PREFIX-822-land"
   seed_issue in_progress "$p" parent chore "A decomposed parent"
@@ -4709,7 +4713,7 @@ case_every_lander_refuses_a_trunk_its_remote_lacks_and_finalize_never_rewinds_it
   git -C "$W" checkout -q -b feature/side "origin/$T" >/dev/null 2>&1
   out="$(_fin "$W/scripts/lib" c1)"
   [ "$(_l)" = "$loc0" ] || cf "(c) kwt_finalize moved the local trunk off its unpushed commit: $(_l | cut -c1-9) now, $(printf '%s' "$loc0" | cut -c1-9) before: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  git -C "$W" branch --contains "$loc0" 2>/dev/null | grep -q . || cf "(c) the unpushed commit is on no branch"
+  held="$(git -C "$W" branch --contains "$loc0" 2>/dev/null)"; [ -n "$held" ] || cf "(c) the unpushed commit is on no branch"
   case "$out" in *"was not moved"*) : ;; *) cf "(c) kwt_finalize left the ref alone and said nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
 
   # ABLATION 1: the ancestry test removed from a copy of the library — the original rewind comes back.
@@ -4734,6 +4738,6 @@ case_every_lander_refuses_a_trunk_its_remote_lacks_and_finalize_never_rewinds_it
     [ "$rc" -eq 0 ] || cf "(ablation) with the call removed the mover still refused a trunk ahead of its remote — the case cannot see the call: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   fi
   unset -f _hand _o _l _lander_row _fin
-  finish "move-issue.sh, finish-pr.sh, subtask.sh and archive.sh refuse a local trunk holding commits its remote lacks as register-commit.sh does (the remote, the local trunk and the card unchanged, the Next's push then clears it), every lander carries the call, kwt_finalize leaves a local trunk ref that holds such commits where it is and says so, and both the call and the ancestry test are ablation-proven"
+  finish "$L"
   teardown
 }
