@@ -288,3 +288,137 @@ case_a_heading_id_ends_at_the_same_place_in_every_reader() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — AN ID STARTS AT THREE DIGITS AND WIDENS PAST 999 WITHOUT A MISREAD. The kit was written
+# width-free almost everywhere, and no case seeded an id above 999, so the two sites that were not
+# (archive.sh's newest-first sort, and the staleness report's three-digit match) had nothing to fail.
+# Rows, each read back by the reader that consumes the id: the minting readers (next-id.sh over a board
+# at 999 and 9999 and over an ARCHIVE.md holding only 0999, new-prd.sh at PRD-999 and PRD-9999), the
+# creators (new-issue.sh --id at 1000 and 10000; the same number again, spelled 1000 and 01000, refused),
+# check-board.sh over the widened ids (no finding; two spellings of one number are a duplicate), the
+# mover at width, read-verdict.sh at width, and the two sites that broke: archive.sh lists and indexes
+# newest first by NUMBER, and the staleness report reads a four- and five-digit id.
+# Controls (green at the base this case was written against): the minting readers, the creators,
+# check-board, the mover and read-verdict. Seen red first: the archive order and the staleness reports.
+# Each of those two carries an ablation: the same script with its fix taken out is run over the same
+# fixture and must fail the same row, so the row is shown to distinguish the fix.
+# =============================================================================
+_idw_line_of() {   # <text> <needle> -> the number of the first line containing needle, or empty
+  printf '%s\n' "$1" | grep -nF -- "$2" | head -1 | cut -d: -f1
+}
+case_ids_widen_past_three_digits() {
+  cf_reset
+  local L="an id widens past 999: the minting readers, the creators, check-board, the mover and read-verdict take 1000 and 10000, archive.sh lists newest first by number, and the staleness report reads a four- and five-digit id"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local out rc n="$SB_PREFIX" nid id a b
+  nid() { ( cd "$SB_WORK" && ./scripts/next-id.sh 2>/dev/null ); }
+  # (a) next-id.sh: an ARCHIVE.md holding only 0999 (the board holds nothing wider), then 999, then 9999.
+  printf -- '- %s-0999 — an archived card\n' "$n" >> "$SB_WORK/ARCHIVE.md"
+  grep -qF -- "$n-0999" "$SB_WORK/ARCHIVE.md" || _fixture_die "case_ids_widen_past_three_digits: the ARCHIVE.md entry was not planted"
+  id="$(nid)"; [ "$id" = "$n-1000" ] || cf "(a1) next-id.sh over an ARCHIVE.md holding only $n-0999 printed '$id', want $n-1000"
+  for id in 999 9999; do
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh "w$id" --id "$n-$id" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || _fixture_die "case_ids_widen_past_three_digits: new-issue.sh --id $n-$id exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  done
+  # 999 and 9999 are on the board now; the answer reads the larger.
+  a="$(nid)"; [ "$a" = "$n-10000" ] || cf "(a2) next-id.sh over a board holding -999 and -9999 printed '$a', want $n-10000"
+  # (b) the creators at width: 1000 and 10000 create the card, the id in the name and in the frontmatter.
+  for id in 1000 10000; do
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh "w$id" --id "$n-$id" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(b) new-issue.sh --id $n-$id exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    [ -f "$SB_WORK/progress/todo/$n-$id-w$id.md" ] || cf "(b) no card named $n-$id-w$id.md was created"
+    grep -qx "id: $n-$id" "$SB_WORK/progress/todo/$n-$id-w$id.md" 2>/dev/null || cf "(b) the card $n-$id-w$id.md does not carry 'id: $n-$id'"
+  done
+  for id in "$n-1000" "$n-01000" "$n-10000" "$n-010000"; do
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh again --id "$id" 2>&1 )" || rc=$?
+    if [ "$rc" -eq 0 ] || ! printf '%s\n' "$out" | grep -F 'Next:' >/dev/null; then
+      cf "(b2) new-issue.sh --id $id was not refused as taken (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    fi
+  done
+  # (c) new-prd.sh: PRD-999 mints PRD-1000, PRD-9999 mints PRD-10000.
+  if [ -f "$SB_WORK/scripts/new-prd.sh" ]; then
+    mkdir -p "$SB_WORK/requirements"
+    for a in 999:1000 9999:10000; do
+      b="${a#*:}"; a="${a%%:*}"
+      printf '# seeded\n' > "$SB_WORK/requirements/PRD-$a-seeded.md"
+      rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe-slug 2>&1 )" || rc=$?
+      [ "$rc" -eq 0 ] && [ -f "$SB_WORK/requirements/PRD-$b-probe-slug.md" ] \
+        || cf "(c) new-prd.sh beside PRD-$a (rc=$rc) did not create PRD-$b-probe-slug.md: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240) | $(ls "$SB_WORK/requirements" | tr '\n' ' ')"
+      rm -f "$SB_WORK/requirements/PRD-$b-probe-slug.md" "$SB_WORK/requirements/PRD-$a-seeded.md"
+    done
+  fi
+  # (d) check-board.sh: the widened ids are no finding; two spellings of one number are one duplicate.
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -i 'DUPLICATE' >/dev/null \
+    && cf "(d1) check-board reported a duplicate over the widened ids with no two spellings of one number: $(printf '%s\n' "$out" | grep -i 'DUPLICATE' | tr '\n' '|' | cut -c1-300)"
+  sed "s/^id: .*/id: $n-01000/" "$SB_WORK/progress/todo/$n-1000-w1000.md" > "$SB_WORK/progress/todo/$n-01000-dup.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -i 'DUPLICATE' | grep -E "$n-0*1000 is carried" >/dev/null \
+    || cf "(d2) check-board did not report $n-1000 and $n-01000 as one number: $(printf '%s\n' "$out" | grep -A3 '^\[d\]' | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" rm -q -f "progress/todo/$n-01000-dup.md" >/dev/null 2>&1; rm -f "$SB_WORK/progress/todo/$n-01000-dup.md"
+  publish_sandbox
+  # (e) the mover: -1000 moves todo to in_progress.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$n-1000" in_progress --role Dev --note "width" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) move-issue.sh $n-1000 in_progress exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/in_progress/$n-1000-w1000.md" || cf "(e) $n-1000 did not reach in_progress/ on the trunk"
+  # (f) read-verdict.sh finds a card at width.
+  seed_issue qa_complete "$n-10001" verdict chore "A card past 10000" "n/a"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/read-verdict.sh "$n-10001" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) read-verdict.sh $n-10001 exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F -- "$n-10001" >/dev/null || cf "(f) read-verdict.sh did not name $n-10001: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  # (g) archive.sh: a sweep retiring 997 and 1002 lists 1002 first, and indexes it first. SEEN RED FIRST.
+  seed_issue qa_complete "$n-997" older chore "Retired second" "n/a"
+  seed_issue qa_complete "$n-1002" newer chore "Retired first" "n/a"
+  publish_sandbox
+  local ab="$SB_WORK/scripts/archive-ablated.sh" la lb
+  # The ablation: the same script with its collection line back to the lexical sort the base had.
+  perl -pe 's/(-type f) \|.*\)\s*$/$1 | sort -r)/ if /find "\$QA_DIR" -maxdepth 1/' "$SB_WORK/scripts/archive.sh" > "$ab"
+  cmp -s "$SB_WORK/scripts/archive.sh" "$ab" && cf "(g1 ablation) the lexical sort was not put back: the ablated copy is the shipped script, so the row below proves nothing"
+  out="$( cd "$SB_WORK" && ./scripts/archive.sh 2>&1 )" || true
+  la="$(_idw_line_of "$out" "$n-1002")"; lb="$(_idw_line_of "$out" "$n-997")"
+  { [ -n "$la" ] && [ -n "$lb" ] && [ "$la" -lt "$lb" ]; } \
+    || cf "(g1) the archive sweep's listing does not put $n-1002 before $n-997 (lines '$la' and '$lb'): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  chmod +x "$ab"
+  out="$( cd "$SB_WORK" && "$ab" 2>&1 )" || true
+  la="$(_idw_line_of "$out" "$n-1002")"; lb="$(_idw_line_of "$out" "$n-997")"
+  if [ -n "$la" ] && [ -n "$lb" ] && [ "$la" -lt "$lb" ] && ! cmp -s "$SB_WORK/scripts/archive.sh" "$ab"; then
+    cf "(g1 ablation) the lexical sort put $n-1002 before $n-997 as well: row (g1) does not tell the fix from its absence"
+  fi
+  rm -f "$ab"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(g2) archive.sh --apply exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  la="$(_idw_line_of "$(cat "$SB_WORK/ARCHIVE.md")" "$n-1002")"; lb="$(_idw_line_of "$(cat "$SB_WORK/ARCHIVE.md")" "$n-997")"
+  { [ -n "$la" ] && [ -n "$lb" ] && [ "$la" -lt "$lb" ]; } \
+    || cf "(g2) ARCHIVE.md does not list $n-1002 above $n-997 (lines '$la' and '$lb')"
+  # (h) the staleness report reads a four- and five-digit id. SEEN RED FIRST.
+  local hy="$REAL_SCRIPTS/hygiene/staleness_greps.py" root="$SB_TMP/stale" got p
+  if command -v python3 >/dev/null 2>&1 && [ -f "$hy" ]; then
+    mkdir -p "$root/scripts" "$root/progress/done" "$root/process"
+    printf 'ISSUE_PREFIX="${ISSUE_PREFIX:-PFX}"\nPRD_PREFIX="${PRD_PREFIX:-PRD}"\n' > "$root/scripts/config.sh"
+    for id in 123 1234 12345; do printf '# x\n' > "$root/progress/done/PFX-$id-x.md"; done
+    printf 'PFX-123 is still open.\nPFX-1234 is still open.\nPFX-12345 is still open.\nPFX-12 is still open.\n' > "$root/process/probe.md"
+    for p in "$hy" "$SB_TMP/staleness-ablated.py"; do
+      if [ "$p" != "$hy" ]; then
+        sed 's/\\d{{3,}}/\\d{{3}}/g' "$hy" > "$p"
+        cmp -s "$hy" "$p" && cf "(h ablation) the three-digit match was not put back: the ablated copy is the shipped script"
+      fi
+      rc=0; ( cd "$SB_TMP" && PYTHONDONTWRITEBYTECODE=1 python3 -I "$p" --root "$root" >"$SB_TMP/sgw.out" 2>&1 ) || rc=$?
+      got="$(grep -E '^\[[a-z-]+\] process/probe\.md:[0-9]+$' "$SB_TMP/sgw.out" | sed 's/^.*://' | tr '\n' ' ')"
+      if [ "$p" = "$hy" ]; then
+        [ "$rc" -eq 0 ] || cf "(h) staleness_greps.py exited $rc: $(tr '\n' '|' < "$SB_TMP/sgw.out" | cut -c1-200)"
+        [ "$got" = "1 2 3 " ] || cf "(h) the staleness report named lines '$got' of the probe, want '1 2 3 ' (three, four and five digits; the two-digit id is no id): $(tr '\n' '|' < "$SB_TMP/sgw.out" | cut -c1-200)"
+      else
+        [ "$got" != "1 2 3 " ] || cf "(h ablation) the three-digit match reported lines '$got' as well: row (h) does not tell the fix from its absence"
+      fi
+    done
+    rm -f "$SB_TMP/staleness-ablated.py"
+  fi
+  finish "$L"
+  teardown
+}

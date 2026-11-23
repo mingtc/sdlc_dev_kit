@@ -107,7 +107,7 @@ def _id_prefixes(root: Path):
 
 def artifact_pattern(root: Path):
     prefixes, derived = _id_prefixes(root)
-    return re.compile(rf"\b((?:{prefixes})-\d{{3}})\b|([\w./-]+\.(?:md|txt|sh|py|toml|json|yaml))"), derived
+    return re.compile(rf"\b((?:{prefixes})-\d{{3,}})\b|([\w./-]+\.(?:md|txt|sh|py|toml|json|yaml))"), derived
 
 
 SCOPE_EXACT_DIRS = ("process/", ".claude/roles/")
@@ -130,7 +130,7 @@ def in_scope(rel: str) -> bool:
 
 def landed(root: Path, token: str, prefixes: str) -> str:
     """Why the named artifact contradicts the claim, or '' if it does not."""
-    if re.fullmatch(rf"(?:{prefixes})-\d{{3}}", token):
+    if re.fullmatch(rf"(?:{prefixes})-\d{{3,}}", token):
         hits = sorted((root / "progress" / "done").glob(f"{token}-*.md"))
         return f"{token} is in progress/done/ ({hits[0].name})" if hits else ""
     path = root / token
