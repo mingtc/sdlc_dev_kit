@@ -37,8 +37,8 @@
 #       that cell is unfilled, with what scripts/set-models.sh last wrote; and a line counting the
 #       role docs' hand-kept model-table rows still `<fill in>` (advisory).
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
-#       `**Answer` block and that no register line has named since the answer, with the card it
-#       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
+#       `**Answer` block below its own `**To answer:**` line and that no register line has named since
+#       the answer, with the card it parks; and one whose answer this checkout holds but the trunk does not (advisory).
 #   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, ending
 #       in `:`, or starting with a YAML indicator (advisory; never part of a landing's property check).
 #   (v) scripts/ against process/KIT-MANIFEST — a listed file missing from the trunk, and a script the
@@ -2098,7 +2098,8 @@ fi
 # ---------------------------------------------------------------------------
 # (t) ANSWERED QUESTIONS NOT RECONCILED — a question file in the channel PROJECT.md declares
 #     (lib/pm-field.sh's kit_pm_channel_token, the reader scripts/ask.sh writes through) that carries
-#     an `**Answer` block and whose path no register file cites AFTER the answer: a register commit
+#     an `**Answer` block below its own `**To answer:**` line (lib/pm-field.sh's kit_answer_present; an
+#     `**Answer` line inside the question's text is no answer) and whose path no register file cites AFTER the answer: a register commit
 #     that wrote a line naming the path (a line it ADDED, so moving the path between fields of one
 #     entry counts and only deleting it does not) must descend from (or be) the commit that added the
 #     `**Answer` block, compared by ancestry, never by timestamp. A ruling that named the file before it
@@ -2118,7 +2119,7 @@ echo "[t] Answered, not reconciled (reports only; never changes the verdict belo
 t_pm="$CB_TREE/PROJECT.md"
 t_line=""; t_tok=""; t_dir=""; t_skip=""; t_dead=""
 cb_rd_begin
-if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1 || ! command -v kit_pm_channel_dir >/dev/null 2>&1; then
+if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1 || ! command -v kit_pm_channel_dir >/dev/null 2>&1 || ! command -v kit_answer_present >/dev/null 2>&1; then
   t_skip="scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load"
 elif [ ! -f "$t_pm" ]; then
   t_skip="no PROJECT.md in this source, so no channel is declared"
@@ -2155,11 +2156,22 @@ T_REGS
   for t_f in "$CB_TREE/$t_dir"/*-ask.md; do
     [ -f "$t_f" ] || continue
     t_read=$((t_read + 1))
-    grep -qE '^\*\*Answer' "$t_f" 2>/dev/null || continue
     t_rel="$t_dir/${t_f##*/}"
+    t_has="$(kit_answer_present "$t_f" 2>/dev/null)" || cb_rd_note "the answer reader exited non-zero on $t_rel"
+    [ -n "$t_has" ] || continue
     t_cited=0; t_ans=""
     t_re="$(printf '%s' "$t_rel" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
-    [ -z "$t_href" ] || t_ans="$(git -C "$REPO_ROOT" log --reverse -G'^\*\*Answer' --format=%H "$t_href" -- "$t_rel" 2>/dev/null | head -1)"
+    # The answer's commit is the first whose copy of the file holds an answer by the same reader: a line
+    # of the question's own that opens `**Answer` makes no commit the answer's.
+    if [ -n "$t_href" ]; then
+      while IFS= read -r t_cm; do
+        [ -n "$t_cm" ] || continue
+        [ -n "$(git -C "$REPO_ROOT" show "$t_cm:$t_rel" 2>/dev/null | kit_answer_present)" ] || continue
+        t_ans="$t_cm"; break
+      done <<T_ANSC
+$(git -C "$REPO_ROOT" log --reverse -G'^\*\*Answer' --format=%H "$t_href" -- "$t_rel" 2>/dev/null)
+T_ANSC
+    fi
     while IFS= read -r t_rpath; do
       [ -n "$t_rpath" ] || continue
       grep -qF -- "$t_rel" "$CB_TREE/$t_rpath" 2>/dev/null || continue
@@ -2195,11 +2207,11 @@ T_CITES
       [ -n "$t_n" ] || continue
       t_rel="$t_dir/$t_n"
       t_remote_blob="$(git -C "$REPO_ROOT" show "$CB_REF:$t_rel" 2>/dev/null || true)"
-      ! printf '%s\n' "$t_remote_blob" | grep -E '^\*\*Answer' >/dev/null || continue
+      [ -z "$(printf '%s\n' "$t_remote_blob" | kit_answer_present)" ] || continue
       t_lref_blob="$(git -C "$REPO_ROOT" show "$t_lref:$t_rel" 2>/dev/null || true)"
       t_wt_blob="$(cat "$REPO_ROOT/$t_rel" 2>/dev/null || true)"
-      if printf '%s\n' "$t_lref_blob" | grep -E '^\*\*Answer' >/dev/null; then t_state="committed, unpushed"
-      elif printf '%s\n' "$t_wt_blob" | grep -E '^\*\*Answer' >/dev/null; then
+      if [ -n "$(printf '%s\n' "$t_lref_blob" | kit_answer_present)" ]; then t_state="committed, unpushed"
+      elif [ -n "$(printf '%s\n' "$t_wt_blob" | kit_answer_present)" ]; then
         if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$t_rel" 2>/dev/null)" ]; then t_state="uncommitted"
         else t_state="committed on a branch other than $CB_TRUNK"; fi
       else continue; fi

@@ -1036,7 +1036,7 @@ case_register_commit_guard_reads_a_channel_without_its_slash_and_names_each_skip
   : > "$SB_WORK/dev/questions/.gitkeep"
   publish_sandbox
   _cite() {  # <D-id> — also writes the answered question, which no publish_sandbox may carry to the trunk
-    printf '# Q\n\n**Asked:** x\n\n**Answer (2026-10-27, Ros):** Yes.\n' > "$SB_WORK/$q"
+    printf '# Q\n\n**Asked:** x\n\n**To answer:** add a block below.\n\n**Answer (2026-10-27, Ros):** Yes.\n' > "$SB_WORK/$q"
     printf '\n### %s — a ruling\n\n**Ruling.** As answered.\n**Why.** The principal said so.\n**Provenance.** 2026-10-27, the answer in %s; no work item.\n\n---\n' "$1" "$q" >> "$SB_WORK/requirements/DECISIONS.md"
   }
   _reset() { git -C "$SB_WORK" checkout -- requirements/DECISIONS.md PROJECT.md scripts/check-board.sh >/dev/null 2>&1; git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "control: the checkout could not take the landing"; }
