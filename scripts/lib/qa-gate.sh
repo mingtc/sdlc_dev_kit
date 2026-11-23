@@ -749,11 +749,11 @@ kit_trunk_gate_check() {
     2) kit_refuse 1 qa-complete-gate-refused-to-run \
          "Error: the trunk's quick gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, or --quick over a table whose every gate is class full) — ${id} cannot move to qa_complete/." \
          "       Nothing about the trunk was measured: this is the gate's own configuration. A move that no finish-pr.sh landing vouches for needs a gate that runs." \
-         "Next: fix scripts/verify.sh on the trunk (its own refusal names what it needs; ./scripts/verify.sh --list prints the table), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
+         "Next: declare at least one gate of class core or select in the GATES table of scripts/verify.sh on the trunk (./scripts/verify.sh --list prints the table; the runner's own refusal names anything else it needs) and land it with ./scripts/register-commit.sh, then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
     3) kit_refuse 1 qa-complete-gate-could-not-run \
          "Error: the trunk's quick gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — ${id} cannot move to qa_complete/." \
          "       Nothing about the trunk was measured." \
-         "Next: fix what the gate needs to start (its summary names it), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
+         "Next: fix what the gate needs to start (its summary names it: a command it could not execute, the runner itself, or the trunk's POST_MERGE_PREP), then re-run  ./scripts/move-issue.sh ${id} qa_complete --role ${role}. NOTHING WAS CHANGED." ;;
     *) kit_refuse 1 qa-complete-gate-failed \
          "Error: the trunk's quick gate FAILED at ${tip:0:9} — ${id} cannot move to qa_complete/." \
          "       No finish-pr.sh landing gated this card (a change squash-merged by hand, or a commit made direct to the trunk), so the gate on the trunk tip is the measurement, and it is red: moving the card would record it as reviewed and landed over a red trunk." \

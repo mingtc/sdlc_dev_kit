@@ -3485,10 +3485,11 @@ case_move_to_qa_complete_without_a_landing_runs_the_gate_on_the_trunk_tip() {
   publish_sandbox
   printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$SB_TMP/gate-exit-1"; printf '%s\n' '#!/usr/bin/env bash' 'exit 2' > "$SB_TMP/gate-exit-2"
   printf '%s\n' '#!/usr/bin/env bash' 'exit 3' > "$SB_TMP/gate-exit-3"; chmod +x "$SB_TMP"/gate-exit-?
-  _mvg_refused() {   # <label> <card id> <card file name> <phrase the refusal must carry>
+  _mvg_refused() {   # <label> <card id> <card file name> <phrase the refusal must carry> <phrase ITS Next: line must carry>
     [ "$MVG_RC" -ne 0 ] || cf "$1: the move to qa_complete/ was accepted (exit 0)"
     case "$MVG_OUT" in *"$4"*) : ;; *) cf "$1: the refusal does not say '$4': $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
     case "$MVG_OUT" in *"Next:"*) : ;; *) cf "$1: the refusal names no Next: step" ;; esac
+    printf '%s\n' "$MVG_OUT" | grep -F 'Next:' | grep -F -- "$5" > /dev/null || cf "$1: its Next: line does not carry '$5': $(printf '%s' "$MVG_OUT" | grep -F 'Next:' | cut -c1-260)"
     origin_has_path "progress/dev_complete/$3" || cf "$1: the card is no longer in dev_complete/ on the trunk"
     origin_has_path "progress/qa_complete/$3" && cf "$1: the card reached qa_complete/ on the trunk"
     [ "$(git -C "$W" rev-parse "origin/$SB_TRUNK")" = "$tip0" ] || cf "$1: the trunk moved during a refused move"
@@ -3498,23 +3499,45 @@ case_move_to_qa_complete_without_a_landing_runs_the_gate_on_the_trunk_tip() {
   _mvg_marker red "[QA] $ida: squash-merge by hand"
   origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
   _mvg_run 701
-  _mvg_refused "(a) hand squash-merge, red trunk" 701 "$ida-hand.md" "FAILED"
+  _mvg_refused "(a) hand squash-merge, red trunk" 701 "$ida-hand.md" "FAILED" "fix the trunk"
   # (b) BA-06: a branchless card closed after a direct red commit.
   _mvg_marker red "[Dev] $idb: direct red change"
   origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
   _mvg_run 702
-  _mvg_refused "(b) direct-to-trunk, red trunk" 702 "$idb-direct.md" "FAILED"
+  _mvg_refused "(b) direct-to-trunk, red trunk" 702 "$idb-direct.md" "FAILED" "fix the trunk"
 
   # (d) a command in the seam's variable is ignored without the allow flag: the red still refuses.
   _mvg_run 704 MOVE_ISSUE_GATE_CMD=true
-  _mvg_refused "(d) MOVE_ISSUE_GATE_CMD without the allow flag" 704 "$idd-seam.md" "FAILED"
+  _mvg_refused "(d) MOVE_ISSUE_GATE_CMD without the allow flag" 704 "$idd-seam.md" "FAILED" "fix the trunk"
   # (e) with the flag, the seam's statuses are read the way the landing reads them, apart; `true` moves and says STUB.
   _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-1"
-  _mvg_refused "(e1) seam exit 1" 704 "$idd-seam.md" "FAILED"
+  _mvg_refused "(e1) seam exit 1" 704 "$idd-seam.md" "FAILED" "fix the trunk"
   _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-2"
-  _mvg_refused "(e2) seam exit 2" 704 "$idd-seam.md" "REFUSED TO RUN"
+  _mvg_refused "(e2) seam exit 2" 704 "$idd-seam.md" "REFUSED TO RUN" "declare at least one gate"
   _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 "MOVE_ISSUE_GATE_CMD=$SB_TMP/gate-exit-3"
-  _mvg_refused "(e3) seam exit 3" 704 "$idd-seam.md" "COULD NOT RUN"
+  _mvg_refused "(e3) seam exit 3" 704 "$idd-seam.md" "COULD NOT RUN" "POST_MERGE_PREP"
+  # (e5) the trunk's POST_MERGE_PREP fails: the gate never ran, and the Next names the prep. The trunk's config is restored after.
+  _mvg_config() {   # <the whole POST_MERGE_PREP line> — committed to the trunk
+    sed "s|^POST_MERGE_PREP=.*|$1|" "$W/scripts/config.sh" > "$SB_TMP/config.new" && cp "$SB_TMP/config.new" "$W/scripts/config.sh"
+    git -C "$W" add scripts/config.sh >/dev/null 2>&1; sbcommit -m "[QA] set POST_MERGE_PREP" --quiet >/dev/null 2>&1
+    git -C "$W" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  }
+  _mvg_config "POST_MERGE_PREP='exit 1'"
+  origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
+  _mvg_run 704
+  _mvg_refused "(e5) a failing POST_MERGE_PREP" 704 "$idd-seam.md" "POST_MERGE_PREP failed" "POST_MERGE_PREP command in scripts/config.sh"
+  _mvg_config "POST_MERGE_PREP=''"
+  # (e6) the gate's fresh worktree cannot be made: a git shim fails only that one `worktree add`.
+  mkdir -p "$SB_TMP/shim"
+  cat > "$SB_TMP/shim/git" <<SHIM
+#!/usr/bin/env bash
+case "\$*" in *'worktree add'*move-issue-gate*) exit 1 ;; esac
+exec $(command -v git) "\$@"
+SHIM
+  chmod +x "$SB_TMP/shim/git"
+  origin_fetch_or_die; tip0="$(git -C "$W" rev-parse "origin/$SB_TRUNK")"
+  _mvg_run 704 "PATH=$SB_TMP/shim:$PATH"
+  _mvg_refused "(e6) the gate's worktree cannot be made" 704 "$idd-seam.md" "fresh worktree" "worktree list"
   _mvg_run 704 MOVE_ISSUE_TEST_ALLOW_STUB=1 MOVE_ISSUE_GATE_CMD=true
   [ "$MVG_RC" -eq 0 ] || cf "(e4) the stubbed gate (true) refused the move: $(printf '%s' "$MVG_OUT" | tr '\n' '|' | cut -c1-300)"
   case "$MVG_OUT" in *"STUB"*) : ;; *) cf "(e4) a stubbed gate is not marked STUB in the mover's output" ;; esac
