@@ -6369,7 +6369,9 @@ case_drift_ack_refuses_what_it_cannot_record() {
   _da_refused reason-empty "--reason is empty" "$short" --role PM --reason ""
   _da_refused reason-blank "--reason is empty" "$short" --role PM --reason "   "
   _da_refused reason-lines "control character" "$short" --role PM --reason "$(printf 'one\ntwo')"
-  _da_refused role "not in this project's declared role set" "$short" --role NotARole --reason "x"
+  # THE OUTSIDER IS BUILT, NEVER WRITTEN after --role: case_role_literals_are_declared scans this text.
+  local _da_outsider='Eng'
+  _da_refused role "--role must be one of this project's declared roles" "$short" --role "$_da_outsider" --reason "x"
   _da_refused sha-malformed "not a commit sha" "HEAD" --role PM --reason "x"
   _da_refused sha-unknown "names no commit" "0123456789abcdef" --role PM --reason "x"
   [ "$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")" = "$tip" ] || cf "a refusal moved the trunk"

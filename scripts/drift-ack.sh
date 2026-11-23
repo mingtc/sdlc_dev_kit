@@ -10,10 +10,12 @@
 # Usage:
 #   ./scripts/drift-ack.sh <sha> --role <R> --reason "<why this commit stays as it is>" [--rev <rev>]
 #
+#   <R> = @ROLE_SET@
+#
 #   <sha>      A commit the report names (any length from 7 hex digits). It must lie in the drift
 #              window of <rev>: every commit after the one that added scripts/githooks/commit-msg,
 #              else the last commits the report names.
-#   --role     The seat acknowledging it: @ROLE_SET@
+#   --role     The seat acknowledging it, one of <R>.
 #   --reason   One line, not empty. What happened, and why no rewrite will follow.
 #   --rev      The history the window is read from (default: the remote's trunk, which is what the
 #              report reads, or HEAD when there is no such ref).
@@ -39,7 +41,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 # shellcheck source=lib/role-set.sh
-. "$SCRIPT_DIR/lib/role-set.sh"
+[ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"   # absent: --help names the seam; register-commit.sh still checks the role
 # shellcheck source=lib/drift-window.sh
 . "$SCRIPT_DIR/lib/drift-window.sh"
 # shellcheck source=lib/kanban-worktree.sh
@@ -47,7 +49,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
   local roles tok='@ROLE_SET@'
-  roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
+  if command -v kit_role_display >/dev/null 2>&1; then
+    roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
+  fi
+  [ -n "${roles:-}" ] \
+    || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
   kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
     { i = index($0, t)
       if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
@@ -93,10 +99,11 @@ if [ -z "$(printf '%s' "$REASON" | tr -d '[:space:]')" ]; then
     "Next: re-run with --reason \"<one line saying why this commit stays as it is>\" — what happened, and why no rewrite will follow."
 fi
 
-ROLE_SET="$(kit_role_set "$ROOT" 2>/dev/null || true)"
+ROLE_SET=""
+! command -v kit_role_set >/dev/null 2>&1 || ROLE_SET="$(kit_role_set "$ROOT" 2>/dev/null || true)"
 if [ -n "$ROLE_SET" ] && ! kit_role_member "$ROLE_SET" "$ROLE"; then
   kit_refuse 1 drift-ack-role-not-declared \
-    "Error: --role '$ROLE' is not in this project's declared role set ($ROLE_SET). Nothing was changed." \
+    "Error: --role must be one of this project's declared roles ($ROLE_SET); '$ROLE' is not. Nothing was changed." \
     "Next: re-run with --role set to one of: $ROLE_SET."
 fi
 
