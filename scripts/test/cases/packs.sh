@@ -136,6 +136,13 @@ case_pack_round_trip_is_byte_equal() {
   _pkc_same_tree "$t/src" "$t/hostile-out" || cf "(g) under a hostile configuration (autocrlf, an eol attribute, a stray GIT_DIR) a file, a byte or an executable bit changed"
   [ -f "$t/hostile.kitpack" ] && cmp -s "$t/clean.kitpack" "$t/hostile.kitpack" || cf "(h) the pack built under a hostile configuration differs from the clean one"
 
+  # (j) The filters, apart from the configuration shut-out: a git that puts core.autocrlf and an eol attribute on every call
+  # reaches the builder past that shut-out (it is the PATH's), so only `--no-filters` keeps the members' bytes.
+  mkdir "$t/shim"; printf '* text eol=crlf\n' > "$t/shim/attrs"
+  printf '#!/bin/sh\nexec "%s" -c core.autocrlf=true -c core.attributesFile=%s/attrs "$@"\n' "$(command -v git)" "$t/shim" > "$t/shim/git"; chmod +x "$t/shim/git"
+  PATH="$t/shim:$PATH" sh "$kp" build "$t/src" "$t/shimmed.kitpack" demo 1700000000 >/dev/null 2>&1 || cf "(j) the build through a git that forces CRLF filters failed"
+  cmp -s "$t/clean.kitpack" "$t/shimmed.kitpack" || cf "(j) a pack built through a git that forces core.autocrlf and an eol attribute differs from the clean one: the members went through a filter"
+
   mkdir "$t/empty-dir"
   sh "$kp" unpack "$t/clean.kitpack" "$t/empty-dir" >/dev/null 2>&1 && _pkc_same_tree "$t/src" "$t/empty-dir" || cf "(i) unpacking into an existing empty directory failed or changed a file"
 
