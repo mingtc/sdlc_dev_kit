@@ -1,0 +1,12 @@
+# .gitattributes
+# KIT-CLASS: KIT — pins every program the kit ships to LF line endings. A checkout through
+# core.autocrlf=true (Git for Windows' default, or a user-set config) otherwise turns each
+# script's first line into `#!/usr/bin/env bash<CR>`, and day one cannot start: `env: bash\r: No
+# such file or directory`. The hooks carry no extension, so they are named by directory.
+*.sh text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+setup.sh text eol=lf
+scripts/githooks/* text eol=lf
+consumers/hooks/* text eol=lf

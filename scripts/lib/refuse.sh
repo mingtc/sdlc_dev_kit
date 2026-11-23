@@ -79,7 +79,8 @@ kit_refuse() {
     *) [ "$status" -le 255 ] || bad="status '$status' is not an integer 1-255" ;;
   esac
   case "$rule" in
-    [a-z]*) case "$rule" in *[!a-z0-9-]*|*-|*--*) bad="${bad:+$bad; }rule id '$rule' is not kebab-case" ;; esac ;;
+    # Explicit letters, not a range: under bash 3.2 with a UTF-8 locale a range like [a-z] also matches capitals.
+    [abcdefghijklmnopqrstuvwxyz]*) case "$rule" in *[!abcdefghijklmnopqrstuvwxyz0-9-]*|*-|*--*) bad="${bad:+$bad; }rule id '$rule' is not kebab-case" ;; esac ;;
     *) bad="${bad:+$bad; }rule id '$rule' is not kebab-case" ;;
   esac
   [ "$#" -gt 0 ] && [ -n "${1:-}" ] || bad="${bad:+$bad; }no message"

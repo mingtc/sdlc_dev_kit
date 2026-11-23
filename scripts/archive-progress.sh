@@ -272,10 +272,10 @@ if [ -n "$KEEP_LAST" ]; then
   TOTAL_ENTRIES=$(awk -v log_re="$LOG_RE" '
     $0 ~ log_re && !in_log { in_log = 1; next }
     in_log != 1 { next }
-    /^##[[:space:]]/ && !/^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { exit }
-    /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { n++; dh = 1; next }
-    /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh { n++; next }
-    /^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} / && !dh { n++; next }
+    /^##[[:space:]]/ && !/^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { exit }
+    /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { n++; dh = 1; next }
+    /^### [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ && !dh { n++; next }
+    /^(- )?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] / && !dh { n++; next }
     END { print n + 0 }
   ' "$PROGRESS")
   CUT_AFTER=$(( TOTAL_ENTRIES - KEEP_LAST ))
@@ -311,7 +311,7 @@ awk -v before="$BEFORE" \
   }
 
   # After § Log: the first "## " heading that is not a dated entry, and all that follows.
-  in_log == 1 && /^##[[:space:]]/ && !/^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { in_log = 2 }
+  in_log == 1 && /^##[[:space:]]/ && !/^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { in_log = 2 }
   in_log == 2 { print > tail_file; next }
 
   # Inside the Log section. THREE entry-boundary forms, most senior first (the
@@ -323,17 +323,17 @@ awk -v before="$BEFORE" \
   #      only when not nested under an active "## " section (!dh_active).
   #   NOTE: no apostrophes anywhere inside this awk program — it is delimited
   #   by single quotes, so one comment apostrophe ends the program mid-flight.
-  /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ {
-    match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
+  /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ {
+    match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/); date = substr($0, RSTART, 10)
     bucket = decide(date)
     dh_active = 1
   }
-  /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh_active {
-    match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
+  /^### [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ && !dh_active {
+    match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/); date = substr($0, RSTART, 10)
     bucket = decide(date)
   }
-  /^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} / && !dh_active {
-    match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
+  /^(- )?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] / && !dh_active {
+    match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/); date = substr($0, RSTART, 10)
     bucket = decide(date)
   }
 
