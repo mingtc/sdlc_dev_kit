@@ -1552,6 +1552,7 @@ case_commit_msg_attribution_family() {
   local hook="$SB_WORK/scripts/githooks/commit-msg"
   local msg="$SB_TMP/msg2.txt"
   local prefixes role rc out
+  # FALLBACK POLICY HERE: cf (a case finding) in this case, _fixture_die in the one below that needs the hook to build its fixture.
   prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
   [ -n "$prefixes" ] || cf "could not derive ROLE_PREFIXES from the hook"
   role="${prefixes%%|*}"
