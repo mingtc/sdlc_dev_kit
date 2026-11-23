@@ -4628,8 +4628,16 @@ case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
     [ "$rc" -eq 0 ] || cf "(ablation) with the done check removed, a todo card was still refused — the case cannot see the check"
   fi
   if _mvd_abl subtask.sh 's/if ! \[\[ "\$ID" =~ -s\[0-9\]+\$ \]\]; then/if false; then/' "the full-slice-id condition"; then
+    # The parent id still names several slices, so the one-card-per-id check may refuse it: what must go is the message
+    # about the SHAPE of the id.
     rc=0; out="$(_std "$p" in_progress)" || rc=$?
-    [ "$rc" -eq 0 ] || cf "(ablation) with the slice-id check removed, the parent id was still refused — the case cannot see the check"
+    case "$out" in *"is not a slice id"*) cf "(ablation) with the slice-id check removed the refusal still says the id is not a slice id — the case cannot see the check" ;; esac
+  fi
+  if _mvd_abl subtask.sh 's/if \[ "\${#_st_hits\[@\]}" -gt 1 \]; then/if false; then/' "the one-card-per-id condition"; then
+    # With two hits and no check there is no card to take, so the move may still be refused (no card found): what must go
+    # is the refusal that says the id names more than one.
+    rc=0; out="$(_std "$p-s3" dev_complete)" || rc=$?
+    case "$out" in *"names more than one card"*) cf "(ablation) with the one-card-per-id check removed the refusal still says the id names more than one card — the case cannot see the check" ;; esac
   fi
   unset -f _mvd _std _mvd_abl
   finish "$L"
