@@ -883,13 +883,13 @@ $pm"
 #   `run.sh --cases <names>` and `KIT_TEST_CASES=<names>` run only the named cases, after the
 #   case-list check, and print a `partial:` line; the run exits 1 when a selected case FAILs, 3 (never 0)
 #   when every selected case passed, and 2 (before anything runs) for a name no case_* defines or an
-#   empty list. `--list` prints the names and runs nothing.
+#   empty list. `--list` prints the names and runs nothing. Every run prints each case's seconds.
 #   The proof is a REAL run of a copy of run.sh over a miniature harness (three stand-in cases), as the
 #   add-on case above does: the selector cannot be driven from inside a run that has already loaded its cases.
 # =============================================================================
 case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_exit_status() {
   cf_reset
-  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, the full run is unchanged,"
+  local L="run.sh --cases / KIT_TEST_CASES run only the named cases in list order after the case-list check, print a partial: line and exit 3 when they pass and 1 when one fails; an unknown name or an empty list refuses with status 2 and a Next:, --list runs nothing, the full run is unchanged, and every run prints case-seconds: and run-seconds:"
   if [ ! -f "$HARNESS_ENTRY" ]; then skp "$L" "scripts/test/run.sh is not where the harness says it is"; return; fi
   local P="case_" fx rc out ca cb cx
   ca="${P}fx_sel_a"; cb="${P}fx_sel_b"; cx="${P}fx_sel_bad"
@@ -968,11 +968,16 @@ case_the_selector_runs_named_cases_marks_the_run_partial_and_gives_it_its_own_ex
   _fx_run "" --list
   { [ "$rc" -eq 0 ] && [[ "$out" == *"$ca"* ]] && [[ "$out" == *"$cx"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(g) --list did not print the case names, run nothing and exit 0 (exit $rc)"
 
-  # (h) THE OLD CONTRACT STANDS: an unknown option refuses with 2, and a usage request succeeds in any position and names the selector.
+  # (h) EVERY RUN PRINTS EACH CASE'S SECONDS AND ITS OWN: the measured list a partition is chosen from.
+  _fx_run ""
+  [ "$(printf '%s\n' "$out" | grep -cE "^case-seconds: ${P}fx_sel_(a|b|bad) [0-9]+$")" -eq 3 ] || cf "(h) the run did not print a case-seconds: line for each of its three cases: $(printf '%s\n' "$out" | grep -E '^(case|run)-seconds:' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -E '^run-seconds: [0-9]+$' >/dev/null || cf "(h) the run did not print a run-seconds: line"
+
+  # (i) THE OLD CONTRACT STANDS: an unknown option refuses with 2, and a usage request succeeds in any position and names the selector.
   _fx_run "" --bogus
-  [ "$rc" -eq 2 ] || cf "(h) an unknown option did not refuse with status 2 (exit $rc)"
+  [ "$rc" -eq 2 ] || cf "(i) an unknown option did not refuse with status 2 (exit $rc)"
   _fx_run "" --cases "$ca" --help
-  { [ "$rc" -eq 0 ] && [[ "$out" == *"--cases"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(h) --help after --cases did not print usage naming --cases and exit 0 without running (exit $rc)"
+  { [ "$rc" -eq 0 ] && [[ "$out" == *"--cases"* ]] && [ "$(_fx_ran)" -eq 0 ]; } || cf "(i) --help after --cases did not print usage naming --cases and exit 0 without running (exit $rc)"
 
   rm -rf "${fx:?}"
   finish "$L"

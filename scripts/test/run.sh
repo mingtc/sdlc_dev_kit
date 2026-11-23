@@ -10,7 +10,8 @@
 #   A SELECTED RUN IS A PARTIAL RUN, AND IS NEVER A GREEN FULL RUN: it prints a `partial:` line, exits 1 when a
 #   selected case FAILs and exits 3 (never 0) when every selected case passed. Exit 0 is the full list's alone.
 #   A name that is not a defined case refuses the run (exit 2) before anything runs. The selection is applied
-#   after the case-list check, so the full run is the same run it always was.
+#   after the case-list check, so the full run is the same run it always was. Every run prints each case's
+#   seconds in `case-seconds:` lines after its outcome table, and the whole run's in `run-seconds:`.
 #   KIT_TEST_KILL_ALL=1 ./scripts/test/run.sh
 #                                  # the cases that kill a program before each of its writes use every write
 #                                  # and every order of enabling, not the bounded set (lib/modules.sh)
@@ -1102,11 +1103,12 @@ fi
 # The outcome is keyed on the case's FUNCTION NAME, not its printed line: a finish line may
 # embed a derived count, and an N/A case never reaches its finish line, so the printed text
 # differs between two legitimate trees. Compare runs with the case-outcome: lines below.
-declare -a CASE_OUTCOMES
+declare -a CASE_OUTCOMES CASE_SECONDS
 _multi=""
 for _c in "${CASES[@]}"; do
-  _p0=$PASS; _f0=$FAIL; _s0=$SKIP; _l0=$LIVED
+  _p0=$PASS; _f0=$FAIL; _s0=$SKIP; _l0=$LIVED; _t0=$SECONDS
   "$_c"
+  CASE_SECONDS+=("$_c $((SECONDS - _t0))")
   _n=$(( (PASS-_p0) + (FAIL-_f0) + (SKIP-_s0) + (LIVED-_l0) ))
   if   [ "$FAIL"  -gt "$_f0" ]; then _o=FAIL
   elif [ "$LIVED" -gt "$_l0" ]; then _o=LIVED
@@ -1137,6 +1139,10 @@ echo "════════════════════════�
 # The machine-readable outcome table: one line per case, keyed on its function name.
 echo
 for _r in "${CASE_OUTCOMES[@]}"; do printf 'case-outcome: %s\n' "$_r"; done
+# Each case's seconds, in the run's order, then the run's own (the whole script, not the sum of the cases):
+# the measured list a partition is chosen from. A report; no check reads it.
+for _r in "${CASE_SECONDS[@]}"; do printf 'case-seconds: %s\n' "$_r"; done
+printf 'run-seconds: %d\n' "$SECONDS"
 if [ -n "$_multi" ]; then
   echo
   echo "harness: REFUSING — these case(s) did not record exactly one outcome:$_multi"
