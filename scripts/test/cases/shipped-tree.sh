@@ -3315,6 +3315,110 @@ EOF
 }
 
 # =============================================================================
+# CASE — A CLONE OF THE KIT GETS ITS MANIFEST FROM ONE COMMAND, AND IT IS THE ONE THE BUILD WRITES.
+#
+# A clone has no process/KIT-MANIFEST. scripts/kit-manifest.sh writes it from the COMMITTED tree with the
+# function the release build calls (lib/kit-manifest.sh). The fixture follows the real order: the shipped
+# files are committed as a clone's first commit, the command runs, and the file it writes is compared with
+# this tree's own manifest, which the build wrote. Rows: (a) a clean clone writes a manifest byte-identical
+# to the build's; (b) a second run refuses and names a way out; (c) a modified tracked file, staged or not,
+# refuses naming the path, and nothing is written; (d) an untracked file changes nothing, because the
+# working tree is not what is read, nor is an edit git does not see ((d2)); (e) outside a clone it refuses with a Next.
+# =============================================================================
+case_kit_manifest_script_writes_a_clones_manifest() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  local L="scripts/kit-manifest.sh writes a clone's process/KIT-MANIFEST byte-identical to the build's, refuses while a tracked file differs from the commit, and reads nothing else"
+  [ -f "$man" ] \
+    || _fixture_die "case_kit_manifest_script_writes_a_clones_manifest: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  [ -f "$REAL_SCRIPTS/kit-manifest.sh" ] && [ -f "$REAL_SCRIPTS/lib/kit-manifest.sh" ] \
+    || { cf "scripts/kit-manifest.sh or scripts/lib/kit-manifest.sh is absent from the shipped tree"; finish "$L"; return; }
+  if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "scripts/config.sh carries kit-init's stamp receipt, so the files this tree holds are no longer the release's rows in process/KIT-MANIFEST"; return; fi
+  make_sandbox
+  local c="$SB_TMP/clone" rel row n=0 out rc want_sha got_sha
+  mkdir -p "$c"
+  # The clone is the manifest's own files, each checked against its row: a tree this run altered (an overlay, a
+  # stamped file) is not the shipped one the manifest was written from, and the comparison needs the shipped bytes.
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    rel="$(printf '%s' "$row" | awk -F'  ' '{print $2}')"; want_sha="$(printf '%s' "$row" | awk -F'  ' '{print $1}')"
+    [ "$rel" != "process/KIT-MANIFEST" ] || continue
+    if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then
+      skp_lived "$L" "process/KIT-MANIFEST lists $rel, which this tree no longer holds, so its rows are not the shipped tree's"; teardown; return
+    fi
+    if command -v shasum >/dev/null 2>&1; then got_sha="$(shasum -a 256 "$REAL_REPO_ROOT/$rel" | awk '{print $1}')"; else got_sha="$(sha256sum "$REAL_REPO_ROOT/$rel" | awk '{print $1}')"; fi
+    if [ "$got_sha" != "$want_sha" ]; then
+      skp_lived "$L" "$rel differs from its row in process/KIT-MANIFEST, so this tree is not the shipped one the manifest was written from"; teardown; return
+    fi
+    mkdir -p "$c/$(dirname "$rel")" && cp -p "$REAL_REPO_ROOT/$rel" "$c/$rel" || _fixture_die "could not copy $rel into the clone fixture"
+    n=$((n + 1))
+  done <<KM_ROWS
+$(grep -v '^#' "$man")
+KM_ROWS
+  [ "$n" -gt 0 ] || _fixture_die "case_kit_manifest_script_writes_a_clones_manifest: the manifest yielded no rows to build the clone from."
+  git -C "$c" init -q >/dev/null 2>&1 || _fixture_die "git init failed in the clone fixture"
+  git -C "$c" add -A >/dev/null 2>&1
+  git -C "$c" -c user.email=t@sandbox.invalid -c user.name=Sandbox -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "the kit, as cloned" >/dev/null 2>&1 \
+    || _fixture_die "the clone fixture's first commit failed"
+
+  # (a) a clean clone: the manifest the command writes is the build's, byte for byte.
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the command exited $rc on a clean clone: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ -f "$c/process/KIT-MANIFEST" ] || cf "(a) the command wrote no process/KIT-MANIFEST"
+  cmp -s "$c/process/KIT-MANIFEST" "$man" \
+    || cf "(a) the clone's manifest is not byte-identical to the build's: $(diff "$man" "$c/process/KIT-MANIFEST" 2>&1 | sed -n '1,6p' | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(a) the command names no next act: $out"
+
+  # (b) a second run: the manifest is there, so nothing is written, and the refusal names its way out.
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(b) a second run exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(b) the refusal names no Next: act: $out"
+
+  # (c) a tracked file that differs from the commit: unstaged, then staged. Nothing is written either time.
+  rm -f "$c/process/KIT-MANIFEST"
+  printf '# a local edit\n' >> "$c/scripts/next-id.sh"
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(c) an unstaged edit: exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'scripts/next-id.sh' >/dev/null || cf "(c) the refusal does not name the edited path: $out"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(c) the refusal names no Next: act: $out"
+  [ ! -e "$c/process/KIT-MANIFEST" ] || cf "(c) a manifest was written over a modified tracked file"
+  git -C "$c" add scripts/next-id.sh >/dev/null 2>&1
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(c) a staged edit: exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ ! -e "$c/process/KIT-MANIFEST" ] || cf "(c) a manifest was written over a staged edit"
+  git -C "$c" reset -q --hard HEAD >/dev/null 2>&1
+
+  # (d) the working tree is not read: an untracked file leaves the manifest as the build's.
+  printf 'local notes\n' > "$c/zz-local-notes.txt"
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) an untracked file stopped the command (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  cmp -s "$c/process/KIT-MANIFEST" "$man" || cf "(d) an untracked file changed the manifest"
+  grep -F 'zz-local-notes.txt' "$c/process/KIT-MANIFEST" >/dev/null && cf "(d) the manifest lists an untracked file"
+
+  # (d2) the COMMITTED bytes are read, not the working tree's: an edit git is told to ignore is not the shipped file.
+  rm -f "$c/process/KIT-MANIFEST"
+  git -C "$c" update-index --assume-unchanged scripts/next-id.sh >/dev/null 2>&1
+  printf '# a local edit git does not see\n' >> "$c/scripts/next-id.sh"
+  out="$( cd "$c" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d2) an edit hidden from git stopped the command (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  cmp -s "$c/process/KIT-MANIFEST" "$man" || cf "(d2) the manifest records the working tree's bytes of scripts/next-id.sh, not the commit's"
+  git -C "$c" update-index --no-assume-unchanged scripts/next-id.sh >/dev/null 2>&1
+  git -C "$c" checkout -q -- scripts/next-id.sh >/dev/null 2>&1
+
+  # (e) outside a clone of the kit: refuses with a Next:, writes nothing.
+  mkdir -p "$SB_TMP/plain/scripts/lib"
+  cp "$REAL_SCRIPTS/kit-manifest.sh" "$SB_TMP/plain/scripts/"; cp "$REAL_SCRIPTS"/lib/*.sh "$SB_TMP/plain/scripts/lib/"
+  out="$( cd "$SB_TMP/plain" && env -u CLAUDE_PROJECT_DIR ./scripts/kit-manifest.sh 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(e) outside a clone it exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Next:' >/dev/null || cf "(e) the refusal names no Next: act: $out"
+  printf '%s\n' "$out" | grep -F 'not the root of a git clone' >/dev/null || cf "(e) the refusal does not say this is no clone of the kit: $out"
+  [ ! -e "$SB_TMP/plain/process/KIT-MANIFEST" ] || cf "(e) a manifest was written outside a clone"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE MANIFEST'S DISPOSITION COLUMN IS THE FILES' OWN DECLARATIONS, AND THE TABLE'S MEMBERS ARE IN IT.
 #
 # _member_removed trusts the fourth column of process/KIT-MANIFEST to know which absent files were

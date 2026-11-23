@@ -138,7 +138,11 @@ if [ ! -f "$REAL_REPO_ROOT/process/KIT-MANIFEST" ]; then
     echo
     echo "  This harness is a witness only when it runs from a BUILT KIT: an unzipped release"
     echo "  given day-one git topology. The manifest is written by the build and is never"
-    echo "  tracked, so its absence means one of three things, and none of them is runnable:"
+    echo "  tracked, so its absence means one of four things, and none of them is runnable:"
+    echo
+    echo "    * this is a clone of the kit's repository. A clone has no manifest. In an unmodified"
+    echo "      clone, ./scripts/kit-manifest.sh writes it from the commit, and this runs again;"
+    echo "      or run the harness from an unzipped release instead."
     echo
     echo "    * this is the kit's own source repository. Running here is unsupported — the kit"
     echo "      is stored disarmed, so the day-one cases skip on paths that exist under another"
@@ -991,6 +995,7 @@ CASES=(
   case_seam_shape_reformat_is_loud
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
+  case_kit_manifest_script_writes_a_clones_manifest
   case_status_folder_set_is_declared_in_one_shipped_script
   case_the_design_pass_directory_is_design_passes_and_indexed
   case_an_issue_fragment_reaches_a_minted_bug_refactor_and_slice_only_while_enabled

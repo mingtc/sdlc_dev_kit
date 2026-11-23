@@ -91,7 +91,7 @@ unzip project-kit-vX.Y.Z.zip -d /path/to/your-project
 cd /path/to/your-project
 ```
 
-(Or clone this repository and copy its contents — the zip is just this tree, reproducibly built.)
+(Or clone this repository and copy its contents — the zip is this tree plus `process/KIT-MANIFEST`, which a clone lacks: in the unmodified clone, run `./scripts/kit-manifest.sh` first, then copy.)
 
 ## Run it
 

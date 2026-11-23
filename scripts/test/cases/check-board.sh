@@ -6215,6 +6215,7 @@ case_check_board_scripts_against_the_manifest() {
   _cb_republish
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _nr_arm_section v)"
   printf '%s\n' "$sec" | grep -F 'skipped' >/dev/null || cf "(nomanifest) no skipped line: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$sec" | grep -F 'skipped' | grep -F './scripts/kit-manifest.sh' >/dev/null || cf "(nomanifest) the skipped line does not name the clone's command, ./scripts/kit-manifest.sh: $(printf '%s' "$sec" | tr '\n' '|' | cut -c1-300)"
   printf '%s\n' "$sec" | grep -F '✓' >/dev/null && cf "(nomanifest) a ✓ although nothing was compared"
   [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$base" ] || cf "(nomanifest) the verdict moved: $(printf '%s\n' "$out" | grep '^── board-drift')"
   finish "arm [v] names a script the manifest does not list as the project's, a listed absent file as a ⚠ unless it is DELETE-IF-UNUSED, skips with no ✓ when there is no manifest, and never moves the verdict or the exit status"

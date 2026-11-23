@@ -680,9 +680,13 @@ fi
 SRC="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 NEW_MAN="$SRC/process/KIT-MANIFEST"
 if [ ! -f "$NEW_MAN" ] || [ ! -f "$SRC/process/KIT-VERSION" ]; then
+  src_missing=""
+  [ -f "$NEW_MAN" ] || src_missing="process/KIT-MANIFEST"
+  [ -f "$SRC/process/KIT-VERSION" ] || src_missing="${src_missing:+$src_missing and }process/KIT-VERSION"
   kit_refuse 1 upgrade-source-not-a-kit \
-    "Error: $SRC is not an unpacked kit: it has no process/KIT-MANIFEST and process/KIT-VERSION." \
-    "Next: run the copy inside the unzipped release: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch>"
+    "Error: $SRC is not an unpacked kit: it has no $src_missing." \
+    "       A clone of the kit's repository carries no process/KIT-MANIFEST; ./scripts/kit-manifest.sh writes it there, from the commit, while the clone is unmodified." \
+    "Next: run the copy inside the unzipped release: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> (or, in an unmodified clone, run ./scripts/kit-manifest.sh at its root, then this copy again)"
 fi
 [ "$SRC" != "$TGT" ] || kit_refuse 1 upgrade-source-is-target \
   "Error: this is the project's own copy of kit-upgrade.sh, so it would upgrade $TGT to itself." \

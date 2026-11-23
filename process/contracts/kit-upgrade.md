@@ -135,7 +135,7 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) Â
 |---|---|
 | `upgrade-no-target` | no tree to upgrade was named (a usage error) |
 | `upgrade-target-not-a-repo` | the named tree is not the top level of a git work tree |
-| `upgrade-source-not-a-kit` | the running copy is not inside an unpacked kit, or its manifest names a file it lacks or an unsafe path |
+| `upgrade-source-not-a-kit` | the running copy is not inside an unpacked kit (the message names which of `process/KIT-MANIFEST` and `process/KIT-VERSION` is missing; a clone of the kit's repository has no manifest until `scripts/kit-manifest.sh` writes it), or its manifest names a file it lacks or an unsafe path |
 | `upgrade-source-is-target` | the running copy is the tree's own, so it would upgrade the tree to itself |
 | `upgrade-version-unreadable` | either version is not `X.Y.Z` or `X.Y.Z+<tree>` |
 | `upgrade-target-older` | the new kit is older than the tree |

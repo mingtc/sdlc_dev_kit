@@ -2293,7 +2293,7 @@ echo "[v] scripts/ against process/KIT-MANIFEST (reports only; its findings neve
 # BEGIN scripts-manifest arm
 v_man="$CB_TREE/process/KIT-MANIFEST"
 if [ ! -f "$v_man" ]; then
-  echo "      – no process/KIT-MANIFEST in this source, so scripts/ was not compared with it  (skipped)"
+  echo "      – no process/KIT-MANIFEST in this source, so scripts/ was not compared with it  (skipped; a clone of the kit has none: ./scripts/kit-manifest.sh writes it in an unmodified clone)"
 else
   cb_rd_begin
   v_listed="$(cb_awk -F'  ' -v pfx=scripts/ '!/^#/ && NF >= 2 && index($2, pfx) == 1 { print $2 "\t" (NF >= 4 ? $4 : "-") }' "$v_man" 2>/dev/null || true)"

@@ -423,6 +423,8 @@ it takes what the project never changed, stages the rest behind a checklist, and
 `process/KIT-VERSION` only when the checklist is done. For an enabled module it does the same to the files the
 module placed, by the sha256 `process/MODULES` records ([`MODULES.md`](MODULES.md)).
 
+**Manifest (KIT):** `kit-manifest.sh` — writes `process/KIT-MANIFEST` in a clone of the kit, from the committed tree, with `lib/kit-manifest.sh`, the writer the release build calls too. A release zip carries the manifest; a clone does not.
+
 **Modules (KIT):** `module.sh` — lists, enables and disables the optional modules under `modules/`; `lib/modules.sh` is its
 manifest reader, planner and record (`process/MODULES`), and what `kit-upgrade.sh` calls for an enabled module; `kit-init.sh --with`
 enables one on day one. See [`MODULES.md`](MODULES.md).
@@ -438,7 +440,7 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/hold-output.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/modules.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/addon-check.sh` · `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/hold-output.sh` · `lib/kanban-worktree.sh` · `lib/kit-manifest.sh` · `lib/lived-probe.sh` · `lib/marker-block.sh` · `lib/model-pins.sh` · `lib/modules.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/status-folders.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` and `githooks/prepare-commit-msg` (each delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
