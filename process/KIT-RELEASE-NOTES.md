@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **The self-test's cell-check case reads the released notes where they now are.** `./scripts/test/run.sh` on the `0.13.1` kit fails one case, `case_the_cell_check_rule_verify_line_fails_on_a_begun_table_with_no_observed_row_and_only_on_one`: it read the `Verify:` line of an older release's Action required item out of `process/KIT-RELEASE-NOTES.md` alone, and the cut that made `0.13.1` moved that item into `process/KIT-RELEASE-HISTORY.md`. The case now reads the notes, then the history, through one helper in the test library, so it passes on a released tree. Nothing to do; a self-test case you added that reads a released item out of the notes alone has the same flaw and can use the same helper (`notes_verify_line`, `notes_item_head`).
 
 ## [0.13.1] — 2026-11-24
 

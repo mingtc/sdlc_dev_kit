@@ -957,3 +957,38 @@ _plant_in_function() {
   bash -n "$f" \
     || _fixture_die "$who: the mutated ${f##*/} no longer parses — every consumer would fail to LOAD it, and this case would measure a load error instead of the behaviour under test."
 }
+
+# =============================================================================
+# THE RELEASE NOTES, READ WHERE THEY ARE. `release-kit.sh`'s roll moves every released section but the newest out of
+# process/KIT-RELEASE-NOTES.md into process/KIT-RELEASE-HISTORY.md, so a case that reads a RELEASED item out of the notes alone is green on every tree
+# before the cut and red on every released one, from the cut after its item's release. A case that reads a released item reads both, in this order,
+# through these: one reader here, not a copy per case. A case that reads § Unreleased on purpose (the release gates' own fixtures) does not use them.
+# =============================================================================
+notes_files() {   # -> the notes, then the history, each only if this tree carries it
+  local f
+  for f in "$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" "$REAL_REPO_ROOT/process/KIT-RELEASE-HISTORY.md"; do
+    if [ -f "$f" ]; then printf '%s\n' "$f"; fi
+  done
+}
+notes_item_head() {   # <literal start of an item's first line> -> that line, from the first file that holds it; empty and status 1 if neither does
+  local f line
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    line="$(awk -v p="$1" 'index($0, p) == 1 { print; exit }' "$f")"
+    if [ -n "$line" ]; then printf '%s\n' "$line"; return 0; fi
+  done <<NOTES_FILES
+$(notes_files)
+NOTES_FILES
+  return 1
+}
+notes_verify_line() {   # <literal start of an item's first line> -> the text of the first `  Verify:` line under that item, from the first file that holds one
+  local f v
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    v="$(awk -v p="$1" 'index($0, p) == 1 { f = 1 } f && /^  Verify:/ { sub(/^  Verify: /, ""); print; exit }' "$f")"
+    if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
+  done <<NOTES_FILES
+$(notes_files)
+NOTES_FILES
+  return 1
+}
