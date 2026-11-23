@@ -1076,6 +1076,14 @@ CASES=(
   case_isolation_is_read_with_the_machines_git_config_shut_out
   case_an_ac_bullet_reader_does_not_fail_when_the_body_runs_on_after_the_bullet
   case_every_core_case_is_defined_where_the_shipped_add_ons_are
+  case_pack_round_trip_is_byte_equal
+  case_pack_is_a_function_of_its_members
+  case_pack_reader_refuses_hostile_members
+  case_pack_reader_refuses_to_overwrite
+  case_pack_reader_runs_on_the_floor
+  case_pack_programs_stay_on_the_floor
+  case_pack_survives_the_adopters_git_attributes
+  case_packs_dir_is_named_once
   case_isolation
 )
 
