@@ -821,6 +821,7 @@ CASES=(
   case_check_board_graduation_refuses_complete_over_nothing_measured
   case_check_board_graduation_non_markdown_fill_members
   case_check_board_graduation_reports_hooks_off
+  case_check_board_graduation_reads_the_hooks_path_back
   case_card_title_templates_quote_and_the_reader_strips
   case_archive_index_row_carries_the_bare_title
   case_check_board_unquoted_title_arm

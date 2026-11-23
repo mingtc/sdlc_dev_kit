@@ -5470,6 +5470,57 @@ case_check_board_graduation_reports_hooks_off() {
 }
 
 # =============================================================================
+# CASE — arm [g] READS core.hooksPATH BACK. A clone has no core.hooksPath (.git/config is never
+# committed), so the commit guard is not live there; the arm must say so with the act that wires it, and
+# the `hooks: off` line must not claim the guard runs. The control is the wired sandbox: a ✓ line and the
+# old claim. Fixture order follows the real one: a clone of the pushed trunk, the check, then setup.sh,
+# then the check again.
+# =============================================================================
+case_check_board_graduation_reads_the_hooks_path_back() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-433" hookspath chore "Hooks path"
+  rm -f "$SB_WORK/.claude/settings.json"
+  publish_sandbox
+
+  local wired clone clonereport hp
+  # CONTROL: the sandbox wires its own core.hooksPath, so the guard runs and the line says so.
+  wired="$(cb_run | _cb_g_section)"
+  printf '%s\n' "$wired" | grep 'enabled by:' >/dev/null || _fixture_die "the wired sandbox's arm [g] is not enabled, so the hooks line could not be judged: $wired"
+  printf '%s\n' "$wired" | grep -E 'git hooks: core.hooksPath = .*scripts/githooks  ✓' >/dev/null \
+    || cf "(control) the wired sandbox did not report core.hooksPath read back as scripts/githooks: $wired"
+  printf '%s\n' "$wired" | grep -F 'the git commit guard still does' >/dev/null \
+    || cf "(control) the wired sandbox's hooks: off line lost its 'the git commit guard still does' clause: $wired"
+
+  # THE CLONE: the pushed trunk cloned, which carries no .git/config of the sandbox.
+  clone="$SB_TMP/fresh-clone"
+  git clone -q "$SB_ORIGIN" "$clone" >/dev/null 2>&1 || _fixture_die "the clone of the sandbox's remote failed"
+  hp="$(git -C "$clone" config --get core.hooksPath || true)"
+  [ -z "$hp" ] || _fixture_die "the fresh clone already has core.hooksPath=$hp, so the unwired case could not be built"
+  clonereport="$( cd "$clone" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full 2>&1 | _cb_g_section )"
+  printf '%s\n' "$clonereport" | grep 'enabled by:' >/dev/null || _fixture_die "the clone's arm [g] is not enabled, so the hooks line could not be judged: $clonereport"
+  printf '%s\n' "$clonereport" | grep -F 'git hooks: core.hooksPath is unset, not scripts/githooks  ⚠' >/dev/null \
+    || cf "(clone) arm [g] did not report the unset core.hooksPath as a ⚠ line: $clonereport"
+  printf '%s\n' "$clonereport" | grep -F 'Next: ./setup.sh --kit-only' >/dev/null \
+    || cf "(clone) the hooks line names no Next: act: $clonereport"
+  printf '%s\n' "$clonereport" | grep -F 'the git commit guard still does' >/dev/null \
+    && cf "(clone) the hooks: off line claims the commit guard runs while core.hooksPath is unset: $clonereport"
+  printf '%s\n' "$clonereport" | grep -F 'hooks: off' >/dev/null \
+    || cf "(clone) the hooks: off line is gone: $clonereport"
+
+  # THE NAMED ACT: setup.sh --kit-only wires it, and the arm then reads it back.
+  ( cd "$clone" && ./setup.sh --kit-only ) >/dev/null 2>&1 || true
+  hp="$(git -C "$clone" config --get core.hooksPath || true)"
+  [ "$hp" = "scripts/githooks" ] || cf "(act) ./setup.sh --kit-only left core.hooksPath at '${hp:-unset}', so the Next: it is named for does not work"
+  clonereport="$( cd "$clone" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh --full 2>&1 | _cb_g_section )"
+  printf '%s\n' "$clonereport" | grep -F 'git hooks: core.hooksPath = scripts/githooks  ✓' >/dev/null \
+    || cf "(after the act) the arm did not read the wired core.hooksPath back: $clonereport"
+
+  finish "arm [g] reads core.hooksPath back: a wired project prints a ✓ line and keeps 'the git commit guard still does'; a clone with none prints a ⚠ line naming ./setup.sh --kit-only and drops the claim; running that act turns it to ✓"
+  teardown
+}
+
+# =============================================================================
 # CASE — A DECIDED ABSENCE HAS ONE CHEAP ANSWER, THE SAME WORDS EVERYWHERE: `DECLARED NONE`.
 # A glob no file matches and a model-table row left `<fill in>` each warn on every run until answered.
 # The answer is the marker: a trailing `# DECLARED NONE` comment on the glob's own line, `DECLARED NONE`

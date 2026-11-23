@@ -14,7 +14,8 @@
 #       main checkout's working tree, which no arm reads;
 #       then, under its own header, a remote branch ([f3]) and a linked worktree ([f4], clean or holding
 #       changes) left by a card already in done/ or qa_complete/ (advisory);
-#   (g) graduation — has day one finished, and a `hooks: off` line while `.claude/settings.json` is absent (advisory);
+#   (g) graduation — has day one finished, a `hooks: off` line while `.claude/settings.json` is absent, and whether
+#       `core.hooksPath` reads back as `scripts/githooks` (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
 #   (i) blocks:/blocked_by: symmetry (advisory here; a landing refuses a finding it introduces);
 #   (j) downtime-queue claim drift (advisory);
@@ -1197,7 +1198,16 @@ else
   # Name the signal that enabled the check.
   echo "      (enabled by: $g_lived)"
   # A report line, never a finding: the hooks are the human's opt-in, so their absence changes no verdict.
-  [ -f "$CB_TREE/.claude/settings.json" ] || echo "      hooks: off (\`.claude/settings.json\` absent) — the editor-tool hat gate and the agent record do not run (the git commit guard still does); the act that turns them on is in process/MANUAL.md § The default path is lite"
+  # The commit guard lives in scripts/githooks and runs only where core.hooksPath points at it; the
+  # setting is per clone (.git/config is never committed), so a fresh clone has none until setup.sh runs.
+  g_hp="$(git -C "$REPO_ROOT" config --get core.hooksPath 2>/dev/null || true)"
+  case "$g_hp" in scripts/githooks|*/scripts/githooks) g_hp_ok=1 ;; *) g_hp_ok=0 ;; esac
+  [ -f "$CB_TREE/.claude/settings.json" ] || echo "      hooks: off (\`.claude/settings.json\` absent) — the editor-tool hat gate and the agent record do not run$( [ "$g_hp_ok" -eq 1 ] && printf ' (the git commit guard still does)' ); the act that turns them on is in process/MANUAL.md § The default path is lite"
+  if [ "$g_hp_ok" -eq 1 ]; then
+    echo "      git hooks: core.hooksPath = $g_hp  ✓ (the commit-message and pre-commit guards run) — read from: git config core.hooksPath"
+  else
+    echo "      git hooks: core.hooksPath is ${g_hp:-unset}, not scripts/githooks  ⚠ the commit-message and pre-commit guards do not run in this clone, and nothing else here reads them. Next: ./setup.sh --kit-only (it sets core.hooksPath in the shared .git/config) — read from: git config core.hooksPath"
+  fi
   g_find=0
   # THE MEASURED POPULATION: incremented once per CLASS OR MEMBER this arm actually read (pass or
   # fail — an unread member counts as unmeasured, never as measured-and-clean). Printed before the
