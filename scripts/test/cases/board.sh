@@ -6,33 +6,6 @@
 # =============================================================================
 
 # =============================================================================
-# CASE — move-issue.sh moves + appends Activity + commits + PUSHES
-# =============================================================================
-case_move_issue() {
-  cf_reset
-  make_sandbox
-  seed_issue todo "$SB_PREFIX-100" sandbox chore "Sandbox move test"
-  publish_sandbox
-
-  local out rc
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-100" in_progress \
-            --role Dev --note "picked up in sandbox" 2>&1 )"; rc=$?
-
-  [ "$rc" -eq 0 ] || cf "move-issue exited $rc (expected 0): $out"
-  origin_has_path "progress/in_progress/$SB_PREFIX-100-sandbox.md" \
-    || cf "file not moved to in_progress/ on the trunk"
-  origin_has_path "progress/todo/$SB_PREFIX-100-sandbox.md" \
-    && cf "file still present in todo/ on the trunk"
-  origin_file_contains "progress/in_progress/$SB_PREFIX-100-sandbox.md" "picked up in sandbox" \
-    || cf "Activity line not appended"
-  origin_log_has_subject "\[Dev\] $SB_PREFIX-100 → in_progress: picked up in sandbox" \
-    || cf "commit subject not found on the trunk (not pushed?)"
-
-  finish "move-issue.sh: move + Activity append + commit pushed to the trunk"
-  teardown
-}
-
-# =============================================================================
 # CASE — THE PROGRESS RECORD IS ONE SHAPE, AND ITS WRITER'S ABSENCE IS A NO-OP
 #
 # Invariants from process/contracts/progress-record.md:
@@ -1397,53 +1370,6 @@ case_config_seam_refusal() {
 }
 
 # =============================================================================
-# CASE — next-id.sh
-# =============================================================================
-case_next_id() {
-  cf_reset
-  local out rc err
-  # (1) max+1 across progress/** filenames.
-  make_sandbox
-  seed_issue todo "$SB_PREFIX-001" one   chore "one"
-  seed_issue todo "$SB_PREFIX-003" three chore "three"
-  publish_sandbox
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>/dev/null )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "(max+1) exited $rc"
-  [ "$out" = "$SB_PREFIX-004" ] || cf "(max+1) expected $SB_PREFIX-004 across filenames, got '$out'"
-  printf '%s' "$out" | grep -E "^$SB_PREFIX-[0-9]{3}$" >/dev/null || cf "(shape) output '$out' is not <PREFIX>-NNN shaped"
-  teardown
-
-  # (2) it counts ARCHIVE.md entries too — the number must not reset after a sweep.
-  make_sandbox
-  publish_sandbox
-  printf -- "- %s-009 [chore] archived issue\n" "$SB_PREFIX" >> "$SB_WORK/ARCHIVE.md"
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>/dev/null )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "(ARCHIVE) exited $rc"
-  [ "$out" = "$SB_PREFIX-010" ] || cf "(ARCHIVE) expected $SB_PREFIX-010 from the ARCHIVE.md max, got '$out'"
-  teardown
-
-  # (3) genuinely undeterminable → nonzero + an explanatory stderr message. THE
-  #     CONTRACT, not a gap: where no id has ever been issued, choosing where
-  #     numbering starts is a DECISION.
-  make_sandbox
-  publish_sandbox
-  err="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>&1 1>/dev/null )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "(empty) expected nonzero exit on an empty board, got 0"
-  printf '%s' "$err" | grep -i 'no existing' >/dev/null || cf "(empty) no explanatory stderr message: '$err'"
-  teardown
-
-  # (4) only the FILENAME counts: a checkout under a directory named like an id is not an id.
-  make_sandbox "$SB_PREFIX-900"
-  seed_issue todo "$SB_PREFIX-001" one chore "one"
-  publish_sandbox
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>/dev/null )"; rc=$?
-  [ "$out" = "$SB_PREFIX-002" ] || cf "(path) a checkout at .../$SB_PREFIX-900 got '$out', want $SB_PREFIX-002 — the directory part was read as an id"
-  teardown
-
-  finish "next-id.sh: max+1 (filenames + ARCHIVE.md, never the directory part), <PREFIX>-NNN shape, nonzero on an empty board"
-}
-
-# =============================================================================
 # CASE — next-id.sh outside a git repository says it once. The cause is named by the trunk
 # reader's own refusal (not inside a git repository); a second Error for the same cause is noise.
 # =============================================================================
@@ -1616,145 +1542,6 @@ case_creation_id_check_reads_the_trunk() {
 }
 
 # =============================================================================
-# CASE — the commit-msg hook
-# =============================================================================
-case_commit_msg() {
-  cf_reset
-  make_sandbox
-  local hook="$SB_WORK/scripts/githooks/commit-msg"
-  local msg="$SB_TMP/msg.txt"
-
-  # DERIVE the accepted prefixes from the hook's own ROLE_PREFIXES line — do NOT
-  # re-hardcode them, or a set change makes these assertions vacuous.
-  local prefixes
-  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's _kit_role_base.
-  # FALLBACK POLICY HERE: cf (a case finding). The set is derived to keep the assertions
-  # below non-vacuous, so an unreadable hook makes this case meaningless, not skippable.
-  prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
-  [ -n "$prefixes" ] || cf "could not derive ROLE_PREFIXES from the hook"
-
-  local IFS='|' p rc
-  for p in $prefixes; do
-    printf '[%s] a valid subject\n' "$p" > "$msg"
-    ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-    [ "$rc" -eq 0 ] || cf "prefix [$p] rejected (exit $rc)"
-  done
-  unset IFS
-
-  # Auto-exempt subjects (git/host-generated).
-  local exempt=("Merge branch 'x'" "Revert \"something\"" "fixup! earlier commit" "Merge commit '1f00d13cc8b29fe812a87eb45eb35c34a5ca0ee2'")
-  local s
-  for s in "${exempt[@]}"; do
-    printf '%s\n' "$s" > "$msg"
-    ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-    [ "$rc" -eq 0 ] || cf "auto-exempt subject rejected: '$s' (exit $rc)"
-  done
-
-  # THE BOUNDARY: "Merge commit " WITHOUT the quote is an ORDINARY human subject that merely
-  # starts with the same two words as git's own `Merge commit '<sha>'` — it must NOT be
-  # exempted, or a real subject with no [Role] prefix passes silently.
-  printf 'Merge commit messages into one doc\n' > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] \
-    || cf "ABLATION FAILED — 'Merge commit messages into one doc' was accepted as if it were git's generated merge subject; the exemption glob must require the opening quote"
-
-  # Unprefixed subject → rejected, and the rejection LISTS the legal tags (which
-  # it derives, so the help text cannot lie about the set).
-  printf 'no role prefix at all\n' > "$msg"
-  local out
-  out="$( env -u MSG_OK "$hook" "$msg" 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "unprefixed subject accepted (must be rejected)"
-  printf '%s' "$out" | grep "\[${prefixes%%|*}\]" >/dev/null \
-    || cf "the rejection message does not list the derived role tags: $out"
-
-  # The applypatch path judges a subject the SAME way (git am runs that hook, not
-  # commit-msg, and its mailinfo strips bracketed tags).
-  printf 'no role prefix at all\n' > "$msg"
-  ( env -u MSG_OK "$SB_WORK/scripts/githooks/applypatch-msg" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] || cf "applypatch-msg accepted an unprefixed subject (the am path must not be a hole)"
-
-  # --- § A.1: no generated co-author trailer, and no "Generated with …" line ------
-  # DERIVE the markers from the hook's TOOL_TRAILER_MARKERS, as the prefixes are. This asserts
-  # the rule works for WHATEVER markers are declared, not that the set is right: a narrowed
-  # list is invisible here by construction, and only an empty one is caught. Deleting RULE (2)
-  # from the hook is what reddens it.
-  local role markers marker
-  role="${prefixes%%|*}"
-  markers="$(sed -n "s/^TOOL_TRAILER_MARKERS='\\(.*\\)'.*/\\1/p" "$hook")"
-  [ -n "$markers" ] || cf "could not derive TOOL_TRAILER_MARKERS from the hook"
-  marker="${markers%%|*}"
-  # The refusal prints that list VERBATIM, so it must stay plain words — a regex
-  # metacharacter in it would be a lie in the help text and a live pattern in the match.
-  printf '%s' "$markers" | grep -E '^[a-z0-9|]+$' >/dev/null \
-    || cf "(trailer) TOOL_TRAILER_MARKERS is not the plain-word list the refusal prints: '$markers'"
-
-  # `git commit -v` hands the hook the RAW DIFF below the scissors line; editing a file that
-  # contains a trailer is not writing one, so this is ACCEPTED. (\x escapes keep this file
-  # ASCII; the emoji leads because the tooling's shape does.)
-  printf '[%s] a valid subject\n\n# ------------------------ >8 ------------------------\n# Do not modify or remove the line above.\ndiff --git a/doctrine b/doctrine\n--- a/doctrine\n+++ b/doctrine\n@@ -1 +1,2 @@\n Co-Authored-By: %s <noreply@example.com>\n+\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" "$marker" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -eq 0 ] || cf "(trailer) a \`commit -v\` message was refused for the DIFF below its scissors line (exit $rc)"
-
-  # A clean multi-line message is ACCEPTED — including a HUMAN co-author trailer and the
-  # words in prose. A guard that rejected every message with a body would pass a
-  # one-directional test.
-  printf '[%s] a valid subject\n\nA body that explains why, and mentions a file generated with the codegen step.\n\nCo-authored-by: A Person <person@example.com>\n' "$role" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -eq 0 ] || cf "(trailer) a clean multi-line message with a HUMAN co-author was rejected (exit $rc)"
-
-  # A tool-naming trailer is REJECTED, and the refusal names the rule and the markers.
-  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
-  out="$( env -u MSG_OK "$hook" "$msg" 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "(trailer) a Co-Authored-By naming '$marker' was accepted"
-  printf '%s' "$out" | grep 'commit-hygiene.md' >/dev/null || cf "(trailer) the refusal does not name the rule: $out"
-  printf '%s' "$out" | grep -i "$marker" >/dev/null || cf "(trailer) the refusal does not list the derived markers: $out"
-
-  # ── NO SPACE AFTER THE COLON: the pre-marker context must be an OPTIONAL group; a required
-  #    `[^[:alnum:]]` has nothing to consume here and the trailer walks through.
-  printf '[%s] a valid subject\n\nCo-Authored-By:%s <noreply@example.com>\n' "$role" "$marker" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] \
-    || cf "(trailer) 'Co-Authored-By:$marker' with NO SPACE after the colon was accepted — the pre-marker context in rule 2's matcher is a required character again instead of an optional group, and deleting one space defeats the guard"
-
-  #    …and several spaces must not defeat it either, in the other direction.
-  printf '[%s] a valid subject\n\nCo-Authored-By:   %s   <noreply@example.com>\n' "$role" "$marker" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] || cf "(trailer) a padded 'Co-Authored-By:   $marker' was accepted"
-
-  # ── THE FALSE-POSITIVE GUARD: a human whose name BEGINS with a marker's stem is not a tool
-  #    trailer, and the trailing `([^[:alnum:]]|$)` keeps them out. Refusing a real
-  #    contributor by name is worse than the hole.
-  printf '[%s] a valid subject\n\nCo-Authored-By: %sia Ng <person@example.com>\n' "$role" "$marker" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -eq 0 ] \
-    || cf "(trailer) a HUMAN named '${marker}ia Ng' was refused (exit $rc) — the marker match has lost its right-hand boundary and now fires on any name starting with '$marker'"
-
-  # The second arm of § A.1, with the leading decoration the tooling actually emits.
-  printf '[%s] a valid subject\n\n\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] || cf '(trailer) a "Generated with" line was accepted'
-
-  # The auto-exempt subjects are exempt from the PREFIX rule only: a merge carries a body.
-  printf "Merge branch 'x'\n\nCo-Authored-By: %s <noreply@example.com>\n" "$marker" > "$msg"
-  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] || cf "(trailer) an auto-exempt SUBJECT carried a tool trailer through — that exemption is the prefix rule's only"
-
-  # The am path judges the trailer the same way, or the import entrance is a hole.
-  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
-  ( env -u MSG_OK "$SB_WORK/scripts/githooks/applypatch-msg" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -ne 0 ] || cf "(trailer) applypatch-msg accepted a tool trailer (the am path must not be a hole)"
-
-  # The documented escape still works, because importing a third party's commit verbatim
-  # is the case it exists for.
-  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
-  ( MSG_OK=1 "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
-  [ "$rc" -eq 0 ] || cf "(trailer) MSG_OK=1 did not bypass the trailer rule (the documented import escape)"
-
-  finish "commit-msg: accepts every derived role prefix + the auto-exempt set, rejects unprefixed; rejects a tool co-author trailer and a \"Generated with\" line on both entrances while accepting a human trailer and a \`commit -v\` diff; and applypatch-msg agrees"
-  teardown
-}
-
-# =============================================================================
 # CASE — the commit-msg hook's ATTRIBUTION WORDING FAMILY, one fixture row per variant of the
 # claim. Rule (2) must refuse every spelling, not only "co-authored-by:" and "generated with …". Each row is REFUSED or, with a reason, PASSED — never
 # silently skipped.
@@ -1765,6 +1552,7 @@ case_commit_msg_attribution_family() {
   local hook="$SB_WORK/scripts/githooks/commit-msg"
   local msg="$SB_TMP/msg2.txt"
   local prefixes role rc out
+  # FALLBACK POLICY HERE: cf (a case finding) in this case, _fixture_die in the one below that needs the hook to build its fixture.
   prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
   [ -n "$prefixes" ] || cf "could not derive ROLE_PREFIXES from the hook"
   role="${prefixes%%|*}"
@@ -1901,56 +1689,6 @@ case_pre_commit_undeclared_code_globs_is_a_noop() {
     || cf "a metadata-only commit on a feature branch was REFUSED while CODE_GLOBS is undeclared (shipped empty) — undeclared must mean unenforced, or every adopter who has not yet filled the seam in gets every feature-branch commit refused: $out"
 
   finish "pre-commit: CODE_GLOBS undeclared (the shipped empty state) is a no-op — an ordinary metadata-only commit on a feature branch is NOT refused until the adapter fills the seam in"
-  teardown
-}
-
-# =============================================================================
-# CASE — the pre-commit hook: a metadata-only commit is REFUSED off the trunk, naming
-# register-commit.sh, and ALLOWED on the trunk. RED FIRST: run against a sandbox with
-# scripts/githooks/pre-commit removed to see the refusal vanish.
-# =============================================================================
-case_pre_commit_refuses_metadata_off_trunk() {
-  cf_reset
-  make_sandbox
-  local hook="$SB_WORK/scripts/githooks/pre-commit"
-  local cfg="$SB_WORK/scripts/config.sh"
-  [ -x "$hook" ] \
-    || { skp "pre-commit: refuses a metadata-only commit off the trunk" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
-
-  # CODE_GLOBS must be DECLARED for this refusal to fire at all (case_pre_commit_undeclared_code_globs_is_a_noop
-  # covers the undeclared/fail-open state) — declare something that will never match this
-  # case's metadata paths, so every path below is judged metadata on purpose. _array_set_body
-  # (fixtures.sh) replaces the WHOLE array body, so this takes whatever the tree's CODE_GLOBS
-  # currently holds — empty, filled, or a `# DECLARED EMPTY —` comment on a tree past day one —
-  # and its own postcondition reads the parsed array, not a bare '"src/*"' string the shipped
-  # comment above CODE_GLOBS also carries.
-  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
-
-  publish_sandbox
-
-  ( cd "$SB_WORK" && git checkout -q -b feature/off-trunk-metadata )
-  echo "a ruling" > "$SB_WORK/a-metadata-file.md"
-  git -C "$SB_WORK" add a-metadata-file.md
-
-  local out rc
-  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
-  [ "$rc" -ne 0 ] || cf "a metadata-only commit on 'feature/off-trunk-metadata' (not the trunk) was ACCEPTED"
-  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
-    || cf "the refusal does not name register-commit.sh as the route: $out"
-  printf '%s' "$out" | grep -F 'code-vs-metadata' >/dev/null \
-    || cf "the refusal does not cite the code-vs-metadata rule: $out"
-  printf '%s' "$out" | grep -F 'a-metadata-file.md' >/dev/null \
-    || cf "the refusal does not name the staged path: $out"
-
-  # Nothing committed — the working tree change is still staged, exactly as it was.
-  git -C "$SB_WORK" diff --cached --name-only | grep -F 'a-metadata-file.md' >/dev/null \
-    || cf "the refusal left the change NOT staged — it should be untouched, not partially undone"
-
-  # The documented bypass still works (same escape as commit-msg, deliberately one name).
-  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "MSG_OK=1 did not bypass the pre-commit guard (the documented escape): $out"
-
-  finish "pre-commit: refuses a metadata-only commit made on a branch other than the trunk, naming register-commit.sh and the staged path, and MSG_OK=1 bypasses it"
   teardown
 }
 
@@ -4612,7 +4350,6 @@ case_prepare_commit_msg_compares_raw_messages() {
   teardown
 }
 
-
 # =============================================================================
 # CASE — A CARD REACHES done/ ONLY FROM qa_complete/, AND A SLICE IS NAMED BY ITS FULL ID.
 #
@@ -4710,7 +4447,6 @@ case_move_to_done_needs_qa_complete_and_a_slice_is_named_by_its_full_id() {
   finish "$L"
   teardown
 }
-
 
 # =============================================================================
 # CASE — EVERY LANDER REFUSES A TRUNK ITS REMOTE LACKS, AND finalize NEVER REWINDS IT.

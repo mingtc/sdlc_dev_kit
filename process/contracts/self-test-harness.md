@@ -94,6 +94,10 @@ a disposable repository, so that the tools that guard the project are themselves
   another case carries ⇒ refuse the run, naming the add-on and its list. An add-on ships its cases
   in `modules/<name>/test/cases/*.sh` and lists them in `modules/<name>/test/CASE-LIST`; they run after
   the core cases and before the isolation case. A tree with no such directory runs the core only.
+- `scripts/test/CASE-LIST` lists a name that is not a case function's, lists one twice, or lists one that the CASES array in `run.sh`
+  also names; or a case is defined and listed nowhere, or listed and defined nowhere ⇒ refuse the run, naming the file. The array holds
+  the smoke list and ends with the isolation case; `CASE-LIST` holds the other cases, which run after the array's. A project's own cases
+  go in the array.
 - Any case fails ⇒ the run is red, and the failing case is named.
 - The count of cases the run discovered is zero ⇒ refuse. A suite that selected nothing must never
   report success.
@@ -102,13 +106,16 @@ a disposable repository, so that the tools that guard the project are themselves
 
 1. The run prints **passed / failed / skipped as three numbers**, and failed is zero.
 2. The number of cases that ran equals the number the tree declares — an independent count of the
-   defined cases matches the reported one.
+   defined cases matches the reported one. A case held in a pack that is not unpacked is neither: the run
+   counts it from the pack and says so on the line after its case list and the line after its summary,
+   and green for such a project is a run after `./scripts/pack.sh unpack --all`.
 3. The sandbox is **gone** afterwards, and the real repository is byte-identical to before.
 
 ## 5. MINIMAL INTERFACE
 
 **In:** the process machinery under test; a disposable working area.
-**Out:** one line per case, then the three counts, then a non-zero exit if any case failed.
+**Out:** one line per case, then the three counts, then a non-zero exit if any case failed. `run.sh --list` prints the
+cases a run would run, and the count of any held in a pack, and runs none.
 **Not in:** the project's own product tests. Different subject, different runner.
 
 ## 6. REFERENCE IMPLEMENTATION

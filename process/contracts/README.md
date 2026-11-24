@@ -58,6 +58,7 @@ about counting).
 | The unattended Stop hook | [stop-ask.md](stop-ask.md) | block once on a turn ending unaddressed, never on an attended launch |
 | The agent record | [agent-record.md](agent-record.md) | which (session, agent) made each commit; the verdict's is not the code's |
 | The module lifecycle | [module-lifecycle.md](module-lifecycle.md) | an optional module enabled and disabled without a hand edit, never costing anything while off |
+| Packs | [pack.md](pack.md) | shipped files that leave the default unpack, unpacked and removed without touching what the project changed |
 
 **A row named in the additions table below is an addition; every other row is the minimum set** —
 the set the completeness rule treats as a floor. Most additions are justified by the rule that makes
@@ -80,6 +81,7 @@ reason.**
 | The model-provisioning seam | A model is set in several places; leaving one unwritten when another changes is how a re-provisioning silently half-happens, including inside the kit's own self-test. |
 | The unattended Stop hook | An unattended launch has a mechanical point where a question with no addressee would otherwise go unanswered forever; the invariant (judge the ending, not the content; fire at most once) is otherwise only prose. |
 | The module lifecycle | A module is optional by construction, so the cost of enabling one, and the leftovers of disabling it, are the whole risk; the sheet is what keeps disable from deleting an edited file and an enable from leaving a half-placed module. |
+| Packs | A pack is a file nothing reads into, so a project's only way to its files is the verb; the sheet is what keeps unpack from overwriting a project's edit and remove from deleting one. |
 | The agent record | "The checker is not the author" is otherwise a role's promise; the record makes it a landing refusal, and its invariants (only a commit the call created, never an overwritten claim, never a blocked call) are what keep that refusal from misattributing. |
 
 ## The rules that hold this directory honest
