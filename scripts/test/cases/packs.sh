@@ -263,7 +263,7 @@ case_pack_reader_refuses_hostile_members() {
 # =============================================================================
 case_pack_reader_refuses_to_overwrite() {
   cf_reset
-  local kp="$REAL_SCRIPTS/lib/kitpack.sh" t before out rc
+  local kp="$REAL_SCRIPTS/lib/kitpack.sh" t before out rc real
   [ -f "$kp" ] || { cf "scripts/lib/kitpack.sh is absent: there is no reader to drive"; finish "unpack never overwrites and never writes through a link"; return; }
   t="$(mktemp -d)" || _fixture_die "case_pack_reader_refuses_to_overwrite: no scratch directory"
   _pkc_fixture "$t/src" || _fixture_die "case_pack_reader_refuses_to_overwrite: the fixture was not written"
@@ -299,7 +299,14 @@ case_pack_reader_refuses_to_overwrite() {
   mkdir -p "$t/d6/deep"; mkdir "$t/d6/deep/a" ; printf 'x' > "$t/d6/deep/a/b"
   sh "$kp" unpack --missing "$t/p.kitpack" "$t/d6" >/dev/null 2>&1 && cf "(f) --missing wrote over a file where a directory must go"
 
-  finish "unpack refuses, before writing a byte, a member that exists (named), a symlink on the way (nothing written through it) and a symlinked destination; an existing empty directory takes all twelve members; --missing keeps the member that is there, says so, and writes the other eleven"
+  # (g) a write that fails midway leaves nothing at the member's path or beside it, and a --missing re-run completes the tree
+  mkdir "$t/fakebin"; real="$(_pkc_which git)" || _fixture_die "case_pack_reader_refuses_to_overwrite: no git on PATH"
+  printf '#!/bin/sh\nfor a in "$@"; do if [ "$a" = cat-file ]; then printf part; exit 1; fi; done\nexec "%s" "$@"\n' "$real" > "$t/fakebin/git"; chmod +x "$t/fakebin/git"
+  PATH="$t/fakebin:$PATH" sh "$kp" unpack --missing "$t/p.kitpack" "$t/d7" >/dev/null 2>&1 && cf "(g) an unpack whose first write failed exited 0"
+  [ "$(_pkc_nfiles "$t/d7")" -eq 0 ] || cf "(g) a failed write left $(_pkc_nfiles "$t/d7") file(s) behind: $(find "$t/d7" -type f | head -3 | tr '\n' ' ')"
+  sh "$kp" unpack --missing "$t/p.kitpack" "$t/d7" >/dev/null 2>&1 && _pkc_same_tree "$t/src" "$t/d7" || cf "(g) a --missing re-run after a failed write did not give the pack's files"
+
+  finish "unpack refuses, before writing a byte, a member that exists (named), a symlink on the way (nothing written through it) and a symlinked destination; an existing empty directory takes all twelve members; --missing keeps the member that is there, says so, and writes the other eleven; a write that fails leaves nothing behind, so a --missing re-run completes the tree"
   rm -rf "$t"
 }
 
@@ -315,7 +322,7 @@ case_pack_reader_runs_on_the_floor() {
   [ -f "$kp" ] || { cf "scripts/lib/kitpack.sh is absent: there is no reader to drive"; finish "the reader runs with only git and the floor's utilities on PATH"; return; }
   t="$(mktemp -d)" || _fixture_die "case_pack_reader_runs_on_the_floor: no scratch directory"
   farm="$t/farm"; mkdir "$farm"
-  for u in cat chmod cmp diff dirname find git head mkdir mktemp rm sed sh sort tr wc dash; do
+  for u in cat chmod cmp diff dirname find git head mkdir mktemp mv rm sed sh sort tr wc dash; do
     p="$(_pkc_which "$u" || true)"
     if [ -n "$p" ]; then ln -s "$p" "$farm/$u"
     elif [ "$u" != dash ]; then _fixture_die "case_pack_reader_runs_on_the_floor: '$u' is not on this machine's PATH"; fi
@@ -341,7 +348,7 @@ case_pack_reader_runs_on_the_floor() {
     env -i PATH="$farm" "$sh_" "$kp" unpack "$t/ref.kitpack" "$out/u" >/dev/null 2>&1 && _pkc_same_tree "$t/ref-out" "$out/u" || cf "($sh_) unpack on the floor failed or differs from the unpack on the machine's PATH"
   done
 
-  finish "build, verify, ls, cat and unpack run under a PATH holding only cat chmod cmp diff dirname find git head mkdir mktemp rm sed sh sort tr wc (and dash where there is one) and give the same bytes as the machine's own PATH; none of tar, gzip, gunzip, unzip, zip, cpio, bzip2, xz, perl, python, python3, node or ruby resolves there"
+  finish "build, verify, ls, cat and unpack run under a PATH holding only cat chmod cmp diff dirname find git head mkdir mktemp mv rm sed sh sort tr wc (and dash where there is one) and give the same bytes as the machine's own PATH; none of tar, gzip, gunzip, unzip, zip, cpio, bzip2, xz, perl, python, python3, node or ruby resolves there"
   rm -rf "$t"
 }
 
@@ -593,9 +600,31 @@ case_pack_unpack_then_remove_leaves_the_tree_as_it_was() {
   [ -f "$t/p/docs/other.md" ] || cf "(g) the project's own file, beside a member, went with it"
 
   _pkc_pack remove fix
-  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"no member is present"*) true ;; *) false ;; esac || cf "(h) a second remove did not say nothing was there to remove (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"nothing to remove"*) true ;; *) false ;; esac || cf "(h) a second remove did not say nothing was there to remove (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
 
-  finish "unpack writes a pack's three members (the executable one executable) and never overwrites; list and verify report them; remove takes back exactly those and the directories it emptied, leaving the project's own file beside one, so the tree equals the tree before; a second unpack finds all three on disk and a second remove does nothing and says so"
+  # (i) a file the project already had, byte-equal to a member, is kept by unpack and is not the pack's to take back
+  _pkc_project "$t/q" || _fixture_die "case_pack_unpack_then_remove_leaves_the_tree_as_it_was: the second project was not built"
+  printf 'doc\n' > "$t/q/docs/c.md"
+  _pkc_pack unpack fix
+  [ "$PKC_RC" -eq 0 ] && case "$PKC_OUT" in *"wrote 2 member"*"1 already on disk"*) true ;; *) false ;; esac || cf "(i) unpack over a byte-equal file of the project's did not write 2 and keep 1 (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+  [ "$(_pkc_nfiles "$t/q/$PKC_PDIR")" -eq 2 ] || cf "(i) unpack left $(_pkc_nfiles "$t/q/$PKC_PDIR") file(s) in the pack directory, want the pack and one record of what it wrote"
+  _pkc_pack remove fix
+  [ "$PKC_RC" -eq 0 ] && [ "$(cat "$t/q/docs/c.md" 2>/dev/null)" = doc ] || cf "(i) remove deleted a file the project had before the unpack (exit $PKC_RC): $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')"
+  case "$PKC_OUT" in *"removed 2 member"*) ;; *) cf "(i) remove did not say it removed the 2 members the unpack wrote: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|')" ;; esac
+  [ ! -e "$t/q/scripts/ex" ] || cf "(i) the members the unpack wrote were not removed"
+  [ "$(_pkc_nfiles "$t/q/$PKC_PDIR")" -eq 1 ] || cf "(i) remove left $(_pkc_nfiles "$t/q/$PKC_PDIR") file(s) in the pack directory, want the pack alone"
+
+  # (j) a record that names what the pack does not hold, or a path outside the project, deletes nothing
+  _pkc_project "$t/r" || _fixture_die "case_pack_unpack_then_remove_leaves_the_tree_as_it_was: the third project was not built"
+  _pkc_pack unpack fix
+  printf 'precious\n' > "$t/outside.txt"
+  printf 'docs/c.md\nscripts/ex/a.sh\nscripts/ex/sub/b.txt\n' > "$t/members"   # what the reader lists, so a path that reaches it compares equal
+  for f in "$t/r/$PKC_PDIR"/*; do case "$f" in *."$PKC_PEXT") ;; *) printf 'docs/other.md\n../outside.txt\n../members\n' >> "$f" ;; esac; done
+  _pkc_pack remove fix
+  { [ "$(cat "$t/r/docs/other.md" 2>/dev/null)" = mine ] && [ "$(cat "$t/outside.txt" 2>/dev/null)" = precious ] && [ -f "$t/members" ]; } || cf "(j) remove deleted a path the record names that the pack does not hold"
+  [ ! -e "$t/r/scripts/ex" ] || cf "(j) the recorded members were not removed"
+
+  finish "unpack writes a pack's three members (the executable one executable) and never overwrites; list and verify report them; remove takes back exactly those and the directories it emptied, leaving the project's own file beside one, so the tree equals the tree before; a second unpack finds all three on disk and a second remove does nothing and says so; a member the project already had is kept by unpack and by remove, and a record naming what the pack does not hold deletes nothing"
   rm -rf "$t"
 }
 
@@ -679,6 +708,13 @@ case_pack_refusals_name_their_next_step() {
   _pkc_pack unpack fix
   [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"scripts/ex/a.sh"*"Next: "*) true ;; *) false ;; esac || cf "(link in the way) exit $PKC_RC; want 1 naming the member and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
   [ "$(_pkc_nfiles "$t/outside")" -eq 0 ] && [ ! -e "$t/p/docs/c.md" ] || cf "(link in the way) files were written through the link or beside the refused pack"
+  # --all is all or nothing: a pack that sorts before the refused one is not written either
+  mkdir -p "$t/src2/extra"; printf 'x\n' > "$t/src2/extra/x.txt"
+  sh "$REAL_SCRIPTS/lib/kitpack.sh" build "$t/src2" "$t/p/$PKC_PDIR/a1.$PKC_PEXT" a1 1700000000 >/dev/null 2>&1 || _fixture_die "case_pack_refusals_name_their_next_step: the second pack was not built"
+  _pkc_pack unpack --all
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"scripts/ex/a.sh"*"Next: "*) true ;; *) false ;; esac || cf "(--all) exit $PKC_RC; want 1 naming the member and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
+  [ ! -e "$t/p/extra/x.txt" ] || cf "(--all) a pack that sorts before the refused one was written: the refusal did not leave everything as it was"
+  rm "$t/p/$PKC_PDIR/a1.$PKC_PEXT"
   rm "$t/p/scripts/ex"
 
   # a member already on disk is left exactly as it is, and said so
@@ -686,7 +722,7 @@ case_pack_refusals_name_their_next_step() {
   _pkc_pack unpack fix
   [ "$PKC_RC" -eq 0 ] && [ "$(cat "$t/p/docs/c.md")" = "mine too" ] && case "$PKC_OUT" in *"wrote 2 member"*"1 already on disk"*) true ;; *) false ;; esac || cf "(existing member) exit $PKC_RC; the member was changed or the count is wrong: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|' | cut -c1-200)"
 
-  finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a symlink in the way) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
+  finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a symlink in the way, on one pack or in a set unpacked with --all) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing, for any pack; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
   rm -rf "$t"
 }
 

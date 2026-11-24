@@ -184,7 +184,7 @@ is the template; `modules/example/` is the module to copy.
 A **pack** is a file of project files that the zip ships packed instead of loose: `packs/<name>.kitpack`, one git
 bundle holding one commit whose tree is the files, at the paths they unpack to. Nothing reads inside a pack, so a pack
 costs no tokens until it is unpacked. `./scripts/pack.sh list` names the packs a project holds; `unpack <name>` writes a
-pack's files at the paths they have in the kit and never overwrites one; `remove <name>` takes back the ones the project
+pack's files at the paths they have in the kit and never overwrites one; `remove <name>` takes back the ones it wrote that the project
 has not changed ([`contracts/pack.md`](contracts/pack.md)). Reading one needs git and a POSIX shell
 (`scripts/lib/kitpack.sh`); the format's rules, and what the reader refuses, are in that file's header.
 

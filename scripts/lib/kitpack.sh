@@ -8,10 +8,12 @@
 #   verify <pack>                     the pack is whole and every member is allowed; prints "ok: N members"
 #   ls     <pack>                     "<mode> <path>" for each member
 #   cat    <pack> <path>              one member's bytes on stdout
-#   unpack [--missing] <pack> <dir>   writes the members under <dir> and prints "wrote <path>" for each.
+#   unpack [--missing] [--check] <pack> <dir>
+#                                     writes the members under <dir> and prints "wrote <path>" for each.
 #                                     No member is overwritten: one already there refuses the unpack before
 #                                     anything is written; with --missing it is left as it is and printed
-#                                     as "kept <path>"
+#                                     as "kept <path>". Each member lands whole or not at all. With --check
+#                                     every check runs and nothing is written or printed.
 #   build  <srcdir> <out> <name> <epoch> [<zlib level, default 9>]
 #                                     the builder's half: every file under <srcdir> becomes a member.
 #                                     The bytes are a function of the members, the name and the epoch.
@@ -45,6 +47,7 @@ _pk_die() { printf 'kitpack: %s\n' "$2" >&2; exit "$1"; }   # exit-class: intern
 _pk_usage() { sed -n '4,/^$/{/^$/!s/^# \{0,1\}//p;}' "$0"; }
 
 _pk_tab="$(printf '\t')"
+PK_T=""   # the member being written, removed if the run ends before it is in place
 
 # Everything git does here runs with no configuration of the machine's or the caller's reaching it.
 _pk_env() {  # <private home>
@@ -58,7 +61,7 @@ _pk_env() {  # <private home>
 
 _pk_scratch() {  # sets PK_S to a fresh private directory, removed on exit
   PK_S="$(mktemp -d "${TMPDIR:-/tmp}/kitpack.XXXXXX")" || _pk_die 3 "mktemp -d failed; check TMPDIR."
-  trap 'rm -rf "$PK_S"' EXIT
+  trap 'rm -f "$PK_T"; rm -rf "$PK_S"' EXIT
   trap 'exit 129' HUP
   trap 'exit 130' INT
   trap 'exit 143' TERM
@@ -205,9 +208,12 @@ _pk_parents_ok() {  # <dest> <member path>: no component on the way to the membe
   return 0
 }
 
-pack_unpack() {  # [--missing] <pack> <dest>: every check runs before the first byte is written
-  missing=0
-  if [ "${1:-}" = --missing ]; then missing=1; shift; fi
+pack_unpack() {  # [--missing] [--check] <pack> <dest>: every check runs before the first byte is written
+  missing=0; check=0
+  while :; do
+    case "${1:-}" in --missing) missing=1 ;; --check) check=1 ;; *) break ;; esac
+    shift
+  done
   dest=$2
   _pk_open "$1"
   [ ! -L "$dest" ] || _pk_die 1 "unpack: $dest is a symlink."
@@ -223,6 +229,7 @@ pack_unpack() {  # [--missing] <pack> <dest>: every check runs before the first 
       fi
     fi
   done < "$PK_S/members"
+  [ "$check" = 0 ] || return 0
   mkdir -p "$dest" || _pk_die 3 "unpack: could not create $dest."
   while IFS="$_pk_tab" read -r meta p; do
     mode="${meta%% *}"; sha="${meta#* blob }"
@@ -230,8 +237,11 @@ pack_unpack() {  # [--missing] <pack> <dest>: every check runs before the first 
     while IFS= read -r _pu_s; do [ "$_pu_s" = "$p" ] && { _pu_skip=1; break; }; done < "$PK_S/skip"
     if [ "$_pu_skip" = 1 ]; then printf 'kept %s\n' "$p"; continue; fi
     mkdir -p "$dest/$(dirname "$p")" || _pk_die 3 "unpack: could not create the directory for $p."
-    git cat-file blob "$sha" > "$dest/$p" || _pk_die 3 "unpack: could not write $p."
-    if [ "$mode" = 100755 ]; then chmod 755 "$dest/$p"; else chmod 644 "$dest/$p"; fi
+    PK_T="$(mktemp "$dest/$(dirname "$p")/.kitpack.XXXXXX")" || _pk_die 3 "unpack: could not create a file beside $p."
+    git cat-file blob "$sha" > "$PK_T" || _pk_die 3 "unpack: could not write $p."
+    if [ "$mode" = 100755 ]; then chmod 755 "$PK_T"; else chmod 644 "$PK_T"; fi
+    mv "$PK_T" "$dest/$p" || _pk_die 3 "unpack: could not put $p in place."
+    PK_T=""
     printf 'wrote %s\n' "$p"
   done < "$PK_S/members"
 }
@@ -247,7 +257,9 @@ _pk_main() {
             pack_ls "$1" ;;
     cat)    [ $# -eq 2 ] || { _pk_usage >&2; exit 2; }   # exit-class: usage
             pack_cat "$1" "$2" ;;
-    unpack) if [ "${1:-}" = --missing ]; then [ $# -eq 3 ] || { _pk_usage >&2; exit 2; }; else [ $# -eq 2 ] || { _pk_usage >&2; exit 2; }; fi   # exit-class: usage
+    unpack) _pm_n=2
+            for _pm_a in "$@"; do case "$_pm_a" in --missing|--check) _pm_n=$(( _pm_n + 1 )) ;; esac; done
+            [ $# -eq "$_pm_n" ] || { _pk_usage >&2; exit 2; }   # exit-class: usage
             pack_unpack "$@" ;;
     build)  { [ $# -eq 4 ] || [ $# -eq 5 ]; } || { _pk_usage >&2; exit 2; }   # exit-class: usage
             pack_build "$@" ;;

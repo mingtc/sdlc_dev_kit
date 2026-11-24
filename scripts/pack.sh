@@ -17,12 +17,14 @@
 # list      each pack: its name, how many members, and whether it is packed, unpacked or partly unpacked.
 # verify    each pack, or one, is whole and every member is allowed (symlinks, `.git`, paths outside the
 #           format's alphabet are refused). Reads nothing into the project.
-# unpack    write the members the project lacks. A member already on disk is left exactly as it is and
-#           counted, never overwritten. Everything is checked before the first byte is written; a symlink
-#           or a directory where a member must go refuses that pack and writes nothing for it.
-# remove    delete each member that is byte-equal to the pack's copy, then the directories that emptied.
-#           A member the project edited, replaced by a link, or placed under a link is kept and named.
-#           Run on a pack that is not unpacked, it does nothing and says so.
+# unpack    write the members the project lacks, each whole or not at all, and record the paths it wrote in
+#           <pack>.wrote beside the pack. A member already on disk is left exactly as it is and counted,
+#           never overwritten. Everything is checked, for every pack named, before the first byte is
+#           written; a symlink or a directory where a member must go refuses and writes nothing.
+# remove    delete each member this project unpacked (it is in the record) that is still byte-equal to the
+#           pack's copy, then the directories that emptied, then the record. A member the project edited,
+#           replaced by a link, placed under a link, or already had before the unpack is kept. Run on a
+#           pack with no record, it does nothing and says so.
 # -h, --help  this text.
 #
 # Exit 0: done (for verify, every pack named is whole). Exit 1: a refusal; the message names the file
@@ -106,11 +108,12 @@ reader() {
 }
 
 # reader_refusal <name> <status> — turn a reader failure into the refusal that names the next step.
+REFUSAL_TAIL="nothing was written for it."
 reader_refusal() {
   case "$2" in
     1) case "$PK_ERR" in
          *"symlink or a file is in the way"*|*"already exists"*|*"is a symlink"*|*"is not a directory"*|*"exists and is not"*)
-           kit_refuse 1 pack-path-in-the-way "Error: $1 was not unpacked; nothing was written for it." "$PK_ERR" "$NEXT_WAY" ;;
+           kit_refuse 1 pack-path-in-the-way "Error: $1 was not unpacked; $REFUSAL_TAIL" "$PK_ERR" "$NEXT_WAY" ;;
          *) kit_refuse 1 pack-damaged "Error: $1 is not usable." "$PK_ERR" "$NEXT_DAMAGED" ;;
        esac ;;
     *) kit_refuse 1 pack-tool-failed "Error: a tool the reader needs failed while reading $1." "$PK_ERR" "Next: check that git works and TMPDIR is writable, then re-run the same command." ;;
@@ -178,14 +181,29 @@ case "$CMD" in
     if [ "$ARG" = "--all" ]; then names="$(pack_names)"; else pack_file "$ARG"; names="$ARG"; fi
     if [ -z "$names" ]; then echo "packs: none ($PACK_DIR/ holds no $PACK_EXT file), so nothing to unpack."
     else
+      REFUSAL_TAIL="nothing was written, for it or any other pack."
       while read -r n; do
         rc=0; pack_file "$n"
+        reader unpack --missing --check "$PK_FILE" "$ROOT" || rc=$?
+        [ "$rc" -eq 0 ] || reader_refusal "$n" "$rc"
+      done <<< "$names"
+      wrote_packs=""
+      while read -r n; do
+        rc=0; pack_file "$n"
+        REFUSAL_TAIL="nothing was written for it.${wrote_packs:+ Already written before it:$wrote_packs.}"
         reader unpack --missing "$PK_FILE" "$ROOT" || rc=$?
         [ "$rc" -eq 0 ] || reader_refusal "$n" "$rc"
-        w=0; k=0
+        w=0; k=0; : > "$PK_TMP/wrote"
         while read -r verb p; do
-          case "$verb" in wrote) w=$(( w + 1 )) ;; kept) k=$(( k + 1 )) ;; esac
+          case "$verb" in wrote) w=$(( w + 1 )); printf '%s\n' "$p" >> "$PK_TMP/wrote" ;; kept) k=$(( k + 1 )) ;; esac
         done <<< "$PK_OUT"
+        wrote_packs="$wrote_packs $n"
+        if [ "$w" -gt 0 ]; then
+          rec="$ROOT/$PACK_DIR/$n.wrote"
+          { [ ! -f "$rec" ] || cat "$rec"; cat "$PK_TMP/wrote"; } | LC_ALL=C sort -u > "$PK_TMP/record" \
+            && cp "$PK_TMP/record" "$rec.part" && mv "$rec.part" "$rec" \
+            || kit_refuse 1 pack-record-failed "Error: $n was unpacked but its record of what was written could not be saved ($PACK_DIR/$n.wrote)." "Next: check that $PACK_DIR/ is writable, then take the files back out by hand; $(basename "$0") remove $n cannot, without the record."
+        fi
         if [ "$k" -eq 0 ]; then printf '%s: wrote %s member(s).\n' "$n" "$w"
         else printf '%s: wrote %s member(s); %s already on disk, left as they are.\n' "$n" "$w" "$k"; fi
       done <<< "$names"
@@ -193,12 +211,16 @@ case "$CMD" in
     fi ;;
   remove)
     member_paths "$ARG"
+    rec="$ROOT/$PACK_DIR/$ARG.wrote"
+    if [ ! -f "$rec" ]; then echo "$ARG: no record of files this project unpacked from it, so nothing to remove."; exit 0; fi
     mkdir "$PK_TMP/copy" || kit_refuse 1 pack-no-scratch "Error: could not make a scratch directory." "Next: check the temp directory (TMPDIR), then re-run."
     rc=0; reader unpack "$PK_FILE" "$PK_TMP/copy" || rc=$?
     [ "$rc" -eq 0 ] || reader_refusal "$ARG" "$rc"
     removed=0; absent=0; kept=""; nkept=0
     while IFS= read -r p; do
       [ -n "$p" ] || continue
+      if ! grep -qxF -- "$p" "$PK_TMP/members"; then kept="$kept
+  $p (the record names it and the pack does not hold it)"; nkept=$(( nkept + 1 )); continue; fi
       if ! on_the_way_clean "$p"; then kept="$kept
   $p (a symlink or a file is on the way to it)"; nkept=$(( nkept + 1 )); continue; fi
       if [ -L "$ROOT/$p" ]; then kept="$kept
@@ -213,7 +235,8 @@ case "$CMD" in
         done
       else kept="$kept
   $p (edited since it was unpacked)"; nkept=$(( nkept + 1 )); fi
-    done < "$PK_TMP/members"
+    done < "$rec"
+    rm -f "$rec" || kit_refuse 1 pack-remove-failed "Error: could not remove the record $PACK_DIR/$ARG.wrote." "Next: delete it by hand, then re-run: $(basename "$0") remove $ARG."
     if [ "$removed" -eq 0 ] && [ "$nkept" -eq 0 ]; then echo "$ARG: no member is present, so nothing to remove."
     else
       printf '%s: removed %s member(s) byte-equal to the pack'"'"'s copy; kept %s.\n' "$ARG" "$removed" "$nkept"

@@ -26,13 +26,16 @@ them on disk and to take them off again without a hand edit and without touching
   repaired.
   *Why:* a root `.gitattributes` rule that rewrites line endings changes a pack's bytes on checkout, so the pack directory carries
   its own attributes file.
-- **Unpack checks everything before it writes anything, and never overwrites.** A member already on disk
-  is left exactly as it is and counted; a symlink or a file where a directory must go refuses that pack with
-  nothing written for it.
+- **Unpack checks everything, for every pack it was asked for, before it writes anything, and never overwrites.**
+  A member already on disk is left exactly as it is and counted; a symlink or a file where a directory must
+  go refuses with nothing written for any pack. Each member lands whole or not at all, and the paths written are
+  recorded beside the pack.
   *Why:* a half-unpacked pack, or one written through a link, cannot be undone by the pack.
-- **Remove deletes only what is byte-equal to the pack's copy, and names every member it kept.** An edited
-  member, a member replaced by a link and a member under a link are the project's now.
-  *Why:* an edited file is work. The same rule the kit upgrade and `module.sh disable` apply.
+- **Remove deletes only a member the record names that is still byte-equal to the pack's copy, then the
+  record, and names every member it kept.** An edited member, a member replaced by a link, a member under a
+  link and a file the project had before the unpack are the project's.
+  *Why:* an edited file is work, and a file the project had is not the pack's to take back. The same rule the
+  kit upgrade and `module.sh disable` apply.
 - **Neither verb commits, and a refusal changes nothing.**
   *Why:* what lands in the project's history is the project's decision.
 
@@ -41,14 +44,16 @@ them on disk and to take them off again without a hand edit and without touching
 - A name that is not a pack the project holds, or is not lowercase letters, digits and `-` ⇒ refuse; `list` names them.
 - A pack that is not whole, or breaks a rule in § 2 ⇒ refuse, naming the file and the member; restore the pack from the
   zip or from git.
-- A symlink or a file on the way to a member ⇒ refuse that pack, nothing written for it; the message names the path.
+- A symlink or a file on the way to a member ⇒ refuse, nothing written for any pack; the message names the path.
 - `remove` with no name, or with `--all` ⇒ refuse: it takes one pack.
 
 ## 4. WHAT GREEN MEANS
 
 1. `verify` exits 0 only when every pack named is whole and every member is allowed.
-2. `unpack` then `remove` leaves the tree as it was, apart from directories that were empty before.
-3. `remove` after an edit keeps the edited member and says so; a second `remove` does nothing and says so.
+2. `unpack` then `remove` leaves the tree as it was, apart from directories that were empty before; a file the
+   project had before the `unpack` stays.
+3. `remove` after an edit keeps the edited member and says so; a second `remove`, with no record left, does
+   nothing and says so.
 
 ## 5. MINIMAL INTERFACE
 
