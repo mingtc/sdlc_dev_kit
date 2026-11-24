@@ -348,7 +348,8 @@ CASES=(
 # THE CORE: the cases `--core` runs, a PARTIAL run like any other selection. A measured list (timed 2026-11-23): every
 # case that took at most two seconds, the shortest case of each cases file that has none, and the whole-tree census
 # cases (the exit and refusal classifications, the cited case names, the shipped tree's citation check), which catch
-# what a change's own cases miss. It is a snapshot: a case added later is outside it until it is listed here, and a
+# what a change's own cases miss, and the early-exit reader's deterministic row (a card move failed under load once, and
+# that row fails every time the defect is there). It is a snapshot: a case added later is outside it until it is listed here, and a
 # listed name this tree does not define (a removed add-on's case) is left out of `--core` and named, and the self-test
 # holds the list to the shipped tree. The full run, which only the full list's
 # exit 0 stands for, still gates a cut.
@@ -653,6 +654,7 @@ CORE_CASES=(
   case_the_design_docs_state_what_leaving_takes_what_the_gate_row_needs_and_what_disable_leaves
   case_the_audit_reads_a_targets_size_as_the_browser_does_a_pair_in_its_own_namespace_and_no_unpaired_overlay_as_unread
   case_the_example_modules_release_notes_hold_no_action_required_entry_to_copy_as_one
+  case_an_ac_bullet_reader_does_not_fail_when_the_body_runs_on_after_the_bullet
   case_isolation
 )
 
