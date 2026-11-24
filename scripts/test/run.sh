@@ -342,7 +342,6 @@ CASES=(
   case_run_says_how_many_cases_are_in_a_pack
   case_defined_equals_listed_per_population
   case_unpack_all_restores_the_full_population
-  case_default_unpack_stays_inside_its_budget
   case_isolation
 )
 

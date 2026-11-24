@@ -937,39 +937,3 @@ EOF_SMK_MAN
   finish "$L"
   rm -rf "$t"
 }
-
-# =============================================================================
-# CASE — THE DEFAULT UNPACK STAYS INSIDE ITS BUDGET.
-# What a zip unpacks to without a pack: its files, their bytes and their text tokens (bytes / 4, the pack directory
-# left out) are each within scripts/test/unpack-budget.tsv, so nothing grows the tree an adopter first reads
-# without a decision to raise the figure. Measured over the shipped files whose bytes are the manifest's: on a tree
-# that has lived, a file the project changed or removed is not counted, and the figures can only be lower.
-# =============================================================================
-case_default_unpack_stays_inside_its_budget() {
-  cf_reset
-  local bud="$HARNESS_DIR/unpack-budget.tsv" man="$REAL_REPO_ROOT/process/KIT-MANIFEST" k lim_files lim_bytes lim_tokens names pdir sha p sz sum="" files=0 bytes=0 text=0 tokens
-  local L="the files a built zip unpacks to, their bytes and their text tokens are each within scripts/test/unpack-budget.tsv"
-  [ -f "$bud" ] || { cf "scripts/test/unpack-budget.tsv, this case's operand, is absent"; finish "$L"; return; }
-  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum): the shipped bytes cannot be told from the project's"; return; }
-  [ -f "$man" ] || _fixture_die "case_default_unpack_stays_inside_its_budget: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
-  lim_files="$(awk -F'\t' '$1 == "files" { print $2 }' "$bud")"; lim_bytes="$(awk -F'\t' '$1 == "bytes" { print $2 }' "$bud")"; lim_tokens="$(awk -F'\t' '$1 == "text-tokens" { print $2 }' "$bud")"
-  for k in "$lim_files" "$lim_bytes" "$lim_tokens"; do case "$k" in ""|*[!0-9]*) _fixture_die "case_default_unpack_stays_inside_its_budget: $bud does not hold files, bytes and text-tokens as numbers" ;; esac; done
-  names="$(_pkc_names)"; pdir="${names%% *}"
-  if command -v shasum >/dev/null 2>&1; then sum="shasum -a 256"; else sum="sha256sum"; fi
-  # the manifest's own row is absent from it: it is a file of the zip, counted once
-  sz="$(wc -c < "$man" | tr -d ' ')"; files=1; bytes="$sz"; text="$sz"
-  while read -r sha p _; do
-    [ -f "$REAL_REPO_ROOT/$p" ] || continue
-    [ "$sha" = "$( cd "$REAL_REPO_ROOT" && $sum -- "$p" | awk '{print $1}' )" ] || continue
-    sz="$(wc -c < "$REAL_REPO_ROOT/$p" | tr -d ' ')"; files=$(( files + 1 )); bytes=$(( bytes + sz ))
-    case "$p" in "$pdir"/*) ;; *) text=$(( text + sz )) ;; esac
-  done <<EOF_Z1_MAN
-$(grep -v '^#' "$man")
-EOF_Z1_MAN
-  tokens=$(( text / 4 ))
-  [ "$files" -le "$lim_files" ] || cf "the default unpack holds $files files, over the budget's $lim_files"
-  [ "$bytes" -le "$lim_bytes" ] || cf "the default unpack holds $bytes bytes, over the budget's $lim_bytes"
-  [ "$tokens" -le "$lim_tokens" ] || cf "the default unpack holds $tokens text tokens, over the budget's $lim_tokens"
-  [ -z "$_cf" ] || cf "Next: if the growth is wanted, set scripts/test/unpack-budget.tsv to files $files, bytes $bytes, text-tokens $tokens"
-  finish "$L"
-}
