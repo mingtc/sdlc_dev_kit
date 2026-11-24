@@ -106,7 +106,7 @@ case_a_killed_pre_merge_gate_leaves_no_worktree_behind() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[Dev] $SB_PREFIX-795: touch the gate runner" >/dev/null 2>&1 \
     && git -C "$SB_WORK" push -q -u origin "$br" >/dev/null 2>&1 \
     || _fixture_die "case_a_killed_pre_merge_gate_leaves_no_worktree_behind: could not commit and push."
-  ( cd "$SB_WORK" && exec env TMPDIR="$tmpd" setsid "$fp" "$SB_PREFIX-795" > "$SB_TMP/fp.out" 2>&1 ) &
+  ( cd "$SB_WORK" && exec perl -e 'use POSIX; setsid(); exec @ARGV' env TMPDIR="$tmpd" "$fp" "$SB_PREFIX-795" > "$SB_TMP/fp.out" 2>&1 ) &
   pid=$!
   for i in $(seq 1 600); do [ -e "$mark" ] && break; sleep 0.2; done
   if [ ! -e "$mark" ]; then kill -KILL "-$pid" 2>/dev/null; cf "(a) the gate never started within 120 s: $(tail -3 "$SB_TMP/fp.out" | tr '\n' '|' | cut -c1-200)"; finish "$L"; teardown; return; fi
