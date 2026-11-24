@@ -1,0 +1,8 @@
+NOTICE
+
+`SKILL.md` in this directory is adapted from the `product-brainstorming` skill of Anthropic's `knowledge-work-plugins`
+(`https://github.com/anthropics/knowledge-work-plugins`, `product-management/skills/product-brainstorming/SKILL.md`, commit `2d6f7e22dd25`),
+licensed under the Apache License 2.0 (`LICENSE`, beside this file).
+
+**This kit changed it:** the `description`; and the capture step names where a brainstorm is recorded (`progress.md`), carries its
+open questions into the PRD, and rules a decision that forecloses alternatives in `requirements/DECISIONS.md` once a PRD exists to cite it.

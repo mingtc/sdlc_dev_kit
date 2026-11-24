@@ -1,0 +1,10 @@
+NOTICE
+
+`SKILL.md` in this directory is adapted from the `write-spec` skill of Anthropic's `knowledge-work-plugins`
+(`https://github.com/anthropics/knowledge-work-plugins`, `product-management/skills/write-spec/SKILL.md`, commit `2d6f7e22dd25`),
+licensed under the Apache License 2.0 (`LICENSE`, beside this file).
+
+**This kit changed it:** the `description`; the connectors note (a `~~name` placeholder is whatever tool of that kind is connected,
+and the step is skipped when none is); the PRD is written into the file `scripts/new-prd.sh` creates from the kit's PRD template,
+keeping its sections and story ids, with where each item lands in that template; and each acceptance-criteria line carries an
+`AC<n>` id, with the reason.

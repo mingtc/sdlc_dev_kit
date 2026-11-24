@@ -226,7 +226,7 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | Set | Origin | License | Class |
 | --- | --- | --- | --- |
 | Dev | **Adopted from a public collection — the upstream "superpowers" collection, `https://github.com/obra/superpowers`.** Its link also survives in `brainstorming/scripts/frame-template.html`, kept there deliberately as provenance | **MIT, Copyright (c) 2025 Jesse Vincent** — confirmed 2026-10-02 by reading the upstream `LICENSE` file directly | `KIT` |
-| PM | **Authored for this kit** (`write-spec`, `product-brainstorming`) | Same as this repo | `KIT` |
+| PM | **Adapted from Anthropic's `knowledge-work-plugins`, `https://github.com/anthropics/knowledge-work-plugins`** (its product-management plugin's `write-spec` and `product-brainstorming`). Each directory's `NOTICE` names the upstream file and says what this kit changed | **Apache-2.0** — confirmed 2026-11-24 by reading the upstream `LICENSE` file directly; a copy is in each directory | `MIXED` — carries this kit's PRD template wiring, story ids and `AC<n>` ids (`write-spec`) and its capture route (`product-brainstorming`); a blind re-copy erases them |
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
 | `start` | Authored for this kit | Same as this repo | `KIT` |

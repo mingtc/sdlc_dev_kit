@@ -24,10 +24,11 @@ SOFTWARE.
 
 **Why this file, and why MIT.** This license covers the kit's own mechanism — its scripts
 (`scripts/`), its process doctrine (`process/`), its skills and role docs (`.claude/`) — the parts
-that stay recognizably the kit's rather than becoming your project's own content. A module placed into
-your project may also carry third-party Apache-2.0 code under its `scripts/`, with its licence text and
-`NOTICE` beside it; `modules/design/scripts/design/vendor/NOTICE` is the instance. That code is not
-relicensed here.
+that stay recognizably the kit's rather than becoming your project's own content. Two PM skills,
+`.claude/skills/write-spec/` and `.claude/skills/product-brainstorming/`, are adapted from Apache-2.0
+upstream skills, and a module placed into your project may carry third-party Apache-2.0 code under its
+`scripts/` (`modules/design/scripts/design/vendor/`); each carries its licence text and a `NOTICE` beside
+it. That material is not relicensed here.
 
 **It is MIT, specifically, because part of what ships here is not this kit's to relicense.** The
 Dev skill set under `.claude/skills/` (`brainstorming`, `writing-plans`, `executing-plans`,
