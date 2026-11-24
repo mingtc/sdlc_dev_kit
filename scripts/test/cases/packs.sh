@@ -27,7 +27,7 @@ _pkc_fixture() {
   printf 'x' > "$d/one"
   printf 'nested\n' > "$d/deep/a/b/c/d.txt"
   printf 'mixed\n' > "$d/Mixed-Case_1.md"
-  printf 'odd\n' > "$d/at@sign+plus=eq,comma:colon.txt"
+  printf 'odd\n' > "$d/at@sign+plus=eq,comma.txt"
   printf 'no final newline' > "$d/noeol"
   printf 'one\ntwo\n' > "$d/lf.txt"
   printf '{"a": 1}\n' > "$d/a.json"
@@ -201,7 +201,7 @@ case_pack_reader_refuses_hostile_members() {
   # name|mode|path|the text the refusal must carry ('-' when git may refuse first)
   for row in 'symlink|120000|link|link' 'gitlink|160000|sub|sub' 'space|100644|a b.txt|a b.txt' 'dash|100644|-rf|-rf' \
              'quote|100644|a"b|a\"b' 'dotgit|100644|.git/hooks/post-checkout|-' 'dotgit-upper|100644|.GIT/config|-' \
-             'dotgit-mid|100644|sub/.git/config|-' 'dotdot|100644|../escape.txt|-'; do
+             'dotgit-mid|100644|sub/.git/config|-' 'dotdot|100644|../escape.txt|-' 'dotgit-dot|100644|.git.|-' 'dotgit-dots-mid|100644|sub/.GIT.../x|-' 'colon|100644|a:b|a:b'; do
     name="${row%%|*}"; row="${row#*|}"; mode="${row%%|*}"; row="${row#*|}"; path="${row%|*}"; want="${row##*|}"
     n=$(( n + 1 ))
     _pkc_raw_bundle "$t/$name.kitpack" entry "$mode" "$path" || { _fixture_die "case_pack_reader_refuses_hostile_members: the $name bundle was not built"; }
@@ -236,6 +236,12 @@ case_pack_reader_refuses_hostile_members() {
     [ "$(_pkc_nfiles "$t/out-$name")" -eq 0 ] || cf "($name) files were written for a damaged pack"
   done
 
+  # The builder: a path git's own index drops (it only warns) must not give a pack that quietly lacks the file.
+  mkdir -p "$t/dropped/sub"; printf 'x\n' > "$t/dropped/sub/ok.txt"; printf 'y\n' > "$t/dropped/sub/.git."
+  out="$(sh "$kp" build "$t/dropped" "$t/dropped.kitpack" demo 1700000000 2>&1)"; rc=$?
+  { [ "$rc" -ne 0 ] && [ ! -e "$t/dropped.kitpack" ]; } || cf "(build) a source holding sub/.git. gave a pack (exit $rc) that lacks it: $(sh "$kp" ls "$t/dropped.kitpack" 2>&1 | tr '\n' '|')"
+  case "$out" in *"sub/.git."*) ;; *) cf "(build) the refusal does not name sub/.git.: $(printf '%s' "$out" | head -2 | tr '\n' '|')" ;; esac
+
   # Positive controls: the same shape with a legal nested path and a legal flat one is written.
   _pkc_raw_bundle "$t/ok-nested.kitpack" entry 100644 "good/a.txt" && _pkc_raw_bundle "$t/ok-flat.kitpack" entry 100755 "flat" || _fixture_die "case_pack_reader_refuses_hostile_members: the control bundles were not built"
   sh "$kp" unpack "$t/ok-nested.kitpack" "$t/out-ok-nested" >/dev/null 2>&1 && [ "$(_pkc_nfiles "$t/out-ok-nested")" -eq 2 ] || cf "(control) a nested legal member was not written"
@@ -243,15 +249,15 @@ case_pack_reader_refuses_hostile_members() {
 
   # The path rules on their own: a fixed answer for each row.
   local p ok
-  for p in 'a' 'a/b.txt' 'x/.gitignore' 'x/.github/y' 'Mixed-Case_1.md' 'at@sign+plus=eq,comma:colon.txt' 'a-b/c'; do
+  for p in 'a' 'a/b.txt' 'x/.gitignore' 'x/.github/y' 'Mixed-Case_1.md' 'at@sign+plus=eq,comma.txt' 'a-b/c' 'x/.git.y' 'x/.gitx.' 'gitx/y' 'a.b.'; do
     ( . "$kp" >/dev/null 2>&1; _pk_path_ok "$p" ) || cf "(path) '$p' is refused, and it is legal"
   done
-  for p in '' '/abs' 'a//b' 'a/' '.' '..' './a' 'a/.' '../a' 'a/..' 'a/../b' 'a/./b' 'a b' '-a' 'a/-b' '.git' '.git/hooks/x' '.GIT/config' 'sub/.git/config' 'sub/.Git' 'a"b' 'a*b' 'caf'$'\303\251'; do
+  for p in '' '/abs' 'a//b' 'a/' '.' '..' './a' 'a/.' '../a' 'a/..' 'a/../b' 'a/./b' 'a b' '-a' 'a/-b' '.git' '.git/hooks/x' '.GIT/config' 'sub/.git/config' 'sub/.Git' '.git.' '.git..' '.GIT.' '.git ' 'sub/.git./x' 'sub/.git /x' 'git~1' 'GIT~1' 'a/git~1/b' 'a:b' 'C:x' 'x/.git::$INDEX_ALLOCATION' 'a"b' 'a*b' 'caf'$'\303\251'; do
     ok=0; ( . "$kp" >/dev/null 2>&1; _pk_path_ok "$p" ) && ok=1
     [ "$ok" -eq 0 ] || cf "(path) '$p' is allowed, and it is outside the format"
   done
 
-  finish "$n hostile packs (a symlink, a gitlink, a space, a leading dash, a quote, .git at three depths and in capitals, .., a second ref, a ref outside refs/kit, a parent commit, an empty tree, a truncated pack, a flipped byte, a non-bundle) are each refused with nothing written and, where git does not refuse first, the member named; a nested and a flat legal member are written; the path rules answer a fixed table on their own"
+  finish "$n hostile packs (a symlink, a gitlink, a space, a leading dash, a quote, a colon, .git at three depths, in capitals and with trailing dots, .., a second ref, a ref outside refs/kit, a parent commit, an empty tree, a truncated pack, a flipped byte, a non-bundle) are each refused with nothing written and, where git does not refuse first, the member named; a nested and a flat legal member are written; the path rules answer a fixed table on their own"
   rm -rf "$t"
 }
 
@@ -459,12 +465,15 @@ case_pack_survives_the_adopters_git_attributes() {
   [ -f "$attr" ] || { cf "$dir/.gitattributes is not shipped: a root attribute line such as '* text eol=crlf' would rewrite every pack in a clone"; finish "a pack survives a root .gitattributes that forces CRLF"; return; }
   t="$(mktemp -d)" || _fixture_die "case_pack_survives_the_adopters_git_attributes: no scratch directory"
   _pkc_fixture "$t/src" || _fixture_die "case_pack_survives_the_adopters_git_attributes: the fixture was not written"
-  sh "$kp" build "$t/src" "$t/fix.kitpack" demo 1700000000 >/dev/null 2>&1 || _fixture_die "case_pack_survives_the_adopters_git_attributes: the pack was not built"
+  # stored, not deflated, with a member that carries an ident keyword: its bytes are then in the bundle for a filter or ident rule to reach
+  printf '%s\n' '$Id$' > "$t/src/ident.txt"
+  sh "$kp" build "$t/src" "$t/fix.kitpack" demo 1700000000 0 >/dev/null 2>&1 || _fixture_die "case_pack_survives_the_adopters_git_attributes: the pack was not built"
 
   for r in with without; do
     mkdir -p "$t/$r/$dir"
     ( cd "$t/$r" && git init -q . && git config user.email t@example.invalid && git config user.name t && git config commit.gpgsign false ) >/dev/null 2>&1 || _fixture_die "case_pack_survives_the_adopters_git_attributes: git init failed"
-    printf '* text eol=crlf\n' > "$t/$r/.gitattributes"
+    printf '* text eol=crlf\n* ident\n* filter=kitfix\n.gitattributes -filter -ident\n' > "$t/$r/.gitattributes"
+    ( cd "$t/$r" && git config filter.kitfix.clean 'tr e E' && git config filter.kitfix.smudge 'tr e E' ) >/dev/null 2>&1 || _fixture_die "case_pack_survives_the_adopters_git_attributes: git config failed"
     cp "$t/fix.kitpack" "$t/$r/$dir/fix.kitpack"
     [ "$r" = with ] && cp "$attr" "$t/$r/$dir/.gitattributes"
     ( cd "$t/$r" && git add -A && git commit -q -m fixture && git clone -q . "$t/$r-clone" ) >/dev/null 2>&1 || _fixture_die "case_pack_survives_the_adopters_git_attributes: the scratch commit and clone failed"
@@ -473,7 +482,7 @@ case_pack_survives_the_adopters_git_attributes() {
   cmp -s "$t/fix.kitpack" "$t/without-clone/$dir/fix.kitpack" && cf "(control) without $dir/.gitattributes the bytes did not change either: this git does not rewrite the pack here, so the case proves nothing about the shipped file"
   sh "$kp" verify "$t/with-clone/$dir/fix.kitpack" >/dev/null 2>&1 || cf "(b) the cloned pack no longer verifies"
 
-  finish "in a repository whose root .gitattributes forces CRLF, a pack committed beside the shipped $dir/.gitattributes comes back from a clone byte for byte and verifies; without that file the same clone changes it"
+  finish "in a repository whose root .gitattributes forces CRLF, expands an ident keyword and runs a content filter on every file, a pack committed beside the shipped $dir/.gitattributes comes back from a clone byte for byte and verifies; without that file the same clone changes it"
   rm -rf "$t"
 }
 
@@ -703,6 +712,14 @@ case_pack_refusals_name_their_next_step() {
     || cf "(damaged list) exit $PKC_RC; want 1, fix still listed and broken marked: $(printf '%s' "$PKC_OUT" | head -4 | tr '\n' '|' | cut -c1-240)"
   rm "$t/p/$PKC_PDIR/broken.$PKC_PEXT"
 
+  # a pack file whose name is not the name inside it is not the pack its name says
+  cp "$t/p/$PKC_PDIR/fix.$PKC_PEXT" "$t/p/$PKC_PDIR/other.$PKC_PEXT"
+  _pkc_pack verify other
+  [ "$PKC_RC" -eq 1 ] && case "$PKC_OUT" in *"other"*"fix"*"Next: "*) true ;; *) false ;; esac || cf "(misnamed verify) exit $PKC_RC; want 1 naming both 'other' and 'fix' and a Next: line: $(printf '%s' "$PKC_OUT" | head -3 | tr '\n' '|' | cut -c1-200)"
+  _pkc_pack unpack other
+  [ "$PKC_RC" -eq 1 ] && [ ! -e "$t/p/docs/c.md" ] || cf "(misnamed unpack) exit $PKC_RC; want 1 and nothing written"
+  rm "$t/p/$PKC_PDIR/other.$PKC_PEXT"
+
   # a symlink in the way of a member: that pack is refused, the path named, nothing written
   mkdir "$t/outside"; ln -s "$t/outside" "$t/p/scripts/ex"
   _pkc_pack unpack fix
@@ -722,7 +739,7 @@ case_pack_refusals_name_their_next_step() {
   _pkc_pack unpack fix
   [ "$PKC_RC" -eq 0 ] && [ "$(cat "$t/p/docs/c.md")" = "mine too" ] && case "$PKC_OUT" in *"wrote 2 member"*"1 already on disk"*) true ;; *) false ;; esac || cf "(existing member) exit $PKC_RC; the member was changed or the count is wrong: $(printf '%s' "$PKC_OUT" | head -2 | tr '\n' '|' | cut -c1-200)"
 
-  finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a symlink in the way, on one pack or in a set unpacked with --all) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing, for any pack; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
+  finish "every refusal (an unknown or malformed name, a missing or surplus argument, an unknown command or option, remove --all, a damaged pack on verify and on unpack, a pack file named other than its ref, a symlink in the way, on one pack or in a set unpacked with --all) exits non-zero with a Next: line and, for the damaged and in-the-way rows, the file named, and writes nothing, for any pack; --help answers first in any position; list keeps listing a pack beside a broken one and exits 1; a member already on disk is left as it is and counted"
   rm -rf "$t"
 }
 
@@ -816,7 +833,13 @@ case_run_says_how_many_cases_are_in_a_pack() {
   _smk_run "$fx"
   case "$SMK_OUT" in *"$(( 2 + n + m )) PASS, 0 FAIL"*) ;; *) cf "(c) the unpacked run does not run every case: $(printf '%s' "$SMK_OUT" | grep '^summary:')" ;; esac
 
-  finish "run.sh --list and the line after the run's summary name each pack that holds a case list, with the count a separate reader finds in the fixture, name no pack that holds none, list and run only the loose cases while they are packed, and print nothing about packs once pack.sh unpack --all has put them on disk, when every case is listed and runs"
+  # (d) a pack that cannot be read is named, with the way to check it, and is never silently left out of the note
+  head -c 200 "$fx/$dir/fxdoc.$ext" > "$fx/$dir/fxbad.$ext"
+  _smk_run "$fx" --list
+  case "$SMK_OUT" in *"fxbad.$ext"*"pack.sh verify"*) ;; *) cf "(d) --list does not name the damaged pack fxbad.$ext and say how to check it: $(printf '%s' "$SMK_OUT" | grep -i 'pack' | cut -c1-240)" ;; esac
+  rm -f "$fx/$dir/fxbad.$ext"
+
+  finish "run.sh --list and the line after the run's summary name each pack that holds a case list, with the count a separate reader finds in the fixture, name no pack that holds none, list and run only the loose cases while they are packed, print nothing about packs once pack.sh unpack --all has put them on disk, when every case is listed and runs, and name a pack that cannot be read with the command that checks it"
   rm -rf "$t"
 }
 

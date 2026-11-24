@@ -42,7 +42,7 @@ them on disk and to take them off again without a hand edit and without touching
 ## 3. REFUSAL CONDITIONS
 
 - A name that is not a pack the project holds, or is not lowercase letters, digits and `-` ⇒ refuse; `list` names them.
-- A pack that is not whole, or breaks a rule in § 2 ⇒ refuse, naming the file and the member; restore the pack from the
+- A pack that is not whole, breaks a rule in § 2, or sits in a file named for another pack ⇒ refuse, naming the file and the member; restore the pack from the
   zip or from git.
 - A symlink or a file on the way to a member ⇒ refuse, nothing written for any pack; the message names the path.
 - `remove` with no name, or with `--all` ⇒ refuse: it takes one pack.

@@ -55,21 +55,24 @@ _harness_list_refuse() {
 }
 
 # _harness_packed_note <root> — sets PACKED_NOTE to one line naming each pack that holds a case list its tree
-# lacks (scripts/test/CASE-LIST or modules/<name>/test/CASE-LIST) and how many cases that list names; empty when
-# no pack does. The reader's own program lists and reads the pack, so nothing is unpacked.
+# lacks (scripts/test/CASE-LIST or modules/<name>/test/CASE-LIST) and how many cases that list names, and each
+# pack the reader could not read, with the command that checks it; empty when there is nothing to say.
+# The reader's own program lists and reads the pack, so nothing is unpacked.
 _harness_packed_note() {
-  local root="$1" kp="$1/scripts/lib/kitpack.sh" dir ext pk members p n note="" total=0 LC_ALL=C
+  local root="$1" kp="$1/scripts/lib/kitpack.sh" dir ext pk members list p n note="" bad="" total=0 LC_ALL=C
   PACKED_NOTE=""
   [ -f "$kp" ] || return 0
   read -r dir ext _ <<< "$( . "$kp" >/dev/null 2>&1; printf '%s %s' "${KIT_PACK_DIR:-}" "${KIT_PACK_EXT:-}" )"
   [ -n "$dir" ] && [ -n "$ext" ] || return 0
   for pk in "$root/$dir"/*."$ext"; do
     [ -f "$pk" ] || continue
-    members="$(sh "$kp" ls "$pk" 2>/dev/null </dev/null | sed 's/^[0-9]* //' || true)"
+    members="$(sh "$kp" ls "$pk" 2>/dev/null </dev/null)" || { bad="${bad:+$bad, }$dir/${pk##*/}"; continue; }
+    members="$(printf '%s\n' "$members" | sed 's/^[0-9]* //')"
     while IFS= read -r p; do
       case "$p" in scripts/test/CASE-LIST|modules/*/test/CASE-LIST) ;; *) continue ;; esac
       [ ! -e "$root/$p" ] || continue
-      n="$(sh "$kp" cat "$pk" "$p" 2>/dev/null </dev/null | sed 's/\r$//; s/#.*//; s/^[[:space:]]*//; s/[[:space:]]*$//' | grep -c . || true)"
+      list="$(sh "$kp" cat "$pk" "$p" 2>/dev/null </dev/null)" || { bad="${bad:+$bad, }$dir/${pk##*/}"; break; }
+      n="$(printf '%s\n' "$list" | sed 's/\r$//; s/#.*//; s/^[[:space:]]*//; s/[[:space:]]*$//' | grep -c . || true)"
       [ "${n:-0}" -gt 0 ] || continue
       note="${note:+$note, }${n} in $dir/${pk##*/}"; total=$(( total + n ))
     done <<PACKED_MEMBERS_EOF
@@ -77,5 +80,6 @@ $members
 PACKED_MEMBERS_EOF
   done
   [ -z "$note" ] || PACKED_NOTE="in packs, not in this run: $note ($total case(s)). Next: ./scripts/pack.sh unpack --all, then run this again for the whole list."
+  [ -z "$bad" ] || PACKED_NOTE="${PACKED_NOTE:+$PACKED_NOTE }packs this run could not read: $bad. Next: ./scripts/pack.sh verify <name> says what is wrong; restore the pack from the zip."
   return 0
 }

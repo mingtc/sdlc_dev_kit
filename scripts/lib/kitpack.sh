@@ -21,9 +21,12 @@
 # THE FORMAT'S RULES, enforced when a pack is built and again when it is read. A pack that breaks one
 # is refused, never repaired, and nothing is written:
 #   * members are regular files, mode 100644 or 100755; a symlink, a gitlink or a device is refused;
-#   * a path is made of A-Z a-z 0-9 . _ / @ + = , : - with no empty, "." or ".." component, no
-#     component that starts with "-" or is ".git" in any case, and no two paths that differ only by case;
+#   * a path is made of A-Z a-z 0-9 . _ / @ + = , - with no empty, "." or ".." component, no
+#     component that starts with "-" or is ".git" in any case (an NTFS volume reads ".git." and ".git " as
+#     ".git" too, and "git~1" as its short name), and no two paths that differ only by case;
 #   * the bundle holds exactly one ref, refs/kit/<name>, and one commit with no parent.
+# KITPACK_EXPECT_NAME, when set, is the name the pack file must carry: verify, ls, cat and unpack refuse a pack whose
+# ref names another, so a file is the pack its name says.
 # Members are written with `git hash-object --no-filters` and read with `git cat-file blob`, in a
 # private HOME with no git configuration of the machine's or the caller's, so no autocrlf, attribute
 # or config key changes a byte.
@@ -72,13 +75,22 @@ _pk_scratch() {  # sets PK_S to a fresh private directory, removed on exit
 _pk_path_ok() {  # 0 when $1 is a path the format allows
   case "$1" in
     ""|/*|*//*|*/|.|..|./*|*/.|../*|*/..|*/../*|*/./*) return 1 ;;   # return-class: predicate
-    *[!A-Za-z0-9._/@+=,:-]*) return 1 ;;   # return-class: predicate
+    *[!A-Za-z0-9._/@+=,-]*) return 1 ;;   # return-class: predicate
     -*|*/-*) return 1 ;;   # return-class: predicate
   esac
-  case "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" in
-    .git|.git/*|*/.git|*/.git/*) return 1 ;;   # return-class: predicate
-  esac
+  _pk_dotgit "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" && return 1   # return-class: predicate
   return 0
+}
+
+_pk_dotgit() {  # <lowercase path>; 0 when a component is ".git" once its trailing dots and spaces go, or "git~1"
+  _dg_r=$1
+  while :; do
+    _dg_c="${_dg_r%%/*}"
+    while :; do case "$_dg_c" in *.|*" ") _dg_c="${_dg_c%?}" ;; *) break ;; esac; done
+    case "$_dg_c" in .git|git~1) return 0 ;; esac   # return-class: predicate
+    case "$_dg_r" in */*) _dg_r="${_dg_r#*/}" ;; *) break ;; esac
+  done
+  return 1   # return-class: predicate
 }
 
 _pk_name_ok() {  # 0 when $1 is a pack name: lowercase letters, digits and "-", not starting with "-"
@@ -130,6 +142,9 @@ pack_build() {  # <srcdir> <out> <name> <epoch> [level]
   GIT_INDEX_FILE="$PK_S/index"; export GIT_INDEX_FILE
   git update-index --add --index-info < "$PK_S/idx" || _pk_die 3 "build: git update-index failed."
   tree="$(git write-tree)" || _pk_die 3 "build: git write-tree failed."
+  git ls-tree -r --name-only "$tree" | LC_ALL=C sort > "$PK_S/built" || _pk_die 3 "build: git ls-tree failed."
+  cmp -s "$PK_S/paths" "$PK_S/built" \
+    || _pk_die 1 "build: git's index refused path(s) the format allows, so the pack would lack them: $(LC_ALL=C comm -23 "$PK_S/paths" "$PK_S/built" | tr '\n' ' ')(rename or remove them)."
   GIT_AUTHOR_NAME=kitpack GIT_AUTHOR_EMAIL=kitpack@invalid GIT_AUTHOR_DATE="$epoch +0000"
   GIT_COMMITTER_NAME=kitpack GIT_COMMITTER_EMAIL=kitpack@invalid GIT_COMMITTER_DATE="$epoch +0000"
   export GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
@@ -158,6 +173,8 @@ _pk_open() {
   _po_ref="${_po_heads#* }"
   case "$_po_ref" in "$KIT_PACK_REF"/*) ;; *) _pk_die 1 "$_po_arg must hold exactly one ref, $KIT_PACK_REF/<name>; it holds $_po_ref." ;; esac
   _pk_name_ok "${_po_ref#"$KIT_PACK_REF"/}" || _pk_die 1 "$_po_arg: the ref '$_po_ref' is not $KIT_PACK_REF/<lowercase letters, digits and '-'>."
+  [ -z "${KITPACK_EXPECT_NAME:-}" ] || [ "$KITPACK_EXPECT_NAME" = "${_po_ref#"$KIT_PACK_REF"/}" ] \
+    || _pk_die 1 "$_po_arg holds the pack '${_po_ref#"$KIT_PACK_REF"/}', so its file must be named ${_po_ref#"$KIT_PACK_REF"/}.$KIT_PACK_EXT, not $KITPACK_EXPECT_NAME.$KIT_PACK_EXT."
   git -c transfer.fsckObjects=true fetch -q "$_po_abs" "$_po_ref:$_po_ref" 2>"$PK_S/err" \
     || _pk_die 1 "$_po_arg is not a whole kitpack (git could not read or verify it)."
   PK_C="$(git rev-parse --verify -q "$_po_ref^{commit}")" || _pk_die 1 "$_po_arg is not a whole kitpack (its ref is no commit)."

@@ -15,8 +15,8 @@
 #   ./scripts/pack.sh remove <name>
 #
 # list      each pack: its name, how many members, and whether it is packed, unpacked or partly unpacked.
-# verify    each pack, or one, is whole and every member is allowed (symlinks, `.git`, paths outside the
-#           format's alphabet are refused). Reads nothing into the project.
+# verify    each pack, or one, is whole, every member is allowed (symlinks, `.git`, paths outside the
+#           format's alphabet are refused) and its file is named for the pack inside it. Reads nothing into the project.
 # unpack    write the members the project lacks, each whole or not at all, and record the paths it wrote in
 #           <pack>.wrote beside the pack. A member already on disk is left exactly as it is and counted,
 #           never overwritten. Everything is checked, for every pack named, before the first byte is
@@ -85,7 +85,7 @@ pack_file() {
   case "$1" in
     ''|-*|*[!abcdefghijklmnopqrstuvwxyz0-9-]*) kit_refuse 1 pack-name-invalid "Error: '$1' is not a pack name (lowercase letters, digits and '-')." "Next: $(basename "$0") list names the packs this project holds." ;;
   esac
-  PK_FILE="$ROOT/$PACK_DIR/$1.$PACK_EXT"
+  PK_FILE="$ROOT/$PACK_DIR/$1.$PACK_EXT"; PK_NAME="$1"
   [ -f "$PK_FILE" ] || kit_refuse 1 pack-not-found "Error: no pack named '$1' ($PACK_DIR/$1.$PACK_EXT is not here)." "Next: $(basename "$0") list names the packs this project holds."
 }
 
@@ -102,7 +102,7 @@ pack_names() {
 
 # reader <verb args…> — run the reader; its stdout lands in $PK_OUT, its stderr in $PK_ERR; its status is returned.
 reader() {
-  PK_OUT="$(sh "$READER" "$@" 2>"$PK_TMP/err" </dev/null)"; local rc=$?
+  PK_OUT="$(KITPACK_EXPECT_NAME="${PK_NAME:-}" sh "$READER" "$@" 2>"$PK_TMP/err" </dev/null)"; local rc=$?
   PK_ERR="$(cat "$PK_TMP/err")"
   return "$rc"   # return-class: relay
 }
