@@ -6,8 +6,8 @@
 #
 # MODALITY (the contract): build the reference graph over this repo's doc nodes, walk it from the
 # starter files a fresh agent actually opens, print everything NOT reached. Report only — it
-# writes nothing, deletes nothing, moves nothing, makes no network call, needs no dependency
-# (standard library only). Advisory, never a gate: no gate runner and no release step calls it.
+# writes nothing in your tree (`--self-test` builds a throwaway fixture under TMPDIR), deletes nothing,
+# moves nothing, makes no network call, needs no dependency (standard library only). Advisory, never a gate: no gate runner and no release step calls it.
 #
 # AN ORPHAN IS A SUSPICION, NOT A VERDICT: files found by convention (a router, an installer) are
 # read without being linked, and a linked file can be dead. Reachability-by-link is the only
@@ -26,7 +26,8 @@
 # THE EXTENSION-LESS BLIND SPOT IS HANDLED — see citation_index.py (d). `--self-test` re-proves
 # that edge on a fixture only that edge can resolve (a script citing `$VAR/<dir>/<file>`), so it
 # fails if the strip regresses. It also reports the probe path below on YOUR tree, as a fact about
-# your tree, not as proof of the edge.
+# your tree, not as proof of the edge: the instruments' own sources (scripts/hygiene/) name the probe,
+# so they are not counted as its referrers, and a probe nothing else cites FAILS the self-test.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Orphans" shape).
 # =============================================================================
@@ -213,9 +214,6 @@ def edge_d_resolves() -> bool:
 
 def self_test(root: Path = REPO_ROOT) -> int:
     """Re-verify the facts this instrument's honesty rests on."""
-    # Called FIRST, its return value discarded: what is wanted is the REFUSAL (an empty derivation
-    # raises; run_instrument() makes it exit 2) before any partial report reaches stdout.
-    walk_blind_spots()
     missing = [r for r in STARTER_ROOTS if not (root / r).exists()]
     # An EMPTY starter list is a failure, not a vacuous pass: `missing` would be [] and the walk
     # would report every document unreachable under SELF-TEST PASS.
@@ -225,6 +223,8 @@ def self_test(root: Path = REPO_ROOT) -> int:
     index = Index(root)
     probe_present = (root / BLIND_SPOT_PROBE).exists()
     exact, _ = index.referrers(BLIND_SPOT_PROBE)
+    # The instrument's own source names the probe (it is the constant above), so it cannot be what makes it cited.
+    exact = {r for r in exact if not r.startswith("scripts/hygiene/")}
     ok = not empty_roots and not missing and edge_d and (not probe_present or bool(exact))
     if empty_roots:
         print("STARTER_ROOTS is EMPTY — the walk has no front door and would report every")
@@ -241,7 +241,7 @@ def self_test(root: Path = REPO_ROOT) -> int:
         print("    paths cited through a shell variable are reported as orphans.")
     if probe_present:
         print(f"extension-less blind spot: {BLIND_SPOT_PROBE} exact referrers = "
-              f"{len(exact)} {sorted(exact)} (must be > 0)")
+              f"{len(exact)} {sorted(exact)} (must be > 0; scripts/hygiene/ is not counted)")
     else:
         print(f"extension-less blind spot: {BLIND_SPOT_PROBE} is absent — point BLIND_SPOT_PROBE")
         print("  at an extension-less file of yours that is cited via a shell variable path,")

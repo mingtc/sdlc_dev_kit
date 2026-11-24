@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **The hygiene instruments say more and refuse more.** `scripts/hygiene/staleness_greps.py --root <not a directory>` exits 2, and a root with nothing in scope prints `n/a-control-failed` instead of `(no suspicion)`; every run prints how many files it read, and says artifact paths are read from the repository root only. `reachability_walk.py --self-test` no longer passes a probe that only the instruments' own sources cite, so on a tree whose probe nothing else cites it now ends `SELF-TEST FAIL`; point `BLIND_SPOT_PROBE` at an extension-less file of yours that is cited. The `BLIND SPOT` line counts directory and broken symlinks as well as file links, and a markdown link target written `a%20b.md` or `<a b.md>` now resolves instead of reading as an orphan. Nothing to do unless you wired one of these into a script that read their output.
 
 ## [0.13.1] — 2026-11-24
 

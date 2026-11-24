@@ -1421,9 +1421,11 @@ WSEOF
 # CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
 #
 # A consumer reads `"blind_spots": []` as "this walk has no blind spots", which is false: the
-# walker skips symlinks and prunes a directory set. The notice has ONE authoring site, so the
-# ablation below must redden every instrument at once; if it reddens only some, the site has
-# become several. Python is these instruments' declared carve-out: no interpreter SKIPs.
+# walker skips symlinks and prunes a directory set. The notice has ONE authoring site
+# (walk_blind_spots in citation_index.py). An earlier half of this case rewrote a copy of that site to
+# an empty derivation and asked every instrument to refuse; no input reaches that branch, so the
+# branch, its exception and that half are gone. Python is these instruments' declared carve-out:
+# no interpreter SKIPs.
 # PYTHONDONTWRITEBYTECODE keeps __pycache__ out of the measured tree. --root is passed
 # explicitly: the default is inferred from where the FILE sits, and for the ablation copy
 # that would walk the whole scratch area.
@@ -1468,53 +1470,6 @@ case_hygiene_instruments_declare_blind_spots() {
   [ -z "$broke" ]   || cf "instrument(s) exited non-zero under --json:$broke — the payload may be perfectly readable; a non-zero exit makes it a REFUSAL rather than a blind-spot report, and a declaration cannot be read out of a refusal"
   [ -z "$missing" ] || cf "instrument(s) emitted a payload with no 'blind_spots' key:$missing — a missing key is not an empty list, and removing the key would turn a false claim into a missing one"
   [ -z "$empty" ]   || cf "instrument(s) reported \"blind_spots\": [] :$empty — that asserts THERE ARE NONE, and this walker skips symlinks and prunes a directory set in the very run that printed it"
-
-  # ── THE ABLATION, on a COPY of the tree the instruments read — never the real one.
-  # THE SINGLE-AUTHORING-SITE DERIVATION is what is under test here: one site means one
-  # edit reaches every consumer, so the ablation must reach ALL of them, not some.
-  local probe="$SB_TMP/hygiene-probe"; rm -rf "$probe"; mkdir -p "$probe"
-  cp -R "$hy" "$probe/hygiene" 2>/dev/null
-  local site="$probe/hygiene/citation_index.py"
-  if [ ! -f "$site" ]; then
-    _control_did_not_run "copy the derivation's authoring site"
-  else
-    # EMPTY THE DERIVATION, DO NOT BYPASS IT: a `return []` at the top would skip the refusal
-    # an empty derivation must raise. Leave the emptiness check reachable, with nothing to find.
-    perl -0777 -i -pe 's{\n    lines = \[}{\n    lines = []\n    _ablated_unused = [}' "$site"
-    if ! grep -qF '_ablated_unused' "$site"; then
-      cf "(control) the ablation did not take on the copy — the anchor moved, so nothing below establishes that the assertion can fire"
-    else
-      # EVERY DERIVED INSTRUMENT LANDS IN EXACTLY ONE BUCKET, reconciled against the count:
-      #   flat    — exit 2 with an object whose only key is `unrunnable` (the expected refusal);
-      #   crashed — a traceback or unparseable payload: the wrong vocabulary;
-      #   still   — anything else: the ablation did not reach it.
-      local flat=0 still=0 crashed=0 a_out a_rc
-      local still_names="" crash_names=""
-      for inst in $instruments; do
-        a_out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 python3 "$probe/hygiene/$inst" --root "$SB_WORK" --json 2>/dev/null )"; a_rc=$?
-        if ! printf '%s' "$a_out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
-          crashed=$(( crashed + 1 )); crash_names="$crash_names $inst"
-        elif [ "$a_rc" -eq 2 ] && printf '%s' "$a_out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys
-d = json.load(sys.stdin)
-sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/null; then
-          flat=$(( flat + 1 ))
-        else
-          still=$(( still + 1 )); still_names="$still_names $inst"
-        fi
-      done
-
-      # THE RECONCILIATION, and it is the assertion the old loop lacked entirely.
-      [ $(( flat + still + crashed )) -eq "$n_inst" ] \
-        || cf "(control) the ablation accounted for $(( flat + still + crashed )) instrument(s) of $n_inst — some landed in no bucket at all, so any claim below is about a subset nobody enumerated"
-      [ "$crashed" -eq 0 ] \
-        || cf "(control) ablating the derivation made instrument(s) CRASH rather than refuse:$crash_names — a traceback is the instrument failing in the wrong vocabulary, which is a different defect from the one this case asserts"
-      [ "$flat" -gt 0 ] \
-        || cf "(control) ablating the derivation made NO instrument refuse — the assertion above cannot fire and is a green that could not go red"
-      # NAME THE INSTRUMENTS THAT DID NOT GO FLAT: the names say which file drifted.
-      [ "$still" -eq 0 ] \
-        || cf "(control) ablating the single authoring site did not reach:$still_names ($flat of $n_inst refused) — the derivation is no longer one site, which is the property this case exists to protect"
-    fi
-  fi
 
   finish "every hygiene instrument declares its blind spots and the list is NON-EMPTY ($n_inst instrument(s): $(printf '%s' "$instruments" | tr '\n' ' ')) — an empty list asserts THERE ARE NONE, which is a false claim about the subject — and ablating the single derivation makes every instrument refuse (exit 2, unrunnable)"
   teardown

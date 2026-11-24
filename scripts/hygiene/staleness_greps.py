@@ -34,7 +34,16 @@
 # HISTORICAL RECORDS below, which quote dated claims that were true when written. Each exclusion
 # is a whole file with a reason, never a per-line silencer.
 #
-# THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "decay" shape).
+# WHAT IT CANNOT SEE, stated so a quiet run is not read as covering it. SPENT-PLAN DECAY (a plan or a
+# launch pack still stamped live after it closed) is NOT this instrument's: it has no banner arm, and
+# dev/plans, dev/launch and dev/rounds are outside its scope by design, so a LIVE-stamped closed plan
+# is invisible to it; that row of the checklist is a hand lane. ARTIFACT PATHS ARE READ FROM THE
+# REPOSITORY ROOT ONLY: a claim naming `contracts/verify-gate.md` from a file in `dev/` is not resolved
+# (the `process/contracts/verify-gate.md` spelling is), and an absolute path is never read. A root that
+# is not a directory is refused (exit 2), and a root with nothing in scope reports n/a-control-failed,
+# never a clean zero (process/doctrine/instruments.md § A.1).
+#
+# THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md`, the staleness-CLAIM shape only.
 # =============================================================================
 """The two staleness-signal greps, reported as suspicions. Stdlib only."""
 
@@ -130,6 +139,8 @@ def in_scope(rel: str) -> bool:
 
 def landed(root: Path, token: str, prefixes: str) -> str:
     """Why the named artifact contradicts the claim, or '' if it does not."""
+    if token.startswith("/"):
+        return ""   # an absolute path is outside the tree; pathlib would discard the root for it
     if re.fullmatch(rf"(?:{prefixes})-\d{{3,}}", token):
         hits = sorted((root / "progress" / "done").glob(f"{token}-*.md"))
         return f"{token} is in progress/done/ ({hits[0].name})" if hits else ""
@@ -143,9 +154,11 @@ def survey(root: Path = REPO_ROOT):
     artifact, derived = artifact_pattern(root)
     prefixes, _ = _id_prefixes(root)
     rows = []
+    n_scope = 0
     for rel in iter_files(root):
         if not in_scope(rel):
             continue
+        n_scope += 1
         for number, line in enumerate((root / rel).read_text(encoding="utf-8",
                                                              errors="replace").splitlines(), 1):
             starts = [0] + [m.end() for m in SEGMENT_END.finditer(line)]
@@ -167,7 +180,7 @@ def survey(root: Path = REPO_ROOT):
                     if row:
                         rows.append(row)
                         break
-    return rows, derived
+    return rows, derived, n_scope
 
 
 def main(argv=None) -> int:
@@ -177,16 +190,24 @@ def main(argv=None) -> int:
     parser.add_argument("--root", default=str(REPO_ROOT), help="tree to measure (default: this repo)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not Path(args.root).is_dir():
+        parser.error(f"--root {args.root} is not a directory")
     root = Path(args.root)
-    rows, derived = survey(root)
+    rows, derived, n_scope = survey(root)
     rows = [r for r in rows if not args.shape or r["shape"] == args.shape]
     if args.json:
         import json
 
-        print(json.dumps({"blind_spots": walk_blind_spots(), "suspicions": rows,
-                          "id_prefixes_derived_from_seam": derived}, indent=2))
+        print(json.dumps({"blind_spots": walk_blind_spots(), "files_in_scope": n_scope,
+                          "suspicions": rows, "id_prefixes_derived_from_seam": derived}, indent=2))
         return 0
-    print(f"staleness greps: {len(rows)} SUSPICION(S) on the live reading path")
+    if n_scope == 0:
+        print("staleness greps: n/a-control-failed — 0 file(s) in scope on the live reading path;")
+        print("  this is not a clean zero: nothing was read. Check --root and what the tree holds.")
+    else:
+        print(f"staleness greps: {len(rows)} SUSPICION(S) over {n_scope} file(s) in scope on the live reading path")
+    print("SCOPE: artifact paths are read from the repository root only; a path spelled relative to its own")
+    print("       file is not resolved, and a LIVE-stamped closed plan is not this instrument's to find.")
     print_blind_spots()
     if not derived:
         print("NOTE: the issue-id prefixes could NOT be read from scripts/config.sh — falling")
@@ -199,7 +220,7 @@ def main(argv=None) -> int:
         print(f"    claim: {row['claim']!r}   artifact: {row['artifact']}")
         print(f"    contradicted by: {row['why']}")
         print(f"    {row['text']}")
-    if not rows:
+    if not rows and n_scope:
         print("(no suspicion)")
     return 0
 
