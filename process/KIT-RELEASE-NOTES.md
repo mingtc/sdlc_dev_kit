@@ -335,7 +335,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`finish-pr.sh` and `subtask.sh new` take `--role <R>`, and a usage error prints one line, not the whole help.** The acting role could be given three ways (`--role` on `move-issue.sh` and `subtask.sh move`, `FINISH_PR_ROLE` and `SUBTASK_ROLE` for the others), and a wrong guess printed the script's whole header (91 lines for `finish-pr.sh`). Both now accept `--role <R>`, which wins over the variable; a bad option or a missing argument prints the error, one synopsis line and `--help`. `--help` is unchanged. A killed `finish-pr.sh` also removes its pre-merge worktree now, and `release.sh`'s version bump keeps the mode of the file it rewrites.
 
 ## [0.13.1] — 2026-11-24
 

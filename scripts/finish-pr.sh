@@ -15,7 +15,7 @@
 # ── EXIT CODES: "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" ──────────────
 #   0  Everything the landing gate calls green: re-check passed, one squash commit,
 #      published, board advanced, and the branch retired or its survivor named as residue.
-#      See contracts/landing-gate.md § 4.
+#      See process/contracts/landing-gate.md § 4.
 #   1  Refused or failed WITH NOTHING LANDED (a missing <ID> or a surplus argument
 #      included). Safe to fix the cause and re-run.
 #   2  Usage error: an unknown option, a missing option value, or a required option left out.
@@ -25,6 +25,7 @@
 #
 #   FINISH_PR_ROLE   the seat this landing commits as (default: QA). The tag is
 #                    CHECKED against your declared role set before anything moves.
+#                    `--role <R>` says the same and wins over it, as it does on move-issue.sh.
 #
 # A RED POST-MERGE GATE IS NOT A NON-ZERO EXIT: it is a fact about the trunk, not about this
 # landing. It is printed as `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE|STUB` for an automation to key on
@@ -223,6 +224,8 @@ kwt_hold_output
 . "$SCRIPT_DIR/lib/branch-rev.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+# A USAGE ERROR PRINTS THE ERROR, ONE LINE OF SYNOPSIS AND WHERE THE REST IS, not the whole header (91 lines).
+usage_short() { echo "usage: finish-pr.sh <ISSUE-ID> [--branch <name>] [--worktree <dir>] [--note \"<text>\"] [--role <R>] [--dry-run] [--discard-dirty]   (--help for the rest)"; }
 
 # Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0 in any position, before
 # any argument is interpreted; a leading '-' is never an issue id; an unknown option exits 2
@@ -230,14 +233,14 @@ usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see l
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 ISSUE_ID="${1:-}"
-[ -z "$ISSUE_ID" ] && { usage >&2; exit 1; }
+[ -z "$ISSUE_ID" ] && { usage_short >&2; exit 1; }
 case "$ISSUE_ID" in
-  -*) echo "Error: '$ISSUE_ID' is not an issue id — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
+  -*) echo "Error: '$ISSUE_ID' is not an issue id — a leading '-' is never a name." >&2; usage_short >&2; exit 2 ;;
 esac
 kit_require_issue_id "$ISSUE_ID" "<issue-id>"
 shift
 
-BRANCH=""; NOTE=""; NOTE_GIVEN=false; DRY_RUN=false; DISCARD_DIRTY=false; WORKTREE=""
+BRANCH=""; NOTE=""; NOTE_GIVEN=false; DRY_RUN=false; DISCARD_DIRTY=false; WORKTREE=""; ROLE_OPT=""
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
@@ -249,19 +252,20 @@ while [ $# -gt 0 ]; do
     --branch) need_val "$@"; BRANCH="$2"; shift 2 ;;
     --worktree) need_val "$@"; WORKTREE="$2"; shift 2 ;;
     --note) need_val "$@"; NOTE="$2"; NOTE_GIVEN=true; shift 2 ;;
+    --role) need_val "$@"; ROLE_OPT="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --discard-dirty) DISCARD_DIRTY=true; KWT_DISCARD_DIRTY=true; shift ;;
     --apply) { echo "Error: finish-pr.sh has no --apply — it MUTATES by default, which is the opposite"
                echo "       of the archive sweeps. Use --dry-run to preview. NOTHING WAS READ OR TOUCHED."; } >&2
              exit 2 ;;   # exit-class: usage
-    -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-    *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
+    -*) echo "Error: unknown option: $1" >&2; usage_short >&2; exit 2 ;;
+    *) echo "Unknown arg: $1" >&2; usage_short >&2; exit 1 ;;
   esac
 done
 
 # THE SEAT THIS SCRIPT ACTS AS, read once: the squash subject, the --role passed to the mover and
 # the recovery text must agree.
-ROLE="${FINISH_PR_ROLE:-QA}"
+ROLE="${ROLE_OPT:-${FINISH_PR_ROLE:-QA}}"
 # CHECKED BEFORE kwt_resolve: move-issue.sh would reject a withdrawn role only at the advance,
 # after the merge had landed.
 kit_require_role "$SCRIPT_DIR/.." "$ROLE" FINISH_PR_ROLE
@@ -682,6 +686,10 @@ _pre_cleanup() {
     _pre_fresh=""
   fi
 }
+# A KILLED RUN REMOVES THE PRE-MERGE WORKTREE TOO: the lock's exit hook (kwt_lock arms `kwt_unlock`, and a TERM, HUP or INT
+# is turned into an exit by the traps beside it) ran alone, so a signal mid-gate left the worktree, the trunk's runner staged
+# in it (`scripts/.verify-trunk.*`) and its registration in the repository. One trap, one owner: this replaces the hook.
+kit_on_exit '_pre_cleanup; kwt_unlock'
 if ! { [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; }; then
   _pre_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${QA_READ_FULL}^{commit}" 2>/dev/null || true)"
   _pre_tmp="${TMPDIR:-/tmp}"; _pre_tmp="${_pre_tmp%/}"
@@ -1197,7 +1205,7 @@ if [ -n "$PM_UNRUNNABLE" ]; then
   echo "POST_MERGE_GATE: UNRUNNABLE"
 elif [ "$_pm_rc" -eq 0 ]; then
   # The clearing line names the ref and the sha read, as the FAIL line does
-  # (contracts/landing-gate.md § 4). POST_MERGE_GATE: lines are a machine contract: one fixed
+  # (process/contracts/landing-gate.md § 4). POST_MERGE_GATE: lines are a machine contract: one fixed
   # prefix, one bare word, nothing appended.
   if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; then
     echo "  post-merge verify --quick: STUB — a test-only command ran in the gate's place; nothing was measured"

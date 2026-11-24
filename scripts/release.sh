@@ -44,7 +44,7 @@
 #    10. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z — and then,
 #        as NORMAL output while the run is healthy, the LOCAL-ONLY state and the
 #        exact commands that finish the job, so a run killed before step 11 is not
-#        read as released (`doctrine/fix-execution.md` § A.7).
+#        read as released (`process/doctrine/fix-execution.md` § A.7).
 #    11. push the commit + the tag to the remote
 #    12. optionally PUBLISH the distribution branch (RELEASE_PUBLISH=true) — only
 #        after BOTH pushes above succeed, so a publish failure can never make a
@@ -1031,7 +1031,10 @@ bump_one() {  # <path> <line-prefix> <quote>
   # ONE AUTHORING SITE, shared with gate (g)'s normaliser — see _bump_expr's own note.
   expr="$(_bump_expr "$prefix" "$q" "$NUM")"
   tmp="$(mktemp)"
-  sed "$expr" "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+  # `cp -p` FIRST: mktemp makes the file 0600, so a bare `mv` over the target reset its mode and dropped the exec bit git
+  # records for a version file that is a script. The copy carries the target's mode; `sed >` then rewrites its content and
+  # leaves the mode alone, and the `mv` stays one atomic rename.
+  cp -p "$f" "$tmp" && sed "$expr" "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
   # READ IT BACK: the only way to tell "sed matched" from "sed silently matched nothing".
   grep -qF "${prefix}${q}${NUM}${q}" "$f"
 }
@@ -1079,7 +1082,7 @@ git tag -a "$TAG" -m "$TAG"
 echo "── annotated tag $TAG created."
 
 # ── THE RECOVERY IS PRINTED AS NORMAL OUTPUT, HERE, WHILE THE RUN IS HEALTHY
-#    (`doctrine/fix-execution.md` § A.7): a run killed after this point runs no failure
+#    (`process/doctrine/fix-execution.md` § A.7): a run killed after this point runs no failure
 #    branch, and the two lines above do not say LOCAL. Every command it names is safe to
 #    re-run; re-running THIS SCRIPT is not (preflight 1 refuses the existing tag), so it says so.
 {

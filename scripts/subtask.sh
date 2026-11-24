@@ -6,7 +6,7 @@
 # the PM's backlog stays pristine. The parent stays on the main board and advances to
 # qa_complete only when every subtask reaches qa_complete or is declined with its reason:
 # move-issue.sh and finish-pr.sh refuse it otherwise, and archive.sh refuses to retire an open slice. Commits carry the seat's tag:
-# SUBTASK_ROLE for `new`, --role for `move` (both default Orchestrator).
+# --role <R> for both arms (SUBTASK_ROLE is the fallback for `new`; both default Orchestrator).
 #
 # This shares the SAME machinery as move-issue.sh / finish-pr.sh:
 # scripts/lib/kanban-worktree.sh. Every git op (create / git mv / Activity append /
@@ -16,10 +16,10 @@
 # (it refuses naming the files otherwise).
 #
 # Usage:
-#   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
+#   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S] [--role <R>]
 #       → creates progress/subtasks/<PARENT-ID>/todo/<PARENT-ID>-<suffix>-<slug>.md
 #         from .claude/templates/SUBTASK.template.md, fills frontmatter (prd: the parent's
-#         unless --prd is given), commits as SUBTASK_ROLE.
+#         unless --prd is given), commits as --role, else SUBTASK_ROLE.
 #   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note "..."] [--discard-dirty]
 #       → git mv within the subtask tree + append Activity + commit "[ROLE] <id> → <target>: NOTE".
 #
@@ -31,7 +31,7 @@
 #
 #   SUBTASK_ROLE   the seat this script commits as (default: Orchestrator). The tag
 #                  is CHECKED against your declared role set before anything moves.
-#                  Read by the `new` arm; the `move` arm takes an explicit `--role` instead
+#                  A `--role <R>` option wins over it, as it does on the `move` arm
 #                  and defaults to Orchestrator without consulting this variable.
 #
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
@@ -218,6 +218,12 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
       print out rest }'
 }
 
+# A USAGE ERROR PRINTS THE ERROR, THE SYNOPSIS AND WHERE THE REST IS, not the whole header (47 lines).
+usage_short() {
+  echo "usage: subtask.sh new <PARENT-ID> <suffix> <slug> --title \"<t>\" [--prd <ID>] [--stories a,b] [--plan <path>] [--size S] [--role <R>] [--discard-dirty]"
+  echo "       subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note \"<t>\"] [--discard-dirty]   (--help for the rest)"
+}
+
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 # config.sh is loaded HERE for its SHARED VALIDATORS, not for a prefix — no OPERATION below
@@ -257,11 +263,11 @@ fi
 # otherwise mint a child whose parent is "--bogus".
 no_dash() {  # <value> <what it should have been>
   case "$1" in
-    -*) echo "Error: '$1' is not a <$2> — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
+    -*) echo "Error: '$1' is not a <$2> — a leading '-' is never a name." >&2; usage_short >&2; exit 2 ;;
   esac
 }
 
-[ $# -lt 1 ] && { usage >&2; exit 1; }
+[ $# -lt 1 ] && { usage_short >&2; exit 1; }
 CMD="$1"; shift
 
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
@@ -271,19 +277,20 @@ need_val() {
 
 case "$CMD" in
   new)
-    [ $# -lt 3 ] && { usage >&2; exit 1; }
+    [ $# -lt 3 ] && { usage_short >&2; exit 1; }
     no_dash "$1" "PARENT-ID"; no_dash "$2" "suffix"; no_dash "$3" "slug"
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
-    TITLE=""; PRD=""; STORIES_GIVEN=""; STORIES="[]"; PLAN=""; SIZE="S"
+    TITLE=""; PRD=""; STORIES_GIVEN=""; STORIES="[]"; PLAN=""; SIZE="S"; ROLE_OPT=""
     while [ $# -gt 0 ]; do case "$1" in
       --title) need_val "$@"; TITLE="$2"; shift 2 ;;
       --prd) need_val "$@"; PRD="$2"; shift 2 ;;
       --stories) need_val "$@"; STORIES_GIVEN="$2"; STORIES="[$2]"; shift 2 ;;
       --plan) need_val "$@"; PLAN="$2"; shift 2 ;;
       --size) need_val "$@"; SIZE="$2"; shift 2 ;;
+      --role) need_val "$@"; ROLE_OPT="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
-      -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-      *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
+      -*) echo "Error: unknown option: $1" >&2; usage_short >&2; exit 2 ;;
+      *) echo "Unknown arg: $1" >&2; usage_short >&2; exit 1 ;;
     esac; done
     [ -n "$TITLE" ] || kit_refuse 2 title-required \
       "Error: --title required." \
@@ -291,7 +298,7 @@ case "$CMD" in
 
     # THE SEAT THIS ARM ACTS AS: [Orchestrator], the decomposer. A knob, never derived, and
     # validated before anything moves.
-    ROLE="${SUBTASK_ROLE:-Orchestrator}"
+    ROLE="${ROLE_OPT:-${SUBTASK_ROLE:-Orchestrator}}"
     kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE
 
     # THE SLUG IS A GIT REF: it becomes `branch: feature/<ID>-<SLUG>` in the published card,
@@ -473,7 +480,7 @@ case "$CMD" in
     ;;
 
   move)
-    [ $# -lt 2 ] && { usage >&2; exit 1; }
+    [ $# -lt 2 ] && { usage_short >&2; exit 1; }
     no_dash "$1" "subtask id"; no_dash "$2" "target"
     ID="$1"; TARGET="$2"; shift 2
     ROLE="Orchestrator"; NOTE=""
@@ -481,8 +488,8 @@ case "$CMD" in
       --role) need_val "$@"; ROLE="$2"; shift 2 ;;
       --note) need_val "$@"; NOTE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
-      -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-      *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
+      -*) echo "Error: unknown option: $1" >&2; usage_short >&2; exit 2 ;;
+      *) echo "Unknown arg: $1" >&2; usage_short >&2; exit 1 ;;
     esac; done
     [[ "$TARGET" =~ ^($SUBTASK_FOLDERS)$ ]] || kit_refuse 1 unknown-target \
       "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." \
@@ -651,7 +658,7 @@ case "$CMD" in
     [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"   # exit-class: internal
     ;;
 
-  -*) echo "Error: unknown option: $CMD (expected the command 'new' or 'move')" >&2; usage >&2; exit 2 ;;
-  *) echo "Unknown command: $CMD" >&2; usage >&2; exit 1 ;;
+  -*) echo "Error: unknown option: $CMD (expected the command 'new' or 'move')" >&2; usage_short >&2; exit 2 ;;
+  *) echo "Unknown command: $CMD" >&2; usage_short >&2; exit 1 ;;
 esac
 exit 0
