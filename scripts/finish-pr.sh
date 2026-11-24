@@ -223,19 +223,19 @@ kwt_hold_output
 # shellcheck source=lib/branch-rev.sh
 . "$SCRIPT_DIR/lib/branch-rev.sh"
 
-usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+usage_help() { kit_usage "${BASH_SOURCE[0]}"; }   # --help: the whole header; the path is an ARGUMENT — see lib/usage.sh
 # A USAGE ERROR PRINTS THE ERROR, ONE LINE OF SYNOPSIS AND WHERE THE REST IS, not the whole header (91 lines).
-usage_short() { echo "usage: finish-pr.sh <ISSUE-ID> [--branch <name>] [--worktree <dir>] [--note \"<text>\"] [--role <R>] [--dry-run] [--discard-dirty]   (--help for the rest)"; }
+usage() { echo "usage: finish-pr.sh <ISSUE-ID> [--branch <name>] [--worktree <dir>] [--note \"<text>\"] [--role <R>] [--dry-run] [--discard-dirty]   (--help for the rest)"; }
 
 # Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0 in any position, before
 # any argument is interpreted; a leading '-' is never an issue id; an unknown option exits 2
 # instead of being swallowed.
-for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
+for _a in "$@"; do case "$_a" in -h|--help) usage_help; exit 0 ;; esac; done
 
 ISSUE_ID="${1:-}"
-[ -z "$ISSUE_ID" ] && { usage_short >&2; exit 1; }
+[ -z "$ISSUE_ID" ] && { usage >&2; exit 1; }
 case "$ISSUE_ID" in
-  -*) echo "Error: '$ISSUE_ID' is not an issue id — a leading '-' is never a name." >&2; usage_short >&2; exit 2 ;;
+  -*) echo "Error: '$ISSUE_ID' is not an issue id — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
 esac
 kit_require_issue_id "$ISSUE_ID" "<issue-id>"
 shift
@@ -258,8 +258,8 @@ while [ $# -gt 0 ]; do
     --apply) { echo "Error: finish-pr.sh has no --apply — it MUTATES by default, which is the opposite"
                echo "       of the archive sweeps. Use --dry-run to preview. NOTHING WAS READ OR TOUCHED."; } >&2
              exit 2 ;;   # exit-class: usage
-    -*) echo "Error: unknown option: $1" >&2; usage_short >&2; exit 2 ;;
-    *) echo "Unknown arg: $1" >&2; usage_short >&2; exit 1 ;;
+    -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
+    *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 

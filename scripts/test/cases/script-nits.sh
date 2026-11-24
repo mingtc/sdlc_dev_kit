@@ -18,22 +18,24 @@
 case_the_acting_role_is_an_option_of_finish_pr_and_of_subtask_new_and_the_knobs_still_work() {
   cf_reset
   local L="finish-pr.sh and subtask.sh new take --role (a role the project does not declare is refused as that, not as an unknown option), and FINISH_PR_ROLE and SUBTASK_ROLE still work"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
+  local bogus=Bogus worse=Worse   # built, not written after `--role`: the role-literal census reads this file
   local fp="$SB_WORK/scripts/finish-pr.sh" st="$SB_WORK/scripts/subtask.sh" out rc want="the role tag 'Bogus' is not in this project's declared role set"
   if [ ! -f "$fp" ] || [ ! -f "$st" ]; then skp "$L" "finish-pr.sh or subtask.sh absent"; teardown; return; fi
-  rc=0; out="$( cd "$SB_WORK" && env -u FINISH_PR_ROLE "$fp" "$SB_PREFIX-1" --role Bogus 2>&1 )" || rc=$?
+  rc=0; out="$( cd "$SB_WORK" && env -u FINISH_PR_ROLE "$fp" "$SB_PREFIX-1" --role "$bogus" 2>&1 )" || rc=$?
   { [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F "$want" >/dev/null && ! printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null; } \
-    || cf "(a) finish-pr.sh --role Bogus was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  rc=0; out="$( cd "$SB_WORK" && env -u SUBTASK_ROLE "$st" new "$SB_PREFIX-1" s1 slug --title t --role Bogus 2>&1 )" || rc=$?
+    || cf "(a) finish-pr.sh --role <undeclared> was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rc=0; out="$( cd "$SB_WORK" && env -u SUBTASK_ROLE "$st" new "$SB_PREFIX-1" s1 slug --title t --role "$bogus" 2>&1 )" || rc=$?
   { [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F "$want" >/dev/null && ! printf '%s\n' "$out" | grep -F 'unknown option' >/dev/null; } \
-    || cf "(b) subtask.sh new --role Bogus was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    || cf "(b) subtask.sh new --role <undeclared> was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   rc=0; out="$( cd "$SB_WORK" && FINISH_PR_ROLE=Bogus "$fp" "$SB_PREFIX-1" 2>&1 )" || rc=$?
   { [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F "$want" >/dev/null; } \
     || cf "(c) control: FINISH_PR_ROLE=Bogus was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   rc=0; out="$( cd "$SB_WORK" && SUBTASK_ROLE=Bogus "$st" new "$SB_PREFIX-1" s1 slug --title t 2>&1 )" || rc=$?
   { [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -F "$want" >/dev/null; } \
     || cf "(c) control: SUBTASK_ROLE=Bogus was not refused as an undeclared role (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  rc=0; out="$( cd "$SB_WORK" && FINISH_PR_ROLE=Bogus "$fp" "$SB_PREFIX-1" --role Worse 2>&1 )" || rc=$?
+  rc=0; out="$( cd "$SB_WORK" && FINISH_PR_ROLE=Bogus "$fp" "$SB_PREFIX-1" --role "$worse" 2>&1 )" || rc=$?
   printf '%s\n' "$out" | grep -F "the role tag 'Worse' is not in this project's declared role set" >/dev/null \
     || cf "(d) --role did not win over FINISH_PR_ROLE (the refusal should name 'Worse'): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   finish "$L"
@@ -49,6 +51,7 @@ case_the_acting_role_is_an_option_of_finish_pr_and_of_subtask_new_and_the_knobs_
 case_a_usage_error_prints_a_one_line_synopsis_and_not_the_whole_help() {
   cf_reset
   local L="a usage error from finish-pr.sh and subtask.sh is short and points at --help; --help still prints the whole header"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   local fp="$SB_WORK/scripts/finish-pr.sh" st="$SB_WORK/scripts/subtask.sh" row cmd out rc n
   if [ ! -f "$fp" ] || [ ! -f "$st" ]; then skp "$L" "finish-pr.sh or subtask.sh absent"; teardown; return; fi
