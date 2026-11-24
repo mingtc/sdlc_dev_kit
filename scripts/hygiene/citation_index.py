@@ -43,6 +43,7 @@ import argparse
 import posixpath
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 
 # NO BYTECODE CACHE. A guard that fails on any file without a KIT-CLASS marker would redden on a
@@ -97,7 +98,7 @@ MAX_BYTES = 4 * 1024 * 1024
 #    the instruments import it and neither redefines it.
 DEFAULT_EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
 
-_MD_LINK = re.compile(r"\]\(\s*<?([^)>\s]+)")
+_MD_LINK = re.compile(r"\]\(\s*(?:<([^>]+)>|([^)\s]+))")
 _PATH_TOKEN = re.compile(r"(?:\.{1,2}/)?[\w.\-${}]+(?:/[\w.\-${}]+)+")
 _BARE_NAME = re.compile(
     r"[\w.\-]+\.(?:md|txt|rst|sh|py|rb|js|ts|go|rs|java|json|toml|yaml|yml|tsv|example)\b"
@@ -113,39 +114,26 @@ _WALK_SYMLINKS_SKIPPED = None
 def iter_files(root: Path):
     """Every in-scope file in the tree, repo-relative posix, sorted.
 
-    Also tallies the symlinks it skipped, for walk_blind_spots(): only those that would otherwise
-    have been included, so the prune test runs BEFORE the symlink test.
+    Also tallies the symlinks it skipped, for walk_blind_spots(): every symlink that would otherwise
+    have been looked at (to a file, to a directory, or broken), so the prune test runs BEFORE the
+    symlink test, and the symlink test runs BEFORE the is-a-file test, which a directory link and a
+    broken link both fail and so were not counted.
     """
     global _WALK_SYMLINKS_SKIPPED
     out = []
     skipped = 0
     for path in root.rglob("*"):
-        if not path.is_file():
-            continue
         rel = path.relative_to(root).as_posix()
         if any(part in SKIP_DIRS or part.endswith(".egg-info") for part in rel.split("/")[:-1]):
             continue
         if path.is_symlink():
             skipped += 1
             continue
+        if not path.is_file():
+            continue
         out.append(rel)
     _WALK_SYMLINKS_SKIPPED = skipped
     return sorted(out)
-
-
-class BlindSpotsUnavailable(RuntimeError):
-    """``walk_blind_spots()`` derived NO lines — so the walk's narrowings were never stated.
-
-    A defect in the instrument, never a fact about the tree: the walk narrows by construction
-    (symlinks, pruned directories), so an empty list means the derivation broke. Refused as
-    UNRUNNABLE, in ``cold_signal.HistoryUnavailable``'s vocabulary: UNRUNNABLE is not FAIL.
-    """
-
-    # The remedy is passed in, so a second caller cannot inherit advice written for the first.
-    def __init__(self, asked, said, remedy):
-        self.asked, self.said, self.remedy = asked, said, remedy
-        self.rc = None
-        super().__init__("walk_blind_spots() derived no lines")
 
 
 def walk_blind_spots() -> list:
@@ -160,23 +148,14 @@ def walk_blind_spots() -> list:
         tally = "count unavailable — no walk has run in this process"
     else:
         tally = f"{_WALK_SYMLINKS_SKIPPED} skipped in this run"
-    lines = [
-        f"symlinks are skipped — a symlinked file is absent from this walk entirely "
-        f"({tally}; following one risks double-counting a file under two paths, and cycles)",
+    return [
+        f"symlinks are skipped — a symlink to a file, to a directory or to nothing is absent from this walk "
+        f"entirely ({tally}; following one risks double-counting a file under two paths, and cycles)",
         f"{len(SKIP_DIRS)} directory names are pruned wherever they appear, as is any directory with "
         f"a name ending .egg-info — the set is SKIP_DIRS in citation_index.py, and it is yours to edit",
+        "a markdown link target is read as written, percent-decoded, or inside <...>: a target spelled any "
+        "other way (a bare space, another encoding) is not resolved, and the file it names can read as an orphan",
     ]
-    # An empty derivation is the instrument failing, so it refuses rather than returning []: every
-    # importer would print [] as "this walk has no blind spots", which the walk never has.
-    if not lines:
-        raise BlindSpotsUnavailable(
-            asked="walk_blind_spots() in citation_index.py",
-            said="the derivation returned an empty list",
-            remedy="this is a code defect, not a tree state: walk_blind_spots() must state every "
-                   "narrowing iter_files() applies, and it derived none. Restore the derivation — "
-                   "the symlink tally and the SKIP_DIRS count are its two inputs.",
-        )
-    return lines
 
 
 def print_blind_spots(prefix: str = "BLIND SPOT: ") -> None:
@@ -186,33 +165,14 @@ def print_blind_spots(prefix: str = "BLIND SPOT: ") -> None:
 
 
 def run_instrument(entry, instrument: str, argv=None) -> int:
-    """Run one instrument's ``main`` and turn a broken walker into a REFUSAL, not a traceback.
+    """Run one instrument's ``main``. Each instrument's ``__main__`` block calls this instead of ``main()``.
 
-    The one site for the refusal text, the exit code and the JSON shape. Each instrument's
-    ``__main__`` block calls this instead of ``main()``. ``--json`` is read from argv, not the
-    parsed namespace, because the exception can fire before parsing.
+    It was the one site for a refusal when ``walk_blind_spots()`` derived no lines. That branch could not
+    be reached (the list is a literal, never empty), and its test reached it only by rewriting a copy of
+    the source, so the exception and the refusal are gone and this stays a plain call: four instruments
+    name it, and removing the name is a change to files this one does not own. ``instrument`` is unused.
     """
-    wants_json = "--json" in (sys.argv[1:] if argv is None else argv)
-    try:
-        return entry() if argv is None else entry(argv)
-    except BlindSpotsUnavailable as exc:
-        # THE REFUSAL, in cold_signal.py's vocabulary, which is verify.sh's. Human text on stderr
-        # either way, so a caller redirecting stdout still sees why.
-        print(f"{instrument}: could NOT RUN — {exc}. NOTHING was measured.", file=sys.stderr)
-        print("  this is not 'no blind spots': the walker has never had none.", file=sys.stderr)
-        print(f"  asked:     {exc.asked}", file=sys.stderr)
-        print(f"  it said:   {exc.said or '(no message)'}", file=sys.stderr)
-        print(f"  remedy:    {exc.remedy}", file=sys.stderr)
-        if wants_json:
-            import json
-
-            # A valid object that says it did not run, with NO data keys: `"blind_spots": []`
-            # would assert the very claim this refuses (reasoning: cold_signal.py's refusal block).
-            print(json.dumps({"unrunnable": {
-                "instrument": instrument, "reason": str(exc), "asked": exc.asked,
-                "said": exc.said, "remedy": exc.remedy,
-            }}, indent=2))
-        return 2
+    return entry() if argv is None else entry(argv)
 
 
 def _read(root: Path, rel: str) -> str:
@@ -225,7 +185,7 @@ def _read(root: Path, rel: str) -> str:
 def _candidates(text: str):
     """Every citation-shaped token in one file, undeduplicated and unresolved."""
     for match in _MD_LINK.finditer(text):
-        yield match.group(1)
+        yield match.group(1) or match.group(2)
     for match in _PATH_TOKEN.finditer(text):
         yield match.group(0)
     for match in _BARE_NAME.finditer(text):
@@ -233,7 +193,7 @@ def _candidates(text: str):
 
 
 def _normalize(token: str) -> str:
-    token = token.strip().strip("`'\"<>()[],;:").split("#", 1)[0].split("?", 1)[0]
+    token = urllib.parse.unquote(token).strip().strip("`'\"<>()[],;:").split("#", 1)[0].split("?", 1)[0]
     while token.endswith(("/", ".", ",", ")")):
         token = token[:-1]
     return token

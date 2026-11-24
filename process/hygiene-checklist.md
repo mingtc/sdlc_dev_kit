@@ -164,7 +164,8 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
 ### 1. Spent-plan decay
 
 - **What it looks like in the tree:** a closed plan whose own banner still reads `STATUS: LIVE`.
-- **Instrument:** the **staleness greps** for the loose signal. **The enforced half belongs to a
+- **Instrument:** **HAND LANE — no instrument.** The staleness greps read no plan banner and skip
+  `dev/plans/`, so they cannot see this shape. **The enforced half belongs to a
   guard** — the closure-pairing guard of
   [`doctrine/staleness.md`](doctrine/staleness.md) § B, derived from the citation graph — **so
   nobody re-solves it by hand.** Name your guard here once you build it.
